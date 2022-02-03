@@ -38,6 +38,10 @@ def preprocess_lines_straglr(lines: list) -> list:
     return new_lines
 
 
+def _tenths_str(s: float):
+    return f"{round(s * 10) / 10:.1f}"
+
+
 def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> str:
     contig: Optional[str] = args[0]
     sex_chr: str = args[1]
@@ -83,6 +87,6 @@ def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> 
     return (
         line + "\t" +
         "\t".join((
-            *map(lambda s: f"{s:.1f}", allele_estimates),
-            *(",".join(map(lambda s: f"{s:.1f}", ci)) for ci in allele_cis),
+            *map(_tenths_str, allele_estimates),
+            *(",".join(map(_tenths_str, ci)) for ci in allele_cis),
         )) + "\n")
