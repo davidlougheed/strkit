@@ -28,6 +28,6 @@ def combine_catalogs(caller: str, paths: List[str]) -> int:
                 lines.add((raw_data[0], int(raw_data[1]), int(raw_data[2]), raw_data[3]))
 
     for line in sorted(lines, key=lambda x: (CHROMOSOMES.index(x[0]), x[1])):
-        sys.stdout.write("\t".join(line) + "\n")
+        sys.stdout.write("\t".join(map(str, line)) + "\n")
 
     return 0
