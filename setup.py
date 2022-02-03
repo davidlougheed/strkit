@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="stronger",
-    version="0.1.0-dev.1",
+    version="0.1.0-dev.2",
 
     python_requires="~=3.7",
     install_requires=[
