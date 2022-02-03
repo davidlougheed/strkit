@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Type
 
 import stronger.constants as c
 from stronger.call import call_all_alleles
+from stronger.catalog.combine import combine_catalogs
 from stronger.mi.base import BaseCalculator
 from stronger.mi.gangstr import GangSTRCalculator
 from stronger.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
@@ -130,6 +131,17 @@ def add_mi_parser_args(mi_parser):
              "If unspecified, defaults to the first genotype file given.")
 
 
+def add_cc_parser_args(cc_parser):
+    cc_parser.add_argument(
+        "--caller",
+        type=str,
+        choices=(c.CALLER_STRAGLR,),
+        required=True,
+        help="The program which called the TR genotypes.")
+
+    cc_parser.add_argument("paths", type=str, nargs="+", help="Paths to the BED catalogs to combine.")
+
+
 def _exec_call(p_args) -> int:
     contig: Optional[str] = getattr(p_args, "contig", None)
 
@@ -208,6 +220,10 @@ def _exec_mi(p_args) -> int:
     return 0
 
 
+def _exec_combine_catalogs(p_args):
+    return combine_catalogs(p_args.caller, p_args.paths)
+
+
 def main(args: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description="A long-read tandem repeat (TR) caller which is designed to build upon existing TR genotyping"
@@ -228,6 +244,12 @@ def main(args: Optional[List[str]] = None):
         help="A Mendelian inheritance calculator for different TR genotyping callers.")
     mi_parser.set_defaults(func=_exec_mi)
     add_mi_parser_args(mi_parser)
+
+    cc_parser = subparsers.add_parser(
+        "combine-catalogs",
+        help="Combine Straglr result catalogs for use in re-calling with a consistent motif set.")
+    cc_parser.set_defaults(func=_exec_combine_catalogs)
+    add_cc_parser_args(cc_parser)
 
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)

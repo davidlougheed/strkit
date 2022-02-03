@@ -8,6 +8,8 @@ __all__ = [
     "CALL_SUPPORTED_CALLERS",
 
     "SEX_CHROMOSOMES",
+    "AUTOSOMES",
+    "CHROMOSOMES",
 
     "MI_CALLERS",
 ]
@@ -27,6 +29,16 @@ CALL_SUPPORTED_CALLERS = (
 )
 
 SEX_CHROMOSOMES = ("chrX", "chrY", "X", "Y")
+
+AUTOSOMES = (
+    *map(str, range(1, 23)),
+    *(f"chr{i}" for i in range(1, 23)),
+)
+
+CHROMOSOMES = (
+    *AUTOSOMES,
+    *SEX_CHROMOSOMES,
+)
 
 
 MI_CALLERS = (

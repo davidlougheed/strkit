@@ -14,10 +14,14 @@ Alleles = Union[List[int], Tuple[int, ...], List[float], Tuple[float, ...]]
 simplefilter("ignore", category=ConvergenceWarning)
 
 
-def _calculate_cis(samples, force_int: bool = False) -> np.array:
+def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> np.array:
     # TODO: enable for numpy >=1.22
+    r = {
+        "95": (2.5, 97.5),
+        "99": (0.5, 99.5),
+    }[ci]
     # percentiles = np.percentile(samples, (2.5, 97.5), axis=1, method="interpolated_inverted_cdf")
-    percentiles = np.percentile(samples, (2.5, 97.5), axis=1, interpolation="nearest").transpose()
+    percentiles = np.percentile(samples, r, axis=1, interpolation="nearest").transpose()
     return np.rint(percentiles).astype(np.int32) if force_int else percentiles
 
 
@@ -58,6 +62,8 @@ def call_allele(allele_1: Alleles,
         if separate_strands and fwd_len >= read_bias_corr_min and rev_len >= read_bias_corr_min:
             fwd_strand_sample = np.random.choice(fwd_strand_reads, size=target_length, replace=True)
             rev_strand_sample = np.random.choice(rev_strand_reads, size=target_length, replace=True)
+
+            print(fwd_strand_sample, rev_strand_sample)
 
             concat_samples = np.concatenate((fwd_strand_sample, rev_strand_sample), axis=None)
         else:
@@ -120,7 +126,7 @@ def call_allele(allele_1: Alleles,
 
     # Calculate 95% confidence intervals for each allele from the bootstrap distributions.
     allele_samples.sort(axis=1)
-    allele_cis = _calculate_cis(allele_samples, force_int=force_int)
+    allele_cis_95 = _calculate_cis(allele_samples, force_int=force_int, ci="95")
 
     # TODO: Calculate CIs based on Gaussians from allele samples instead? Ask someone...
     #  - Could take median of 2.5 percentiles and 97.5 percentiles from Gaussians instead, median of means
@@ -134,4 +140,4 @@ def call_allele(allele_1: Alleles,
     if force_int:
         median = np.rint(median).astype(np.int32)
 
-    return median.flatten(), allele_cis
+    return median.flatten(), allele_cis_95
