@@ -226,8 +226,7 @@ def _exec_combine_catalogs(p_args):
 
 def main(args: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
-        description="A long-read tandem repeat (TR) caller which is designed to build upon existing TR genotyping"
-                    " methods to yield improved calls.",
+        description="A toolkit for analyzing variation in short(ish) tandem repeats.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     subparsers = parser.add_subparsers()
