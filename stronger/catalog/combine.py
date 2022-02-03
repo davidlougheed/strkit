@@ -1,4 +1,5 @@
 import sys
+from typing import List
 from ..constants import CALLER_STRAGLR, CHROMOSOMES
 
 __all__ = [
@@ -6,7 +7,7 @@ __all__ = [
 ]
 
 
-def combine_catalogs(caller: str, paths: list[str]) -> int:
+def combine_catalogs(caller: str, paths: List[str]) -> int:
     if caller != CALLER_STRAGLR:
         sys.stderr.write(f"Error: This command only supports caller '{CALLER_STRAGLR}'\n")
         return 1
