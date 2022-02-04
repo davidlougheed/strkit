@@ -26,6 +26,8 @@ class BaseCalculator(ABC):
 
             loci_file: Optional[str] = None,
 
+            widen: float = 0,
+
             debug: bool = False,
     ):
         self._child_call_file: Path = child_call_file
@@ -40,6 +42,7 @@ class BaseCalculator(ABC):
         self._loci_dict = self._make_loci_dict()
 
         self._decimal_threshold: float = 0.5
+        self._widen: float = widen
 
         self._debug: bool = debug
 
@@ -86,6 +89,8 @@ class BaseCalculator(ABC):
             f_gt_ci: Optional[Tuple] = None,
 
             decimal: bool = False,
+
+            widen: float = 0,
     ) -> Tuple[bool, Optional[bool]]:
         # First hypothesis: first allele from mother, second from father
         # Second hypothesis: first allele from father, first from mother
@@ -113,18 +118,23 @@ class BaseCalculator(ABC):
         respects_mi_ci = None
 
         if c_gt_ci is not None and m_gt_ci is not None and f_gt_ci is not None:
+            m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * widen))
+            m_gt_ci_1 = (m_gt_ci[1][0] - (m_gt_ci[1][0] * widen), m_gt_ci[1][1] + (m_gt_ci[1][1] * widen))
+            f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * widen))
+            f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * widen))
+
             respects_mi_ci = any((
                 # First hypothesis: first allele from mother, second from father
-                (cis_overlap(c_gt_ci[0], m_gt_ci[0]) and cis_overlap(c_gt_ci[1], f_gt_ci[0])),
-                (cis_overlap(c_gt_ci[0], m_gt_ci[0]) and cis_overlap(c_gt_ci[1], f_gt_ci[1])),
-                (cis_overlap(c_gt_ci[0], m_gt_ci[1]) and cis_overlap(c_gt_ci[1], f_gt_ci[0])),
-                (cis_overlap(c_gt_ci[0], m_gt_ci[1]) and cis_overlap(c_gt_ci[1], f_gt_ci[1])),
+                (cis_overlap(c_gt_ci[0], m_gt_ci_0) and cis_overlap(c_gt_ci[1], f_gt_ci_0)),
+                (cis_overlap(c_gt_ci[0], m_gt_ci_0) and cis_overlap(c_gt_ci[1], f_gt_ci_1)),
+                (cis_overlap(c_gt_ci[0], m_gt_ci_1) and cis_overlap(c_gt_ci[1], f_gt_ci_0)),
+                (cis_overlap(c_gt_ci[0], m_gt_ci_1) and cis_overlap(c_gt_ci[1], f_gt_ci_1)),
 
                 # Second hypothesis: first allele from father, first from mother
-                (cis_overlap(c_gt_ci[1], m_gt_ci[0]) and cis_overlap(c_gt_ci[0], f_gt_ci[0])),
-                (cis_overlap(c_gt_ci[1], m_gt_ci[0]) and cis_overlap(c_gt_ci[0], f_gt_ci[1])),
-                (cis_overlap(c_gt_ci[1], m_gt_ci[1]) and cis_overlap(c_gt_ci[0], f_gt_ci[0])),
-                (cis_overlap(c_gt_ci[1], m_gt_ci[1]) and cis_overlap(c_gt_ci[0], f_gt_ci[1])),
+                (cis_overlap(c_gt_ci[1], m_gt_ci_0) and cis_overlap(c_gt_ci[0], f_gt_ci_0)),
+                (cis_overlap(c_gt_ci[1], m_gt_ci_0) and cis_overlap(c_gt_ci[0], f_gt_ci_1)),
+                (cis_overlap(c_gt_ci[1], m_gt_ci_1) and cis_overlap(c_gt_ci[0], f_gt_ci_0)),
+                (cis_overlap(c_gt_ci[1], m_gt_ci_1) and cis_overlap(c_gt_ci[0], f_gt_ci_1)),
             ))
 
         return respects_mi_strict, respects_mi_ci
@@ -135,13 +145,13 @@ class BaseCalculator(ABC):
 
     def calculate(self, included_contigs: set) -> Optional[MIResult]:
         res = 0
-        res_ci = 0
+        res_95_ci = 0
         n_total = 0
         non_matching = []
 
         for value, value_ci, n_loci, nm in map(self.calculate_contig, included_contigs):
             res += value
-            res_ci = None if value_ci is None else (res_ci + value_ci)
+            res_95_ci = None if value_ci is None else (res_95_ci + value_ci)
             n_total += n_loci
             non_matching.extend(nm)
 
@@ -152,6 +162,6 @@ class BaseCalculator(ABC):
             return None
 
         res /= n_total
-        res_ci = None if res_ci is None else (res_ci / n_total)
+        res_95_ci = None if res_95_ci is None else (res_95_ci / n_total)
 
-        return MIResult(res, res_ci, non_matching)
+        return MIResult(res, res_95_ci, non_matching, self._widen)

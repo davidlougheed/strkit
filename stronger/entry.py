@@ -86,6 +86,11 @@ def add_mi_parser_args(mi_parser):
         help="Whether to enable debug mode (with additional logging.)")
 
     mi_parser.add_argument(
+        "--widen",
+        type=float,
+        help="Widen the CIs when calculating MI by a given proportion to account for small errors.")
+
+    mi_parser.add_argument(
         "--caller",
         type=str,
         choices=c.MI_CALLERS,
@@ -195,6 +200,8 @@ def _exec_mi(p_args) -> int:
         father_id=father_id,
 
         loci_file=loci_file,
+
+        widen=getattr(p_args, "widen", 0) or 0,
 
         debug=p_args.debug,
     )

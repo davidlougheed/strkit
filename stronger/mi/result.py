@@ -6,10 +6,15 @@ from typing import List, Optional, Union
 
 
 class MIResult:
-    def __init__(self, mi_value: float, mi_value_ci: Optional[float], non_matching: List[tuple]):
+    def __init__(self,
+                 mi_value: float,
+                 mi_value_ci: Optional[float],
+                 non_matching: List[tuple],
+                 widen: float = 0):
         self.mi_value = mi_value
         self.mi_value_ci = mi_value_ci
         self.non_matching = non_matching
+        self.widen = widen
 
     def as_csv_row(self, sep=","):
         return f"{self.mi_value}{sep}{self.mi_value_ci}\n"
@@ -44,6 +49,10 @@ class MIResult:
 
     def __str__(self):
         if self.mi_value_ci:
-            return f"MI %\tMI % (CI)\n{self.mi_value*100:.2f}\t{self.mi_value_ci*100:.2f}"
+            widen_str = "" if self.widen < 0.00001 else f"; widened {self.widen*100:.1f}%"
+            return (
+                f"MI %\tMI % (95% CI{widen_str})\n"
+                f"{self.mi_value*100:.2f}\t{self.mi_value_ci*100:.2f}"
+            )
         else:
             return f"MI %\n{self.mi_value*100:.2f}"
