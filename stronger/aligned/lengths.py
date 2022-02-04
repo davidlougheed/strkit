@@ -28,6 +28,7 @@ def aligned_lengths(file: str, region: str) -> int:
     region_lengths = []
 
     for read in align.fetch(chrom, pos1, pos2):
-        region_lengths.append(read.template_len)
+        print(read)
+        region_lengths.append(read.template_length)
 
     print(f"Aligned lengths: {', '.join(map(str, region_lengths))}")
