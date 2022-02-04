@@ -90,7 +90,7 @@ class BaseCalculator(ABC):
 
             decimal: bool = False,
 
-            widen: float = 0,
+            widen: Optional[float] = None,
     ) -> Tuple[bool, Optional[bool]]:
         # First hypothesis: first allele from mother, second from father
         # Second hypothesis: first allele from father, first from mother
@@ -118,10 +118,12 @@ class BaseCalculator(ABC):
         respects_mi_ci = None
 
         if c_gt_ci is not None and m_gt_ci is not None and f_gt_ci is not None:
-            m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * widen))
-            m_gt_ci_1 = (m_gt_ci[1][0] - (m_gt_ci[1][0] * widen), m_gt_ci[1][1] + (m_gt_ci[1][1] * widen))
-            f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * widen))
-            f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * widen))
+            _widen = self._widen if widen is None else widen
+
+            m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * _widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * _widen))
+            m_gt_ci_1 = (m_gt_ci[1][0] - (m_gt_ci[1][0] * _widen), m_gt_ci[1][1] + (m_gt_ci[1][1] * _widen))
+            f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * _widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * _widen))
+            f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * _widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * _widen))
 
             respects_mi_ci = any((
                 # First hypothesis: first allele from mother, second from father

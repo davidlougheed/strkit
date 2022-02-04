@@ -140,7 +140,7 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
 
                 respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
                     c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                    c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci
+                    c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci,
                 )
 
                 if respects_mi_strict:
