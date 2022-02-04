@@ -3,7 +3,7 @@ import re
 
 from typing import Optional, Tuple
 
-from .allele import call_allele
+from .allele import call_alleles
 from ..constants import SEX_CHROMOSOMES
 
 __all__ = [
@@ -68,7 +68,7 @@ def call_repeathmm(args: Tuple[Optional[str], str, int, int, int, int, str]) -> 
             continue
         read_counts_expanded.extend([rv] * rc)
 
-    allele_estimates, allele_cis_95, allele_cis_99 = call_allele(
+    allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
         read_counts_expanded,
         (),  # RepeatHMM doesn't separate read counts by strand
         bootstrap_iterations=bootstrap_iterations,

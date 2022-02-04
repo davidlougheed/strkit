@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from .allele import call_allele
+from .allele import call_alleles
 from ..constants import SEX_CHROMOSOMES
 
 __all__ = [
@@ -68,7 +68,7 @@ def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> 
     if locus_chr in SEX_CHROMOSOMES and sex_chr == "XY":
         n_alleles = 1
 
-    allele_estimates, allele_cis_95, allele_cis_99 = call_allele(
+    allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
         tuple(map(float, data[3])),
         (),
         bootstrap_iterations=bootstrap_iterations,

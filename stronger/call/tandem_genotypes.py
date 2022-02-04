@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from .allele import call_allele
+from .allele import call_alleles
 from ..constants import SEX_CHROMOSOMES
 
 __all__ = [
@@ -37,7 +37,7 @@ def call_tandem_genotypes(args: Tuple[Optional[str], str, int, int, int, int, st
     if locus_chr in SEX_CHROMOSOMES and sex_chr == "XY":
         n_alleles = 1
 
-    allele_estimates, allele_cis_95, allele_cis_99 = call_allele(
+    allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
         tuple(map(int, data[6].split(","))) if data[6] != "." else (),
         tuple(map(int, data[7].split(","))) if data[7] != "." else (),
         bootstrap_iterations=bootstrap_iterations,

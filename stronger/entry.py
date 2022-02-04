@@ -4,7 +4,7 @@ import sys
 from typing import Dict, List, Optional, Type
 
 import stronger.constants as c
-from stronger.aligned.lengths import aligned_lengths
+from stronger.aligned.lengths import aligned_lengths_cmd
 from stronger.call import call_all_alleles
 from stronger.catalog.combine import combine_catalogs
 from stronger.mi.base import BaseCalculator
@@ -242,7 +242,7 @@ def _exec_combine_catalogs(p_args):
 
 
 def _exec_aligned_lengths(p_args):
-    return aligned_lengths(p_args.file, p_args.region)
+    return aligned_lengths_cmd(p_args.file, p_args.region)
 
 
 def main(args: Optional[List[str]] = None):

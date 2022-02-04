@@ -7,7 +7,7 @@ from warnings import simplefilter
 
 from typing import List, Optional, Tuple, Union
 
-Alleles = Union[List[int], Tuple[int, ...], List[float], Tuple[float, ...]]
+RepeatCounts = Union[List[int], Tuple[int, ...], List[float], Tuple[float, ...]]
 
 
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles
@@ -26,18 +26,18 @@ def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> np.array
 
 
 # noinspection PyUnresolvedReferences
-def call_allele(allele_1: Alleles,
-                allele_2: Alleles,
-                bootstrap_iterations: int,
-                min_reads: int,
-                min_allele_reads: int,
-                n_alleles: int,
-                separate_strands: bool,
-                read_bias_corr_min: int,
-                gm_filter_factor: int,
-                force_int: bool) -> Tuple[Optional[np.array], Optional[np.array], Optional[np.array]]:
-    fwd_strand_reads = np.array(allele_1)
-    rev_strand_reads = np.array(allele_2)
+def call_alleles(repeats_fwd: RepeatCounts,
+                 repeats_rev: RepeatCounts,
+                 bootstrap_iterations: int,
+                 min_reads: int,
+                 min_allele_reads: int,
+                 n_alleles: int,
+                 separate_strands: bool,
+                 read_bias_corr_min: int,
+                 gm_filter_factor: int,
+                 force_int: bool) -> Tuple[Optional[np.array], Optional[np.array], Optional[np.array]]:
+    fwd_strand_reads = np.array(repeats_fwd)
+    rev_strand_reads = np.array(repeats_rev)
 
     combined = np.concatenate((fwd_strand_reads, rev_strand_reads), axis=None)
     combined_len = combined.shape[0]
