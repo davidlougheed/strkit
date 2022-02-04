@@ -4,6 +4,7 @@ import sys
 from typing import Dict, List, Optional, Type
 
 import stronger.constants as c
+from stronger.aligned.lengths import aligned_lengths
 from stronger.call import call_all_alleles
 from stronger.catalog.combine import combine_catalogs
 from stronger.mi.base import BaseCalculator
@@ -147,6 +148,11 @@ def add_cc_parser_args(cc_parser):
     cc_parser.add_argument("paths", type=str, nargs="+", help="Paths to the BED catalogs to combine.")
 
 
+def add_al_parser_args(al_parser):
+    al_parser.add_argument("file", type=str, required=True, help="Alignment file to query.")
+    al_parser.add_argument("region", type="str", required=True, help="Region to query aligned lengths for.")
+
+
 def _exec_call(p_args) -> int:
     contig: Optional[str] = getattr(p_args, "contig", None)
 
@@ -235,6 +241,10 @@ def _exec_combine_catalogs(p_args):
     return combine_catalogs(p_args.caller, p_args.paths)
 
 
+def _exec_aligned_lengths(p_args):
+    return aligned_lengths(p_args.file, p_args.region)
+
+
 def main(args: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description="A toolkit for analyzing variation in short(ish) tandem repeats.",
@@ -260,6 +270,12 @@ def main(args: Optional[List[str]] = None):
         help="Combine Straglr result catalogs for use in re-calling with a consistent motif set.")
     cc_parser.set_defaults(func=_exec_combine_catalogs)
     add_cc_parser_args(cc_parser)
+
+    al_parser = subparsers.add_parser(
+        "aligned-lengths",
+        help="See aligned lengths of (repeat) regions in a file to validate calls.")
+    al_parser.set_defaults(func=_exec_aligned_lengths)
+    add_al_parser_args(al_parser)
 
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)
