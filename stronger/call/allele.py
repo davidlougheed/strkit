@@ -62,9 +62,6 @@ def call_alleles(repeats_fwd: RepeatCounts,
         if separate_strands and fwd_len >= read_bias_corr_min and rev_len >= read_bias_corr_min:
             fwd_strand_sample = np.random.choice(fwd_strand_reads, size=target_length, replace=True)
             rev_strand_sample = np.random.choice(rev_strand_reads, size=target_length, replace=True)
-
-            print(fwd_strand_sample, rev_strand_sample)
-
             concat_samples = np.concatenate((fwd_strand_sample, rev_strand_sample), axis=None)
         else:
             concat_samples = np.random.choice(combined, size=target_length*2, replace=True)
