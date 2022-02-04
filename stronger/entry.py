@@ -149,8 +149,8 @@ def add_cc_parser_args(cc_parser):
 
 
 def add_al_parser_args(al_parser):
-    al_parser.add_argument("file", type=str, required=True, help="Alignment file to query.")
-    al_parser.add_argument("region", type="str", required=True, help="Region to query aligned lengths for.")
+    al_parser.add_argument("file", type=str, help="Alignment file to query.")
+    al_parser.add_argument("region", type="str", help="Region to query aligned lengths for.")
 
 
 def _exec_call(p_args) -> int:
