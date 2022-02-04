@@ -64,7 +64,11 @@ def aligned_lengths_cmd(file: str, region: str) -> int:
         gm_filter_factor=3,
         force_int=True,
     )
-    print(f"Aligned lengths: {', '.join(map(str, r1 + r2))}")
+    fwd_str = ',\t'.join(map(str, r1))
+    rev_str = ',\t'.join(map(str, r2))
+    print(f"Aligned lengths:")
+    print(f" Forward strand: {fwd_str}")
+    print(f" Reverse strand: {rev_str}")
     print(f"Best guess for allele lengths: {call[0][0]}, {call[0][1]}")
     print(f"                      95% CIs: {call[1][0]}, {call[1][1]}")
     print(f"                      99% CIs: {call[2][0]}, {call[2][1]}")
