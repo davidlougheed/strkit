@@ -59,7 +59,7 @@ def aligned_lengths_cmd(file: str, region: str) -> int:
         min_reads=2,
         min_allele_reads=1,
         n_alleles=2,
-        separate_strands=True,
+        separate_strands=False,
         read_bias_corr_min=4,
         gm_filter_factor=3,
         force_int=True,
