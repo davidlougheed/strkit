@@ -1,8 +1,10 @@
+from typing import List, Optional, Union
+
+from stronger.constants import CHROMOSOMES
+
 __all__ = [
     "MIResult",
 ]
-
-from typing import List, Optional, Union
 
 
 class MIResult:
@@ -25,8 +27,7 @@ class MIResult:
 
     def non_matching_tsv(self, sep="\t") -> str:
         res = ""
-
-        for nm in self.non_matching:
+        for nm in sorted(self.non_matching, key=lambda x: (CHROMOSOMES.index(x[0]), int(x[1]), x[3])):
             res += sep.join((
                 *nm[:3],  # Contig/Start/End
                 nm[3],  # Motif
