@@ -19,7 +19,7 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
         cvf = pysam.VariantFile(str(self._child_call_file))
 
         value = 0  # Sum of 1s for the eventual MI % calculation
-        value_ci = 0  # Sum of 1s for the eventual MI % calculation (including GT CI)
+        value_95_ci = 0  # Sum of 1s for the eventual MI % calculation (including GT CI)
         n_loci = 0
 
         non_matching = []
@@ -52,9 +52,9 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
             m_gt = ms["REPCN"]
             f_gt = fs["REPCN"]
 
-            c_gt_ci = parse_cis(cs["REPCI"])
-            m_gt_ci = parse_cis(ms["REPCI"])
-            f_gt_ci = parse_cis(fs["REPCI"])
+            c_gt_95_ci = parse_cis(cs["REPCI"])
+            m_gt_95_ci = parse_cis(ms["REPCI"])
+            f_gt_95_ci = parse_cis(fs["REPCI"])
 
             if c_gt[0] is None or m_gt[0] is None or f_gt[0] is None:
                 # None call in VCF, skip this call
@@ -62,18 +62,18 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
 
             n_loci += 1
 
-            respects_mi_strict, respects_mi_ci = self.gts_respect_mi(
+            respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
                 c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                c_gt_ci=c_gt_ci, m_gt_ci=m_gt_ci, f_gt_ci=f_gt_ci
+                c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci
             )
 
             if respects_mi_strict:
                 # Mendelian inheritance upheld for this locus - strict (MLE of GT)
                 value += 1
 
-            if respects_mi_ci:
+            if respects_mi_95_ci:
                 # Mendelian inheritance upheld for this locus - within 95% CI from GangSTR
-                value_ci += 1
+                value_95_ci += 1
             else:
                 non_matching.append((
                     contig,
@@ -82,15 +82,15 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
                     cv.info["RU"],
 
                     c_gt,
-                    c_gt_ci,
+                    c_gt_95_ci,
 
                     m_gt,
-                    m_gt_ci,
+                    m_gt_95_ci,
 
                     f_gt,
-                    f_gt_ci,
+                    f_gt_95_ci,
 
                     cv.info["REF"],
                 ))
 
-        return value, value_ci, n_loci, non_matching
+        return value, value_95_ci, n_loci, non_matching

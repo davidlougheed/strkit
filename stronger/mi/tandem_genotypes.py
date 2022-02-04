@@ -87,14 +87,18 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
     def make_calls_dict(ph, contig):
         return {
             # Use relative indices because we may have the original calls lurking
-            tuple(line[:4]): (tuple(map(int, line[-4:-2])), parse_cis(line[-2:], commas=True))
+            tuple(line[:4]): (
+                tuple(map(int, line[-6:-4])),
+                parse_cis(line[-4:-2], commas=True),
+                parse_cis(line[-2:], commas=True),
+            )
             for line in (pv.strip().split("\t") for pv in ph)
-            if line[0] == contig and "." not in line[-4:-2]
+            if line[0] == contig and "." not in line[-6:-4]
         }
 
     def calculate_contig(self, contig: str):
         value = 0  # Sum of 1s for the eventual MI % calculation
-        value_ci = 0
+        value_95_ci = 0
         n_loci = 0
 
         non_matching = []
@@ -119,41 +123,42 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
 
                 # TODO: What do failed calls look like here?
 
-                m_gt, m_gt_ci = mother_calls[lookup]
-                f_gt, f_gt_ci = father_calls[lookup]
+                m_gt, m_gt_95_ci, _ = mother_calls[lookup]
+                f_gt, f_gt_95_ci, _ = father_calls[lookup]
 
-                calls = locus_data[-4:-2]
+                calls = locus_data[-6:-4]
 
                 if "." in calls:
                     # Failed call
                     continue
 
                 c_gt = int_tuple(calls)
-                c_gt_ci = parse_cis(locus_data[-2:], commas=True)
+                c_gt_95_ci = parse_cis(locus_data[-4:-2], commas=True)
+                # c_gt_99_ci = parse_cis(locus_data[-2:], commas=True)
 
                 n_loci += 1
 
-                respects_mi_strict, respects_mi_ci = self.gts_respect_mi(
+                respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
                     c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                    c_gt_ci=c_gt_ci, m_gt_ci=m_gt_ci, f_gt_ci=f_gt_ci
+                    c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci
                 )
 
                 if respects_mi_strict:
                     # Mendelian inheritance upheld for this locus - strict
                     value += 1
 
-                if respects_mi_ci:
+                if respects_mi_95_ci:
                     # Mendelian inheritance upheld for this locus - within 95% CI from TG2MM
-                    value_ci += 1
+                    value_95_ci += 1
                 else:
                     non_matching.append((
                         *lookup,
 
-                        c_gt, c_gt_ci,
-                        m_gt, m_gt_ci,
-                        f_gt, f_gt_ci,
+                        c_gt, c_gt_95_ci,
+                        m_gt, m_gt_95_ci,
+                        f_gt, f_gt_95_ci,
 
                         "",
                     ))
 
-        return value, value_ci, n_loci, non_matching
+        return value, value_95_ci, n_loci, non_matching

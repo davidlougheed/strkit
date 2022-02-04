@@ -35,7 +35,7 @@ def call_allele(allele_1: Alleles,
                 separate_strands: bool,
                 read_bias_corr_min: int,
                 gm_filter_factor: int,
-                force_int: bool) -> Tuple[Optional[np.array], Optional[np.array]]:
+                force_int: bool) -> Tuple[Optional[np.array], Optional[np.array], Optional[np.array]]:
     fwd_strand_reads = np.array(allele_1)
     rev_strand_reads = np.array(allele_2)
 
@@ -43,7 +43,7 @@ def call_allele(allele_1: Alleles,
     combined_len = combined.shape[0]
 
     if combined_len < min_reads:
-        return None, None
+        return None, None, None
 
     allele_samples = np.array(
         [list() for _ in range(n_alleles)],
@@ -97,7 +97,7 @@ def call_allele(allele_1: Alleles,
         filtered_means_and_weights = means_and_weights[:, mw_filter_1 & mw_filter_2]
 
         if filtered_means_and_weights.shape[1] < 1:
-            return None, None
+            return None, None, None
 
         filtered_means = filtered_means_and_weights[0, :]
         filtered_weights = filtered_means_and_weights[1, :]
@@ -124,9 +124,10 @@ def call_allele(allele_1: Alleles,
 
         allele_samples = np.append(allele_samples, sorted_allele_estimates, axis=1)
 
-    # Calculate 95% confidence intervals for each allele from the bootstrap distributions.
+    # Calculate 95% and 99% confidence intervals for each allele from the bootstrap distributions.
     allele_samples.sort(axis=1)
     allele_cis_95 = _calculate_cis(allele_samples, force_int=force_int, ci="95")
+    allele_cis_99 = _calculate_cis(allele_samples, force_int=force_int, ci="99")
 
     # TODO: Calculate CIs based on Gaussians from allele samples instead? Ask someone...
     #  - Could take median of 2.5 percentiles and 97.5 percentiles from Gaussians instead, median of means
@@ -140,4 +141,4 @@ def call_allele(allele_1: Alleles,
     if force_int:
         median = np.rint(median).astype(np.int32)
 
-    return median.flatten(), allele_cis_95
+    return median.flatten(), allele_cis_95, allele_cis_99

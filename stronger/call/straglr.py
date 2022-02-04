@@ -68,7 +68,7 @@ def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> 
     if locus_chr in SEX_CHROMOSOMES and sex_chr == "XY":
         n_alleles = 1
 
-    allele_estimates, allele_cis = call_allele(
+    allele_estimates, allele_cis_95, allele_cis_99 = call_allele(
         tuple(map(float, data[3])),
         (),
         bootstrap_iterations=bootstrap_iterations,
@@ -88,5 +88,6 @@ def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> 
         line + "\t" +
         "\t".join((
             *map(_tenths_str, allele_estimates),
-            *(",".join(map(_tenths_str, ci)) for ci in allele_cis),
+            *(",".join(map(_tenths_str, ci)) for ci in allele_cis_95),
+            *(",".join(map(_tenths_str, ci)) for ci in allele_cis_99),
         )) + "\n")

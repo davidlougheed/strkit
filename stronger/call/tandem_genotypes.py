@@ -37,7 +37,7 @@ def call_tandem_genotypes(args: Tuple[Optional[str], str, int, int, int, int, st
     if locus_chr in SEX_CHROMOSOMES and sex_chr == "XY":
         n_alleles = 1
 
-    allele_estimates, allele_cis = call_allele(
+    allele_estimates, allele_cis_95, allele_cis_99 = call_allele(
         tuple(map(int, data[6].split(","))) if data[6] != "." else (),
         tuple(map(int, data[7].split(","))) if data[7] != "." else (),
         bootstrap_iterations=bootstrap_iterations,
@@ -57,5 +57,6 @@ def call_tandem_genotypes(args: Tuple[Optional[str], str, int, int, int, int, st
         line.strip() + "\t" +
         "\t".join((
             *map(str, allele_estimates),
-            *(",".join(map(str, ci)) for ci in allele_cis),
+            *(",".join(map(str, ci)) for ci in allele_cis_95),
+            *(",".join(map(str, ci)) for ci in allele_cis_99),
         )) + "\n")

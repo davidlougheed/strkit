@@ -98,7 +98,7 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
     # TODO: Deduplicate with above
     def calculate_contig(self, contig: str):
         value = 0  # Sum of 1s for the eventual MI % calculation
-        value_ci = 0
+        value_95_ci = 0
         n_loci = 0
 
         non_matching = []
@@ -123,8 +123,8 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
 
                 # TODO: What will failed calls look like here? Do we also check for 0?
 
-                m_gt, m_gt_ci = mother_calls[lookup]
-                f_gt, f_gt_ci = father_calls[lookup]
+                m_gt, m_gt_95_ci = mother_calls[lookup]
+                f_gt, f_gt_95_ci = father_calls[lookup]
 
                 calls = locus_data[1:3]
 
@@ -133,7 +133,7 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
                     continue
 
                 c_gt = int_tuple(calls)
-                c_gt_ci = parse_cis(locus_data[3:5], commas=True)
+                c_gt_95_ci = parse_cis(locus_data[3:5], commas=True)
 
                 if (0, 0) in (c_gt, m_gt, f_gt):  # TODO
                     # Failed call
@@ -142,39 +142,40 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
                 n_loci += 1
 
                 if self._debug:  # TODO: Real logging
-                    print(f"c_gt={c_gt} c_gt_ci={c_gt_ci}")
-                    print(f"m_gt={m_gt} m_gt_ci={m_gt_ci}")
-                    print(f"f_gt={f_gt} f_gt_ci={f_gt_ci}")
+                    print(f"c_gt={c_gt} c_gt_95_ci={c_gt_95_ci}")
+                    print(f"m_gt={m_gt} m_gt_95_ci={m_gt_95_ci}")
+                    print(f"f_gt={f_gt} f_gt_95_ci={f_gt_95_ci}")
 
-                respects_mi_strict, respects_mi_ci = self.gts_respect_mi(
+                respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
                     c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                    c_gt_ci=c_gt_ci, m_gt_ci=m_gt_ci, f_gt_ci=f_gt_ci
+                    c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci
                 )
 
                 if self._debug:
-                    print(f"respects_mi_strict={respects_mi_strict}, respects_mi_ci={respects_mi_ci}")
+                    print(f"respects_mi_strict={respects_mi_strict}, "
+                          f"respects_mi_95_ci={respects_mi_95_ci}")
 
                 if respects_mi_strict:
                     # Mendelian inheritance upheld for this locus - strict
                     value += 1
 
-                if respects_mi_ci:
-                    # Mendelian inheritance upheld for this locus - within 95% CI from TG2MM
-                    value_ci += 1
+                if respects_mi_95_ci:
+                    # Mendelian inheritance upheld for this locus - within 95% CI from re-call
+                    value_95_ci += 1
                 else:
                     non_matching.append((
                         *lookup,
 
                         c_gt,
-                        c_gt_ci,
+                        c_gt_95_ci,
 
                         m_gt,
-                        m_gt_ci,
+                        m_gt_95_ci,
 
                         f_gt,
-                        f_gt_ci,
+                        f_gt_95_ci,
 
                         "",  # TODO: Put ref # here, since we have it with the detail thing
                     ))
 
-        return value, value_ci, n_loci, non_matching
+        return value, value_95_ci, n_loci, non_matching
