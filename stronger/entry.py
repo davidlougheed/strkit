@@ -212,6 +212,10 @@ def _exec_mi(p_args) -> int:
         contigs = {contig}
 
     res = calc_inst.calculate(included_contigs=contigs)
+
+    if not res:
+        return 0
+
     print(str(res))
     print("---")
     sys.stdout.write(res.non_matching_tsv())

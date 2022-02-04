@@ -1,3 +1,5 @@
+import sys
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
@@ -131,7 +133,7 @@ class BaseCalculator(ABC):
     def calculate_contig(self, contig: str) -> Tuple[int, Optional[int], int, List[Tuple]]:
         return 0, None, 0, []
 
-    def calculate(self, included_contigs: set) -> MIResult:
+    def calculate(self, included_contigs: set) -> Optional[MIResult]:
         res = 0
         res_ci = 0
         n_total = 0
@@ -144,6 +146,10 @@ class BaseCalculator(ABC):
             non_matching.extend(nm)
 
         # TODO: Check for divide by 0
+
+        if n_total == 0:
+            sys.stderr.write("Warning: no common loci found\n")
+            return None
 
         res /= n_total
         res_ci = None if res_ci is None else (res_ci / n_total)
