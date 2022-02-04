@@ -30,9 +30,9 @@ def aligned_lengths(file: str, region: str) -> int:
     for read in align.fetch(chrom, pos1, pos2):
         region_length = 0
         for read_pos, ref_pos in read.get_aligned_pairs():
-            if ref_pos < pos1:
+            if ref_pos and ref_pos < pos1:
                 continue
-            if ref_pos > pos2:
+            if ref_pos and ref_pos > pos2:
                 break
             region_length += 1
 
