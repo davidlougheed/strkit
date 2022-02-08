@@ -1,4 +1,5 @@
 __all__ = [
+    "CALLER_EXPANSIONHUNTER",
     "CALLER_REPEATHMM",
     "CALLER_REPEATHMM_RECALL",
     "CALLER_STRAGLR",
@@ -14,6 +15,7 @@ __all__ = [
     "MI_CALLERS",
 ]
 
+CALLER_EXPANSIONHUNTER = "expansionhunter"
 CALLER_GANGSTR = "gangstr"
 CALLER_REPEATHMM = "repeathmm"
 CALLER_REPEATHMM_RECALL = "repeathmm-recall"

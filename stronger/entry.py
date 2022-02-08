@@ -8,6 +8,7 @@ from stronger.aligned.lengths import aligned_lengths_cmd
 from stronger.call import call_all_alleles
 from stronger.catalog.combine import combine_catalogs
 from stronger.mi.base import BaseCalculator
+from stronger.mi.expansionhunter import ExpansionHunterCalculator
 from stronger.mi.gangstr import GangSTRCalculator
 from stronger.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
 from stronger.mi.straglr import StraglrCalculator, StraglrReCallCalculator
@@ -70,6 +71,7 @@ def add_call_parser_args(call_parser):
 
 
 CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
+    c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
     c.CALLER_GANGSTR: GangSTRCalculator,
     c.CALLER_REPEATHMM: RepeatHMMCalculator,
     c.CALLER_REPEATHMM_RECALL: RepeatHMMReCallCalculator,
