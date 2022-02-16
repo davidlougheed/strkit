@@ -7,6 +7,7 @@ import stronger.constants as c
 from stronger.aligned.lengths import aligned_lengths_cmd
 from stronger.call import call_all_alleles
 from stronger.catalog.combine import combine_catalogs
+from stronger.convert.converter import convert
 from stronger.mi.base import BaseCalculator
 from stronger.mi.expansionhunter import ExpansionHunterCalculator
 from stronger.mi.gangstr import GangSTRCalculator
@@ -155,6 +156,16 @@ def add_al_parser_args(al_parser):
     al_parser.add_argument("region", type=str, help="Region to query aligned lengths for.")
 
 
+def add_cv_parser_args(al_parser):
+    al_parser.add_argument("trf-file", type=str, help="TRF BED file to convert from.")
+    al_parser.add_argument("--caller", type=str, choices=(
+        c.CALLER_EXPANSIONHUNTER,
+        c.CALLER_GANGSTR,
+        c.CALLER_STRAGLR,
+        c.CALLER_TANDEM_GENOTYPES,
+    ), help="Caller format to convert to.")
+
+
 def _exec_call(p_args) -> int:
     contig: Optional[str] = getattr(p_args, "contig", None)
 
@@ -247,6 +258,10 @@ def _exec_aligned_lengths(p_args):
     return aligned_lengths_cmd(p_args.file, p_args.region)
 
 
+def _exec_convert(p_args):
+    return convert(getattr(p_args, "trf-file"), p_args.caller)
+
+
 def main(args: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description="A toolkit for analyzing variation in short(ish) tandem repeats.",
@@ -278,6 +293,12 @@ def main(args: Optional[List[str]] = None):
         help="See aligned lengths of (repeat) regions in a file to validate calls.")
     al_parser.set_defaults(func=_exec_aligned_lengths)
     add_al_parser_args(al_parser)
+
+    cv_parser = subparsers.add_parser(
+        "convert",
+        help="Convert TRF BED file to other caller formats.")
+    cv_parser.set_defaults(func=_exec_convert)
+    add_cv_parser_args(cv_parser)
 
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)
