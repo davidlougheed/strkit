@@ -76,7 +76,7 @@ def call_all_alleles(contig: Optional[str] = None,
         for new_line in p.imap(fn, args_iter, chunksize=1):  # chunksize=1 seems fastest for some reason??
             sys.stdout.write(new_line)
             i += 1
-            if i % 250 == 0:
+            if i % 100 == 0:
                 sys.stderr.write(f"[INFO] Processed {i} loci\n")
                 sys.stderr.flush()
                 sys.stdout.flush()
