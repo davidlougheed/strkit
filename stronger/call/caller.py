@@ -71,9 +71,14 @@ def call_all_alleles(contig: Optional[str] = None,
     sys.stderr.write(f"[DEBUG] Starting caller on {len(lines)} lines with {n_proc} processes\n")
 
     with mp.Pool(n_proc) as p:
+        i = 0
         # noinspection PyTypeChecker
         for new_line in p.imap(fn, args_iter, chunksize=1):  # chunksize=1 seems fastest for some reason??
             sys.stdout.write(new_line)
-            sys.stdout.flush()
+            i += 1
+            if i % 250 == 0:
+                sys.stderr.write(f"[INFO] Processed {i} loci\n")
+                sys.stderr.flush()
+                sys.stdout.flush()
 
     return 0
