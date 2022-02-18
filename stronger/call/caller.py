@@ -46,29 +46,31 @@ def call_all_alleles(contig: Optional[str] = None,
 
         lines.append(line)
 
+    if caller == tc.CALLER_TANDEM_GENOTYPES:
+        fn = call_tandem_genotypes
+
+    elif caller == tc.CALLER_STRAGLR:
+        fn = call_straglr
+
+        # Need to group lines by locus since straglr does read-level stuff
+        lines = preprocess_lines_straglr(lines)
+
+    else:  # caller == tc.CALLER_REPEATHMM:
+        fn = call_repeathmm
+
+    args_iter = zip(
+        repeat(contig),
+        repeat(sex_chr),
+        repeat(bootstrap_iterations),
+        repeat(min_reads),
+        repeat(min_allele_reads),
+        repeat(read_bias_corr_min),
+        lines,
+    )
+
+    sys.stderr.write(f"[DEBUG] Starting caller on {len(lines)} lines with {n_proc} processes\n")
+
     with mp.Pool(n_proc) as p:
-        if caller == tc.CALLER_TANDEM_GENOTYPES:
-            fn = call_tandem_genotypes
-
-        elif caller == tc.CALLER_STRAGLR:
-            fn = call_straglr
-
-            # Need to group lines by locus since straglr does read-level stuff
-            lines = preprocess_lines_straglr(lines)
-
-        else:  # caller == tc.CALLER_REPEATHMM:
-            fn = call_repeathmm
-
-        args_iter = zip(
-            repeat(contig),
-            repeat(sex_chr),
-            repeat(bootstrap_iterations),
-            repeat(min_reads),
-            repeat(min_allele_reads),
-            repeat(read_bias_corr_min),
-            lines,
-        )
-
         # noinspection PyTypeChecker
         for new_line in p.imap(fn, args_iter, chunksize=1):  # chunksize=1 seems fastest for some reason??
             sys.stdout.write(new_line)
