@@ -70,8 +70,9 @@ def call_all_alleles(contig: Optional[str] = None,
         )
 
         # noinspection PyTypeChecker
-        for new_line in p.imap(fn, args_iter, chunksize=5):
+        for new_line in p.imap(fn, args_iter, chunksize=10):
             sys.stdout.write(new_line)
-            sys.stdout.flush()
+
+        sys.stdout.flush()
 
     return 0

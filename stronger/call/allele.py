@@ -38,6 +38,8 @@ def call_alleles(repeats_fwd: RepeatCounts,
                  force_int: bool) -> Tuple[Optional[np.array], Optional[np.array], Optional[np.array]]:
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
+    fwd_len = fwd_strand_reads.shape[0]
+    rev_len = rev_strand_reads.shape[0]
 
     combined = np.concatenate((fwd_strand_reads, rev_strand_reads), axis=None)
     combined_len = combined.shape[0]
@@ -51,36 +53,42 @@ def call_alleles(repeats_fwd: RepeatCounts,
 
     # Perform a number of bootstrap iterations to get a 95% CI and more accurate estimate of repeat counts / differences
 
-    for _ in range(bootstrap_iterations):
-        fwd_len = fwd_strand_reads.shape[0]
-        rev_len = rev_strand_reads.shape[0]
+    if separate_strands and fwd_len >= read_bias_corr_min and rev_len >= read_bias_corr_min:
         target_length: int = max(fwd_len, rev_len)
 
         # Resample original sample, correcting for imbalances between
         # forward and reverse-strand reads along the way
         # (if we've passed the coverage threshold)
-        if separate_strands and fwd_len >= read_bias_corr_min and rev_len >= read_bias_corr_min:
-            fwd_strand_sample = np.random.choice(fwd_strand_reads, size=target_length, replace=True)
-            rev_strand_sample = np.random.choice(rev_strand_reads, size=target_length, replace=True)
-            concat_samples = np.concatenate((fwd_strand_sample, rev_strand_sample), axis=None)
-        else:
-            concat_samples = np.random.choice(combined, size=target_length*2, replace=True)
 
+        fwd_strand_samples = np.random.choice(
+            fwd_strand_reads, size=(bootstrap_iterations, target_length), replace=True)
+
+        rev_strand_samples = np.random.choice(
+            rev_strand_reads, size=(bootstrap_iterations, target_length), replace=True)
+
+        concat_samples = np.sort(np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1))
+
+    else:
+        concat_samples = np.sort(np.random.choice(combined, size=(bootstrap_iterations, combined_len), replace=True))
+
+    cache = {}
+
+    for i in range(bootstrap_iterations):
         # Fit Gaussian mixture model to the resampled data
-        g = GaussianMixture(
-            n_components=n_alleles,
-            init_params="kmeans",
-            # weights_init=[1/n_alleles]*n_alleles,
-            #
-            # TODO
-            # We assume (under no mosaicism hypothesis) that the error model is the same between repeat sizes
-            # There is probably a better way to do this, but otherwise it'll basically never call homozygous alleles.
-            # covariance_type="tied",
 
-            # n_init=10,
-            # means_init=np.random.choice(concat_samples, size=n_alleles).reshape(-1, 1),
-            max_iter=100,
-        ).fit(concat_samples.reshape(-1, 1))
+        sample = concat_samples[i, :]
+        sample_t = tuple(sample)
+
+        if sample_t in cache:
+            g = cache[sample_t]
+        else:
+            g = GaussianMixture(
+                n_components=n_alleles,
+                init_params="kmeans",
+                covariance_type="spherical",
+                max_iter=100,
+            ).fit(sample.reshape(-1, 1))
+            cache[sample_t] = g
 
         means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
 
