@@ -74,7 +74,6 @@ def call_all_alleles(contig: Optional[str] = None,
         # noinspection PyTypeChecker
         for new_line in p.imap(fn, args_iter, chunksize=1):  # chunksize=1 seems fastest for some reason??
             sys.stdout.write(new_line)
-
-        sys.stdout.flush()
+            sys.stdout.flush()
 
     return 0
