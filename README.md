@@ -21,6 +21,17 @@ tuned for low-coverage HiFi reads.
   something like a single PacBio HiFi read generally contains higher-quality information than a single
   PacBio CLR read, for example.
 
+### Troubleshooting:
+
+Slow performance can result from running `stronger call` on a system with OpenMP, due to a misguided
+attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work here due to 
+repeated initializations of the Gaussian mixture model.) To fix this, set the following
+environment variable before running:
+
+```bash
+export OMP_NUM_THREADS=1
+```
+
 
 ## `stronger mi`: Mendelian inheritance analysis
 
