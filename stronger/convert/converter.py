@@ -1,6 +1,7 @@
 import sys
 
 from .expansionhunter import trf_bed_to_eh
+from .hipstr import trf_bed_to_hipstr
 from .gangstr import trf_bed_to_gangstr
 from .straglr import trf_bed_to_straglr
 from .tandem_genotypes import trf_bed_to_tandem_genotypes
@@ -13,6 +14,7 @@ __all__ = [
 
 convert_formats = {
     c.CALLER_EXPANSIONHUNTER: trf_bed_to_eh,
+    c.CALLER_HIPSTR: trf_bed_to_hipstr,
     c.CALLER_GANGSTR: trf_bed_to_gangstr,
     c.CALLER_REPEATHMM: lambda x: x,
     c.CALLER_STRAGLR: trf_bed_to_straglr,
