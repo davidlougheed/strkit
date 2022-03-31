@@ -1,8 +1,9 @@
 import pysam
 
-from typing import List, Tuple
+from typing import Tuple
 
 from .base import BaseCalculator
+from .result import MIContigResult, MILocusData
 from .vcf_utils import VCFCalculatorMixin
 from ..utils import parse_cis
 
@@ -13,16 +14,12 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> Tuple[set, set, set]:
         return self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
 
-    def calculate_contig(self, contig: str) -> Tuple[int, int, int, List[Tuple]]:
+    def calculate_contig(self, contig: str) -> MIContigResult:
+        cr = MIContigResult(includes_95_ci=True)
+
         mvf = pysam.VariantFile(str(self._mother_call_file))
         fvf = pysam.VariantFile(str(self._father_call_file))
         cvf = pysam.VariantFile(str(self._child_call_file))
-
-        value = 0  # Sum of 1s for the eventual MI % calculation
-        value_95_ci = 0  # Sum of 1s for the eventual MI % calculation (including GT CI)
-        n_loci = 0
-
-        non_matching = []
 
         # We want all common loci, so loop through the child and then look for the loci in the parent calls
         # TODO: What to do about filtering etc? !!!!!!!!!!!!!!!!!!!!!!!!
@@ -52,45 +49,28 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
             m_gt = ms["REPCN"]
             f_gt = fs["REPCN"]
 
-            c_gt_95_ci = parse_cis(cs["REPCI"])
-            m_gt_95_ci = parse_cis(ms["REPCI"])
-            f_gt_95_ci = parse_cis(fs["REPCI"])
+            try:
+                c_gt_95_ci = parse_cis(cs["REPCI"])
+                m_gt_95_ci = parse_cis(ms["REPCI"])
+                f_gt_95_ci = parse_cis(fs["REPCI"])
+            except ValueError:
+                # None call in VCF, skip this call
+                continue
 
             if c_gt[0] is None or m_gt[0] is None or f_gt[0] is None:
                 # None call in VCF, skip this call
                 continue
 
-            n_loci += 1
+            cr.append(MILocusData(
+                contig=contig,
+                start=cv.pos,
+                end=cv.stop,
+                motif=cv.info["RU"],
 
-            respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
-                c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci
-            )
+                child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
+                child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
 
-            if respects_mi_strict:
-                # Mendelian inheritance upheld for this locus - strict (MLE of GT)
-                value += 1
+                reference_copies=cv.info["REF"],
+            ))
 
-            if respects_mi_95_ci:
-                # Mendelian inheritance upheld for this locus - within 95% CI from GangSTR
-                value_95_ci += 1
-            else:
-                non_matching.append((
-                    contig,
-                    cv.pos,
-                    cv.info["END"],
-                    cv.info["RU"],
-
-                    c_gt,
-                    c_gt_95_ci,
-
-                    m_gt,
-                    m_gt_95_ci,
-
-                    f_gt,
-                    f_gt_95_ci,
-
-                    cv.info["REF"],
-                ))
-
-        return value, value_95_ci, n_loci, non_matching
+        return cr

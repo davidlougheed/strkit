@@ -1,6 +1,7 @@
 from typing import Tuple
 
 from .base import BaseCalculator
+from .result import MILocusData, MIContigResult
 
 __all__ = [
     "StraglrCalculator",
@@ -55,10 +56,10 @@ class StraglrCalculator(BaseCalculator):
             return mc, fc, cc
 
     def calculate_contig(self, contig: str):
-        value = 0  # Sum of 1s for the eventual MI % calculation
-        n_loci = 0
+        # value = 0  # Sum of 1s for the eventual MI % calculation
+        # n_loci = 0
 
-        non_matching = []
+        # non_matching = []
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -69,6 +70,8 @@ class StraglrCalculator(BaseCalculator):
         with open(self._child_call_file) as ch:
             child_calls = self.make_calls_dict(ch, contig)
 
+        cr = MIContigResult()
+
         for locus_data, c_gt in child_calls.items():
             if locus_data[0] != contig:
                 continue
@@ -77,28 +80,20 @@ class StraglrCalculator(BaseCalculator):
             if locus_data not in mother_calls or locus_data not in father_calls:
                 continue
 
-            n_loci += 1
-            # TODO: Divide n_loci by number of reads otherwise it'll be too large
+            cr.append(MILocusData(
+                contig=locus_data[0],
+                start=int(locus_data[1]),
+                end=int(locus_data[2]),
+                motif=locus_data[3],
 
-            m_gt = mother_calls[locus_data]
-            f_gt = father_calls[locus_data]
+                child_gt=c_gt,
+                mother_gt=mother_calls[locus_data],
+                father_gt=father_calls[locus_data],
 
-            respects_mi_strict, _ = self.gts_respect_mi(c_gt, m_gt, f_gt, decimal=True)
-            if respects_mi_strict:
-                # Mendelian inheritance upheld for this locus - strict
-                value += 1
-            else:
-                non_matching.append((
-                    *locus_data,
+                decimal=True,
+            ))
 
-                    c_gt, "",
-                    m_gt, "",
-                    f_gt, "",
-
-                    "",
-                ))
-
-        return value, None, n_loci, non_matching
+        return cr
 
 
 class StraglrReCallCalculator(BaseCalculator):
@@ -122,6 +117,7 @@ class StraglrReCallCalculator(BaseCalculator):
 
             locus = tuple(line[:3])
             orig_motif = self._loci_dict.get(locus)
+            orig_motif = orig_motif[-1] if orig_motif else None
             if not orig_motif:
                 continue
 
@@ -156,11 +152,7 @@ class StraglrReCallCalculator(BaseCalculator):
             return mc, fc, cc
 
     def calculate_contig(self, contig: str):
-        value = 0  # Sum of 1s for the eventual MI % calculation
-        value_95_ci = 0
-        n_loci = 0
-
-        non_matching = []
+        cr = MIContigResult(includes_95_ci=True, includes_99_ci=True)
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -179,34 +171,22 @@ class StraglrReCallCalculator(BaseCalculator):
             if locus_data not in mother_calls or locus_data not in father_calls:
                 continue
 
-            c_gt, c_gt_95_ci, _ = c_gt_and_cis
+            c_gt, c_gt_95_ci, c_gt_99_ci = c_gt_and_cis
 
-            n_loci += 1
+            m_gt, m_gt_95_ci, m_gt_99_ci = mother_calls[locus_data]
+            f_gt, f_gt_95_ci, f_gt_99_ci = father_calls[locus_data]
 
-            m_gt, m_gt_95_ci, _ = mother_calls[locus_data]
-            f_gt, f_gt_95_ci, _ = father_calls[locus_data]
+            cr.append(MILocusData(
+                contig=locus_data[0],
+                start=int(locus_data[1]),
+                end=int(locus_data[2]),
+                motif=locus_data[3],
 
-            respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
-                c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci,
-                decimal=True)
+                child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
+                child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
+                child_gt_99_ci=c_gt_99_ci, mother_gt_99_ci=m_gt_99_ci, father_gt_99_ci=f_gt_99_ci,
 
-            if respects_mi_strict:
-                # Mendelian inheritance upheld for this locus - strict
-                value += 1
+                decimal=True,
+            ))
 
-            if respects_mi_95_ci:
-                # Mendelian inheritance upheld for this locus - within 95% CI from TG2MM
-                value_95_ci += 1
-            else:
-                non_matching.append((
-                    *locus_data,
-
-                    c_gt, c_gt_95_ci,
-                    m_gt, m_gt_95_ci,
-                    f_gt, f_gt_95_ci,
-
-                    "",
-                ))
-
-        return value, value_95_ci, n_loci, non_matching
+        return cr

@@ -1,6 +1,7 @@
 from typing import Tuple
 
 from .base import BaseCalculator
+from .result import MIContigResult, MILocusData
 from ..utils import int_tuple, parse_cis
 
 __all__ = [
@@ -32,11 +33,8 @@ class TandemGenotypesCalculator(BaseCalculator):
 
             return mc, fc, cc
 
-    def calculate_contig(self, contig: str):
-        value = 0  # Sum of 1s for the eventual MI % calculation
-        n_loci = 0
-
-        non_matching = []
+    def calculate_contig(self, contig: str) -> MIContigResult:
+        cr = MIContigResult()
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -58,28 +56,18 @@ class TandemGenotypesCalculator(BaseCalculator):
 
                 # TODO: What do failed calls look like here?
 
-                n_loci += 1
+                cr.append(MILocusData(
+                    contig=lookup[0],
+                    start=int(lookup[1]),
+                    end=int(lookup[2]),
+                    motif=lookup[3],
 
-                c_gt = int_tuple(locus_data[8:10])
-                m_gt = mother_calls[lookup]
-                f_gt = father_calls[lookup]
+                    child_gt=int_tuple(locus_data[8:10]),
+                    mother_gt=mother_calls[lookup],
+                    father_gt=father_calls[lookup],
+                ))
 
-                respects_mi_strict, _ = self.gts_respect_mi(c_gt, m_gt, f_gt)
-                if respects_mi_strict:
-                    # Mendelian inheritance upheld for this locus - strict
-                    value += 1
-                else:
-                    non_matching.append((
-                        *lookup,
-
-                        c_gt, "",
-                        m_gt, "",
-                        f_gt, "",
-
-                        "",
-                    ))
-
-        return value, None, n_loci, non_matching
+        return cr
 
 
 class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
@@ -96,12 +84,8 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
             if line[0] == contig and "." not in line[-6:-4]
         }
 
-    def calculate_contig(self, contig: str):
-        value = 0  # Sum of 1s for the eventual MI % calculation
-        value_95_ci = 0
-        n_loci = 0
-
-        non_matching = []
+    def calculate_contig(self, contig: str) -> MIContigResult:
+        cr = MIContigResult(includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -132,33 +116,21 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
                     # Failed call
                     continue
 
-                c_gt = int_tuple(calls)
-                c_gt_95_ci = parse_cis(locus_data[-4:-2], commas=True)
-                # c_gt_99_ci = parse_cis(locus_data[-2:], commas=True)
+                cr.append(MILocusData(
+                    contig=lookup[0],
+                    start=int(lookup[1]),
+                    end=int(lookup[2]),
+                    motif=lookup[3],
 
-                n_loci += 1
+                    child_gt=int_tuple(calls),
+                    mother_gt=m_gt,
+                    father_gt=f_gt,
 
-                respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
-                    c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                    c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci,
-                )
+                    child_gt_95_ci=parse_cis(locus_data[-4:-2], commas=True),
+                    mother_gt_95_ci=m_gt_95_ci,
+                    father_gt_95_ci=f_gt_95_ci,
 
-                if respects_mi_strict:
-                    # Mendelian inheritance upheld for this locus - strict
-                    value += 1
+                    # TODO: ref count
+                ))
 
-                if respects_mi_95_ci:
-                    # Mendelian inheritance upheld for this locus - within 95% CI from TG2MM
-                    value_95_ci += 1
-                else:
-                    non_matching.append((
-                        *lookup,
-
-                        c_gt, c_gt_95_ci,
-                        m_gt, m_gt_95_ci,
-                        f_gt, f_gt_95_ci,
-
-                        "",
-                    ))
-
-        return value, value_95_ci, n_loci, non_matching
+        return cr

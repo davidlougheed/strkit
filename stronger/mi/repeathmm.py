@@ -1,6 +1,7 @@
 from typing import Tuple
 
 from .base import BaseCalculator
+from .result import MIContigResult, MILocusData
 from ..utils import int_tuple, parse_cis
 
 __all__ = [
@@ -32,11 +33,8 @@ class RepeatHMMCalculator(BaseCalculator):
 
             return mc, fc, cc
 
-    def calculate_contig(self, contig: str):
-        value = 0  # Sum of 1s for the eventual MI % calculation
-        n_loci = 0
-
-        non_matching = []
+    def calculate_contig(self, contig: str) -> MIContigResult:
+        cr = MIContigResult()
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -66,24 +64,19 @@ class RepeatHMMCalculator(BaseCalculator):
                 if (0, 0) in (c_gt, m_gt, f_gt):
                     continue
 
-                n_loci += 1
+                # TODO: Include ref copies... should be in file somewhere?
+                cr.append(MILocusData(
+                    lookup[0],
+                    int(lookup[1]),
+                    int(lookup[2]),
+                    lookup[3],
 
-                respects_mi_strict, _ = self.gts_respect_mi(c_gt, m_gt, f_gt)
-                if respects_mi_strict:
-                    # Mendelian inheritance upheld for this locus - strict
-                    value += 1
-                else:
-                    non_matching.append((
-                        *lookup,
+                    child_gt=int_tuple(call.split("/")),
+                    mother_gt=mother_calls[lookup],
+                    father_gt=father_calls[lookup],
+                ))
 
-                        c_gt, "",
-                        m_gt, "",
-                        f_gt, "",
-
-                        "",
-                    ))
-
-        return value, None, n_loci, non_matching
+        return cr
 
 
 class RepeatHMMReCallCalculator(RepeatHMMCalculator):
@@ -96,12 +89,8 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
         }
 
     # TODO: Deduplicate with above
-    def calculate_contig(self, contig: str):
-        value = 0  # Sum of 1s for the eventual MI % calculation
-        value_95_ci = 0
-        n_loci = 0
-
-        non_matching = []
+    def calculate_contig(self, contig: str) -> MIContigResult:
+        cr = MIContigResult(includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -139,43 +128,25 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
                     # Failed call
                     continue
 
-                n_loci += 1
-
                 if self._debug:  # TODO: Real logging
                     print(f"c_gt={c_gt} c_gt_95_ci={c_gt_95_ci}")
                     print(f"m_gt={m_gt} m_gt_95_ci={m_gt_95_ci}")
                     print(f"f_gt={f_gt} f_gt_95_ci={f_gt_95_ci}")
 
-                respects_mi_strict, respects_mi_95_ci = self.gts_respect_mi(
-                    c_gt=c_gt, m_gt=m_gt, f_gt=f_gt,
-                    c_gt_ci=c_gt_95_ci, m_gt_ci=m_gt_95_ci, f_gt_ci=f_gt_95_ci
-                )
+                # TODO: Put ref # here, since we have it with the detail thing
+                cr.append(MILocusData(
+                    lookup[0],
+                    int(lookup[1]),
+                    int(lookup[2]),
+                    lookup[3],
 
-                if self._debug:
-                    print(f"respects_mi_strict={respects_mi_strict}, "
-                          f"respects_mi_95_ci={respects_mi_95_ci}")
+                    child_gt=int_tuple(calls),
+                    mother_gt=mother_calls[lookup],
+                    father_gt=father_calls[lookup],
 
-                if respects_mi_strict:
-                    # Mendelian inheritance upheld for this locus - strict
-                    value += 1
+                    child_gt_95_ci=c_gt_95_ci,
+                    mother_gt_95_ci=m_gt_95_ci,
+                    father_gt_95_ci=f_gt_95_ci,
+                ))
 
-                if respects_mi_95_ci:
-                    # Mendelian inheritance upheld for this locus - within 95% CI from re-call
-                    value_95_ci += 1
-                else:
-                    non_matching.append((
-                        *lookup,
-
-                        c_gt,
-                        c_gt_95_ci,
-
-                        m_gt,
-                        m_gt_95_ci,
-
-                        f_gt,
-                        f_gt_95_ci,
-
-                        "",  # TODO: Put ref # here, since we have it with the detail thing
-                    ))
-
-        return value, value_95_ci, n_loci, non_matching
+        return cr

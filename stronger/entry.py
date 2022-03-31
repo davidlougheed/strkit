@@ -104,10 +104,10 @@ def add_mi_parser_args(mi_parser):
     mi_parser.add_argument("--contig", type=str, help="Specifies a specific contig to process (optional).")
 
     mi_parser.add_argument(
-        "--loci",
+        "--trf-bed",
         type=str,
-        help="Specifies a BED file with all called loci and motifs (required for Straglr, since it doesn't respect the "
-             "original motifs given to it.")
+        help="Specifies a TRF-derived BED file with all called loci and motifs (required for Straglr, since it doesn't "
+             "respect the original motifs given to it.")
 
     mi_parser.add_argument(
         "--child-id",
@@ -157,7 +157,7 @@ def add_al_parser_args(al_parser):
 
 
 def add_cv_parser_args(al_parser):
-    al_parser.add_argument("trf-file", type=str, help="TRF BED file to convert from.")
+    al_parser.add_argument("trf-bed", type=str, help="TRF BED file to convert from.")
     al_parser.add_argument("--caller", type=str, choices=(
         c.CALLER_EXPANSIONHUNTER,
         c.CALLER_GANGSTR,
@@ -185,9 +185,9 @@ def _exec_call(p_args) -> int:
 def _exec_mi(p_args) -> int:
     caller = p_args.caller.lower()
 
-    loci_file = getattr(p_args, "loci") or None
-    if loci_file is None and caller in (c.CALLER_STRAGLR, c.CALLER_STRAGLR_RECALL):
-        sys.stderr.write(f"Error: Using mistr with Straglr requires that the --loci flag is used.\n")
+    trf_bed_file = getattr(p_args, "trf_bed") or None
+    if trf_bed_file is None and caller in (c.CALLER_STRAGLR, c.CALLER_STRAGLR_RECALL):
+        sys.stderr.write(f"Error: Using mistr with Straglr requires that the --trf-bed flag is used.\n")
         exit(1)
 
     calc_class: Optional[Type[BaseCalculator]] = CALC_CLASSES.get(caller)
@@ -218,7 +218,7 @@ def _exec_mi(p_args) -> int:
         mother_id=mother_id,
         father_id=father_id,
 
-        loci_file=loci_file,
+        loci_file=trf_bed_file,
 
         widen=getattr(p_args, "widen", 0) or 0,
 

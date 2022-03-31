@@ -2,9 +2,9 @@ import sys
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
-from .result import MIResult
+from .result import MIContigResult, MIResult
 from ..utils import cis_overlap
 
 __all__ = [
@@ -52,7 +52,7 @@ class BaseCalculator(ABC):
 
         with open(self._loci_file, "r") as lf:
             return {
-                tuple(d[:3]): d[-1]
+                tuple(d[:3]): d[3:]
                 for d in (line.strip().split("\t") for line in lf)
             }
 
@@ -142,22 +142,24 @@ class BaseCalculator(ABC):
         return respects_mi_strict, respects_mi_ci
 
     @abstractmethod
-    def calculate_contig(self, contig: str) -> Tuple[int, Optional[int], int, List[Tuple]]:
-        return 0, None, 0, []
+    def calculate_contig(self, contig: str) -> MIContigResult:
+        return MIContigResult()
 
     def calculate(self, included_contigs: set) -> Optional[MIResult]:
         res = 0
         res_95_ci = 0
+        res_99_ci = 0
         n_total = 0
         non_matching = []
 
-        for value, value_ci, n_loci, nm in map(self.calculate_contig, included_contigs):
+        for contig_result in map(self.calculate_contig, included_contigs):
+            r, nm = contig_result.get_sums_and_non_matching()
+            value, value_95_ci, value_99_ci = r
             res += value
-            res_95_ci = None if value_ci is None else (res_95_ci + value_ci)
-            n_total += n_loci
+            res_95_ci = None if value_95_ci is None else (res_95_ci + value_95_ci)
+            res_99_ci = None if value_99_ci is None else (res_99_ci + value_99_ci)
+            n_total += len(contig_result)
             non_matching.extend(nm)
-
-        # TODO: Check for divide by 0
 
         if n_total == 0:
             sys.stderr.write("Warning: no common loci found\n")
@@ -165,5 +167,6 @@ class BaseCalculator(ABC):
 
         res /= n_total
         res_95_ci = None if res_95_ci is None else (res_95_ci / n_total)
+        res_99_ci = None if res_99_ci is None else (res_99_ci / n_total)
 
-        return MIResult(res, res_95_ci, non_matching, self._widen)
+        return MIResult(res, res_95_ci, res_99_ci, non_matching, self._widen)
