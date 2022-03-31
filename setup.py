@@ -11,7 +11,7 @@ setup(
 
     python_requires="~=3.7",
     install_requires=[
-        "pysam>=0.16.0.1,<0.19",
+        "pysam>=0.16.0.1,<0.20",
         "numpy>=1.20,<=1.22",
         "scikit-learn>=1.0,<1.1",
     ],
