@@ -47,7 +47,7 @@ CHROMOSOMES = (
 
 
 MI_CALLERS = (
-    "eh",
+    CALLER_EXPANSIONHUNTER,
     CALLER_GANGSTR,
     "generic-vcf",
     "hipstr",
