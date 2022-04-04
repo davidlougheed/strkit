@@ -18,7 +18,7 @@ class TandemGenotypesCalculator(BaseCalculator):
     @staticmethod
     def make_calls_dict(ph, contig):
         return {
-            tuple(line[:4]): int_tuple(line[8:10])
+            tuple(line[:4]): int_tuple(line[6:8]) if "." not in line[6:8] else (None, None)
             for line in (pv.strip().split("\t") for pv in ph if not pv.startswith("#"))
             if line[0] == contig
         }
@@ -54,7 +54,10 @@ class TandemGenotypesCalculator(BaseCalculator):
                 if lookup not in mother_calls or lookup not in father_calls:
                     continue
 
-                # TODO: What do failed calls look like here?
+                child_calls = locus_data[6:8]
+
+                if "." in child_calls:
+                    continue
 
                 cr.append(MILocusData(
                     contig=lookup[0],
@@ -62,7 +65,7 @@ class TandemGenotypesCalculator(BaseCalculator):
                     end=int(lookup[2]),
                     motif=lookup[3],
 
-                    child_gt=int_tuple(locus_data[8:10]),
+                    child_gt=int_tuple(child_calls),
                     mother_gt=mother_calls[lookup],
                     father_gt=father_calls[lookup],
                 ))
@@ -76,7 +79,7 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
         return {
             # Use relative indices because we may have the original calls lurking
             tuple(line[:4]): (
-                tuple(map(int, line[-6:-4])),
+                int_tuple(line[-6:-4]),
                 parse_cis(line[-4:-2], commas=True),
                 parse_cis(line[-2:], commas=True),
             )
