@@ -150,9 +150,12 @@ class BaseCalculator(ABC):
         res_95_ci = 0
         res_99_ci = 0
         n_total = 0
+
+        contig_results = []
         non_matching = []
 
         for contig_result in map(self.calculate_contig, included_contigs):
+            contig_results.append(contig_result)
             r, nm = contig_result.get_sums_and_non_matching()
             value, value_95_ci, value_99_ci = r
             res += value
@@ -169,4 +172,4 @@ class BaseCalculator(ABC):
         res_95_ci = None if res_95_ci is None else (res_95_ci / n_total)
         res_99_ci = None if res_99_ci is None else (res_99_ci / n_total)
 
-        return MIResult(res, res_95_ci, res_99_ci, non_matching, self._widen)
+        return MIResult(res, res_95_ci, res_99_ci, contig_results, non_matching, self._widen)

@@ -109,6 +109,18 @@ def add_mi_parser_args(mi_parser):
         help="Specifies a TRF-derived BED file with all called loci and motifs (required for Straglr, since it doesn't "
              "respect the original motifs given to it.")
 
+    # Histogram-related arguments -------------------------------------------------------
+    mi_parser.add_argument(
+        "--hist",
+        action="store_true",
+        help="Generate a textual histogram of binned Mendelian inheritance (MI) rates.")
+    mi_parser.add_argument(
+        "--bin-width",
+        type=int,
+        default=10,
+        help="Bin width for generated MI histograms.")
+    # -----------------------------------------------------------------------------------
+
     mi_parser.add_argument(
         "--child-id",
         type=str,
@@ -243,6 +255,8 @@ def _exec_mi(p_args) -> int:
         return 0
 
     print(str(res))
+    if p_args.hist:
+        print(res.histogram_text(bin_width=p_args.bin_width))
     print("---")
     sys.stdout.write(res.non_matching_tsv())
     sys.stdout.flush()

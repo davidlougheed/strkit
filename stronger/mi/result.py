@@ -1,4 +1,6 @@
-from typing import List, Optional, Tuple, Union
+import numpy as np
+
+from typing import List, Iterable, Optional, Tuple, Union
 
 from stronger.constants import CHROMOSOMES
 from stronger.utils import cis_overlap
@@ -72,7 +74,7 @@ class MILocusData:
 
     @staticmethod
     def _gt_str(gt):
-        return "|".join(map(MILocusData._res_str, gt))
+        return "|".join(map(MILocusData._res_str, gt)) if gt is not None else ""
 
     @staticmethod
     def _gt_ci_str(gt_ci):
@@ -115,8 +117,8 @@ class MILocusData:
         return MILocusData._gt_str(self._father_gt_99_ci)
 
     @property
-    def reference_copies(self):
-        return str(self._reference_copies)
+    def reference_copies(self) -> Optional[int]:
+        return self._reference_copies
 
     @staticmethod
     def _respects_strict_ci(c_gt, m_gt, f_gt) -> bool:
@@ -228,19 +230,32 @@ class MIContigResult:
     def __iter__(self):
         yield from self._loci_data
 
+    def __str__(self):
+        return f"<MIContigResult #loci={len(self._loci_data)}>"
+
 
 class MIResult:
     def __init__(self,
                  mi_value: float,
                  mi_value_95_ci: Optional[float],
                  mi_value_99_ci: Optional[float],
+                 contig_results: Iterable[MIContigResult],
                  non_matching: List[MILocusData],
                  widen: float = 0):
         self.mi_value = mi_value
         self.mi_value_95_ci = mi_value_95_ci
         self.mi_value_99_ci = mi_value_99_ci
-        self.non_matching: List[MILocusData] = non_matching
+        self._contig_results: Tuple[MIContigResult] = tuple(contig_results)
+        self._non_matching: List[MILocusData] = non_matching
         self.widen = widen
+
+    @property
+    def contig_results(self):
+        return self._contig_results
+
+    @property
+    def non_matching(self):
+        return self._non_matching
 
     def as_csv_row(self, sep=","):
         return f"{self.mi_value}{sep}{self.mi_value_95_ci}{sep}{self.mi_value_99_ci}\n"
@@ -251,7 +266,7 @@ class MIResult:
 
     def non_matching_tsv(self, sep="\t") -> str:
         res = ""
-        for nm in sorted(self.non_matching, key=lambda x: (CHROMOSOMES.index(x.contig), x.start, x.motif)):
+        for nm in sorted(self._non_matching, key=lambda x: (CHROMOSOMES.index(x.contig), x.start, x.motif)):
             res += sep.join((
                 *nm.locus_str_data,
 
@@ -291,3 +306,42 @@ class MIResult:
         mi_vals_str = "\t".join(map(lambda m: f"{m*100:.2f}", mi_vals))
 
         return f"{header_str}\n{mi_vals_str}"
+
+    def histogram_text(self, bin_width: int = 10) -> str:
+        # TODO: Don't duplicate with calculate()
+
+        loci: List[MILocusData] = []
+
+        for cr in self._contig_results:
+            loci.extend(list(cr))
+
+        bins = np.arange(0, max((locus.end - locus.start) for locus in loci) + bin_width, bin_width)
+        bins_str = "\t".join(f"{b}-{b+bin_width-1}" for b in bins)
+
+        vals_strict_by_bin = [[] for _ in bins]
+        vals_95_ci_by_bin = [[] for _ in bins]
+        vals_99_ci_by_bin = [[] for _ in bins]
+
+        for locus in loci:
+            r = locus.respects_mi()
+
+            locus_len = locus.end - locus.start
+            locus_bin_idx = locus_len // bin_width
+
+            vals_strict_by_bin[locus_bin_idx].append(int(r[0]))
+            if r[1] is not None:
+                vals_95_ci_by_bin[locus_bin_idx].append(int(r[1]))
+            if r[2] is not None:
+                vals_99_ci_by_bin[locus_bin_idx].append(int(r[2]))
+
+        bin_count_str = "\t".join(str(len(b)) for b in vals_strict_by_bin)
+
+        def _format_means(bin_vals):
+            return "\t".join(f"{np.mean(b)*100:.2f}" if b else "-" for b in bin_vals)
+
+        mi_strict_by_bin_vals_str = _format_means(vals_strict_by_bin)
+        mi_95_by_bin_vals_str = (("\n" + _format_means(vals_strict_by_bin)) if any(vals_95_ci_by_bin) else "")
+        mi_99_by_bin_vals_str = (("\n" + _format_means(vals_strict_by_bin)) if any(vals_99_ci_by_bin) else "")
+
+        return (
+            f"{bins_str}\n{bin_count_str}\n{mi_strict_by_bin_vals_str}{mi_95_by_bin_vals_str}{mi_99_by_bin_vals_str}")
