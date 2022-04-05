@@ -82,7 +82,7 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
                 int_tuple(line[-6:-4]),
                 parse_cis(line[-4:-2], commas=True),
                 parse_cis(line[-2:], commas=True),
-            ) if "." not in line[-6:-4] else (None, None, None)
+            )
             for line in (pv.strip().split("\t") for pv in ph)
             if line[0] == contig and "." not in line[-6:-4]
         }
