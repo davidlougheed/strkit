@@ -55,7 +55,7 @@ def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> 
     gm_filter_factor: int = 3
 
     line: str = "\t".join((*data[0], data[1])) + "\t" + "/".join(data[3])
-    null_response: str = line + "\t" + "\t".join(["."] * (n_alleles * 2)) + "\n"
+    null_response: str = line + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     locus_chr = data[0][0]
 

@@ -82,7 +82,7 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
                 int_tuple(line[-6:-4]),
                 parse_cis(line[-4:-2], commas=True),
                 parse_cis(line[-2:], commas=True),
-            )
+            ) if "." not in line[-6:-4] else (None, None, None)
             for line in (pv.strip().split("\t") for pv in ph)
             if line[0] == contig and "." not in line[-6:-4]
         }
@@ -107,8 +107,6 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
                 # Check to make sure call is present in all trio individuals
                 if lookup not in mother_calls or lookup not in father_calls:
                     continue
-
-                # TODO: What do failed calls look like here?
 
                 m_gt, m_gt_95_ci, _ = mother_calls[lookup]
                 f_gt, f_gt_95_ci, _ = father_calls[lookup]

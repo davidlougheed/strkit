@@ -24,7 +24,7 @@ def call_tandem_genotypes(args: Tuple[Optional[str], str, int, int, int, int, st
         return ""
 
     data: list = line.strip().split()
-    null_response = line.strip() + "\t" + "\t".join(["."] * (n_alleles * 2)) + "\n"
+    null_response = line.strip() + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     locus_chr = data[0]
 

@@ -29,7 +29,7 @@ def call_repeathmm(args: Tuple[Optional[str], str, int, int, int, int, str]) -> 
 
     no_call_response = "\t".join((
         data[0],
-        *(["."] * (n_alleles * 2)),
+        *(["."] * (n_alleles * 3)),  # 3: 1 exact + 2 CIs (95, 99)
         data[1],
     )) + "\n"
 
