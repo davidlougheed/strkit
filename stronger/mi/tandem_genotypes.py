@@ -88,7 +88,7 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
         }
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        cr = MIContigResult(includes_95_ci=True)
+        cr = MIContigResult(includes_95_ci=True, includes_99_ci=True)
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -108,8 +108,8 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
                 if lookup not in mother_calls or lookup not in father_calls:
                     continue
 
-                m_gt, m_gt_95_ci, _ = mother_calls[lookup]
-                f_gt, f_gt_95_ci, _ = father_calls[lookup]
+                m_gt, m_gt_95_ci, m_gt_99_ci = mother_calls[lookup]
+                f_gt, f_gt_95_ci, f_gt_99_ci = father_calls[lookup]
 
                 calls = locus_data[-6:-4]
 
@@ -130,6 +130,10 @@ class TandemGenotypesReCallCalculator(TandemGenotypesCalculator):
                     child_gt_95_ci=parse_cis(locus_data[-4:-2], commas=True),
                     mother_gt_95_ci=m_gt_95_ci,
                     father_gt_95_ci=f_gt_95_ci,
+
+                    child_gt_99_ci=parse_cis(locus_data[-2:], commas=True),
+                    mother_gt_99_ci=m_gt_99_ci,
+                    father_gt_99_ci=f_gt_99_ci,
 
                     # TODO: ref count
                 ))
