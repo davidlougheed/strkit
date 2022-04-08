@@ -30,6 +30,7 @@ class StraglrCalculator(BaseCalculator):
 
             locus = tuple(line[:3])
             orig_motif = self._loci_dict.get(locus)
+            orig_motif = orig_motif[-1] if orig_motif else None
             if not orig_motif:
                 continue
 
