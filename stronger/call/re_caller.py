@@ -11,7 +11,7 @@ from .straglr import preprocess_lines_straglr, call_straglr
 from .tandem_genotypes import call_tandem_genotypes
 
 __all__ = [
-    "call_all_alleles",
+    "re_call_all_alleles",
 ]
 
 
@@ -22,14 +22,14 @@ def _bound_param(param: int, min_val: int, max_val: int, flag_name: str):
     return new_param
 
 
-def call_all_alleles(contig: Optional[str] = None,
-                     sex_chr: str = "NONE",  # NONE, XX, XY
-                     bootstrap_iterations: int = 250,
-                     min_reads: int = 5,
-                     min_allele_reads: int = 3,
-                     read_bias_corr_min: int = 4,
-                     caller: str = tc.CALLER_TANDEM_GENOTYPES,
-                     processes: int = 1) -> int:
+def re_call_all_alleles(contig: Optional[str] = None,
+                        sex_chr: str = "NONE",  # NONE, XX, XY
+                        bootstrap_iterations: int = 250,
+                        min_reads: int = 5,
+                        min_allele_reads: int = 3,
+                        read_bias_corr_min: int = 4,
+                        caller: str = tc.CALLER_TANDEM_GENOTYPES,
+                        processes: int = 1) -> int:
     if caller not in tc.CALL_SUPPORTED_CALLERS:
         sys.stderr.write(f"Error: invalid caller '{caller}'")
         return 1

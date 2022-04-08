@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Type
 
 import stronger.constants as c
 from stronger.aligned.lengths import aligned_lengths_cmd
-from stronger.call import call_all_alleles
+from stronger.call import re_call_all_alleles
 from stronger.catalog.combine import combine_catalogs
 from stronger.convert.converter import convert
 from stronger.mi.base import BaseCalculator
@@ -16,7 +16,7 @@ from stronger.mi.straglr import StraglrCalculator, StraglrReCallCalculator
 from stronger.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
 
 
-def add_call_parser_args(call_parser):
+def add_re_call_parser_args(call_parser):
     call_parser.add_argument(
         "--caller",
         type=str,
@@ -178,11 +178,11 @@ def add_cv_parser_args(al_parser):
     ), help="Caller format to convert to.")
 
 
-def _exec_call(p_args) -> int:
+def _exec_re_call(p_args) -> int:
     contig: Optional[str] = getattr(p_args, "contig", None)
 
     # TODO: - allow providing minimum supporting reads like with RepeatHMM
-    return call_all_alleles(
+    return re_call_all_alleles(
         contig=contig,
         sex_chr=p_args.sex_chr,
         bootstrap_iterations=p_args.num_bootstrap,
@@ -283,12 +283,12 @@ def main(args: Optional[List[str]] = None):
 
     subparsers = parser.add_subparsers()
 
-    call_parser = subparsers.add_parser(
-        "call",
-        help="A long-read tandem repeat (TR) caller which is designed to build upon existing TR genotyping "
+    re_call_parser = subparsers.add_parser(
+        "re-call",
+        help="A long-read tandem repeat (TR) re-caller, designed to build upon existing TR genotyping "
              "methods to yield calls with confidence intervals.")
-    call_parser.set_defaults(func=_exec_call)
-    add_call_parser_args(call_parser)
+    re_call_parser.set_defaults(func=_exec_re_call)
+    add_re_call_parser_args(re_call_parser)
 
     mi_parser = subparsers.add_parser(
         "mi",
