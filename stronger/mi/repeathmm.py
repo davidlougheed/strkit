@@ -83,14 +83,18 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
     @staticmethod
     def make_calls_dict(ph, contig):
         return {
-            tuple(v[0].split(":")): (int_tuple(v[1:3]), parse_cis(v[3:5], commas=True))
+            tuple(v[0].split(":")): (
+                int_tuple(v[1:3]),
+                parse_cis(v[3:5], commas=True),
+                parse_cis(v[5:7], commas=True),
+            )
             for v in (pv.split("\t") for pv in ph)
             if v[0].split(":")[0] == contig and "." not in v[1:3]
         }
 
     # TODO: Deduplicate with above
     def calculate_contig(self, contig: str) -> MIContigResult:
-        cr = MIContigResult(includes_95_ci=True)
+        cr = MIContigResult(includes_95_ci=True, includes_99_ci=True)
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -112,8 +116,10 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
 
                 # TODO: What will failed calls look like here? Do we also check for 0?
 
-                m_gt, m_gt_95_ci = mother_calls[lookup]
-                f_gt, f_gt_95_ci = father_calls[lookup]
+                m_gt, m_gt_95_ci, m_gt_99_ci = mother_calls[lookup]
+                f_gt, f_gt_95_ci, f_gt_99_ci = father_calls[lookup]
+
+                # print(m_gt, m_gt_95_ci, m_gt_99_ci)
 
                 calls = locus_data[1:3]
 
@@ -123,6 +129,7 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
 
                 c_gt = int_tuple(calls)
                 c_gt_95_ci = parse_cis(locus_data[3:5], commas=True)
+                c_gt_99_ci = parse_cis(locus_data[5:7], commas=True)
 
                 if (0, 0) in (c_gt, m_gt, f_gt):  # TODO
                     # Failed call
@@ -141,12 +148,16 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
                     lookup[3],
 
                     child_gt=int_tuple(calls),
-                    mother_gt=mother_calls[lookup],
-                    father_gt=father_calls[lookup],
+                    mother_gt=m_gt,
+                    father_gt=f_gt,
 
                     child_gt_95_ci=c_gt_95_ci,
                     mother_gt_95_ci=m_gt_95_ci,
                     father_gt_95_ci=f_gt_95_ci,
+
+                    child_gt_99_ci=c_gt_99_ci,
+                    mother_gt_99_ci=m_gt_99_ci,
+                    father_gt_99_ci=f_gt_99_ci,
                 ))
 
         return cr
