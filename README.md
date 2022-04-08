@@ -23,9 +23,9 @@ tuned for low-coverage HiFi reads.
 
 ### Troubleshooting:
 
-Slow performance can result from running `stronger call` on a system with OpenMP, due to a misguided
-attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work here due to 
-repeated initializations of the Gaussian mixture model.) To fix this, set the following
+Slow performance can result from running `stronger call` or `stronger re-call` on a system with OpenMP, 
+due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
+here due to  repeated initializations of the Gaussian mixture model.) To fix this, set the following
 environment variable before running:
 
 ```bash

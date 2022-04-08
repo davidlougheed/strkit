@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Type
 
 import stronger.constants as c
 from stronger.aligned.lengths import aligned_lengths_cmd
-from stronger.call import re_call_all_alleles
+from stronger.call import call_sample, re_call_all_alleles
 from stronger.catalog.combine import combine_catalogs
 from stronger.convert.converter import convert
 from stronger.mi.base import BaseCalculator
@@ -16,21 +16,20 @@ from stronger.mi.straglr import StraglrCalculator, StraglrReCallCalculator
 from stronger.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
 
 
-def add_re_call_parser_args(call_parser):
-    call_parser.add_argument(
-        "--caller",
-        type=str,
-        choices=c.CALL_SUPPORTED_CALLERS,
-        required=True,
-        default=argparse.SUPPRESS,
-        help="The program which called the TR genotypes.")
+def add_call_parser_args(call_parser):
+    call_parser.add_argument("read_file", type=str, help="BAM file with reads to call from.")
 
     call_parser.add_argument(
-        "--num-bootstrap",
-        type=int,
-        default=250,
-        help="Specifies the number of bootstrap samples to use to calculate confidence intervals and median genotype "
-             "estimate.")
+        "--ref",
+        type=str,
+        required=True,
+        help="Path to a reference genome, FASTA-formatted and indexed.")
+
+    call_parser.add_argument(
+        "--trf-bed",
+        type=str,
+        required=True,
+        help="Specifies a TRF-derived BED file with all loci to call.")
 
     call_parser.add_argument(
         "--min-reads",
@@ -45,11 +44,16 @@ def add_re_call_parser_args(call_parser):
         help="Minimum number of supporting reads needed to call a specific allele peak.")
 
     call_parser.add_argument(
-        "--read-bias-corr-min",
+        "--flank-size",
         type=int,
-        default=4,
-        help="Minimum strand coverage (required on both strands) needed to attempt strand bias correction via "
-             "resampling. If this is set too low, may lead to calling bias or dropout.")
+        default=70,
+        help="Number of bases around the locus to use for context.")
+
+    call_parser.add_argument(
+        "--subflank-size",
+        type=int,
+        default=30,
+        help="Number of bases around a read to use to anchor it to the reference.")
 
     call_parser.add_argument(
         "--processes",
@@ -58,12 +62,67 @@ def add_re_call_parser_args(call_parser):
         help="Number of processes to use when calling.")
 
     call_parser.add_argument(
+        "--num-bootstrap",
+        type=int,
+        default=100,
+        help="Specifies the number of bootstrap samples to use to calculate confidence intervals and median genotype "
+             "estimate.")
+
+    call_parser.add_argument(
+        "--sex-chr",
+        type=str,
+        help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
+             "be genotyped.")
+
+
+def add_re_call_parser_args(re_call_parser):
+    re_call_parser.add_argument(
+        "--caller",
+        type=str,
+        choices=c.CALL_SUPPORTED_CALLERS,
+        required=True,
+        default=argparse.SUPPRESS,
+        help="The program which called the TR genotypes.")
+
+    re_call_parser.add_argument(
+        "--num-bootstrap",
+        type=int,
+        default=100,
+        help="Specifies the number of bootstrap samples to use to calculate confidence intervals and median genotype "
+             "estimate.")
+
+    re_call_parser.add_argument(
+        "--min-reads",
+        type=int,
+        default=5,
+        help="Minimum number of supporting reads needed to call a locus.")
+
+    re_call_parser.add_argument(
+        "--min-allele-reads",
+        type=int,
+        default=3,
+        help="Minimum number of supporting reads needed to call a specific allele peak.")
+
+    re_call_parser.add_argument(
+        "--read-bias-corr-min",
+        type=int,
+        default=4,
+        help="Minimum strand coverage (required on both strands) needed to attempt strand bias correction via "
+             "resampling. If this is set too low, may lead to calling bias or dropout.")
+
+    re_call_parser.add_argument(
+        "--processes",
+        type=int,
+        default=1,
+        help="Number of processes to use when calling.")
+
+    re_call_parser.add_argument(
         "--contig",
         type=str,
         default=argparse.SUPPRESS,
         help="Specifies a specific contig to process (optional).")
 
-    call_parser.add_argument(
+    re_call_parser.add_argument(
         "--sex-chr",
         type=str,
         default="NONE",
@@ -107,7 +166,7 @@ def add_mi_parser_args(mi_parser):
         "--trf-bed",
         type=str,
         help="Specifies a TRF-derived BED file with all called loci and motifs (required for Straglr, since it doesn't "
-             "respect the original motifs given to it.")
+             "respect the original motifs given to it.)")
 
     # Histogram-related arguments -------------------------------------------------------
     mi_parser.add_argument(
@@ -176,6 +235,23 @@ def add_cv_parser_args(al_parser):
         c.CALLER_STRAGLR,
         c.CALLER_TANDEM_GENOTYPES,
     ), help="Caller format to convert to.")
+
+
+def _exec_call(p_args) -> int:
+    call_sample(
+        p_args.read_file,
+        p_args.ref,
+        p_args.trf_bed,
+        min_reads=p_args.min_reads,
+        min_allele_reads=p_args.min_allele_reads,
+        num_bootstrap=p_args.num_bootstrap,
+        flank_size=p_args.flank_size,
+        subflank_size=p_args.subflank_size,
+        sex_chroms=p_args.sex_chr,
+        processes=p_args.processes,
+    )
+
+    return 0
 
 
 def _exec_re_call(p_args) -> int:
@@ -282,6 +358,12 @@ def main(args: Optional[List[str]] = None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     subparsers = parser.add_subparsers()
+
+    call_parser = subparsers.add_parser(
+        "call",
+        help="A tandem repeat (TR) caller designed for high-fidelity long reads.")
+    call_parser.set_defaults(func=_exec_call)
+    add_call_parser_args(call_parser)
 
     re_call_parser = subparsers.add_parser(
         "re-call",

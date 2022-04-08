@@ -13,6 +13,7 @@ setup(
     install_requires=[
         "pysam>=0.16.0.1,<0.20",
         "numpy>=1.20,<=1.22",
+        "parasail>=1.2.4,<1.3",
         "scikit-learn>=1.0,<1.1",
     ],
 
