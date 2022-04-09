@@ -340,8 +340,8 @@ class MIResult:
             return "\t".join(f"{np.mean(b)*100:.2f}" if b else "-" for b in bin_vals)
 
         mi_strict_by_bin_vals_str = _format_means(vals_strict_by_bin)
-        mi_95_by_bin_vals_str = (("\n" + _format_means(vals_strict_by_bin)) if any(vals_95_ci_by_bin) else "")
-        mi_99_by_bin_vals_str = (("\n" + _format_means(vals_strict_by_bin)) if any(vals_99_ci_by_bin) else "")
+        mi_95_by_bin_vals_str = (("\n" + _format_means(vals_95_ci_by_bin)) if any(vals_95_ci_by_bin) else "")
+        mi_99_by_bin_vals_str = (("\n" + _format_means(vals_99_ci_by_bin)) if any(vals_99_ci_by_bin) else "")
 
         return (
             f"{bins_str}\n{bin_count_str}\n{mi_strict_by_bin_vals_str}{mi_95_by_bin_vals_str}{mi_99_by_bin_vals_str}")
