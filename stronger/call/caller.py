@@ -168,8 +168,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
         # contain a correctly-sized sequence.
         flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx][:flank_size+10]
-
-        flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx][:flank_size]
+        flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx][-(flank_size+10):]
 
         read_rc = get_repeat_count(
             start_count=round(len(tr_read_seq) / motif_size),
@@ -180,8 +179,6 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
             # lid=left_coord
         )
         read_size_dict[segment.query_name] = read_rc[0]
-
-    read_sizes = sorted(read_size_dict.values())
 
     n_alleles = 2
     if contig in ("chrM", "M"):
@@ -195,7 +192,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
             n_alleles = sex_chroms.count("Y")
 
     call = call_alleles(
-        read_sizes, [],
+        list(read_size_dict.values()), [],
         bootstrap_iterations=num_bootstrap,
         min_reads=min_reads,
         min_allele_reads=min_allele_reads,
@@ -335,7 +332,7 @@ def call_sample(
                 res["motif"],
                 str(res["ref_cn"]),
                 str(res["ref_cn_trf"]),
-                ",".join(map(str, res["read_cns"].values())),
+                ",".join(map(str, sorted(res["read_cns"].values()))),
                 str(res["call"][0]) if res["call"] is not None else ".",
                 str(res["call"][1]) if res["call"] is not None else ".",
                 str("-".join(map(str, res["call_95_cis"][0]))) if res["call_95_cis"] is not None else ".",
