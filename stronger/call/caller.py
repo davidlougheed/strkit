@@ -162,7 +162,13 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
 
         tr_read_seq = segment.query_sequence[left_flank_end_idx:right_flank_start_idx]
 
-        flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx][-flank_size:]
+        # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop any expansion sequences
+        # from accidentally being included in the flanking region; e.g. if the insert gets mapped onto bases outside
+        # the definition coordinates.
+        # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
+        # contain a correctly-sized sequence.
+        flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx][:flank_size+10]
+
         flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx][:flank_size]
 
         read_rc = get_repeat_count(
