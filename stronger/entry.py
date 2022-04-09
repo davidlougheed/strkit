@@ -13,6 +13,7 @@ from stronger.mi.expansionhunter import ExpansionHunterCalculator
 from stronger.mi.gangstr import GangSTRCalculator
 from stronger.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
 from stronger.mi.straglr import StraglrCalculator, StraglrReCallCalculator
+from stronger.mi.stronger import StrongerCalculator
 from stronger.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
 
 
@@ -137,6 +138,7 @@ CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
     c.CALLER_REPEATHMM_RECALL: RepeatHMMReCallCalculator,
     c.CALLER_STRAGLR: StraglrCalculator,
     c.CALLER_STRAGLR_RECALL: StraglrReCallCalculator,
+    c.CALLER_STRONGER: StrongerCalculator,
     c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
     c.CALLER_TANDEM_GENOTYPES_RECALL: TandemGenotypesReCallCalculator,
 }
