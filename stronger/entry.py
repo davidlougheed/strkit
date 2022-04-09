@@ -35,13 +35,13 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--min-reads",
         type=int,
-        default=5,
+        default=4,
         help="Minimum number of supporting reads needed to call a locus.")
 
     call_parser.add_argument(
         "--min-allele-reads",
         type=int,
-        default=3,
+        default=2,
         help="Minimum number of supporting reads needed to call a specific allele peak.")
 
     call_parser.add_argument(
@@ -89,13 +89,13 @@ def add_re_call_parser_args(re_call_parser):
     re_call_parser.add_argument(
         "--min-reads",
         type=int,
-        default=5,
+        default=4,
         help="Minimum number of supporting reads needed to call a locus.")
 
     re_call_parser.add_argument(
         "--min-allele-reads",
         type=int,
-        default=3,
+        default=2,
         help="Minimum number of supporting reads needed to call a specific allele peak.")
 
     re_call_parser.add_argument(
