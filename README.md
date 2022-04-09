@@ -6,7 +6,45 @@ A toolkit for analyzing variation in short(ish) tandem repeats.
 ## `stronger call`: Genotype caller with bootstrapped confidence intervals
 
 A Gaussian mixture model tandem repeat genotype caller for long read data,
-tuned for low-coverage HiFi reads.
+tuned for high-fidelity long reads.
+
+### Features:
+
+* Performant, vectorized (via [parasail](https://github.com/jeffdaily/parasail))
+  estimates of repeat counts from high-fidelity long reads and a supplied 
+  catalog of TR loci.
+* Parallelized for faster computing on clusters.
+* 95% confidence intervals on calls via user-configurable bootstrapping.
+
+
+### Usage:
+
+```bash
+stronger call \
+  path/to/read/file.bam \  # [REQUIRED] Indexed read file (BAM/CRAM)
+  --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
+  --trf-bed path/to/loci.bed \  # [REQUIRED] TRF-formatted list of loci to genotype
+  --min-reads 4 \  # Minimum number of supporting reads needed to make a call
+  --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
+  --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
+```
+
+Slow performance can result from running `stronger call` or `stronger re-call` on a system with OpenMP, 
+due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
+here due to  repeated initializations of the Gaussian mixture model.) To fix this, set the following
+environment variable before running:
+
+```bash
+export OMP_NUM_THREADS=1
+```
+
+
+
+## `stronger re-call`: Genotype re-caller
+
+This command has the same feature-set as `stronger call`, but is designed to
+be used with the output of other long-read STR genotyping methods to refine
+the genotype estimates when calling from HiFi reads.\
 
 ### Features:
 
@@ -21,16 +59,6 @@ tuned for low-coverage HiFi reads.
   something like a single PacBio HiFi read generally contains higher-quality information than a single
   PacBio CLR read, for example.
 
-### Troubleshooting:
-
-Slow performance can result from running `stronger call` or `stronger re-call` on a system with OpenMP, 
-due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
-here due to  repeated initializations of the Gaussian mixture model.) To fix this, set the following
-environment variable before running:
-
-```bash
-export OMP_NUM_THREADS=1
-```
 
 
 ## `stronger mi`: Mendelian inheritance analysis

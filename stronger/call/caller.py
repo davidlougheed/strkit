@@ -35,14 +35,13 @@ debug = False
 indel_penalty = 7
 
 
-def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_right_seq: str, motif: str,
-                     subflank_size: int) -> tuple:
+def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_right_seq: str, motif: str) -> tuple:
     moving = 0
     to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores = {}
 
-    flsub = flank_left_seq[-subflank_size:]
-    frsub = flank_right_seq[:subflank_size]
+    flsub = flank_left_seq
+    frsub = flank_right_seq
 
     db_seq = flank_left_seq + tr_seq + flank_right_seq
 
@@ -57,13 +56,10 @@ def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_r
             rs = sizes_and_scores.get(i)
             if rs is None:
                 mm = motif * i
-
-                r_fwd = parasail.sg_dx_stats_rowcol_striped_16(
+                r_fwd = parasail.sg_de_stats_rowcol_striped_16(
                         flsub + mm, db_seq, indel_penalty, indel_penalty, dna_matrix)
-
-                r_rev = parasail.sg_dx_stats_rowcol_striped_16(
+                r_rev = parasail.sg_db_stats_rowcol_striped_16(
                         mm + frsub, db_seq, indel_penalty, indel_penalty, dna_matrix)
-
                 sizes_and_scores[i] = rs = max(r_fwd.score, r_rev.score)
 
             szs.append((i, rs))
@@ -79,9 +75,15 @@ def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_r
     return res
 
 
-def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int = 5, min_allele_reads: int = 3, num_bootstrap: int = 100,
-               flank_size: int = 70, subflank_size: int = 30, sex_chroms: Optional[str] = None):
-    contig = t[0]
+def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: int, num_bootstrap: int,
+               flank_size: int, sex_chroms: Optional[str] = None,
+               read_file_has_chr: bool = True, ref_file_has_chr: bool = True):
+    # TODO: Figure out coords properly!!!
+
+    contig: str = t[0]
+
+    read_contig = ("chr" if read_file_has_chr else "") + contig.removeprefix("chr")
+    ref_contig = ("chr" if ref_file_has_chr else "") + contig.removeprefix("chr")
 
     motif = t[-1]
     motif_size = len(motif)
@@ -89,7 +91,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int = 5, min_allele_rea
     left_coord = int(t[1])
     right_coord = int(t[2])
 
-    left_flank_coord = left_coord - flank_size
+    left_flank_coord = left_coord - flank_size - 1
     right_flank_coord = right_coord + flank_size
 
     ref_left_flank_seq = ""
@@ -98,16 +100,16 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int = 5, min_allele_rea
     raised = False
 
     try:
-        ref_left_flank_seq = ref.fetch(contig, left_flank_coord, left_coord)
-        ref_right_flank_seq = ref.fetch(contig, right_coord, right_flank_coord)
-        ref_seq = ref.fetch(contig, left_coord, right_coord)
+        ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
+        ref_right_flank_seq = ref.fetch(ref_contig, right_coord - 1, right_flank_coord)
+        ref_seq = ref.fetch(ref_contig, left_coord, right_coord - 1)
     except IndexError:
         log_warning(
-            f"Coordinates out of range in provided reference FASTA for region {contig} with flank size "
+            f"Coordinates out of range in provided reference FASTA for region {ref_contig} with flank size "
             f"{flank_size}: [{left_flank_coord}, {right_flank_coord}] (skipping locus {t_idx})")
         raised = True
     except ValueError:
-        log_error(f"Invalid region '{contig}' for provided reference FASTA (skipping locus {t_idx})")
+        log_error(f"Invalid region '{ref_contig}' for provided reference FASTA (skipping locus {t_idx})")
         raised = True
 
     if len(ref_left_flank_seq) < flank_size or len(ref_right_flank_seq) < flank_size:
@@ -120,11 +122,11 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int = 5, min_allele_rea
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_size = round(len(ref_seq) / motif_size)
-    rc = get_repeat_count(ref_size, ref_seq, ref_left_flank_seq, ref_right_flank_seq, motif, subflank_size)
+    rc = get_repeat_count(ref_size, ref_seq, ref_left_flank_seq, ref_right_flank_seq, motif)
 
     read_size_dict = {}
 
-    for segment in bf.fetch(t[0], left_flank_coord, right_flank_coord):
+    for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord):
         left_flank_start_idx = -1
         left_flank_end_idx = -1
         right_flank_start_idx = -1
@@ -135,9 +137,12 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int = 5, min_allele_rea
 
             if pair[1] <= left_flank_coord:
                 left_flank_start_idx = pair[0]
-            elif pair[1] <= left_coord:
+            elif pair[1] < left_coord:
+                # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
+                # the STR; if we include the left-most base of the STR, we will have a giant flanking region which
+                # will include part of the tandem repeat itself.
                 left_flank_end_idx = pair[0]
-            elif pair[1] <= right_coord:
+            elif pair[1] < right_coord:
                 right_flank_start_idx = pair[0]
             elif pair[1] >= right_flank_coord:
                 right_flank_end_idx = pair[0]
@@ -157,8 +162,8 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int = 5, min_allele_rea
 
         tr_read_seq = segment.query_sequence[left_flank_end_idx:right_flank_start_idx]
 
-        flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx]
-        flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx]
+        flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx][-flank_size:]
+        flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx][:flank_size]
 
         read_rc = get_repeat_count(
             start_count=round(len(tr_read_seq) / motif_size),
@@ -166,7 +171,6 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int = 5, min_allele_rea
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
-            subflank_size=subflank_size,
             # lid=left_coord
         )
         read_size_dict[segment.query_name] = read_rc[0]
@@ -218,13 +222,15 @@ def locus_worker(
         min_allele_reads: int,
         num_bootstrap: int,
         flank_size: int,
-        subflank_size: int,
         sex_chroms: Optional[str],
         locus_queue: mp.Queue) -> list:
     import pysam as p
 
     ref = p.FastaFile(reference_file)
-    bf = p.AlignmentFile(read_file)
+    bf = p.AlignmentFile(read_file, reference_filename=reference_file)
+
+    ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
+    read_file_has_chr = any(r.startswith("chr") for r in bf.references)
 
     results = []
     while True:
@@ -238,7 +244,6 @@ def locus_worker(
         #     "read_file:", read_file,
         #     "reference_file:", reference_file,
         #     "flank_size:", flank_size,
-        #     "subflank_size:", subflank_size,
         #     "min_reads:", min_reads,
         #     "min_allele_reads:", min_allele_reads,
         #     "num_bootstrap:", num_bootstrap,
@@ -252,8 +257,9 @@ def locus_worker(
             min_allele_reads=min_allele_reads,
             num_bootstrap=num_bootstrap,
             flank_size=flank_size,
-            subflank_size=subflank_size,
             sex_chroms=sex_chroms,
+            read_file_has_chr=read_file_has_chr,
+            ref_file_has_chr=ref_file_has_chr,
         )
 
         if res is not None:
@@ -267,8 +273,10 @@ def call_sample(
         read_file: str,
         reference_file: str,
         loci_file: str,
-        min_reads: int = 5, min_allele_reads: int = 3, num_bootstrap: int = 100,
-        flank_size: int = 70, subflank_size: int = 30,
+        min_reads: int = 4,
+        min_allele_reads: int = 2,
+        num_bootstrap: int = 100,
+        flank_size: int = 70,
         sex_chroms: Optional[str] = None,
         output_format: str = "tsv",
         processes: int = 1):
@@ -294,7 +302,6 @@ def call_sample(
                 min_allele_reads,
                 num_bootstrap,
                 flank_size,
-                subflank_size,
                 sex_chroms,
                 locus_queue
             )))
@@ -331,18 +338,3 @@ def call_sample(
 
     if output_format == "json":
         sys.stdout.write(json.dumps(results))
-
-
-# def main():
-#     call_sample(
-#         # "hg002.chr19.bam",
-#         "NA19238.ccs.aligned.bam",
-#         "hg38.analysisSet.fa.gz",
-#         # "trf.bed",
-#         "1000g.bed",
-#         flank_size=70,
-#         subflank_size=30)
-#
-#
-# if __name__ == "__main__":
-#     main()
