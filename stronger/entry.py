@@ -51,12 +51,6 @@ def add_call_parser_args(call_parser):
         help="Number of bases around the locus to use for context.")
 
     call_parser.add_argument(
-        "--subflank-size",
-        type=int,
-        default=30,
-        help="Number of bases around a read to use to anchor it to the reference.")
-
-    call_parser.add_argument(
         "--processes",
         type=int,
         default=1,
@@ -248,7 +242,6 @@ def _exec_call(p_args) -> int:
         min_allele_reads=p_args.min_allele_reads,
         num_bootstrap=p_args.num_bootstrap,
         flank_size=p_args.flank_size,
-        subflank_size=p_args.subflank_size,
         sex_chroms=p_args.sex_chr,
         processes=p_args.processes,
     )
