@@ -141,7 +141,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
                 # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
                 # the STR; if we include the left-most base of the STR, we will have a giant flanking region which
                 # will include part of the tandem repeat itself.
-                left_flank_end_idx = pair[0]
+                left_flank_end_idx = pair[0] + 1  # Add 1 to make it exclusive
             elif pair[1] < right_coord:
                 right_flank_start_idx = pair[0]
             elif pair[1] >= right_flank_coord:
