@@ -56,9 +56,9 @@ def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_r
             rs = sizes_and_scores.get(i)
             if rs is None:
                 mm = motif * i
-                r_fwd = parasail.sg_de_stats_rowcol_striped_16(
+                r_fwd = parasail.sg_de_stats_rowcol_scan_sat(
                         flsub + mm, db_seq, indel_penalty, indel_penalty, dna_matrix)
-                r_rev = parasail.sg_db_stats_rowcol_striped_16(
+                r_rev = parasail.sg_db_stats_rowcol_scan_sat(
                         mm + frsub, db_seq, indel_penalty, indel_penalty, dna_matrix)
                 sizes_and_scores[i] = rs = max(r_fwd.score, r_rev.score)
 
