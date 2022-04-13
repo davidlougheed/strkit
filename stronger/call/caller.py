@@ -210,7 +210,6 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         "end": right_coord,
         "motif": motif,
         "ref_cn": rc[0],
-        "ref_cn_trf": t[5],
         "call": list(call[0]) if call[0] is not None else None,
         "call_95_cis": list(call[1]) if call[1] is not None else None,
         "call_99_cis": list(call[2]) if call[2] is not None else None,
@@ -325,18 +324,17 @@ def call_sample(
 
     if output_format == "tsv":
         for res in results:
+            n_calls = len(res["call"])
             sys.stdout.write("\t".join((
                 res["contig"],
                 str(res["start"]),
                 str(res["end"]),
                 res["motif"],
                 str(res["ref_cn"]),
-                str(res["ref_cn_trf"]),
                 ",".join(map(str, sorted(res["read_cns"].values()))),
-                str(res["call"][0]) if res["call"] is not None else ".",
-                str(res["call"][1]) if res["call"] is not None else ".",
-                str("-".join(map(str, res["call_95_cis"][0]))) if res["call_95_cis"] is not None else ".",
-                str("-".join(map(str, res["call_95_cis"][1]))) if res["call_95_cis"] is not None else ".",
+                "|".join(map(str, (res["call"][i] for i in range(n_calls)))) if res["call"] is not None else ".",
+                ("|".join("-".join(map(str, res["call_95_cis"][i])) for i in range(n_calls))
+                 if res["call_95_cis"] is not None else "."),
             )) + "\n")
 
     if output_format == "json":

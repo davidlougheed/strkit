@@ -26,11 +26,10 @@ class StrongerCalculator(BaseCalculator):
     @staticmethod
     def make_calls_dict(ph, contig):
         return {
-            # Use relative indices because we may have the original calls lurking
             tuple(line[:4]): (
-                int_tuple(line[-4:-2]),
-                parse_cis(line[-2:]),
-                None  # parse_cis(line[-2:], commas=True),
+                int_tuple(line[-2].split("|")),
+                parse_cis(line[-1].split("|")),
+                None  # parse_cis(line[-1:].split("|")),
             )
             for line in (pv.strip().split("\t") for pv in ph)
             if line[0] == contig and "." not in line[-4:-2]
@@ -76,11 +75,11 @@ class StrongerCalculator(BaseCalculator):
                     mother_gt=m_gt,
                     father_gt=f_gt,
 
-                    child_gt_95_ci=parse_cis(locus_data[-2:]),
+                    child_gt_95_ci=parse_cis(locus_data[-1].split("|")),
                     mother_gt_95_ci=m_gt_95_ci,
                     father_gt_95_ci=f_gt_95_ci,
 
-                    # child_gt_99_ci=parse_cis(locus_data[-2:], commas=True),
+                    # child_gt_99_ci=parse_cis(locus_data[-1:].split("|")),
                     # mother_gt_99_ci=m_gt_99_ci,
                     # father_gt_99_ci=f_gt_99_ci,
 
