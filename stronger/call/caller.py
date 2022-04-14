@@ -14,8 +14,6 @@ __all__ = [
     "call_sample",
 ]
 
-dna_matrix = parasail.matrix_create("ACGT", 2, -7)
-
 
 def log(fd=sys.stderr, level: str = "ERROR"):
     def inner(message: str):
@@ -32,7 +30,11 @@ log_debug = log(level="DEBUG")
 
 debug = False
 
-indel_penalty = 7
+match_score = 2
+mismatch_penalty = 7
+indel_penalty = 5
+
+dna_matrix = parasail.matrix_create("ACGT", match_score, -1 * mismatch_penalty)
 
 
 def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_right_seq: str, motif: str) -> tuple:
@@ -81,11 +83,10 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
     # TODO: Figure out coords properly!!!
 
     contig: str = t[0]
-
     read_contig = ("chr" if read_file_has_chr else "") + contig.removeprefix("chr")
     ref_contig = ("chr" if ref_file_has_chr else "") + contig.removeprefix("chr")
 
-    motif = t[-1]
+    motif: str = t[-1]
     motif_size = len(motif)
 
     left_coord = int(t[1])
