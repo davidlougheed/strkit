@@ -40,6 +40,7 @@ def call_tandem_genotypes(args: Tuple[Optional[str], str, int, int, int, int, st
     allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
         tuple(map(int, data[-2].split(","))) if data[-2] != "." else (),
         tuple(map(int, data[-1].split(","))) if data[-1] != "." else (),
+        None, None,
         bootstrap_iterations=bootstrap_iterations,
         min_reads=min_reads,
         min_allele_reads=min_allele_reads,

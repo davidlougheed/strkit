@@ -69,8 +69,8 @@ def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> 
         n_alleles = 1
 
     allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
-        tuple(map(float, data[3])),
-        (),
+        tuple(map(float, data[3])), (),
+        None, None,
         bootstrap_iterations=bootstrap_iterations,
         min_reads=min_reads,
         min_allele_reads=min_allele_reads,

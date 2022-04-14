@@ -5,7 +5,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import normalize
 from warnings import simplefilter
 
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 RepeatCounts = Union[List[int], Tuple[int, ...], List[float], Tuple[float, ...]]
 
@@ -28,6 +28,8 @@ def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> np.array
 # noinspection PyUnresolvedReferences
 def call_alleles(repeats_fwd: RepeatCounts,
                  repeats_rev: RepeatCounts,
+                 read_weights_fwd: Optional[Iterable[float]],
+                 read_weights_rev: Optional[Iterable[float]],
                  bootstrap_iterations: int,
                  min_reads: int,
                  min_allele_reads: int,
@@ -38,11 +40,21 @@ def call_alleles(repeats_fwd: RepeatCounts,
                  force_int: bool) -> Tuple[Optional[np.array], Optional[np.array], Optional[np.array]]:
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
+
     fwd_len = fwd_strand_reads.shape[0]
     rev_len = rev_strand_reads.shape[0]
 
-    combined = np.concatenate((fwd_strand_reads, rev_strand_reads), axis=None)
-    combined_len = combined.shape[0]
+    fwd_strand_weights = np.array(
+        read_weights_fwd if read_weights_fwd is not None else np.array(([1/fwd_len] * fwd_len) if fwd_len else []))
+    rev_strand_weights = np.array(
+        read_weights_rev if read_weights_rev is not None else np.array(([1/rev_len] * rev_len) if rev_len else []))
+
+    assert fwd_strand_reads.shape == fwd_strand_weights.shape
+    assert rev_strand_reads.shape == rev_strand_weights.shape
+
+    combined_reads = np.concatenate((fwd_strand_reads, rev_strand_reads), axis=None)
+    combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
+    combined_len = combined_reads.shape[-1]
 
     if combined_len < min_reads:
         return None, None, None
@@ -61,15 +73,29 @@ def call_alleles(repeats_fwd: RepeatCounts,
         # (if we've passed the coverage threshold)
 
         fwd_strand_samples = np.random.choice(
-            fwd_strand_reads, size=(bootstrap_iterations, target_length), replace=True)
+            fwd_strand_reads,
+            size=(bootstrap_iterations, target_length),
+            replace=True,
+            p=fwd_strand_weights,
+        )
 
         rev_strand_samples = np.random.choice(
-            rev_strand_reads, size=(bootstrap_iterations, target_length), replace=True)
+            fwd_strand_reads,
+            size=(bootstrap_iterations, target_length),
+            replace=True,
+            p=fwd_strand_weights,
+        )
 
         concat_samples = np.sort(np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1))
 
     else:
-        concat_samples = np.sort(np.random.choice(combined, size=(bootstrap_iterations, combined_len), replace=True))
+        concat_samples = np.sort(
+            np.random.choice(
+                combined_reads,
+                size=(bootstrap_iterations, combined_len),
+                replace=True,
+                p=combined_weights,
+            ))
 
     cache = {}
 
@@ -124,7 +150,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
 
         sorted_allele_estimates = np.sort(resampled_means, axis=0).reshape(-1, 1)
 
-        if not np.issubdtype(combined[0], np.floating):  # TODO: Add force_int
+        if not np.issubdtype(combined_reads[0], np.floating):  # TODO: Add force_int
             sorted_allele_estimates = np.rint(sorted_allele_estimates).astype(np.int32)
 
         allele_samples = np.append(allele_samples, sorted_allele_estimates, axis=1)

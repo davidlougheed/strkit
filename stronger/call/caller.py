@@ -2,6 +2,7 @@ import heapq
 import json
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
+import numpy as np
 import parasail
 import sys
 
@@ -126,6 +127,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
     rc = get_repeat_count(ref_size, ref_seq, ref_left_flank_seq, ref_right_flank_seq, motif)
 
     read_size_dict = {}
+    read_weight_dict = {}
 
     for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord):
         left_flank_start_idx = -1
@@ -171,15 +173,26 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx][:flank_size+10]
         flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx][-(flank_size+10):]
 
+        read_len = segment.query_alignment_length
+        tr_len = len(tr_read_seq)
+
         read_rc = get_repeat_count(
-            start_count=round(len(tr_read_seq) / motif_size),
+            start_count=round(tr_len / motif_size),
             tr_seq=tr_read_seq,
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
             # lid=left_coord
         )
+
+        # TODO: Untie weights from actualized read lengths - just pass in tr_flank_len + distribution, then randomly
+        #  pull read lengths from distribution which overlaps region for each bootstrap iteration or something?
+        #  Can't do that, since boostraps are calculated in advance - calculate mean/stdev of ln(overlapping read)s
+        #  and use those as parameter maybe...
+
+        tr_flank_len = tr_len + len(flank_left_seq) + len(flank_right_seq)
         read_size_dict[segment.query_name] = read_rc[0]
+        read_weight_dict[segment.query_name] = 1 / ((read_len - tr_flank_len + 1) / (read_len + tr_flank_len - 2))
 
     n_alleles = 2
     if contig in ("chrM", "M"):
@@ -192,8 +205,14 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         if contig in cc.Y_CHROMOSOME_NAMES:
             n_alleles = sex_chroms.count("Y")
 
+    # Dicts are ordered in Python; very nice :)
+    read_sizes = np.array(list(read_size_dict.values()))
+    read_weights = np.array(list(read_weight_dict.values()))
+    read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
+
     call = call_alleles(
-        list(read_size_dict.values()), [],
+        read_sizes, (),
+        read_weights, (),
         bootstrap_iterations=num_bootstrap,
         min_reads=min_reads,
         min_allele_reads=min_allele_reads,
@@ -215,6 +234,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         "call_95_cis": list(call[1]) if call[1] is not None else None,
         "call_99_cis": list(call[2]) if call[2] is not None else None,
         "read_cns": read_size_dict,
+        "read_weights": read_weight_dict,
     }
 
 

@@ -69,8 +69,8 @@ def call_repeathmm(args: Tuple[Optional[str], str, int, int, int, int, str]) -> 
         read_counts_expanded.extend([rv] * rc)
 
     allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
-        read_counts_expanded,
-        (),  # RepeatHMM doesn't separate read counts by strand
+        read_counts_expanded, (),  # RepeatHMM doesn't separate read counts by strand
+        None, None,
         bootstrap_iterations=bootstrap_iterations,
         min_reads=min_reads,
         min_allele_reads=min_allele_reads,
