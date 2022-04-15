@@ -84,8 +84,8 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
     # TODO: Figure out coords properly!!!
 
     contig: str = t[0]
-    read_contig = ("chr" if read_file_has_chr else "") + contig.removeprefix("chr")
-    ref_contig = ("chr" if ref_file_has_chr else "") + contig.removeprefix("chr")
+    read_contig = ("chr" if read_file_has_chr else "") + contig.replace("chr", "")
+    ref_contig = ("chr" if ref_file_has_chr else "") + contig.replace("chr", "")
 
     motif: str = t[-1]
     motif_size = len(motif)
