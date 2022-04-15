@@ -345,7 +345,7 @@ def call_sample(
 
     if output_format == "tsv":
         for res in results:
-            n_calls = len(res["call"])
+            n_calls = len(res["call"]) if res["call"] is not None else "."
             sys.stdout.write("\t".join((
                 res["contig"],
                 str(res["start"]),
