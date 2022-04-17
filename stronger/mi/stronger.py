@@ -32,7 +32,7 @@ class StrongerCalculator(BaseCalculator):
                 None  # parse_cis(line[-1:].split("|")),
             )
             for line in (pv.strip().split("\t") for pv in ph)
-            if line[0] == contig and "." not in line[-4:-2]
+            if line[0] == contig and "." not in line[-2].split("|")
         }
 
     def calculate_contig(self, contig: str) -> MIContigResult:
@@ -59,7 +59,7 @@ class StrongerCalculator(BaseCalculator):
                 m_gt, m_gt_95_ci, _ = mother_calls[lookup]
                 f_gt, f_gt_95_ci, _ = father_calls[lookup]
 
-                calls = locus_data[-4:-2]
+                calls = locus_data[-2].split("|")
 
                 if "." in calls:
                     # Failed call
