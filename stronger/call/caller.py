@@ -6,7 +6,7 @@ import numpy as np
 import parasail
 import sys
 
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from stronger import constants as cc
 from stronger.call.allele import call_alleles
@@ -38,7 +38,13 @@ indel_penalty = 5
 dna_matrix = parasail.matrix_create("ACGT", match_score, -1 * mismatch_penalty)
 
 
-def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_right_seq: str, motif: str) -> tuple:
+def get_repeat_count(
+        start_count: int,
+        tr_seq: str,
+        flank_left_seq: str,
+        flank_right_seq: str,
+        motif: str
+) -> Tuple[int, int]:
     moving = 0
     to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores = {}
@@ -67,20 +73,20 @@ def get_repeat_count(start_count: int, tr_seq: str, flank_left_seq: str, flank_r
 
             szs.append((i, rs))
 
-        mv: tuple[int, int] = max(szs, key=lambda x: x[1])
+        mv: Tuple[int, int] = max(szs, key=lambda x: x[1])
         if mv[0] > size_to_explore and (new_rc := mv[0] + 1) not in sizes_and_scores:
             to_explore.append((new_rc, 1))
         if mv[0] < size_to_explore and (new_rc := mv[0] - 1) not in sizes_and_scores:
             to_explore.append((new_rc, -1))
 
     # noinspection PyTypeChecker
-    res: tuple[int, int] = max(sizes_and_scores.items(), key=lambda x: x[1])
+    res: Tuple[int, int] = max(sizes_and_scores.items(), key=lambda x: x[1])
     return res
 
 
 def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: int, num_bootstrap: int,
                flank_size: int, sex_chroms: Optional[str] = None,
-               read_file_has_chr: bool = True, ref_file_has_chr: bool = True):
+               read_file_has_chr: bool = True, ref_file_has_chr: bool = True) -> Optional[dict]:
     # TODO: Figure out coords properly!!!
 
     contig: str = t[0]
@@ -246,7 +252,8 @@ def locus_worker(
         num_bootstrap: int,
         flank_size: int,
         sex_chroms: Optional[str],
-        locus_queue: mp.Queue) -> list:
+        locus_queue: mp.Queue) -> List[dict]:
+
     import pysam as p
 
     ref = p.FastaFile(reference_file)
@@ -255,7 +262,8 @@ def locus_worker(
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
     read_file_has_chr = any(r.startswith("chr") for r in bf.references)
 
-    results = []
+    results: List[dict] = []
+
     while True:
         td = locus_queue.get()
         sys.stdout.flush()
