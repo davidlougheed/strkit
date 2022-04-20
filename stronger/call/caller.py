@@ -264,16 +264,6 @@ def locus_worker(
         if td is None:  # Kill signal
             break
 
-        # print(
-        #     "read_file:", read_file,
-        #     "reference_file:", reference_file,
-        #     "flank_size:", flank_size,
-        #     "min_reads:", min_reads,
-        #     "min_allele_reads:", min_allele_reads,
-        #     "num_bootstrap:", num_bootstrap,
-        #     "sex_chroms", sex_chroms,
-        # )
-
         t_idx, t = td
         res = call_locus(
             t_idx, t, bf, ref,
