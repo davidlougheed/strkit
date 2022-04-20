@@ -27,10 +27,11 @@ def add_call_parser_args(call_parser):
         help="Path to a reference genome, FASTA-formatted and indexed.")
 
     call_parser.add_argument(
-        "--trf-bed",
+        "--loci",
         type=str,
         required=True,
-        help="Specifies a TRF-derived BED file with all loci to call.")
+        help="Specifies a BED file with all loci to call. The last column of the BED must contain the motif sequences "
+             "of the loci.")
 
     call_parser.add_argument(
         "--min-reads",
@@ -68,6 +69,16 @@ def add_call_parser_args(call_parser):
         type=str,
         help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
              "be genotyped.")
+
+    call_parser.add_argument(
+        "--json",
+        type=str,
+        help="Path to write JSON-formatted calls to. If left blank, no JSON file will be written.")
+
+    call_parser.add_argument(
+        "--no-tsv",
+        action="store_true",
+        help="If passed, no TSV call output will be written to stdout.")
 
 
 def add_re_call_parser_args(re_call_parser):
@@ -237,12 +248,14 @@ def _exec_call(p_args) -> int:
     call_sample(
         p_args.read_file,
         p_args.ref,
-        p_args.trf_bed,
+        p_args.loci,
         min_reads=p_args.min_reads,
         min_allele_reads=p_args.min_allele_reads,
         num_bootstrap=p_args.num_bootstrap,
         flank_size=p_args.flank_size,
         sex_chroms=p_args.sex_chr,
+        json_path=p_args.json,
+        output_tsv=not p_args.no_tsv,
         processes=p_args.processes,
     )
 

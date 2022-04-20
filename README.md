@@ -23,7 +23,7 @@ tuned for high-fidelity long reads.
 stronger call \
   path/to/read/file.bam \  # [REQUIRED] Indexed read file (BAM/CRAM)
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
-  --trf-bed path/to/loci.bed \  # [REQUIRED] TRF-formatted list of loci to genotype
+  --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) list of loci to genotype
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads

@@ -1,10 +1,16 @@
-from typing import Iterable, Tuple
+from typing import Any, Callable, Iterable, Tuple
 
 __all__ = [
+    "apply_or_none",
     "int_tuple",
     "parse_cis",
     "cis_overlap",
 ]
+
+
+def apply_or_none(fn: Callable, x: Any):
+    # Python: add any type of monad functionality challenge [IMPOSSIBLE]
+    return fn(x) if x is not None else None
 
 
 def int_tuple(x: Iterable) -> Tuple[int, ...]:

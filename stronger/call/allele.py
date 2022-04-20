@@ -7,6 +7,14 @@ from warnings import simplefilter
 
 from typing import Iterable, List, Optional, Tuple, Union
 
+import stronger.constants as cc
+
+__all__ = [
+    "RepeatCounts",
+    "get_n_alleles",
+    "call_alleles",
+]
+
 RepeatCounts = Union[List[int], Tuple[int, ...], List[float], Tuple[float, ...]]
 
 
@@ -23,6 +31,21 @@ def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> np.array
     # percentiles = np.percentile(samples, (2.5, 97.5), axis=1, method="interpolated_inverted_cdf")
     percentiles = np.percentile(samples, r, axis=1, interpolation="nearest").transpose()
     return np.rint(percentiles).astype(np.int32) if force_int else percentiles
+
+
+def get_n_alleles(default_n_alleles: int, sample_sex_chroms: Optional[str], contig: str) -> Optional[int]:
+    if contig in cc.M_CHROMOSOME_NAMES:
+        return 1
+
+    if contig in cc.SEX_CHROMOSOMES:
+        if sample_sex_chroms is None:
+            return None
+        if contig in cc.X_CHROMOSOME_NAMES:
+            return sample_sex_chroms.count("X")
+        if contig in cc.Y_CHROMOSOME_NAMES:
+            return sample_sex_chroms.count("Y")
+
+    return default_n_alleles
 
 
 # noinspection PyUnresolvedReferences

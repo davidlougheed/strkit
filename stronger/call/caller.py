@@ -8,8 +8,8 @@ import sys
 
 from typing import Iterable, List, Optional, Tuple
 
-from stronger import constants as cc
-from stronger.call.allele import call_alleles
+from stronger.call.allele import get_n_alleles, call_alleles
+from stronger.utils import apply_or_none
 
 __all__ = [
     "call_sample",
@@ -200,16 +200,9 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         read_size_dict[segment.query_name] = read_rc[0]
         read_weight_dict[segment.query_name] = 1 / ((read_len - tr_flank_len + 1) / (read_len + tr_flank_len - 2))
 
-    n_alleles = 2
-    if contig in ("chrM", "M"):
-        n_alleles = 1
-    if contig in cc.SEX_CHROMOSOMES:
-        if sex_chroms is None:
-            return None
-        if contig in cc.X_CHROMOSOME_NAMES:
-            n_alleles = sex_chroms.count("X")
-        if contig in cc.Y_CHROMOSOME_NAMES:
-            n_alleles = sex_chroms.count("Y")
+    n_alleles = get_n_alleles(2, sex_chroms, contig)
+    if n_alleles is None:
+        return None
 
     # Dicts are ordered in Python; very nice :)
     read_sizes = np.array(list(read_size_dict.values()))
@@ -236,9 +229,9 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         "end": right_coord,
         "motif": motif,
         "ref_cn": rc[0],
-        "call": list(call[0]) if call[0] is not None else None,
-        "call_95_cis": list(call[1]) if call[1] is not None else None,
-        "call_99_cis": list(call[2]) if call[2] is not None else None,
+        "call": apply_or_none(list, call[0]),
+        "call_95_cis": apply_or_none(list, call[1]),
+        "call_99_cis": apply_or_none(list, call[2]),
         "read_cns": read_size_dict,
         "read_weights": read_weight_dict,
     }
@@ -300,6 +293,11 @@ def locus_worker(
     return sorted(results, key=lambda x: x["locus_index"])
 
 
+def parse_loci_bed(loci_file: str):
+    with open(loci_file, "r") as tf:
+        yield from (tuple(line.split("\t")) for line in (s.strip() for s in tf) if line)
+
+
 def call_sample(
         read_file: str,
         reference_file: str,
@@ -309,51 +307,50 @@ def call_sample(
         num_bootstrap: int = 100,
         flank_size: int = 70,
         sex_chroms: Optional[str] = None,
-        output_format: str = "tsv",
+        json_path: Optional[str] = None,
+        output_tsv: bool = True,
         processes: int = 1):
-    with open(loci_file, "r") as tf:
-        trf_lines = [tuple(line.split("\t")) for line in (s.strip() for s in tf) if line]
-
-    trf_lines = tuple(trf_lines)
 
     manager = mp.Manager()
     locus_queue = manager.Queue()
 
+    job_args = (
+        read_file,
+        reference_file,
+        min_reads,
+        min_allele_reads,
+        num_bootstrap,
+        flank_size,
+        sex_chroms,
+        locus_queue,
+    )
     result_lists = []
 
     pool_class = mp.Pool if processes > 1 else mpd.Pool
-
     with pool_class(processes) as p:
-        jobs = []
-        for _ in range(processes):
-            jobs.append(p.apply_async(locus_worker, (
-                read_file,
-                reference_file,
-                min_reads,
-                min_allele_reads,
-                num_bootstrap,
-                flank_size,
-                sex_chroms,
-                locus_queue
-            )))
+        # Spin up the jobs
+        jobs = [p.apply_async(locus_worker, job_args) for _ in range(processes)]
 
-        for t_idx, t in enumerate(trf_lines, 1):
+        # Add all loci from the BED file to the queue, allowing each job
+        # to pull from the queue as it becomes freed up to do so.
+        for t_idx, t in enumerate(parse_loci_bed(loci_file), 1):
             locus_queue.put((t_idx, t))
 
+        # At the end of the queue, add a None value (* the # of processes).
+        # When a job encounters a None value, it will terminate.
         for _ in range(processes):
-            locus_queue.put(None)  # Kill the locus processors
+            locus_queue.put(None)
 
+        # Gather the process-specific results for combining.
         for j in jobs:
             result_lists.append(j.get())
 
-    # Merge sorted result lists into single sorted list
+    # Merge sorted result lists into single sorted list.
     results: Iterable[dict] = heapq.merge(*result_lists, key=lambda x: x["locus_index"])
 
-    # todo: allow simultaenous writing of tsv and json
-
-    if output_format == "tsv":
+    if output_tsv:
         for res in results:
-            n_calls = len(res["call"]) if res["call"] is not None else "."
+            has_call = res["call"] is not None
             sys.stdout.write("\t".join((
                 res["contig"],
                 str(res["start"]),
@@ -361,10 +358,10 @@ def call_sample(
                 res["motif"],
                 str(res["ref_cn"]),
                 ",".join(map(str, sorted(res["read_cns"].values()))),
-                "|".join(map(str, (res["call"][i] for i in range(n_calls)))) if res["call"] is not None else ".",
-                ("|".join("-".join(map(str, res["call_95_cis"][i])) for i in range(n_calls))
-                 if res["call_95_cis"] is not None else "."),
+                "|".join(map(str, res["call"])) if has_call else ".",
+                ("|".join("-".join(map(str, res["call_95_cis"]))) if has_call else "."),
             )) + "\n")
 
-    if output_format == "json":
-        sys.stdout.write(json.dumps(results))
+    if json_path:
+        with open(json_path, "w") as jf:
+            json.dump(results, jf)
