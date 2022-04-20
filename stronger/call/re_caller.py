@@ -23,10 +23,10 @@ def _bound_param(param: int, min_val: int, max_val: int, flag_name: str):
 
 
 def re_call_all_alleles(contig: Optional[str] = None,
-                        sex_chr: str = "NONE",  # NONE, XX, XY
-                        bootstrap_iterations: int = 250,
-                        min_reads: int = 5,
-                        min_allele_reads: int = 3,
+                        sex_chr: Optional[str] = None,
+                        bootstrap_iterations: int = 100,
+                        min_reads: int = 4,
+                        min_allele_reads: int = 2,
                         read_bias_corr_min: int = 4,
                         caller: str = tc.CALLER_TANDEM_GENOTYPES,
                         processes: int = 1) -> int:
@@ -38,13 +38,7 @@ def re_call_all_alleles(contig: Optional[str] = None,
     min_reads = _bound_param(min_reads, 2, 512, "min-reads")
     min_allele_reads = _bound_param(min_allele_reads, 1, 512, "min-allele-reads")
 
-    lines = []
-
-    for line in sys.stdin:
-        if line.strip() == "":
-            continue
-
-        lines.append(line)
+    lines = [ls for ls in (line.strip() for line in sys.stdin) if ls]
 
     if caller == tc.CALLER_TANDEM_GENOTYPES:
         fn = call_tandem_genotypes

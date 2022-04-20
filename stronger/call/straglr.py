@@ -1,7 +1,6 @@
 from typing import Optional, Tuple
 
-from .allele import call_alleles
-from ..constants import SEX_CHROMOSOMES
+from .allele import get_n_alleles, call_alleles
 
 __all__ = [
     "preprocess_lines_straglr",
@@ -42,31 +41,27 @@ def _tenths_str(s: float):
     return f"{round(s * 10) / 10:.1f}"
 
 
-def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> str:
+def call_straglr(args: Tuple[Optional[str], Optional[str], int, int, int, int, tuple]) -> str:
     contig: Optional[str] = args[0]
-    sex_chr: str = args[1]
+    sex_chr: Optional[str] = args[1]
     bootstrap_iterations: int = args[2]
     min_reads: int = args[3]
     min_allele_reads: int = args[4]
     # read_bias_corr_min isn't used here (args[5])
     data: tuple = args[6]
 
-    n_alleles: int = 2
     gm_filter_factor: int = 3
 
     line: str = "\t".join((*data[0], data[1])) + "\t" + "/".join(data[3])
-    null_response: str = line + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     locus_chr = data[0][0]
 
     if contig is not None and locus_chr != contig:
         return ""
 
-    if sex_chr == "NONE" and locus_chr in SEX_CHROMOSOMES:
-        return ""  # No calling of sex chromosomes if we're not given the sex chromosomes
-
-    if locus_chr in SEX_CHROMOSOMES and sex_chr == "XY":
-        n_alleles = 1
+    n_alleles: Optional[int] = get_n_alleles(2, sex_chr, locus_chr)
+    if n_alleles is None:
+        return ""  # No calling of sex chromosomes if we're not given the sex chromosome configuration
 
     allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
         tuple(map(float, data[3])), (),
@@ -82,7 +77,8 @@ def call_straglr(args: Tuple[Optional[str], str, int, int, int, int, tuple]) -> 
     )
 
     if allele_estimates is None:
-        return null_response
+        # No call response
+        return line + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     return (
         line + "\t" +

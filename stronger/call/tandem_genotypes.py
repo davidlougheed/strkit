@@ -1,41 +1,36 @@
 from typing import Optional, Tuple
 
-from .allele import call_alleles
-from ..constants import SEX_CHROMOSOMES
+from .allele import get_n_alleles, call_alleles
 
 __all__ = [
     "call_tandem_genotypes",
 ]
 
 
-def call_tandem_genotypes(args: Tuple[Optional[str], str, int, int, int, int, str]) -> str:
+def call_tandem_genotypes(args: Tuple[Optional[str], Optional[str], int, int, int, int, str]) -> str:
     contig: Optional[str] = args[0]
-    sex_chr: str = args[1]
+    sex_chr: Optional[str] = args[1]
     bootstrap_iterations: int = args[2]
     min_reads: int = args[3]
     min_allele_reads: int = args[4]
     read_bias_corr_min: int = args[5]
     line: str = args[6]
 
-    n_alleles: int = 2
     gm_filter_factor: int = 3
 
     if line.startswith("#"):  # comment, strip it out
         return ""
 
     data: list = line.strip().split()
-    null_response = line.strip() + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     locus_chr = data[0]
 
     if contig is not None and locus_chr != contig:
         return ""
 
-    if sex_chr == "NONE" and locus_chr in SEX_CHROMOSOMES:
-        return ""  # No calling of sex chromosomes if we're not given the sex chromosomes
-
-    if locus_chr in SEX_CHROMOSOMES and sex_chr == "XY":
-        n_alleles = 1
+    n_alleles: Optional[int] = get_n_alleles(2, sex_chr, locus_chr)
+    if n_alleles is None:
+        return ""  # No calling of sex chromosomes if we're not given the sex chromosome configuration
 
     allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
         tuple(map(int, data[-2].split(","))) if data[-2] != "." else (),
@@ -52,7 +47,8 @@ def call_tandem_genotypes(args: Tuple[Optional[str], str, int, int, int, int, st
     )
 
     if allele_estimates is None:
-        return null_response
+        # No call response
+        return line.strip() + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     return (
         line.strip() + "\t" +
