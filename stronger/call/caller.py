@@ -349,7 +349,7 @@ def call_sample(
                 str(res["ref_cn"]),
                 ",".join(map(str, sorted(res["read_cns"].values()))),
                 "|".join(map(str, res["call"])) if has_call else ".",
-                ("|".join("-".join(map(str, res["call_95_cis"]))) if has_call else "."),
+                ("|".join("-".join(map(str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
             )) + "\n")
 
     if json_path:
