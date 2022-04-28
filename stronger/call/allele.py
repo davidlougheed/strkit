@@ -103,10 +103,10 @@ def call_alleles(repeats_fwd: RepeatCounts,
         )
 
         rev_strand_samples = np.random.choice(
-            fwd_strand_reads,
+            rev_strand_reads,
             size=(bootstrap_iterations, target_length),
             replace=True,
-            p=fwd_strand_weights,
+            p=rev_strand_weights,
         )
 
         concat_samples = np.sort(np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1))
