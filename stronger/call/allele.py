@@ -118,7 +118,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
                 size=(bootstrap_iterations, combined_len),
                 replace=True,
                 p=combined_weights,
-            ))
+            ) if bootstrap_iterations > 1 else np.array([combined_reads]))
 
     cache = {}
 
