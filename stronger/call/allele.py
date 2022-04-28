@@ -173,7 +173,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
 
         sorted_allele_estimates = np.sort(resampled_means, axis=0).reshape(-1, 1)
 
-        if not np.issubdtype(combined_reads[0], np.floating):  # TODO: Add force_int
+        if force_int:
             sorted_allele_estimates = np.rint(sorted_allele_estimates).astype(np.int32)
 
         allele_samples = np.append(allele_samples, sorted_allele_estimates, axis=1)
