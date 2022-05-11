@@ -34,6 +34,11 @@ def add_call_parser_args(call_parser):
              "of the loci.")
 
     call_parser.add_argument(
+        "--targeted",
+        action="store_true",
+        help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
+
+    call_parser.add_argument(
         "--min-reads",
         type=int,
         default=4,
@@ -254,6 +259,7 @@ def _exec_call(p_args) -> int:
         num_bootstrap=p_args.num_bootstrap,
         flank_size=p_args.flank_size,
         sex_chroms=p_args.sex_chr,
+        targeted=p_args.targeted,
         json_path=p_args.json,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,

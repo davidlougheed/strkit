@@ -64,7 +64,7 @@ def call_repeathmm(args: Tuple[Optional[str], Optional[str], int, int, int, int,
             continue
         read_counts_expanded.extend([rv] * rc)
 
-    allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
+    call = call_alleles(
         read_counts_expanded, (),  # RepeatHMM doesn't separate read counts by strand
         None, None,
         bootstrap_iterations=bootstrap_iterations,
@@ -77,14 +77,14 @@ def call_repeathmm(args: Tuple[Optional[str], Optional[str], int, int, int, int,
         force_int=True,
     )
 
-    if allele_estimates is None:
+    if call is None:
         return no_call_response
 
     return (
         "\t".join((
             data[0],
-            *map(str, allele_estimates),
-            *(",".join(map(str, ci)) for ci in allele_cis_95),
-            *(",".join(map(str, ci)) for ci in allele_cis_99),
+            *map(str, call["call"]),
+            *(",".join(map(str, ci)) for ci in call["call_95_cis"]),
+            *(",".join(map(str, ci)) for ci in call["call_99_cis"]),
             data[1],
         )) + "\n")

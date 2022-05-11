@@ -72,7 +72,7 @@ def aligned_lengths_cmd(file: str, region: str) -> int:
     print(f"Aligned lengths:")
     print(f" Forward strand: {fwd_str}")
     print(f" Reverse strand: {rev_str}")
-    print(f"Best guess for allele lengths: {call[0][0]}, {call[0][1]}")
-    print(f"                      95% CIs: {call[1][0]}, {call[1][1]}")
-    print(f"                      99% CIs: {call[2][0]}, {call[2][1]}")
+    print(f"Best guess for allele lengths: {call['call'][0]}, {call['call'][1]}")
+    print(f"                      95% CIs: {call['call_95_cis'][0]}, {call['call_95_cis'][1]}")
+    print(f"                      99% CIs: {call['call_99_cis'][0]}, {call['call_99_cis'][1]}")
     return 1 if r1 is None else 0

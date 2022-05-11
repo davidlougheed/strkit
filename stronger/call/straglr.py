@@ -63,7 +63,7 @@ def call_straglr(args: Tuple[Optional[str], Optional[str], int, int, int, int, t
     if n_alleles is None:
         return ""  # No calling of sex chromosomes if we're not given the sex chromosome configuration
 
-    allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
+    call = call_alleles(
         tuple(map(float, data[3])), (),
         None, None,
         bootstrap_iterations=bootstrap_iterations,
@@ -76,14 +76,14 @@ def call_straglr(args: Tuple[Optional[str], Optional[str], int, int, int, int, t
         force_int=False,
     )
 
-    if allele_estimates is None:
+    if call is None:
         # No call response
         return line + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     return (
         line + "\t" +
         "\t".join((
-            *map(_tenths_str, allele_estimates),
-            *(",".join(map(_tenths_str, ci)) for ci in allele_cis_95),
-            *(",".join(map(_tenths_str, ci)) for ci in allele_cis_99),
+            *map(_tenths_str, call["call"]),
+            *(",".join(map(_tenths_str, ci)) for ci in call["call_95_cis"]),
+            *(",".join(map(_tenths_str, ci)) for ci in call["call_99_cis"]),
         )) + "\n")

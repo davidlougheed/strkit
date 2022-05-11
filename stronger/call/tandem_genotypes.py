@@ -32,7 +32,7 @@ def call_tandem_genotypes(args: Tuple[Optional[str], Optional[str], int, int, in
     if n_alleles is None:
         return ""  # No calling of sex chromosomes if we're not given the sex chromosome configuration
 
-    allele_estimates, allele_cis_95, allele_cis_99 = call_alleles(
+    call = call_alleles(
         tuple(map(int, data[-2].split(","))) if data[-2] != "." else (),
         tuple(map(int, data[-1].split(","))) if data[-1] != "." else (),
         None, None,
@@ -46,14 +46,14 @@ def call_tandem_genotypes(args: Tuple[Optional[str], Optional[str], int, int, in
         force_int=True,
     )
 
-    if allele_estimates is None:
+    if call is None:
         # No call response
         return line.strip() + "\t" + "\t".join(["."] * (n_alleles * 3)) + "\n"  # 3: 1 exact + 2 CIs (95, 99)
 
     return (
         line.strip() + "\t" +
         "\t".join((
-            *map(str, allele_estimates),
-            *(",".join(map(str, ci)) for ci in allele_cis_95),
-            *(",".join(map(str, ci)) for ci in allele_cis_99),
+            *map(str, call["call"]),
+            *(",".join(map(str, ci)) for ci in call["call_95_cis"]),
+            *(",".join(map(str, ci)) for ci in call["call_99_cis"]),
         )) + "\n")

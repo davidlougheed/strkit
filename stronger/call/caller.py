@@ -6,6 +6,7 @@ import numpy as np
 import parasail
 import sys
 
+from sklearn.mixture import GaussianMixture
 from typing import Iterable, List, Optional, Tuple
 
 from stronger.call.allele import get_n_alleles, call_alleles
@@ -34,6 +35,7 @@ debug = False
 match_score = 2
 mismatch_penalty = 7
 indel_penalty = 5
+min_read_score = 1.5  # TODO: parametrize
 
 dna_matrix = parasail.matrix_create("ACGT", match_score, -1 * mismatch_penalty)
 
@@ -84,14 +86,18 @@ def get_repeat_count(
     return res
 
 
+def normalize_contig(contig: str, has_chr: bool):
+    return ("chr" if has_chr else "") + contig.replace("chr", "")
+
+
 def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: int, num_bootstrap: int,
-               flank_size: int, sex_chroms: Optional[str] = None,
+               flank_size: int, sex_chroms: Optional[str] = None, targeted: bool = False,
                read_file_has_chr: bool = True, ref_file_has_chr: bool = True) -> Optional[dict]:
     # TODO: Figure out coords properly!!!
 
     contig: str = t[0]
-    read_contig = ("chr" if read_file_has_chr else "") + contig.replace("chr", "")
-    ref_contig = ("chr" if ref_file_has_chr else "") + contig.replace("chr", "")
+    read_contig = normalize_contig(contig, read_file_has_chr)
+    ref_contig = normalize_contig(contig, ref_file_has_chr)
 
     motif: str = t[-1]
     motif_size = len(motif)
@@ -132,10 +138,14 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
     ref_size = round(len(ref_seq) / motif_size)
     rc = get_repeat_count(ref_size, ref_seq, ref_left_flank_seq, ref_right_flank_seq, motif)
 
-    read_size_dict = {}
+    read_cn_dict = {}
     read_weight_dict = {}
 
-    for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord):
+    overlapping_segments = [segment for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord)]
+    read_lengths = [segment.query_alignment_length for segment in overlapping_segments]
+    sorted_read_lengths = sorted(read_lengths)
+
+    for segment, read_len in zip(overlapping_segments, read_lengths):
         left_flank_start_idx = -1
         left_flank_end_idx = -1
         right_flank_start_idx = -1
@@ -179,8 +189,9 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx][:flank_size+10]
         flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx][-(flank_size+10):]
 
-        read_len = segment.query_alignment_length
         tr_len = len(tr_read_seq)
+        flank_len = len(flank_left_seq) + len(flank_right_seq)
+        tr_len_w_flank = tr_len + flank_len
 
         read_rc = get_repeat_count(
             start_count=round(tr_len / motif_size),
@@ -188,24 +199,35 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
-            # lid=left_coord
         )
 
-        # TODO: Untie weights from actualized read lengths - just pass in tr_flank_len + distribution, then randomly
-        #  pull read lengths from distribution which overlaps region for each bootstrap iteration or something?
-        #  Can't do that, since boostraps are calculated in advance - calculate mean/stdev of ln(overlapping read)s
-        #  and use those as parameter maybe...
+        read_adj_score = (read_rc[1] - flank_len / match_score) / tr_len
+        if read_adj_score < min_read_score:
+            # TODO: Debug logging
+            continue
 
-        tr_flank_len = tr_len + len(flank_left_seq) + len(flank_right_seq)
-        read_size_dict[segment.query_name] = read_rc[0]
-        read_weight_dict[segment.query_name] = 1 / ((read_len - tr_flank_len + 1) / (read_len + tr_flank_len - 2))
+        read_cn_dict[segment.query_name] = read_rc[0]
+
+        # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
+        # overlaps the region, is P(read is large enough to contain) * P(
+        partition_idx = next((i for i in range(len(read_lengths)) if sorted_read_lengths[i] >= tr_len_w_flank), None)
+        if partition_idx is None:
+            # Fatal
+            # TODO: Just skip this locus
+            log_error(
+                f"Something strange happened; could not find an encompassing read where one should be guaranteed. "
+                f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
+            exit(1)
+        mean_containing_size = read_len if targeted else np.mean(sorted_read_lengths[partition_idx:])
+        read_weight_dict[segment.query_name] = (
+                (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1))
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
     if n_alleles is None:
         return None
 
     # Dicts are ordered in Python; very nice :)
-    read_sizes = np.array(list(read_size_dict.values()))
+    read_sizes = np.array(list(read_cn_dict.values()))
     read_weights = np.array(list(read_weight_dict.values()))
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
@@ -220,7 +242,31 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         read_bias_corr_min=0,
         gm_filter_factor=3,
         force_int=True,
-    )
+    ) or {}
+
+    peaks_data = {
+        "means": apply_or_none(list, call.get("peaks")),
+        "weights": apply_or_none(list, call.get("peak_weights")),
+        "stdevs": apply_or_none(list, call.get("peak_stdevs")),
+        "modal_n": call.get("modal_n_peaks"),
+    }
+
+    read_peak_labels = None
+    if peaks_data["means"]:  # Existence of one generally implies existence of the rest
+        mn = peaks_data["modal_n"]
+        ws = peaks_data["weights"][:mn]
+        final_model = GaussianMixture(
+            n_components=mn,
+            covariance_type="spherical",
+            max_iter=1,  # Lowest iteration # to keep it close to predicted parameters
+            weights_init=ws/np.sum(ws),
+            means_init=np.array(peaks_data["means"][:mn]).reshape(-1, 1),
+            precisions_init=1 / (np.array(peaks_data["stdevs"]) ** 2),  # TODO: Check, this looks wrong
+        )
+        rvs = np.array(list(read_cn_dict.values())).reshape(-1, 1)
+        res = final_model.fit_predict(rvs)
+        read_peak_labels = {k: (v, v2) for k, v, v2 in zip(read_cn_dict.keys(), read_cn_dict.values(), res)}
+        print(read_peak_labels)
 
     return {
         "locus_index": t_idx,
@@ -229,11 +275,13 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         "end": right_coord,
         "motif": motif,
         "ref_cn": rc[0],
-        "call": apply_or_none(list, call[0]),
-        "call_95_cis": apply_or_none(list, call[1]),
-        "call_99_cis": apply_or_none(list, call[2]),
-        "read_cns": read_size_dict,
-        "read_weights": read_weight_dict,
+        "call": apply_or_none(list, call.get("call")),
+        "call_95_cis": apply_or_none(list, call.get("call_95_cis")),
+        "call_99_cis": apply_or_none(list, call.get("call_99_cis")),
+        "peaks": peaks_data,
+        "read_cns": read_cn_dict,
+        "read_weights": None if targeted else read_weight_dict,
+        "read_peak_labels": read_peak_labels,
     }
 
 
@@ -245,6 +293,7 @@ def locus_worker(
         num_bootstrap: int,
         flank_size: int,
         sex_chroms: Optional[str],
+        targeted: bool,
         locus_queue: mp.Queue) -> List[dict]:
 
     import pysam as p
@@ -272,6 +321,7 @@ def locus_worker(
             num_bootstrap=num_bootstrap,
             flank_size=flank_size,
             sex_chroms=sex_chroms,
+            targeted=targeted,
             read_file_has_chr=read_file_has_chr,
             ref_file_has_chr=ref_file_has_chr,
         )
@@ -297,6 +347,7 @@ def call_sample(
         num_bootstrap: int = 100,
         flank_size: int = 70,
         sex_chroms: Optional[str] = None,
+        targeted: bool = False,
         json_path: Optional[str] = None,
         output_tsv: bool = True,
         processes: int = 1):
@@ -312,6 +363,7 @@ def call_sample(
         num_bootstrap,
         flank_size,
         sex_chroms,
+        targeted,
         locus_queue,
     )
     result_lists = []
@@ -341,6 +393,8 @@ def call_sample(
     if output_tsv:
         for res in results:
             has_call = res["call"] is not None
+            # n_peaks = res["peaks"]["modal_n"]
+
             sys.stdout.write("\t".join((
                 res["contig"],
                 str(res["start"]),
@@ -350,6 +404,13 @@ def call_sample(
                 ",".join(map(str, sorted(res["read_cns"].values()))),
                 "|".join(map(str, res["call"])) if has_call else ".",
                 ("|".join("-".join(map(str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
+
+                # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["means"][:n_peaks]))
+                #  if has_call and n_peaks <= 2 else "."),
+                # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["weights"][:n_peaks]))
+                #  if has_call and n_peaks <= 2 else "."),
+                # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["stdevs"][:n_peaks]))
+                #  if has_call and n_peaks <= 2 else "."),
             )) + "\n")
 
     if json_path:
