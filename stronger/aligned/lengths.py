@@ -56,6 +56,8 @@ def aligned_lengths_cmd(file: str, region: str) -> int:
     call = call_alleles(
         repeats_fwd=r1,
         repeats_rev=r2,
+        read_weights_fwd=None,
+        read_weights_rev=None,
         bootstrap_iterations=100,
         min_reads=2,
         min_allele_reads=1,
