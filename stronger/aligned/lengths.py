@@ -1,7 +1,7 @@
 import pysam
 import sys
 
-from typing import List, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 from stronger.call.allele import call_alleles
 
 __all__ = [
@@ -18,6 +18,7 @@ def aligned_lengths(file: str, region: str) -> Tuple[Optional[List[int]], Option
         sys.stderr.write("Error: please provide region in chr#:pos1-pos2 format\n")
         return None, None
 
+    mode: Literal["r", "rb", "rc"]
     if file.endswith(".sam"):
         mode = "r"
     elif file.endswith(".bam"):
