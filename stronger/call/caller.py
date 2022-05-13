@@ -7,7 +7,7 @@ import parasail
 import sys
 
 from sklearn.mixture import GaussianMixture
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from stronger.call.allele import get_n_alleles, call_alleles
 from stronger.utils import apply_or_none
@@ -248,7 +248,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         "means": apply_or_none(list, call.get("peaks")),
         "weights": apply_or_none(list, call.get("peak_weights")),
         "stdevs": apply_or_none(list, call.get("peak_stdevs")),
-        "modal_n": call.get("modal_n_peaks"),
+        "modal_n": apply_or_none(int, call.get("modal_n_peaks")),  # from np.int64
     }
 
     read_peak_labels = None
@@ -265,8 +265,13 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         )
         rvs = np.array(list(read_cn_dict.values())).reshape(-1, 1)
         res = final_model.fit_predict(rvs)
-        read_peak_labels = {k: (v, v2) for k, v, v2 in zip(read_cn_dict.keys(), read_cn_dict.values(), res)}
-        print(read_peak_labels)
+        read_peak_labels = {k: int(v) for k, v in zip(read_cn_dict.keys(), res)}
+
+    def _int_ndarray_serialize(x):
+        return [int(y) for y in x]
+
+    def _nested_int_ndarray_serialize(x):
+        return [_int_ndarray_serialize(y) for y in x]
 
     return {
         "locus_index": t_idx,
@@ -275,9 +280,9 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         "end": right_coord,
         "motif": motif,
         "ref_cn": rc[0],
-        "call": apply_or_none(list, call.get("call")),
-        "call_95_cis": apply_or_none(list, call.get("call_95_cis")),
-        "call_99_cis": apply_or_none(list, call.get("call_99_cis")),
+        "call": apply_or_none(_int_ndarray_serialize, call.get("call")),
+        "call_95_cis": apply_or_none(_nested_int_ndarray_serialize, call.get("call_95_cis")),
+        "call_99_cis": apply_or_none(_nested_int_ndarray_serialize, call.get("call_99_cis")),
         "peaks": peaks_data,
         "read_cns": read_cn_dict,
         "read_weights": None if targeted else read_weight_dict,
@@ -388,7 +393,7 @@ def call_sample(
             result_lists.append(j.get())
 
     # Merge sorted result lists into single sorted list.
-    results: Iterable[dict] = heapq.merge(*result_lists, key=lambda x: x["locus_index"])
+    results: Tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
 
     if output_tsv:
         for res in results:
