@@ -78,7 +78,8 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--json",
         type=str,
-        help="Path to write JSON-formatted calls to. If left blank, no JSON file will be written.")
+        help="Path to write JSON-formatted calls to. If left blank, no JSON file will be written. If the value is set "
+             "to 'stdout', JSON will be written to stdout, after the TSV unless TSV output is disabled.")
 
     call_parser.add_argument(
         "--no-tsv",
