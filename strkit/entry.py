@@ -13,7 +13,7 @@ from strkit.mi.expansionhunter import ExpansionHunterCalculator
 from strkit.mi.gangstr import GangSTRCalculator
 from strkit.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
 from strkit.mi.straglr import StraglrCalculator, StraglrReCallCalculator
-from strkit.mi.stronger import StrongerCalculator
+from strkit.mi.strkit import StrKitCalculator
 from strkit.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
 
 
@@ -149,7 +149,7 @@ CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
     c.CALLER_REPEATHMM_RECALL: RepeatHMMReCallCalculator,
     c.CALLER_STRAGLR: StraglrCalculator,
     c.CALLER_STRAGLR_RECALL: StraglrReCallCalculator,
-    c.CALLER_STRKIT: StrongerCalculator,
+    c.CALLER_STRKIT: StrKitCalculator,
     c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
     c.CALLER_TANDEM_GENOTYPES_RECALL: TandemGenotypesReCallCalculator,
 }

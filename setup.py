@@ -21,7 +21,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
 
-    url="https://github.com/davidlougheed/stronger",
+    url="https://github.com/davidlougheed/strkit",
     license="GPLv3",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
