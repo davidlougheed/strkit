@@ -1,2 +1,9 @@
 /env
 __pycache__
+
+*.bam
+*.bai
+*.fa.gz
+*.fa.gz.fai
+*.fa.gz.gzi
+*.bed
