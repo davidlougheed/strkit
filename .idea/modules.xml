@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/stronger.iml" filepath="$PROJECT_DIR$/.idea/stronger.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/strkit.iml" filepath="$PROJECT_DIR$/.idea/strkit.iml" />
     </modules>
   </component>
 </project>
