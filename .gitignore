@@ -1,6 +1,10 @@
 /env
 __pycache__
 
+/build
+/dist
+/strkit.egg-info
+
 *.bam
 *.bai
 *.fa.gz
