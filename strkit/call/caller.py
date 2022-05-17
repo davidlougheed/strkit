@@ -19,7 +19,7 @@ __all__ = [
 
 def log(fd=sys.stderr, level: str = "ERROR"):
     def inner(message: str):
-        fd.write(f"[stronger.call] {level}: {message}\n")
+        fd.write(f"[strkit.call] {level}: {message}\n")
         fd.flush()
 
     return inner
