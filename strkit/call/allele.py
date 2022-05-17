@@ -235,7 +235,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
         "call_95_cis": allele_cis_95,
         "call_99_cis": allele_cis_99,
 
-        "peaks": medians_of_means.flatten(),  # No rounding so we can recover original Gaussian model
+        "peaks": medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
         # TODO: Do we want to report this, or the stdev of the final peaks as determined by the bootstrapped
         #  means and variances????????????????
         "peak_weights": medians_of_weights.flatten(),
