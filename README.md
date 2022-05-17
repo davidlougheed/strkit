@@ -1,9 +1,9 @@
-# *str*onger
+# *str*kit
 
 A toolkit for analyzing variation in short(ish) tandem repeats.
 
 
-## `stronger call`: Genotype caller with bootstrapped confidence intervals
+## `strkit call`: Genotype caller with bootstrapped confidence intervals
 
 A Gaussian mixture model tandem repeat genotype caller for long read data,
 tuned for high-fidelity long reads.
@@ -20,7 +20,7 @@ tuned for high-fidelity long reads.
 ### Usage:
 
 ```bash
-stronger call \
+strkit call \
   path/to/read/file.bam \  # [REQUIRED] Indexed read file (BAM/CRAM)
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) list of loci to genotype
@@ -29,7 +29,7 @@ stronger call \
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
 ```
 
-Slow performance can result from running `stronger call` or `stronger re-call` on a system with OpenMP, 
+Slow performance can result from running `strkit call` or `strkit re-call` on a system with OpenMP, 
 due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
 here due to  repeated initializations of the Gaussian mixture model.) To fix this, set the following
 environment variable before running:
@@ -40,9 +40,9 @@ export OMP_NUM_THREADS=1
 
 
 
-## `stronger re-call`: Genotype re-caller
+## `strkit re-call`: Genotype re-caller
 
-This command has the same feature-set as `stronger call`, but is designed to
+This command has the same feature-set as `strkit call`, but is designed to
 be used with the output of other long-read STR genotyping methods to refine
 the genotype estimates when calling from HiFi reads.\
 
@@ -61,7 +61,7 @@ the genotype estimates when calling from HiFi reads.\
 
 
 
-## `stronger mi`: Mendelian inheritance analysis
+## `strkit mi`: Mendelian inheritance analysis
 
 This tool is currently in development and in a very unfinished state. However, the following features
 will be in the final release:

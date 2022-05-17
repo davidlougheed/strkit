@@ -6,8 +6,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name="stronger",
-    version="0.1.0-dev.16",
+    name="strkit",
+    version="0.1.0",
 
     python_requires="~=3.7",
     install_requires=[
@@ -36,6 +36,6 @@ setup(
     include_package_data=True,
 
     entry_points={
-        "console_scripts": ["stronger=stronger.entry:main"],
+        "console_scripts": ["strkit=strkit.entry:main"],
     },
 )

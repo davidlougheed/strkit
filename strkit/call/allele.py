@@ -8,7 +8,7 @@ from warnings import simplefilter
 
 from typing import Iterable, List, Optional, Tuple, Union
 
-import stronger.constants as cc
+import strkit.constants as cc
 
 __all__ = [
     "RepeatCounts",

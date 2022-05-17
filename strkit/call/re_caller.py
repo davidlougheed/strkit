@@ -1,7 +1,7 @@
 import multiprocessing as mp
 import sys
 
-import stronger.constants as tc
+import strkit.constants as tc
 
 from itertools import repeat
 from typing import Optional

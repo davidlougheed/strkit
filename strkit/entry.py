@@ -3,18 +3,18 @@ import sys
 
 from typing import Dict, List, Optional, Type
 
-import stronger.constants as c
-from stronger.aligned.lengths import aligned_lengths_cmd
-from stronger.call import call_sample, re_call_all_alleles
-from stronger.catalog.combine import combine_catalogs
-from stronger.convert.converter import convert
-from stronger.mi.base import BaseCalculator
-from stronger.mi.expansionhunter import ExpansionHunterCalculator
-from stronger.mi.gangstr import GangSTRCalculator
-from stronger.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
-from stronger.mi.straglr import StraglrCalculator, StraglrReCallCalculator
-from stronger.mi.stronger import StrongerCalculator
-from stronger.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
+import strkit.constants as c
+from strkit.aligned.lengths import aligned_lengths_cmd
+from strkit.call import call_sample, re_call_all_alleles
+from strkit.catalog.combine import combine_catalogs
+from strkit.convert.converter import convert
+from strkit.mi.base import BaseCalculator
+from strkit.mi.expansionhunter import ExpansionHunterCalculator
+from strkit.mi.gangstr import GangSTRCalculator
+from strkit.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
+from strkit.mi.straglr import StraglrCalculator, StraglrReCallCalculator
+from strkit.mi.stronger import StrongerCalculator
+from strkit.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
 
 
 def add_call_parser_args(call_parser):
@@ -149,7 +149,7 @@ CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
     c.CALLER_REPEATHMM_RECALL: RepeatHMMReCallCalculator,
     c.CALLER_STRAGLR: StraglrCalculator,
     c.CALLER_STRAGLR_RECALL: StraglrReCallCalculator,
-    c.CALLER_STRONGER: StrongerCalculator,
+    c.CALLER_STRKIT: StrongerCalculator,
     c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
     c.CALLER_TANDEM_GENOTYPES_RECALL: TandemGenotypesReCallCalculator,
 }

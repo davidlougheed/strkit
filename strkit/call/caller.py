@@ -9,8 +9,8 @@ import sys
 from sklearn.mixture import GaussianMixture
 from typing import List, Optional, Tuple
 
-from stronger.call.allele import get_n_alleles, call_alleles
-from stronger.utils import apply_or_none
+from strkit.call.allele import get_n_alleles, call_alleles
+from strkit.utils import apply_or_none
 
 __all__ = [
     "call_sample",

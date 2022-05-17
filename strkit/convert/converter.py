@@ -6,7 +6,7 @@ from .gangstr import trf_bed_to_gangstr
 from .straglr import trf_bed_to_straglr
 from .tandem_genotypes import trf_bed_to_tandem_genotypes
 
-import stronger.constants as c
+import strkit.constants as c
 
 __all__ = [
     "convert",

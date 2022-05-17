@@ -2,8 +2,8 @@ import numpy as np
 
 from typing import List, Iterable, Optional, Tuple, Union
 
-from stronger.constants import CHROMOSOMES
-from stronger.utils import cis_overlap
+from strkit.constants import CHROMOSOMES
+from strkit.utils import cis_overlap
 
 __all__ = [
     "MILocusData",

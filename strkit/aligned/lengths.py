@@ -2,7 +2,7 @@ import pysam
 import sys
 
 from typing import List, Literal, Optional, Tuple
-from stronger.call.allele import call_alleles
+from strkit.call.allele import call_alleles
 
 __all__ = [
     "aligned_lengths",
