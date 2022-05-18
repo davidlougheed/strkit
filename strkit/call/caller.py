@@ -285,7 +285,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         "call_99_cis": apply_or_none(_nested_int_ndarray_serialize, call.get("call_99_cis")),
         "peaks": peaks_data,
         "read_cns": read_cn_dict,
-        "read_weights": None if targeted else read_weight_dict,
+        "read_weights": read_weight_dict,
         "read_peak_labels": read_peak_labels,
     }
 
