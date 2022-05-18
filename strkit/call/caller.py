@@ -242,17 +242,19 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         read_bias_corr_min=0,
         gm_filter_factor=3,
         force_int=True,
-    ) or {}
+    ) or {}  # Still false-y
 
     peaks_data = {
-        "means": apply_or_none(list, call.get("peaks")),
-        "weights": apply_or_none(list, call.get("peak_weights")),
-        "stdevs": apply_or_none(list, call.get("peak_stdevs")),
-        "modal_n": apply_or_none(int, call.get("modal_n_peaks")),  # from np.int64
-    }
+        "means": list(call["peaks"]),  # from np.ndarray
+        "weights": list(call["peak_weights"]),  # from np.ndarray
+        "stdevs": list(call["peak_stdevs"]),  # from np.ndarray
+        "modal_n": int(call["modal_n_peaks"]),  # from np.int64
+    } if call else None
 
     read_peak_labels = None
-    if peaks_data["means"]:  # Existence of one generally implies existence of the rest
+    # We cannot call read-level cluster labels with >2 peaks;
+    # don't know how re-sampling has occurred.
+    if peaks_data and peaks_data["modal_n"] <= 2:
         mn = peaks_data["modal_n"]
         ws = peaks_data["weights"][:mn]
         final_model = GaussianMixture(
