@@ -145,7 +145,8 @@ def call_alleles(repeats_fwd: RepeatCounts,
             while n_components > 0:
                 g = GaussianMixture(
                     n_components=n_components,
-                    init_params="k-means++",
+                    init_params="kmeans",
+                    # init_params="k-means++",  # TODO: scikit-learn 1.1.0 when available on CC
                     covariance_type="spherical",
                     n_init=n_gm_init,
                 ).fit(sample_rs)
