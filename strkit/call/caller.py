@@ -261,7 +261,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
             max_iter=1,  # Lowest iteration # to keep it close to predicted parameters
             weights_init=ws/np.sum(ws),
             means_init=np.array(peaks_data["means"][:mn]).reshape(-1, 1),
-            precisions_init=1 / (np.array(peaks_data["stdevs"]) ** 2),  # TODO: Check, this looks wrong
+            precisions_init=1 / (np.array(peaks_data["stdevs"][:mn]) ** 2),  # TODO: Check, this looks wrong
         )
         rvs = np.array(list(read_cn_dict.values())).reshape(-1, 1)
         res = final_model.fit_predict(rvs)
