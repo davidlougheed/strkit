@@ -43,10 +43,52 @@ export OMP_NUM_THREADS=1
 ```
 
 
+## `strkit visualize`: Call visualizer
+
+STRkit bundles a call visualization tool which takes as input a BAM file and
+a JSON call file from using the `--json` flag with `strkit call`.
+
+It starts a web server on your local machine; the visualizations can be 
+interacted with in a web browser.
+
+To use the tool, run the following command:
+
+```bash
+strkit visualize path/to/my-alignment.bam \ 
+  --ref hg38 \  # or hg19
+  --json path/to/my-calls.json \
+  -i 1  # 1-indexed offset in JSON file for locus of interest. Default is 1 if left out.
+```
+
+This will output something like the following:
+
+```
+ * Serving Flask app 'strkit.viz.server' (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: on
+ * Running on http://localhost:5011 (Press CTRL+C to quit)
+...
+```
+
+You can then go to the URL listed, `http://localhost:5011`, on your local machine
+to see the visualization tool:
+
+![Browser Histogram](./docs/images/browser_hist.png)
+*STRkit browser histogram, showing an expansion in the HTT gene.*
+
+![igv.js Genome Browser](./docs/images/browser_igv.png)
+*The same expansion, shown in the igv.js browser. Note the insertions on
+the left-hand side in most reads, and the heterozygous copy number pattern.*
+
+To exit the tool, press `Ctrl-C` in your command line window as mentioned in 
+the start-up instructions.
+
 
 ## `strkit re-call`: Genotype re-caller
 
-This command has the same feature-set as `strkit call`, but is designed to
+This command has a similar feature-set as `strkit call`, but is designed to
 be used with the output of other long-read STR genotyping methods to refine
 the genotype estimates when calling from HiFi reads.\
 
