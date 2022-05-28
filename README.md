@@ -1,4 +1,4 @@
-# *str*kit
+# STRkit
 
 A toolkit for analyzing variation in short(ish) tandem repeats.
 
@@ -28,6 +28,10 @@ strkit call \
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
 ```
+
+If you want to output a full call report, you can use the `--json output-file.json` argument to
+specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
+labels, and some other information that isn't included in the normal TSV file.
 
 Slow performance can result from running `strkit call` or `strkit re-call` on a system with OpenMP, 
 due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
