@@ -141,9 +141,8 @@ def add_re_call_parser_args(re_call_parser):
     re_call_parser.add_argument(
         "--sex-chr",
         type=str,
-        default="NONE",
-        choices=("NONE", "XX", "XY"),
-        help="Whether to genotype sex chromosomes. Currently, this will cause issues with XY individuals.")
+        help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
+             "be genotyped.")
 
 
 CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
@@ -288,7 +287,6 @@ def _exec_call(p_args) -> int:
 def _exec_re_call(p_args) -> int:
     contig: Optional[str] = getattr(p_args, "contig", None)
 
-    # TODO: - allow providing minimum supporting reads like with RepeatHMM
     return re_call_all_alleles(
         contig=contig,
         sex_chr=p_args.sex_chr,
