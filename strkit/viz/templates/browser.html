@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>STRkit Browser</title>
+<!--    <script src="https://cdn.jsdelivr.net/npm/igv@2.12.6/dist/igv.min.js"></script>-->
+    <script src="https://dlougheed.com/igv.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+<!--    <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>-->
+<!--    <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>-->
+<!--    <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>-->
+
+    <script>
+        // ----
+        // Adapted from https://observablehq.com/@d3/histogram until the next '----'
+        // Copyright 2021 Observable, Inc.
+        // Released under the ISC license:
+        // Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee
+        // is hereby granted, provided that the above copyright notice and this permission notice appear in all
+        // copies.
+        // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+        // SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+        // AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+        // WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+        // OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+        // SOFTWARE.
+
+        const normalPdf = (mu, sigma) => x =>
+            (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.pow(Math.E, -0.5 * Math.pow((x - mu) / sigma, 2));
+
+        function Histogram(data, {
+          // normal stuff:
+          peaks,
+
+          // hist stuff:
+          value = d => d, // convenience alias for x
+          domain, // convenience alias for xDomain
+          label, // convenience alias for xLabel
+          format, // convenience alias for xFormat
+          type = d3.scaleLinear, // convenience alias for xType
+          x = value, // given d in data, returns the (quantitative) x-value
+          y = () => 1, // given d in data, returns the (quantitative) weight
+          thresholds = 40, // approximate number of bins to generate, or threshold function
+          normalize, // whether to normalize values to a total of 100%
+          marginTop = 20, // top margin, in pixels
+          marginRight = 30, // right margin, in pixels
+          marginBottom = 30, // bottom margin, in pixels
+          marginLeft = 40, // left margin, in pixels
+          width = 640, // outer width of chart, in pixels
+          height = 400, // outer height of chart, in pixels
+          insetLeft = 0.5, // inset left edge of bar
+          insetRight = 0.5, // inset right edge of bar
+          xType = type, // type of x-scale
+          xDomain = domain, // [xmin, xmax]
+          xRange = [marginLeft, width - marginRight], // [left, right]
+          xLabel = label, // a label for the x-axis
+          xFormat = format, // a format specifier string for the x-axis
+          yType = d3.scaleLinear, // type of y-scale
+          yDomain, // [ymin, ymax]
+          yRange = [height - marginBottom, marginTop], // [bottom, top]
+          yLabel = "↑ Frequency", // a label for the y-axis
+          yFormat = normalize ? "%" : undefined, // a format specifier string for the y-axis
+          color = "currentColor" // bar fill color
+        } = {}) {
+          // Compute values.
+          const X = d3.map(data, x);
+          const Y0 = d3.map(data, y);
+          const I = d3.range(X.length);
+
+          // Compute bins.
+          const bins = d3.bin().thresholds(thresholds).value(i => X[i])(I);
+          const Y = Array.from(bins, I => d3.sum(I, i => Y0[i]));
+          if (normalize) {
+            const total = d3.sum(Y);
+            for (let i = 0; i < Y.length; ++i) Y[i] /= total;
+          }
+
+          // Compute default domains.
+          if (xDomain === undefined) xDomain = [bins[0].x0 - 1, bins[bins.length - 1].x1 + 1];
+          if (yDomain === undefined) yDomain = [0, d3.max(Y)];
+
+          // Construct scales and axes.
+          const xScale = xType(xDomain, xRange);
+          const yScale = yType(yDomain, yRange);
+          const xAxis = d3.axisBottom(xScale).ticks(width / 80, xFormat).tickSizeOuter(0);
+          const yAxis = d3.axisLeft(yScale).ticks(height / 40, yFormat);
+          yFormat = yScale.tickFormat(100, yFormat);
+
+          const svg = d3.create("svg")
+              .attr("width", width)
+              .attr("height", height)
+              .attr("viewBox", [0, 0, width, height])
+              .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+
+          svg.append("g")
+              .attr("transform", `translate(${marginLeft},0)`)
+              .call(yAxis)
+              .call(g => g.select(".domain").remove())
+              .call(g => g.selectAll(".tick line").clone()
+                  .attr("x2", width - marginLeft - marginRight)
+                  .attr("stroke-opacity", 0.1))
+              .call(g => g.append("text")
+                  .attr("x", -marginLeft)
+                  .attr("y", 10)
+                  .attr("fill", "currentColor")
+                  .attr("text-anchor", "start")
+                  .text(yLabel));
+
+          const barWidth = d => Math.max(0, xScale(d.x1) - xScale(d.x0) - insetLeft - insetRight);
+
+          svg.append("g")
+              .attr("fill", color)
+            .selectAll("rect")
+            .data(bins)
+            .join("rect")
+              .attr("x", d => xScale(d.x0) + insetLeft - barWidth(d)/2)
+              .attr("width", barWidth)
+              .attr("y", (d, i) => yScale(Y[i]))
+              .attr("height", (d, i) => yScale(0) - yScale(Y[i]))
+            .append("title")
+              .text((d, i) => [`${d.x0} ≤ x < ${d.x1}`, yFormat(Y[i])].join("\n"));
+
+          if (peaks) {
+            const xs = [];
+            for (let i = xDomain[0]; i < xDomain[1]; i++) {
+              xs.push(i);
+            }
+            const line = d3.line()
+              .curve(d3.curveBasis)
+              .x(d => xScale(d[0]))
+              .y(d => yScale(d[1]));
+            const max = yDomain[1];
+            for (let i = 0; i < peaks.modal_n; i++) {
+              const pdf = normalPdf(peaks.means[i], peaks.stdevs[i]);
+              svg.append("path")
+                .datum(xs.map(xx => [xx, pdf(xx) * max * 3 * peaks.weights[i]]))
+                .attr("fill", "none")
+                .attr("stroke", i === 0 ? "#33F" : "#F33")
+                .attr("stroke-width", 1.5)
+                .attr("stroke-linejoin", "round")
+                .attr("d", line);
+            }
+          }
+
+          svg.append("g")
+              .attr("transform", `translate(0,${height - marginBottom})`)
+              .call(xAxis)
+              .call(g => g.append("text")
+                  .attr("x", width - marginRight)
+                  .attr("y", 27)
+                  .attr("fill", "currentColor")
+                  .attr("text-anchor", "end")
+                  .text(xLabel));
+
+          return svg.node();
+        }
+        // ----
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const scalesContainer = document.getElementById("scales");
+            const igvContainer = document.getElementById("igv-browser");
+
+            const regionDisplay = document.getElementById("region");
+            const motifDisplay = document.getElementById("motif");
+            const refCopies = document.getElementById("ref-copies");
+            const callDisplay = document.getElementById("call");
+            const call95Display = document.getElementById("call-95");
+
+            fetch("/call_data/{{ initial_i }}").then(r => r.json()).then(callData => {
+                console.log("call data", callData);
+
+                const cns = Object.values(callData.read_cns);
+                const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
+
+                document.getElementById("histogram").appendChild(Histogram(cns, {
+                    peaks: callData.peaks,
+                    thresholds,
+                    value: d => d,
+                    label: "Copy number →",
+                    yLabel: "↑ Read count",
+                    width: 800,
+                    height: 400,
+                    color: "#AAA",
+                }));
+
+                const region = `${callData.contig}:${callData.start}-${callData.end}`;
+                regionDisplay.innerText = region;
+                motifDisplay.innerText = callData.motif;
+                refCopies.innerText = callData.ref_cn;
+                callDisplay.innerText = callData.call.map(c => c.toFixed(0)).join(" | ");
+                call95Display.innerText = callData.call_95_cis
+                    .map(ci => "(" + ci.map(c => c.toFixed(0)).join("-") + ")").join(" | ");
+
+                const getReadsForPeak = q => Object.entries(callData.read_peak_labels)
+                    .filter(e => e[1] === q)
+                    .map(e => callData.read_cns[e[0]]);
+
+                const palettes = [d3.interpolateBlues, d3.interpolateReds];
+                const readColours = {};
+
+                const makeScale = (j, b) => {
+                    const scale = document.createElement("div");
+                    scale.setAttribute("data-label", `Allele ${j+1}`);
+                    const scaleGradient = document.createElement("div");
+                    scaleGradient.setAttribute("data-lower", b.min.toFixed(0));
+                    scaleGradient.setAttribute(
+                        "style",
+                        `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
+                         --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
+                    scaleGradient.setAttribute("data-upper", b.max.toFixed(0));
+                    scale.appendChild(scaleGradient);
+                    scalesContainer.appendChild(scale);
+                };
+
+                const getScalePosition = (b, cn) => {
+                    if (b.span === 0) return 0.5;
+                    return 0.2 + ((cn - b.min) / b.span) * 0.6;
+                };
+
+                if (callData.read_peak_labels && callData.peaks.means.length > 1) {
+                    const splitReads = [getReadsForPeak(0), getReadsForPeak(1)];
+                    const bounds = splitReads.map((rs, i) => {
+                        const min = Math.min(...rs);
+                        const max = Math.max(...rs);
+                        return {min, max, span: max - min};
+                    });
+
+                    Object.entries(callData.read_peak_labels).forEach(([r, p]) => {
+                        readColours[r] = palettes[p](getScalePosition(bounds[p], callData.read_cns[r]));
+                    });
+
+                    makeScale(0, bounds[0]);
+                    makeScale(1, bounds[1]);
+                } else {
+                    const calledReads = getReadsForPeak(0);
+                    const min = Math.min(...calledReads);
+                    const max = Math.max(...calledReads);
+                    const bounds = {min, max, span: max - min};
+
+                    Object.entires(callData.read_peak_labels).forEach(([r, cns]) => {
+                        readColours[r] = palettes[p](getScalePosition(bounds, cns));
+                    });
+
+                    makeScale(0, bounds);
+                }
+
+                const igvOptions = {
+                    genome: "{{ ref }}",
+                    locus: region,
+                    tracks: [
+                        {
+                            name: "{{ align_name }}",
+                            url: "/align",
+                            indexURL: "/align_index",
+                            format: "{{ align_format }}",
+                            showSoftClips: true,
+                            color: alignment => readColours[alignment.readName] ?? "rgb(180, 180, 180)",
+                            sort: {
+                                chr: callData.contig,
+                                position: ((callData.start + callData.end) / 2).toFixed(0),
+                                option: "INSERT_SIZE",
+                            },
+                        },
+                    ],
+                };
+
+                igv.createBrowser(igvContainer, igvOptions)
+                    .then(browser => {
+                        browser.on("trackclick", (track, popoverData) => {
+                            console.log(track, popoverData);
+
+                            const alignmentData = Object.fromEntries(
+                                popoverData.filter(p => typeof p === "object").map(p => [p.name, p.value]));
+
+                            if (alignmentData["Read Name"]) {
+                                const read = alignmentData["Read Name"];
+                                const cn = callData.read_cns[read];
+                                let peakLabel = callData.read_peak_labels?.[read];
+                                if (peakLabel !== undefined) {
+                                    peakLabel = `Allele ${(peakLabel+1).toFixed(0)}`;
+                                } else {
+                                    peakLabel = "-";
+                                }
+                                return `<div class="alignment-data">
+                                    <label>Read Name:</label><span>${read}</span>
+                                    <label>Est. Copy #:</label><span>${cn}</span>
+                                    <label>Rel. Copy #:</label><span>${(cn - callData.ref_cn).toFixed(0)}</span>
+                                    <label>Peak Label:</label><span>${peakLabel}</span>
+                                </div>`;
+                            };
+                        });
+
+                        document.querySelectorAll(".tab-link").forEach(tL => {
+                            tL.addEventListener("click", e => {
+                                document.querySelectorAll(".tab-links li")
+                                    .forEach(tL2 => tL2.classList.remove("active"));
+                                e.target.parentElement.classList.add("active");
+                                document.querySelectorAll(".tab-content")
+                                    .forEach(tC => tC.classList.remove("active"));
+                                document.getElementById(tL.dataset.for).classList.add("active");
+                                browser.visibilityChange();
+                            });
+                        });
+                    })
+                    .catch(console.error);
+            }).catch(console.error);
+        });
+    </script>
+
+    <style>
+        * { font-family: sans-serif; }
+
+        h1 {
+            font-family: sans-serif;
+            font-size: 28px;
+        }
+        h1 span {
+            font-weight: normal;
+        }
+
+        #locus-meta {
+            padding: 4px;
+            margin-bottom: 8px;
+            width: 536px;
+            display: grid;
+            grid-template-columns: 110px 150px 110px 150px;
+            column-gap: 8px;
+            row-gap: 4px;
+            border: 1px solid #999;
+        }
+        #locus-meta label {
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .tab-links {
+            list-style: none;
+            margin: 0; padding: 0;
+            display: flex;
+            gap: 16px;
+        }
+        .tab-links li {
+            padding: 16px 8px;
+        }
+        .tab-links li a {
+            color: #666;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .tab-links li.active a {
+            color: black;
+            text-decoration: none;
+        }
+        .tab-content {
+            background-color: #FCFCFC;
+            border: 1px solid #CCC;
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        #scales {
+            display: flex;
+            gap: 16px;
+        }
+        #scales > div {
+            display: flex;
+            gap: 8px;
+        }
+        #scales > div::before {
+            display: block;
+            height: 22px;
+            content: attr(data-label);
+            font-family: sans-serif;
+            font-weight: bold;
+            line-height: 22px;
+        }
+        #scales > div > div {
+            padding: 2px;
+            height: 16px;
+            width: 150px;
+            border: 1px solid #666;
+            background: linear-gradient(90deg, var(--scale-lower), var(--scale-upper));
+            display: flex;
+        }
+        #scales > div > div::before {
+            content: attr(data-lower);
+            flex: 1;
+            color: white;
+            font-weight: bold;
+            font-family: sans-serif;
+            -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.8);
+            text-stroke: 0.5px rgba(0, 0, 0, 0.8);
+        }
+        #scales > div > div::after {
+            content: attr(data-upper);
+            color: white;
+            font-weight: bold;
+            font-family: sans-serif;
+            -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.8);
+            text-stroke: 0.5px rgba(0, 0, 0, 0.8);
+        }
+
+        .alignment-data {
+            margin: 8px;
+            width: 300px;
+            display: grid;
+            grid-template-columns: 80px 220px;
+            column-gap: 8px;
+            row-gap: 4px;
+            font-size: 11px;
+        }
+        #igv-browser {
+            width: 100%;
+        }
+        .igv-ui-popover > div:last-child > .alignment-data > label { font-weight: bold; text-align: right; }
+        .igv-ui-popover > div:last-child > .alignment-data > span { font-weight: normal; }
+    </style>
+</head>
+<body>
+<h1>STRkit Browser: <span id="region"></span> &mdash; <span id="motif"></span></h1>
+<div id="locus-meta">
+    <label for="ref-copies">Ref. # Copies:</label><span id="ref-copies"></span>
+    <label for="call">Final Call:</label><span id="call"></span>
+    <label></label><span></span>
+    <label for="call-95">Call 95%CI:</label><span id="call-95"></span>
+</div>
+<ul class="tab-links">
+   <li class="active"><a class="tab-link" data-for="tab-histogram">Histogram</a></li>
+   <li><a class="tab-link" data-for="tab-browser">Browser</a></li>
+</ul>
+<div class="tab-content active" id="tab-histogram">
+    <div id="histogram"></div>
+</div>
+<div class="tab-content" id="tab-browser">
+    <div id="scales"></div>
+    <div id="igv-browser"></div>
+</div>
+</body>
+</html>

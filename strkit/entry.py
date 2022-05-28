@@ -1,4 +1,7 @@
 import argparse
+import json
+import pathlib
+import os
 import sys
 
 from typing import Dict, List, Optional, Type
@@ -15,6 +18,7 @@ from strkit.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
 from strkit.mi.straglr import StraglrCalculator, StraglrReCallCalculator
 from strkit.mi.strkit import StrKitCalculator
 from strkit.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
+from strkit.viz.server import run_server as viz_run_server
 
 
 def add_call_parser_args(call_parser):
@@ -250,6 +254,18 @@ def add_cv_parser_args(al_parser):
     ), help="Caller format to convert to.")
 
 
+def add_vs_parser_args(vs_parser):
+    vs_parser.add_argument("align_file", type=str, help="Alignment file to visualize.")
+    vs_parser.add_argument("--align-index", type=str, default="", help="Index for alignment file to visualize.")
+    vs_parser.add_argument(
+        "--ref", type=str, default="hg38",
+        help="Reference genome code used for visualization and calls. Default: hg38")
+    vs_parser.add_argument("--json", type=str, help="JSON file with STRkit calls to read from.")
+    vs_parser.add_argument(
+        "-i", type=int, default=1,
+        help="1-based index of the locus to visualize in the JSON file. Default: 0")
+
+
 def _exec_call(p_args) -> int:
     call_sample(
         p_args.read_file,
@@ -367,6 +383,64 @@ def _exec_convert(p_args):
     return convert(getattr(p_args, "trf-file"), p_args.caller)
 
 
+def _exec_viz_server(p_args):
+    align_file = str(pathlib.Path(p_args.align_file).resolve())
+    align_type = os.path.splitext(align_file)[-1].lstrip(".")
+
+    if align_type not in ("bam", "cram"):
+        print(f"Error: file type '{align_type}' not supported", file=sys.stderr)
+        return 1
+
+    if p_args.align_index:
+        align_index = str(pathlib.Path(p_args.align_index).resolve())
+    else:
+        align_index = f"{align_file}.{'crai' if align_type == 'cram' else 'bai'}"
+
+    if not os.path.exists(align_index):
+        print(f"Error: missing index at '{align_index}'", file=sys.stderr)
+        return 1
+
+    # TODO: Conditionally use this code if ref looks like a path
+    # ref = pathlib.Path(p_args.ref).resolve()
+    #
+    # if not ref.exists():
+    #     print(f"Error: could not find reference genome at '{ref}'", file=sys.stderr)
+    #     return 1
+    #
+    # ref_index = str(pathlib.Path(p_args.ref_index).resolve()) if p_args.ref_index else str(ref) + ".fai"
+    # if not os.path.exists(ref_index):
+    #     print(f"Error: missing .fai for reference genome at '{ref}'", file=sys.stderr)
+    #     return 1
+
+    json_file = pathlib.Path(p_args.json)
+
+    if not json_file.exists():
+        print(f"Error: could not find JSON call file at '{json_file}'", file=sys.stderr)
+        return 1
+
+    with open(json_file, "r") as jf:
+        call_data = json.load(jf)
+
+    idx = p_args.i
+    if idx < 1 or idx > len(call_data):
+        print(f"Error: JSON offset out of bounds: '{idx}'", file=sys.stderr)
+        return 1
+
+    viz_run_server(
+        call_data=call_data,
+        initial_i=idx-1,
+        ref=p_args.ref,
+        # ref_index=ref_index,
+        align=align_file,
+        align_index=align_index,
+        align_name=os.path.basename(align_file),
+        align_index_name=os.path.basename(align_index),
+        align_format=align_type,
+    )
+
+    return 0
+
+
 def main(args: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description="A toolkit for analyzing variation in short(ish) tandem repeats.",
@@ -410,6 +484,12 @@ def main(args: Optional[List[str]] = None):
         help="Convert TRF BED file to other caller formats.")
     cv_parser.set_defaults(func=_exec_convert)
     add_cv_parser_args(cv_parser)
+
+    vs_parser = subparsers.add_parser(
+        "visualize",
+        help="Start a web server to visualize aligned lengths of (repeat) a repeat region.")
+    vs_parser.set_defaults(func=_exec_viz_server)
+    add_vs_parser_args(vs_parser)
 
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)

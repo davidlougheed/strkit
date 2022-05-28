@@ -76,6 +76,11 @@ will be in the final release:
 
 Copyright (C) 2021-2022  David Lougheed & McGill University
 
+Portions (`viz`) copyright (C) 2021-2022  David Lougheed
+
+Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
+Used under the terms of the ISC license.
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
