@@ -13,7 +13,9 @@ tuned for high-fidelity long reads.
 * Performant, vectorized (via [parasail](https://github.com/jeffdaily/parasail))
   estimates of repeat counts from high-fidelity long reads and a supplied 
   catalog of TR loci.
-* Parallelized for faster computing on clusters.
+* Re-weighting of longer reads, to compensate for their lower likelihood of observation.
+  * Whole-genome and targeted genotyping modes to adjust this re-weighting.
+* Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via user-configurable bootstrapping.
 
 
@@ -41,6 +43,24 @@ environment variable before running:
 ```bash
 export OMP_NUM_THREADS=1
 ```
+
+
+### All optional flags:
+
+* `--min-reads ##`: Minimum number of supporting reads needed to make a call. Default: 4
+* `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
+  **Default:** 2
+* `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
+  **Default:** 70
+* `--targeted`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
+  the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
+* `--num-bootstrap ###`: Now many bootstrap re-samplings to perform. **Default:** 100
+* `--sex-chr ??`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
+  Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
+* `--json [path]`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV output.
+  **Default:** *none*
+* `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json`, no output will be generated, which isn't very 
+  helpful. **Default:** TSV output on
 
 
 ## `strkit visualize`: Call visualizer
