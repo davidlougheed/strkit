@@ -288,6 +288,15 @@
                                     <label>Peak Label:</label><span>${peakLabel}</span>
                                 </div>`;
                             };
+
+                            const ins = alignmentData["Insertion"]
+                            if (ins) {
+                                return `<div class="alignment-data insertion">
+                                    <label>Position:</label><span>${alignmentData["Location"]}</span>
+                                    <label>Size:</label><span>${ins.length}</span>
+                                    <label>Insertion:</label><span>${ins}</span>
+                                </div>`;
+                            }
                         });
 
                         document.querySelectorAll(".tab-link").forEach(tL => {
@@ -406,10 +415,10 @@
         }
 
         .alignment-data {
-            margin: 8px;
+            margin: 8px 5px;
             width: 300px;
             display: grid;
-            grid-template-columns: 80px 220px;
+            grid-template-columns: 80px 200px;
             column-gap: 8px;
             row-gap: 4px;
             font-size: 11px;
@@ -417,8 +426,12 @@
         #igv-browser {
             width: 100%;
         }
-        .igv-ui-popover > div:last-child > .alignment-data > label { font-weight: bold; text-align: right; }
-        .igv-ui-popover > div:last-child > .alignment-data > span { font-weight: normal; }
+        .igv-ui-popover > div:last-child > div.alignment-data.insertion {
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+        .igv-ui-popover > div:last-child > div.alignment-data > label { font-weight: bold; text-align: right; }
+        .igv-ui-popover > div:last-child > div.alignment-data > span { font-weight: normal; white-space: normal; }
     </style>
 </head>
 <body>
