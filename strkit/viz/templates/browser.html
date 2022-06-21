@@ -317,26 +317,45 @@
         });
     </script>
 
+    <!--suppress CssUnresolvedCustomProperty -->
     <style>
         * { font-family: sans-serif; }
+
+        body {
+            padding: 0; margin: 0;
+            background-color: #FEFEFE;
+        }
+
+        #strkit {
+            padding: 24px 36px;
+        }
 
         h1 {
             font-family: sans-serif;
             font-size: 28px;
+            color: #333;
+            padding-bottom: 12px;
+            margin: 0 0 24px;
+            border-bottom: 2px solid #F0F0F0;
         }
         h1 span {
             font-weight: normal;
         }
 
         #locus-meta {
-            padding: 4px;
+            padding: 12px;
             margin-bottom: 8px;
-            width: 536px;
+            width: 36em;
             display: grid;
-            grid-template-columns: 110px 150px 110px 150px;
+            grid-template-columns: 7em 10em 7em 10em;
             column-gap: 8px;
             row-gap: 4px;
-            border: 1px solid #999;
+            border: 1px solid #E3E3E3;
+            border-radius: 3px;
+            background-color: #F9F9F9;
+            font-size: 20px;
+            color: #333;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         #locus-meta label {
             font-weight: bold;
@@ -356,18 +375,21 @@
             color: #666;
             text-decoration: underline;
             cursor: pointer;
+            font-size: 18px;
         }
         .tab-links li.active a {
             color: black;
             text-decoration: none;
         }
         .tab-content {
-            background-color: #FCFCFC;
-            border: 1px solid #CCC;
-            padding: 8px;
+            border: 1px solid #E3E3E3;
+            border-radius: 3px;
+            background-color: white;
+            padding: 12px;
             width: 100%;
             box-sizing: border-box;
             display: none;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         .tab-content.active {
             display: block;
@@ -436,23 +458,25 @@
     </style>
 </head>
 <body>
-<h1>STRkit Browser: <span id="region"></span> &mdash; <span id="motif"></span></h1>
-<div id="locus-meta">
-    <label for="ref-copies">Ref. # Copies:</label><span id="ref-copies"></span>
-    <label for="call">Final Call:</label><span id="call"></span>
-    <label></label><span></span>
-    <label for="call-95">Call 95%CI:</label><span id="call-95"></span>
-</div>
-<ul class="tab-links">
-   <li class="active"><a class="tab-link" data-for="tab-histogram">Histogram</a></li>
-   <li><a class="tab-link" data-for="tab-browser">Browser</a></li>
-</ul>
-<div class="tab-content active" id="tab-histogram">
-    <div id="histogram"></div>
-</div>
-<div class="tab-content" id="tab-browser">
-    <div id="scales"></div>
-    <div id="igv-browser"></div>
+<div id="strkit">
+    <h1>STRkit Browser: <span id="region"></span> &mdash; <span id="motif"></span></h1>
+    <div id="locus-meta">
+        <label for="ref-copies">Ref. # Copies:</label><span id="ref-copies"></span>
+        <label for="call">Final Call:</label><span id="call"></span>
+        <label></label><span></span>
+        <label for="call-95">Call 95%CI:</label><span id="call-95"></span>
+    </div>
+    <ul class="tab-links">
+       <li class="active"><a class="tab-link" data-for="tab-histogram">Histogram</a></li>
+       <li><a class="tab-link" data-for="tab-browser">Browser</a></li>
+    </ul>
+    <div class="tab-content active" id="tab-histogram">
+        <div id="histogram"></div>
+    </div>
+    <div class="tab-content" id="tab-browser">
+        <div id="scales"></div>
+        <div id="igv-browser"></div>
+    </div>
 </div>
 </body>
 </html>
