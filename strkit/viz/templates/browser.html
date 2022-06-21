@@ -237,7 +237,7 @@
                     const max = Math.max(...calledReads);
                     const bounds = {min, max, span: max - min};
 
-                    Object.entires(callData.read_peak_labels).forEach(([r, cns]) => {
+                    Object.entries(callData.read_peak_labels).forEach(([r, cns]) => {
                         readColours[r] = palettes[p](getScalePosition(bounds, cns));
                     });
 
