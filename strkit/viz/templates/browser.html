@@ -169,6 +169,7 @@
             fetch("/call_data/{{ initial_i }}").then(r => r.json()).then(callData => {
                 console.log("call data", callData);
 
+                /** @type number[] */
                 const cns = Object.values(callData.read_cns);
                 const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
 
@@ -287,7 +288,7 @@
                                     <label>Rel. Copy #:</label><span>${(cn - callData.ref_cn).toFixed(0)}</span>
                                     <label>Peak Label:</label><span>${peakLabel}</span>
                                 </div>`;
-                            };
+                            }
 
                             const ins = alignmentData["Insertion"]
                             if (ins) {
