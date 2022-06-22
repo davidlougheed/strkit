@@ -183,12 +183,11 @@
             searchResponseList.innerHTML = res || "<em>No results found.</em>";
         };
 
-        const performSearch = q => {
+        const performSearch = q =>
             fetch("/loci" + (q ? `?q=${encodeURIComponent(q.trim())}` : ""))
                 .then(r => r.json())
                 .then(updateSearchResponses)
                 .catch(console.error);
-        };
 
         const palettes = [d3.interpolateBlues, d3.interpolateReds];
 
@@ -209,7 +208,9 @@
             ? 0.5
             : 0.2 + ((cn - b.min) / b.span) * 0.6;
 
-        /**
+        const makeBounds = (min, max) => ({min, max, span: max - min});
+
+        /** {% raw %}
          * @param {{
          *     contig: string,
          *     start: number,
@@ -227,7 +228,7 @@
          *         modal_n: number
          *     }
          * }} callData
-         */
+         {% endraw %}*/
         const renderCall = (callData) => {
             console.log("call data", callData);
 
@@ -262,37 +263,28 @@
                 .filter(e => e[1] === q)
                 .map(e => callData.read_cns[e[0]]);
 
-            const readColours = {};
-
             scalesContainer.innerHTML = "";
             igvContainer.innerHTML = "";  // TODO: properly deconstruct old browser
 
-            if (callData.read_peak_labels && callData.peaks.means.length > 1) {
-                const splitReads = [getReadsForPeak(0), getReadsForPeak(1)];
-                const bounds = splitReads.map(rs => {
-                    const min = Math.min(...rs);
-                    const max = Math.max(...rs);
-                    return {min, max, span: max - min};
-                });
+            const readColours = (() => {
+                if (!callData.read_peak_labels || !Object.entries(callData.read_peak_labels).length) return {};
 
-                Object.entries(callData.read_peak_labels).forEach(([r, p]) => {
-                    readColours[r] = palettes[p](getScalePosition(bounds[p], callData.read_cns[r]));
-                });
+                const bounds = (() => {
+                    if (callData.peaks.means.length > 1) {
+                        // 2 peaks since read peak labels are only generated for diploids
+                        return [getReadsForPeak(0), getReadsForPeak(1)].map(
+                            rs => makeBounds(Math.min(...rs), Math.max(...rs)));
+                    } else {
+                        const calledReads = getReadsForPeak(0);
+                        return [makeBounds(Math.min(...calledReads), Math.max(...calledReads))];  // single peak
+                    }
+                })();
 
-                makeScale(0, bounds[0]);
-                makeScale(1, bounds[1]);
-            } else {
-                const calledReads = getReadsForPeak(0);
-                const min = Math.min(...calledReads);
-                const max = Math.max(...calledReads);
-                const bounds = {min, max, span: max - min};
+                bounds.forEach((b, i) => makeScale(i, b));
 
-                Object.entries(callData.read_peak_labels).forEach(([r, p]) => {
-                    readColours[r] = palettes[p](getScalePosition(bounds, callData.read_cns[r]));
-                });
-
-                makeScale(0, bounds);
-            }
+                return Object.fromEntries(Object.entries(callData.read_peak_labels).map(
+                    ([r, p]) => [r, palettes[p](getScalePosition(bounds[p], callData.read_cns[r]))]));
+            })();
 
             // Remove existing browser instance if present
             if (browser) {
@@ -358,12 +350,11 @@
             }).catch(console.error);
         };
 
-        const fetchCallData = i => {
+        const fetchCallData = i =>
             fetch(`/call_data/${i}`)
                 .then(r => r.json())
                 .then(renderCall)
                 .catch(console.error);
-        };
 
         const handleSearchResultClick = i => {
             fetchCallData(i);
