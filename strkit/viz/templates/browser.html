@@ -190,6 +190,25 @@
                 .catch(console.error);
         };
 
+        /**
+         * @param {{
+         *     contig: string,
+         *     start: number,
+         *     end: number,
+         *     motif: string,
+         *     ref_cn: number,
+         *     call: number[],
+         *     call_95_cis: Array.<number[]>,
+         *     read_cns: Object.<string, number>,
+         *     read_peak_labels: Object.<string, number>,
+         *     peaks: {
+         *         means: number[],
+         *         weights: number[],
+         *         stdevs: number,
+         *         modal_n: number
+         *     }
+         * }} callData
+         */
         const renderCall = (callData) => {
             console.log("call data", callData);
 
@@ -269,8 +288,8 @@
                 const max = Math.max(...calledReads);
                 const bounds = {min, max, span: max - min};
 
-                Object.entries(callData.read_peak_labels).forEach(([r, cns]) => {
-                    readColours[r] = palettes[p](getScalePosition(bounds, cns));
+                Object.entries(callData.read_peak_labels).forEach(([r, p]) => {
+                    readColours[r] = palettes[p](getScalePosition(bounds, callData.read_cns[r]));
                 });
 
                 makeScale(0, bounds);
@@ -279,6 +298,7 @@
             // Remove existing browser instance if present
             if (browser) {
                 igv.removeBrowser(browser);
+                browser = null;
             }
 
             // Set up new IGV browser instance
@@ -371,7 +391,7 @@
                 searchResponseList.setAttribute("aria-hidden", "false");
                 locusSearchBox.select();
             });
-            locusSearchBox.addEventListener("focusout", e => {
+            locusSearchBox.addEventListener("focusout", () => {
                 setTimeout(() => {
                     searchResponseList.classList.remove("active");
                     searchResponseList.setAttribute("aria-hidden", "true");
@@ -576,7 +596,9 @@
             color: white;
             font-weight: bold;
             font-family: sans-serif;
+            /*noinspection CssNonIntegerLengthInPixels*/
             -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.8);
+            /*noinspection CssNonIntegerLengthInPixels,CssUnknownProperty*/
             text-stroke: 0.5px rgba(0, 0, 0, 0.8);
         }
         #scales > div > div::after {
@@ -584,7 +606,9 @@
             color: white;
             font-weight: bold;
             font-family: sans-serif;
+            /*noinspection CssNonIntegerLengthInPixels*/
             -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.8);
+            /*noinspection CssNonIntegerLengthInPixels,CssUnknownProperty*/
             text-stroke: 0.5px rgba(0, 0, 0, 0.8);
         }
 
@@ -600,6 +624,8 @@
         #igv-browser {
             width: 100%;
         }
+
+        /*noinspection CssUnusedSymbol*/
         .igv-ui-popover > div:last-child > div.alignment-data.insertion {
             white-space: normal;
             overflow-wrap: anywhere;
