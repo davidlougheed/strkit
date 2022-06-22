@@ -11,8 +11,8 @@
 <!--    <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>-->
 
     <script>
-        // ----
-        // Adapted from https://observablehq.com/@d3/histogram until the next '----'
+        // --------------------------------------------------------------------
+        // Adapted from https://observablehq.com/@d3/histogram until the next set of '----'
         // Copyright 2021 Observable, Inc.
         // Released under the ISC license:
         // Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee
@@ -154,166 +154,256 @@
 
           return svg.node();
         }
-        // ----
+
+        // --------------------------------------------------------------------
+
+        let locusSearchBox = null;
+        let searchResponseList = null;
+
+        let histogramContainer = null;
+        let scalesContainer = null;
+        let igvContainer = null;
+
+        let regionDisplay = null;
+        let motifDisplay = null;
+        let refCopies = null;
+        let callDisplay = null;
+        let call95Display = null;
+
+        let browser = null;
+
+        let searchResponses = [];
+
+        const updateSearchResponses = sr => {
+            if (!searchResponseList) return;
+            searchResponses = sr.results;
+            // noinspection JSUnresolvedVariable
+            const res = sr.results.map(r =>
+                `<li onclick="handleSearchResultClick(${r.i})">${r.contig}:${r.start}-${r.end}`).join("");
+            searchResponseList.innerHTML = res || "<em>No results found.</em>";
+        };
+
+        const performSearch = q => {
+            fetch("/loci" + (q ? `?q=${encodeURIComponent(q.trim())}` : ""))
+                .then(r => r.json())
+                .then(updateSearchResponses)
+                .catch(console.error);
+        };
+
+        const renderCall = (callData) => {
+            console.log("call data", callData);
+
+            /** @type number[] */
+            const cns = Object.values(callData.read_cns);
+            const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
+
+            histogramContainer.innerHTML = "";
+            histogramContainer.appendChild(Histogram(cns, {
+                peaks: callData.peaks,
+                thresholds,
+                value: d => d,
+                label: "Copy number →",
+                yLabel: "↑ Read count",
+                width: 800,
+                height: 400,
+                color: "#AAA",
+            }));
+
+            const region = `${callData.contig}:${callData.start}-${callData.end}`;
+
+            locusSearchBox.value = region;
+
+            regionDisplay.innerText = region;
+            motifDisplay.innerText = callData.motif;
+            refCopies.innerText = callData.ref_cn;
+            callDisplay.innerText = callData.call.map(c => c.toFixed(0)).join(" | ");
+            call95Display.innerText = callData.call_95_cis
+                .map(ci => "(" + ci.map(c => c.toFixed(0)).join("-") + ")").join(" | ");
+
+            const getReadsForPeak = q => Object.entries(callData.read_peak_labels)
+                .filter(e => e[1] === q)
+                .map(e => callData.read_cns[e[0]]);
+
+            const palettes = [d3.interpolateBlues, d3.interpolateReds];
+            const readColours = {};
+
+            scalesContainer.innerHTML = "";
+            igvContainer.innerHTML = "";  // TODO: properly deconstruct old browser
+
+            const makeScale = (j, b) => {
+                const scale = document.createElement("div");
+                scale.setAttribute("data-label", `Allele ${j+1}`);
+                const scaleGradient = document.createElement("div");
+                scaleGradient.setAttribute("data-lower", b.min.toFixed(0));
+                scaleGradient.setAttribute(
+                    "style",
+                    `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
+                         --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
+                scaleGradient.setAttribute("data-upper", b.max.toFixed(0));
+                scale.appendChild(scaleGradient);
+                scalesContainer.appendChild(scale);
+            };
+
+            const getScalePosition = (b, cn) => {
+                if (b.span === 0) return 0.5;
+                return 0.2 + ((cn - b.min) / b.span) * 0.6;
+            };
+
+            if (callData.read_peak_labels && callData.peaks.means.length > 1) {
+                const splitReads = [getReadsForPeak(0), getReadsForPeak(1)];
+                const bounds = splitReads.map((rs, i) => {
+                    const min = Math.min(...rs);
+                    const max = Math.max(...rs);
+                    return {min, max, span: max - min};
+                });
+
+                Object.entries(callData.read_peak_labels).forEach(([r, p]) => {
+                    readColours[r] = palettes[p](getScalePosition(bounds[p], callData.read_cns[r]));
+                });
+
+                makeScale(0, bounds[0]);
+                makeScale(1, bounds[1]);
+            } else {
+                const calledReads = getReadsForPeak(0);
+                const min = Math.min(...calledReads);
+                const max = Math.max(...calledReads);
+                const bounds = {min, max, span: max - min};
+
+                Object.entries(callData.read_peak_labels).forEach(([r, cns]) => {
+                    readColours[r] = palettes[p](getScalePosition(bounds, cns));
+                });
+
+                makeScale(0, bounds);
+            }
+
+            // Remove existing browser instance if present
+            if (browser) {
+                igv.removeBrowser(browser);
+            }
+
+            // Set up new IGV browser instance
+            igv.createBrowser(igvContainer, {
+                genome: "{{ ref }}",
+                locus: region,
+                tracks: [
+                    {
+                        name: "{{ align_name }}",
+                        url: "/align",
+                        indexURL: "/align_index",
+                        format: "{{ align_format }}",
+                        showSoftClips: true,
+                        showInsertionText: true,
+                        showDeletionText: true,
+                        color: alignment => readColours[alignment.readName] ?? "rgb(180, 180, 180)",
+                        sort: {
+                            chr: callData.contig,
+                            position: ((callData.start + callData.end) / 2).toFixed(0),
+                            option: "INSERT_SIZE",
+                        },
+                    },
+                ],
+            }).then(b => {
+                browser = b;
+                browser.on("trackclick", (track, popoverData) => {
+                    console.log(track, popoverData);
+
+                    const alignmentData = Object.fromEntries(
+                        popoverData.filter(p => typeof p === "object").map(p => [p.name, p.value]));
+
+                    if (alignmentData["Read Name"]) {
+                        const read = alignmentData["Read Name"];
+                        const cn = callData.read_cns[read];
+                        let peakLabel = callData.read_peak_labels?.[read];
+                        if (peakLabel !== undefined) {
+                            peakLabel = `Allele ${(peakLabel+1).toFixed(0)}`;
+                        } else {
+                            peakLabel = "-";
+                        }
+                        return `<div class="alignment-data">
+                                <label>Read Name:</label><span>${read}</span>
+                                <label>Est. Copy #:</label><span>${cn}</span>
+                                <label>Rel. Copy #:</label><span>${(cn - callData.ref_cn).toFixed(0)}</span>
+                                <label>Peak Label:</label><span>${peakLabel}</span>
+                            </div>`;
+                    }
+
+                    const ins = alignmentData["Insertion"]
+                    if (ins) {
+                        return `<div class="alignment-data insertion">
+                                <label>Position:</label><span>${alignmentData["Location"]}</span>
+                                <label>Size:</label><span>${ins.length}</span>
+                                <label>Insertion:</label><span>${ins}</span>
+                            </div>`;
+                    }
+                });
+            }).catch(console.error);
+        };
+
+        const fetchCallData = i => {
+            fetch(`/call_data/${i}`)
+                .then(r => r.json())
+                .then(renderCall)
+                .catch(console.error);
+        };
+
+        const handleSearchResultClick = i => {
+            fetchCallData(i);
+        };
+
+        // --------------------------------------------------------------------
 
         document.addEventListener("DOMContentLoaded", () => {
-            const scalesContainer = document.getElementById("scales");
-            const igvContainer = document.getElementById("igv-browser");
+            locusSearchBox = document.getElementById("locus-search-box");
+            searchResponseList = document.getElementById("search-responses");
 
-            const regionDisplay = document.getElementById("region");
-            const motifDisplay = document.getElementById("motif");
-            const refCopies = document.getElementById("ref-copies");
-            const callDisplay = document.getElementById("call");
-            const call95Display = document.getElementById("call-95");
+            histogramContainer = document.getElementById("histogram");
+            scalesContainer = document.getElementById("scales");
+            igvContainer = document.getElementById("igv-browser");
 
-            fetch("/call_data/{{ initial_i }}").then(r => r.json()).then(callData => {
-                console.log("call data", callData);
+            regionDisplay = document.getElementById("region");
+            motifDisplay = document.getElementById("motif");
+            refCopies = document.getElementById("ref-copies");
+            callDisplay = document.getElementById("call");
+            call95Display = document.getElementById("call-95");
 
-                /** @type number[] */
-                const cns = Object.values(callData.read_cns);
-                const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
-
-                document.getElementById("histogram").appendChild(Histogram(cns, {
-                    peaks: callData.peaks,
-                    thresholds,
-                    value: d => d,
-                    label: "Copy number →",
-                    yLabel: "↑ Read count",
-                    width: 800,
-                    height: 400,
-                    color: "#AAA",
-                }));
-
-                const region = `${callData.contig}:${callData.start}-${callData.end}`;
-                regionDisplay.innerText = region;
-                motifDisplay.innerText = callData.motif;
-                refCopies.innerText = callData.ref_cn;
-                callDisplay.innerText = callData.call.map(c => c.toFixed(0)).join(" | ");
-                call95Display.innerText = callData.call_95_cis
-                    .map(ci => "(" + ci.map(c => c.toFixed(0)).join("-") + ")").join(" | ");
-
-                const getReadsForPeak = q => Object.entries(callData.read_peak_labels)
-                    .filter(e => e[1] === q)
-                    .map(e => callData.read_cns[e[0]]);
-
-                const palettes = [d3.interpolateBlues, d3.interpolateReds];
-                const readColours = {};
-
-                const makeScale = (j, b) => {
-                    const scale = document.createElement("div");
-                    scale.setAttribute("data-label", `Allele ${j+1}`);
-                    const scaleGradient = document.createElement("div");
-                    scaleGradient.setAttribute("data-lower", b.min.toFixed(0));
-                    scaleGradient.setAttribute(
-                        "style",
-                        `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
-                         --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
-                    scaleGradient.setAttribute("data-upper", b.max.toFixed(0));
-                    scale.appendChild(scaleGradient);
-                    scalesContainer.appendChild(scale);
-                };
-
-                const getScalePosition = (b, cn) => {
-                    if (b.span === 0) return 0.5;
-                    return 0.2 + ((cn - b.min) / b.span) * 0.6;
-                };
-
-                if (callData.read_peak_labels && callData.peaks.means.length > 1) {
-                    const splitReads = [getReadsForPeak(0), getReadsForPeak(1)];
-                    const bounds = splitReads.map((rs, i) => {
-                        const min = Math.min(...rs);
-                        const max = Math.max(...rs);
-                        return {min, max, span: max - min};
-                    });
-
-                    Object.entries(callData.read_peak_labels).forEach(([r, p]) => {
-                        readColours[r] = palettes[p](getScalePosition(bounds[p], callData.read_cns[r]));
-                    });
-
-                    makeScale(0, bounds[0]);
-                    makeScale(1, bounds[1]);
-                } else {
-                    const calledReads = getReadsForPeak(0);
-                    const min = Math.min(...calledReads);
-                    const max = Math.max(...calledReads);
-                    const bounds = {min, max, span: max - min};
-
-                    Object.entries(callData.read_peak_labels).forEach(([r, cns]) => {
-                        readColours[r] = palettes[p](getScalePosition(bounds, cns));
-                    });
-
-                    makeScale(0, bounds);
+            locusSearchBox.addEventListener("focusin", () => {
+                searchResponseList.classList.add("active");
+                searchResponseList.setAttribute("aria-hidden", "false");
+                locusSearchBox.select();
+            });
+            locusSearchBox.addEventListener("focusout", e => {
+                setTimeout(() => {
+                    searchResponseList.classList.remove("active");
+                    searchResponseList.setAttribute("aria-hidden", "true");
+                }, 200);  // Need enough time for clicks outside to register  TODO: less hacky solution
+            });
+            locusSearchBox.addEventListener("keyup", e => {
+                const v = e.target.value;
+                console.log(e.target.value);
+                const sw = v.startsWith("c") || v.startsWith("ch") || v.startsWith("chr");
+                if (v.length < 1 || (sw && v.length < 4)) {
+                    searchResponseList.innerHTML = "<em>Keep typing...</em>";
+                    return;
                 }
+                // TODO: debounce
+                performSearch(v);
+            });
 
-                const igvOptions = {
-                    genome: "{{ ref }}",
-                    locus: region,
-                    tracks: [
-                        {
-                            name: "{{ align_name }}",
-                            url: "/align",
-                            indexURL: "/align_index",
-                            format: "{{ align_format }}",
-                            showSoftClips: true,
-                            color: alignment => readColours[alignment.readName] ?? "rgb(180, 180, 180)",
-                            sort: {
-                                chr: callData.contig,
-                                position: ((callData.start + callData.end) / 2).toFixed(0),
-                                option: "INSERT_SIZE",
-                            },
-                        },
-                    ],
-                };
+            document.querySelectorAll(".tab-link").forEach(tL => {
+                tL.addEventListener("click", e => {
+                    document.querySelectorAll(".tab-links li")
+                        .forEach(tL2 => tL2.classList.remove("active"));
+                    e.target.parentElement.classList.add("active");
+                    document.querySelectorAll(".tab-content")
+                        .forEach(tC => tC.classList.remove("active"));
+                    document.getElementById(tL.dataset.for).classList.add("active");
+                    browser.visibilityChange();
+                });
+            });
 
-                igv.createBrowser(igvContainer, igvOptions)
-                    .then(browser => {
-                        browser.on("trackclick", (track, popoverData) => {
-                            console.log(track, popoverData);
-
-                            const alignmentData = Object.fromEntries(
-                                popoverData.filter(p => typeof p === "object").map(p => [p.name, p.value]));
-
-                            if (alignmentData["Read Name"]) {
-                                const read = alignmentData["Read Name"];
-                                const cn = callData.read_cns[read];
-                                let peakLabel = callData.read_peak_labels?.[read];
-                                if (peakLabel !== undefined) {
-                                    peakLabel = `Allele ${(peakLabel+1).toFixed(0)}`;
-                                } else {
-                                    peakLabel = "-";
-                                }
-                                return `<div class="alignment-data">
-                                    <label>Read Name:</label><span>${read}</span>
-                                    <label>Est. Copy #:</label><span>${cn}</span>
-                                    <label>Rel. Copy #:</label><span>${(cn - callData.ref_cn).toFixed(0)}</span>
-                                    <label>Peak Label:</label><span>${peakLabel}</span>
-                                </div>`;
-                            }
-
-                            const ins = alignmentData["Insertion"]
-                            if (ins) {
-                                return `<div class="alignment-data insertion">
-                                    <label>Position:</label><span>${alignmentData["Location"]}</span>
-                                    <label>Size:</label><span>${ins.length}</span>
-                                    <label>Insertion:</label><span>${ins}</span>
-                                </div>`;
-                            }
-                        });
-
-                        document.querySelectorAll(".tab-link").forEach(tL => {
-                            tL.addEventListener("click", e => {
-                                document.querySelectorAll(".tab-links li")
-                                    .forEach(tL2 => tL2.classList.remove("active"));
-                                e.target.parentElement.classList.add("active");
-                                document.querySelectorAll(".tab-content")
-                                    .forEach(tC => tC.classList.remove("active"));
-                                document.getElementById(tL.dataset.for).classList.add("active");
-                                browser.visibilityChange();
-                            });
-                        });
-                    })
-                    .catch(console.error);
-            }).catch(console.error);
+            // Load initial data
+            performSearch();
+            fetchCallData({{ initial_i }});
         });
     </script>
 
@@ -330,16 +420,77 @@
             padding: 24px 36px;
         }
 
-        h1 {
-            font-family: sans-serif;
-            font-size: 28px;
-            color: #333;
-            padding-bottom: 12px;
+        header {
+            display: flex;
+            padding-bottom: 24px;
             margin: 0 0 24px;
             border-bottom: 2px solid #F0F0F0;
+            color: #333;
+        }
+
+        h1 {
+            flex: 1;
+            font-family: sans-serif;
+            font-size: 28px;
+            line-height: 34px;
+            height: 32px;
+            margin: 0;
         }
         h1 span {
             font-weight: normal;
+        }
+
+        #locus-search {
+            position: relative;
+        }
+        #locus-search label {
+            font-size: 18px;
+            line-height: 32px;
+            color: #555;
+        }
+        #locus-search-box {
+            box-sizing: border-box;
+            font-size: 18px;
+            vertical-align: top;
+            width: 14em;
+            height: 32px;
+            line-height: 32px;
+            padding: 0 6px;
+            color: #333;
+        }
+        #locus-search-box-dec {
+            position: absolute;
+            right: 8px;
+            top: 5px;
+            color: #999;
+            pointer-events: none;
+        }
+        #search-responses {
+            position: absolute;
+            top: 18px;
+            right: 0;
+            padding: 8px 0;
+            list-style: none;
+            min-width: 14em;
+            border: 1px solid #E3E3E3;
+            border-radius: 3px;
+            background-color: #FEFEFE;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            display: none;
+        }
+        #search-responses.active {
+            display: block;
+        }
+        #search-responses li {
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        #search-responses li:hover {
+            background-color: #F0F0F0;
+        }
+        #search-responses em {
+            padding: 4px 8px;
+            color: #555;
         }
 
         #locus-meta {
@@ -459,11 +610,21 @@
 </head>
 <body>
 <div id="strkit">
-    <h1>STRkit Browser: <span id="region"></span> &mdash; <span id="motif"></span></h1>
+    <header>
+        <h1>
+            STRkit Browser: <span id="region"></span> &mdash; <span id="motif"></span>
+        </h1>
+        <div id="locus-search">
+            <label for="locus-search-box">Select locus:</label>
+            <input id="locus-search-box" placeholder="chr#:start-end" />
+            <span id="locus-search-box-dec" aria-hidden="true">&or;</span>
+            <ul id="search-responses"></ul>
+        </div>
+    </header>
     <div id="locus-meta">
         <label for="ref-copies">Ref. # Copies:</label><span id="ref-copies"></span>
         <label for="call">Final Call:</label><span id="call"></span>
-        <label></label><span></span>
+        <label aria-hidden="true"></label><span aria-hidden="true"></span>
         <label for="call-95">Call 95%CI:</label><span id="call-95"></span>
     </div>
     <ul class="tab-links">
