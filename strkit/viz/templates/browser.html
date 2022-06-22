@@ -190,6 +190,25 @@
                 .catch(console.error);
         };
 
+        const palettes = [d3.interpolateBlues, d3.interpolateReds];
+
+        const makeScale = (j, b) => {
+            const scale = document.createElement("div");
+            scale.setAttribute("data-label", `Allele ${j+1}`);
+            const scaleGradient = document.createElement("div");
+            scaleGradient.setAttribute("data-lower", b.min.toFixed(0));
+            scaleGradient.setAttribute(
+                "style",
+                `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
+                 --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
+            scaleGradient.setAttribute("data-upper", b.max.toFixed(0));
+            scale.appendChild(scaleGradient);
+            scalesContainer.appendChild(scale);
+        };
+        const getScalePosition = (b, cn) => b.span === 0
+            ? 0.5
+            : 0.2 + ((cn - b.min) / b.span) * 0.6;
+
         /**
          * @param {{
          *     contig: string,
@@ -243,34 +262,14 @@
                 .filter(e => e[1] === q)
                 .map(e => callData.read_cns[e[0]]);
 
-            const palettes = [d3.interpolateBlues, d3.interpolateReds];
             const readColours = {};
 
             scalesContainer.innerHTML = "";
             igvContainer.innerHTML = "";  // TODO: properly deconstruct old browser
 
-            const makeScale = (j, b) => {
-                const scale = document.createElement("div");
-                scale.setAttribute("data-label", `Allele ${j+1}`);
-                const scaleGradient = document.createElement("div");
-                scaleGradient.setAttribute("data-lower", b.min.toFixed(0));
-                scaleGradient.setAttribute(
-                    "style",
-                    `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
-                         --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
-                scaleGradient.setAttribute("data-upper", b.max.toFixed(0));
-                scale.appendChild(scaleGradient);
-                scalesContainer.appendChild(scale);
-            };
-
-            const getScalePosition = (b, cn) => {
-                if (b.span === 0) return 0.5;
-                return 0.2 + ((cn - b.min) / b.span) * 0.6;
-            };
-
             if (callData.read_peak_labels && callData.peaks.means.length > 1) {
                 const splitReads = [getReadsForPeak(0), getReadsForPeak(1)];
-                const bounds = splitReads.map((rs, i) => {
+                const bounds = splitReads.map(rs => {
                     const min = Math.min(...rs);
                     const max = Math.max(...rs);
                     return {min, max, span: max - min};
