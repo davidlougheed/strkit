@@ -19,7 +19,6 @@ def browser():
 def get_loci():
     cd = app.config["CALL_DATA"]
     ecd = list(enumerate(cd))  # TODO: cache
-    print(ecd)
 
     q = request.args.get("q", "").strip()
     if q:
