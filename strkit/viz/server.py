@@ -1,4 +1,4 @@
-from flask import Flask, send_file, render_template
+from flask import Flask, render_template, request, send_file
 from werkzeug.exceptions import NotFound
 
 __all__ = [
@@ -13,6 +13,26 @@ def browser():
     return render_template(
         "browser.html",
         **app.config["PARAMS"])
+
+
+@app.route("/loci")
+def get_loci():
+    cd = app.config["CALL_DATA"]
+    ecd = list(enumerate(cd))  # TODO: cache
+    print(ecd)
+
+    q = request.args.get("q", "").strip()
+    if q:
+        res = list(filter(lambda x: q.lower() in  f"{x[1]['contig']}:{x[1]['start']}-{x[1]['end']}", ecd))  # TODO
+    else:
+        # TODO: nicer priority
+        res = ecd[:10]
+
+    return {
+        "results": list(map(
+            lambda x: {"i": x[0], "contig": x[1]["contig"], "start": x[1]["start"], "end": x[1]["end"]},
+            res)),
+    }
 
 
 @app.route("/call_data/<int:i>")
