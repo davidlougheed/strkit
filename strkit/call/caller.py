@@ -28,14 +28,20 @@ def log(fd=sys.stderr, level: str = "ERROR"):
 log_error = log(level="ERROR")
 log_warning = log(level="WARNING")
 log_info = log(level="INFO")
-log_debug = log(level="DEBUG")
+log_debug_ = log(level="DEBUG")
 
 debug = False
+
+
+def log_debug(*args, **kwargs):
+    if debug:
+        log_debug_(*args, **kwargs)
+
 
 match_score = 2
 mismatch_penalty = 7
 indel_penalty = 5
-min_read_score = 1.5  # TODO: parametrize
+min_read_score = 0.9  # TODO: parametrize
 
 dna_matrix = parasail.matrix_create("ACGT", match_score, -1 * mismatch_penalty)
 
@@ -149,6 +155,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         qs = segment.query_sequence
 
         if qs is None:  # No aligned segment, I guess
+            log_debug(f"Skipping read {segment.query_name} (no aligned segment)")
             continue
 
         left_flank_start_idx = -1
@@ -178,10 +185,9 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
                 right_flank_start_idx,
                 right_flank_end_idx,
         )):
-            if debug:
-                log_debug(
-                    f"Skipping read {segment.query_name} in locus {t_idx}: could not get sufficient flanking "
-                    f"sequence")
+            log_debug(
+                f"Skipping read {segment.query_name} in locus {t_idx}: could not get sufficient flanking "
+                f"sequence")
             continue
 
         tr_read_seq = qs[left_flank_end_idx:right_flank_start_idx]
@@ -207,9 +213,9 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
         )
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
-        read_adj_score = match_score if tr_len == 0 else ((read_rc[1] - flank_len*match_score) / tr_len)
+        read_adj_score = match_score if tr_len == 0 else read_rc[1] / tr_len_w_flank
         if read_adj_score < min_read_score:
-            # TODO: Debug logging
+            log_debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
             continue
 
         read_cn_dict[segment.query_name] = read_rc[0]
