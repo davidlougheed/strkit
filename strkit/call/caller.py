@@ -146,6 +146,11 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
     sorted_read_lengths = sorted(read_lengths)
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
+        qs = segment.query_sequence
+
+        if qs is None:  # No aligned segment, I guess
+            continue
+
         left_flank_start_idx = -1
         left_flank_end_idx = -1
         right_flank_start_idx = -1
@@ -179,15 +184,15 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
                     f"sequence")
             continue
 
-        tr_read_seq = segment.query_sequence[left_flank_end_idx:right_flank_start_idx]
+        tr_read_seq = qs[left_flank_end_idx:right_flank_start_idx]
 
         # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop any expansion sequences
         # from accidentally being included in the flanking region; e.g. if the insert gets mapped onto bases outside
         # the definition coordinates.
         # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
         # contain a correctly-sized sequence.
-        flank_left_seq = segment.query_sequence[left_flank_start_idx:left_flank_end_idx][:flank_size+10]
-        flank_right_seq = segment.query_sequence[right_flank_start_idx:right_flank_end_idx][-(flank_size+10):]
+        flank_left_seq = qs[left_flank_start_idx:left_flank_end_idx][:flank_size+10]
+        flank_right_seq = qs[right_flank_start_idx:right_flank_end_idx][-(flank_size+10):]
 
         tr_len = len(tr_read_seq)
         flank_len = len(flank_left_seq) + len(flank_right_seq)
