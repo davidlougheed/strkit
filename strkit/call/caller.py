@@ -201,7 +201,8 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
             motif=motif,
         )
 
-        read_adj_score = (read_rc[1] - flank_len / match_score) / tr_len
+        # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
+        read_adj_score = match_score if tr_len == 0 else ((read_rc[1] - flank_len*match_score) / tr_len)
         if read_adj_score < min_read_score:
             # TODO: Debug logging
             continue
