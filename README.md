@@ -2,21 +2,28 @@
 
 A toolkit for analyzing variation in short(ish) tandem repeats.
 
+> **Warning**
+> 
+> Bootstrapping performance may be hindered on systems with OpenMP without
+> additional configuration. See [below](#note-on-openmp-threading) for details
+> on how to fix this.
+
 
 ## `strkit call`: Genotype caller with bootstrapped confidence intervals
 
-A Gaussian mixture model tandem repeat genotype caller for long read data,
-tuned for high-fidelity long reads.
+A Gaussian mixture model tandem repeat genotype caller for long read data.
+STRkit is tuned specifically for high-fidelity long reads, although other 
+long read data should still work.
 
 ### Features:
 
-* Performant, vectorized (via [parasail](https://github.com/jeffdaily/parasail))
+* Performant, vectorized (thanks to [parasail](https://github.com/jeffdaily/parasail))
   estimates of repeat counts from high-fidelity long reads and a supplied 
-  catalog of TR loci.
+  catalog of TR loci and motifs.
 * Re-weighting of longer reads, to compensate for their lower likelihood of observation.
   * Whole-genome and targeted genotyping modes to adjust this re-weighting.
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
-* 95% confidence intervals on calls via user-configurable bootstrapping.
+* 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
 
 ### Usage:
@@ -34,6 +41,8 @@ strkit call \
 If you want to output a full call report, you can use the `--json output-file.json` argument to
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
 labels, and some other information that isn't included in the normal TSV file.
+
+#### Note on OpenMP Threading
 
 Slow performance can result from running `strkit call` or `strkit re-call` on a system with OpenMP, 
 due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
