@@ -9,13 +9,24 @@ A toolkit for analyzing variation in short(ish) tandem repeats.
 > on how to fix this.
 
 
-## `strkit call`: Genotype caller with bootstrapped confidence intervals
+## Installation
+
+STRkit can be installed from PyPI via `pip` with the following command:
+
+```bash
+python -m pip install strkit
+```
+
+
+## Commands
+
+### `strkit call`: Genotype caller with bootstrapped confidence intervals
 
 A Gaussian mixture model tandem repeat genotype caller for long read data.
 STRkit is tuned specifically for high-fidelity long reads, although other 
 long read data should still work.
 
-### Features:
+#### Features:
 
 * Performant, vectorized (thanks to [parasail](https://github.com/jeffdaily/parasail))
   estimates of repeat counts from high-fidelity long reads and a supplied 
@@ -26,7 +37,7 @@ long read data should still work.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
 
-### Usage:
+#### Usage:
 
 ```bash
 strkit call \
@@ -42,7 +53,7 @@ If you want to output a full call report, you can use the `--json output-file.js
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
 labels, and some other information that isn't included in the normal TSV file.
 
-#### Note on OpenMP Threading
+##### Note on OpenMP Threading
 
 Slow performance can result from running `strkit call` or `strkit re-call` on a system with OpenMP, 
 due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
@@ -54,7 +65,7 @@ export OMP_NUM_THREADS=1
 ```
 
 
-### All optional flags:
+#### All optional flags:
 
 * `--min-reads ##`: Minimum number of supporting reads needed to make a call. Default: 4
 * `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
@@ -72,7 +83,7 @@ export OMP_NUM_THREADS=1
   helpful. **Default:** TSV output on
 
 
-## `strkit visualize`: Call visualizer
+### `strkit visualize`: Call visualizer
 
 STRkit bundles a call visualization tool which takes as input a BAM file and
 a JSON call file from using the `--json` flag with `strkit call`.
@@ -115,19 +126,19 @@ To exit the tool, press `Ctrl-C` in your command line window as mentioned in
 the start-up instructions.
 
 
-## `strkit re-call`: Genotype re-caller
+### `strkit re-call`: Genotype re-caller
 
 This command has a similar feature-set as `strkit call`, but is designed to
 be used with the output of other long-read STR genotyping methods to refine
 the genotype estimates when calling from HiFi reads.\
 
-### Features:
+#### Features:
 
 * Support for re-calling output from `tandem-genotypes`, `RepeatHMM`, and `Straglr`
 * Strand resampling / bias correction (for use with the `tandem-genotypes` program)
 * 95% confidence intervals on calls via user-configurable bootstrapping
 
-### Notes:
+#### Notes:
 
 * `--min-allele-reads` will affect the confidence intervals given by the bootstrap process,
   especially in low-coverage loci. This should be set depending on the read technology being used;
@@ -136,7 +147,7 @@ the genotype estimates when calling from HiFi reads.\
 
 
 
-## `strkit mi`: Mendelian inheritance analysis
+### `strkit mi`: Mendelian inheritance analysis
 
 This tool is currently in development and in a very unfinished state. However, the following features
 will be in the final release:
