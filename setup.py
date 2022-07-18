@@ -11,7 +11,7 @@ setup(
 
     python_requires="~=3.7",
     install_requires=[
-        "Flask>=2.1.2,<2.2",
+        "Flask>=2.1.3,<2.2",
         "pysam>=0.16.0.1,<0.20",
         "numpy>=1.20,<=1.22",
         "parasail>=1.2.4,<1.3",
