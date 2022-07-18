@@ -1,4 +1,6 @@
+import json
 import numpy as np
+import sys
 
 from typing import List, Iterable, Optional, Tuple, Union
 
@@ -183,6 +185,18 @@ class MILocusData:
 
         return respects_mi_strict, respects_mi_95_ci, respects_mi_99_ci
 
+    def __iter__(self):  # for dict casting
+        yield "contig", self._contig
+        yield "start", self._start
+        yield "end", self._end
+        yield "motif", self._motif
+        yield "child_gt", self.child_gt_str
+        yield "child_gt_95", self.child_gt_95_ci_str
+        yield "mother_gt", self.mother_gt_str
+        yield "mother_gt_95", self.mother_gt_95_ci_str
+        yield "father_gt", self.father_gt_str
+        yield "father_gt_95", self.father_gt_95_ci_str
+
     def __str__(self):
         def _opt_ci_str(ci_str, level="95"):
             return "" if not ci_str else f" [{level}%: {ci_str}]"
@@ -263,6 +277,23 @@ class MIResult:
     @staticmethod
     def _res_str(res: Union[float, int]) -> str:
         return f"{res:.1f}" if isinstance(res, float) else str(res)
+
+    def write_report_json(self, json_path: str):
+        obj = {
+            "mi": self.mi_value,
+            "mi_95": self.mi_value_95_ci,
+            "mi_99": self.mi_value_99_ci,
+            "non_matching": [dict(nm) for nm in self._non_matching],
+        }
+
+        if json_path == "stdout":
+            json.dump(obj, sys.stdout)
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+            return
+
+        with open(json_path, "w") as jf:
+            json.dump(obj, jf)
 
     def non_matching_tsv(self, sep="\t") -> str:
         res = ""

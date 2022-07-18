@@ -184,6 +184,18 @@ def add_mi_parser_args(mi_parser):
         help="Specifies a TRF-derived BED file with all called loci and motifs (required for Straglr, since it doesn't "
              "respect the original motifs given to it.)")
 
+    mi_parser.add_argument(
+        "--json",
+        type=str,
+        help="Path to write a JSON-formatted Mendelian inheritance/error report to. If left blank, no JSON file will "
+             "be written. If the value is set to 'stdout', JSON will be written to stdout, after the TSV unless TSV "
+             "output is disabled.")
+
+    mi_parser.add_argument(
+        "--no-tsv",
+        action="store_true",
+        help="If passed, no TSV call output will be written to stdout.")
+
     # Histogram-related arguments -------------------------------------------------------
     mi_parser.add_argument(
         "--hist",
@@ -359,12 +371,16 @@ def _exec_mi(p_args) -> int:
     if not res:
         return 0
 
-    print(str(res))
-    if p_args.hist:
-        print(res.histogram_text(bin_width=p_args.bin_width))
-    print("---")
-    sys.stdout.write(res.non_matching_tsv())
-    sys.stdout.flush()
+    if not p_args.no_tsv:
+        print(str(res))
+        if p_args.hist:
+            print(res.histogram_text(bin_width=p_args.bin_width))
+        print("---")
+        sys.stdout.write(res.non_matching_tsv())
+        sys.stdout.flush()
+
+    if p_args.json:
+        res.write_report_json(json_path=p_args.json)
 
     return 0
 
