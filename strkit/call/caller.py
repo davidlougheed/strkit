@@ -436,6 +436,7 @@ def call_sample(
         if json_path == "stdout":
             json.dump(results, sys.stdout)
             sys.stdout.write("\n")
+            sys.stdout.flush()
         else:
             with open(json_path, "w") as jf:
                 json.dump(results, jf)
