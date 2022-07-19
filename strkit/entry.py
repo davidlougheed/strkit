@@ -380,7 +380,7 @@ def _exec_mi(p_args) -> int:
         sys.stdout.flush()
 
     if p_args.json:
-        res.write_report_json(json_path=p_args.json)
+        res.write_report_json(json_path=p_args.json, bin_width=p_args.bin_width)
 
     return 0
 

@@ -4,6 +4,7 @@ import sys
 
 from typing import List, Iterable, Optional, Tuple, Union
 
+from statistics import mean
 from strkit.constants import CHROMOSOMES
 from strkit.utils import cis_overlap
 
@@ -278,12 +279,13 @@ class MIResult:
     def _res_str(res: Union[float, int]) -> str:
         return f"{res:.1f}" if isinstance(res, float) else str(res)
 
-    def write_report_json(self, json_path: str):
+    def write_report_json(self, json_path: str, bin_width: int = 10):
         obj = {
             "mi": self.mi_value,
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
             "non_matching": [dict(nm) for nm in self._non_matching],
+            "hist": self.calculate_histogram(bin_width=bin_width),
         }
 
         if json_path == "stdout":
@@ -338,16 +340,15 @@ class MIResult:
 
         return f"{header_str}\n{mi_vals_str}"
 
-    def histogram_text(self, bin_width: int = 10) -> str:
+    def calculate_histogram(self, bin_width: int = 10) -> Tuple[List[dict], list]:
         # TODO: Don't duplicate with calculate()
 
         loci: List[MILocusData] = []
-
         for cr in self._contig_results:
             loci.extend(list(cr))
 
-        bins = np.arange(0, max((locus.end - locus.start) for locus in loci) + bin_width, bin_width)
-        bins_str = "\t".join(f"{b}-{b+bin_width-1}" for b in bins)
+        bins = list(np.arange(0, max((locus.end - locus.start) for locus in loci) + bin_width, bin_width))
+        hist = []
 
         vals_strict_by_bin = [[] for _ in bins]
         vals_95_ci_by_bin = [[] for _ in bins]
@@ -365,12 +366,30 @@ class MIResult:
             if r[2] is not None:
                 vals_99_ci_by_bin[locus_bin_idx].append(int(r[2]))
 
-        bin_count_str = "\t".join(str(len(b)) for b in vals_strict_by_bin)
+        for i in range(len(bins)):
+            hist.append({
+                "bin": bins[i],
+                "bin_count": len(vals_strict_by_bin[i]),
+                "mi": mean(vals_strict_by_bin[i]),
+                "mi_95": mean(vals_95_ci_by_bin[i]) if vals_95_ci_by_bin else None,
+                "mi_99": mean(vals_99_ci_by_bin[i]) if vals_99_ci_by_bin else None,
+            })
+
+        return hist, bins
+
+    def histogram_text(self, bin_width: int = 10) -> str:
+        hist, bins = self.calculate_histogram(bin_width)
+
+        bins_str = "\t".join(f"{b}-{b+bin_width-1}" for b in bins)
+        bin_count_str = "\t".join(str(b["bin_count"]) for b in hist)
 
         def _format_means(bin_vals):
-            return "\t".join(f"{np.mean(b)*100:.2f}" if b else "-" for b in bin_vals)
+            return "\t".join(f"{mean(b)*100:.2f}" if b else "-" for b in bin_vals)
 
-        mi_strict_by_bin_vals_str = _format_means(vals_strict_by_bin)
+        vals_95_ci_by_bin = [b["mi_95"] for b in hist]
+        vals_99_ci_by_bin = [b["mi_99"] for b in hist]
+
+        mi_strict_by_bin_vals_str = _format_means([b["mi"] for b in hist])
         mi_95_by_bin_vals_str = (("\n" + _format_means(vals_95_ci_by_bin)) if any(vals_95_ci_by_bin) else "")
         mi_99_by_bin_vals_str = (("\n" + _format_means(vals_99_ci_by_bin)) if any(vals_99_ci_by_bin) else "")
 
