@@ -6,6 +6,7 @@ import numpy as np
 import parasail
 import sys
 
+from pysam import AlignmentFile
 from sklearn.mixture import GaussianMixture
 from typing import List, Optional, Tuple
 
@@ -96,8 +97,8 @@ def normalize_contig(contig: str, has_chr: bool):
     return ("chr" if has_chr else "") + contig.replace("chr", "")
 
 
-def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: int, num_bootstrap: int,
-               flank_size: int, sex_chroms: Optional[str] = None, targeted: bool = False,
+def call_locus(t_idx: int, t: tuple, bfs: Tuple[AlignmentFile, ...], ref, min_reads: int, min_allele_reads: int,
+               num_bootstrap: int, flank_size: int, sex_chroms: Optional[str] = None, targeted: bool = False,
                read_file_has_chr: bool = True, ref_file_has_chr: bool = True) -> Optional[dict]:
     # TODO: Figure out coords properly!!!
 
@@ -147,7 +148,11 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
     read_cn_dict = {}
     read_weight_dict = {}
 
-    overlapping_segments = [segment for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord)]
+    overlapping_segments = [
+        segment
+        for bf in bfs
+        for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord)
+    ]
     read_lengths = [segment.query_alignment_length for segment in overlapping_segments]
     sorted_read_lengths = sorted(read_lengths)
 
@@ -305,7 +310,7 @@ def call_locus(t_idx: int, t: tuple, bf, ref, min_reads: int, min_allele_reads: 
 
 
 def locus_worker(
-        read_file: str,
+        read_files: Tuple[str, ...],
         reference_file: str,
         min_reads: int,
         min_allele_reads: int,
@@ -318,10 +323,10 @@ def locus_worker(
     import pysam as p
 
     ref = p.FastaFile(reference_file)
-    bf = p.AlignmentFile(read_file, reference_filename=reference_file)
+    bfs = tuple(p.AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
 
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
-    read_file_has_chr = any(r.startswith("chr") for r in bf.references)
+    read_file_has_chr = any(r.startswith("chr") for bf in bfs for r in bf.references)
 
     results: List[dict] = []
 
@@ -334,7 +339,7 @@ def locus_worker(
 
         t_idx, t = td
         res = call_locus(
-            t_idx, t, bf, ref,
+            t_idx, t, bfs, ref,
             min_reads=min_reads,
             min_allele_reads=min_allele_reads,
             num_bootstrap=num_bootstrap,
@@ -358,7 +363,7 @@ def parse_loci_bed(loci_file: str):
 
 
 def call_sample(
-        read_file: str,
+        read_files: Tuple[str, ...],
         reference_file: str,
         loci_file: str,
         min_reads: int = 4,
@@ -375,7 +380,7 @@ def call_sample(
     locus_queue = manager.Queue()
 
     job_args = (
-        read_file,
+        read_files,
         reference_file,
         min_reads,
         min_allele_reads,

@@ -22,7 +22,11 @@ from strkit.viz.server import run_server as viz_run_server
 
 
 def add_call_parser_args(call_parser):
-    call_parser.add_argument("read_file", type=str, help="BAM file with reads to call from.")
+    call_parser.add_argument(
+        "read_files",
+        nargs="+",
+        type=str,
+        help="BAM file(s) with reads to call from. If multiple files are specified, the reads will be pooled.")
 
     call_parser.add_argument(
         "--ref",
@@ -279,7 +283,7 @@ def add_vs_parser_args(vs_parser):
 
 def _exec_call(p_args) -> int:
     call_sample(
-        p_args.read_file,
+        tuple(p_args.read_files),
         p_args.ref,
         p_args.loci,
         min_reads=p_args.min_reads,
