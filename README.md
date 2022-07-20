@@ -1,5 +1,7 @@
 # STRkit
 
+[![PyPI version](https://badge.fury.io/py/strkit.svg)](https://badge.fury.io/py/strkit)
+
 A toolkit for analyzing variation in short(ish) tandem repeats.
 
 > **Warning**
