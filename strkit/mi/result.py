@@ -191,12 +191,12 @@ class MILocusData:
         yield "start", self._start
         yield "end", self._end
         yield "motif", self._motif
-        yield "child_gt", self.child_gt_str
-        yield "child_gt_95", self.child_gt_95_ci_str
-        yield "mother_gt", self.mother_gt_str
-        yield "mother_gt_95", self.mother_gt_95_ci_str
-        yield "father_gt", self.father_gt_str
-        yield "father_gt_95", self.father_gt_95_ci_str
+        yield "child_gt", self._child_gt
+        yield "child_gt_95_ci", self._child_gt_95_ci
+        yield "mother_gt", self._mother_gt
+        yield "mother_gt_95_ci", self._mother_gt_95_ci
+        yield "father_gt", self._father_gt
+        yield "father_gt_95_ci", self._father_gt_95_ci
 
     def __str__(self):
         def _opt_ci_str(ci_str, level="95"):
@@ -280,12 +280,14 @@ class MIResult:
         return f"{res:.1f}" if isinstance(res, float) else str(res)
 
     def write_report_json(self, json_path: str, bin_width: int = 10):
+        hist, _bins = self.calculate_histogram(bin_width=bin_width)
+
         obj = {
             "mi": self.mi_value,
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
             "non_matching": [dict(nm) for nm in self._non_matching],
-            "hist": self.calculate_histogram(bin_width=bin_width),
+            "hist": hist,
         }
 
         if json_path == "stdout":
@@ -295,7 +297,7 @@ class MIResult:
             return
 
         with open(json_path, "w") as jf:
-            json.dump(obj, jf)
+            json.dump(obj, jf, indent=2)
 
     def non_matching_tsv(self, sep="\t") -> str:
         res = ""
@@ -347,7 +349,7 @@ class MIResult:
         for cr in self._contig_results:
             loci.extend(list(cr))
 
-        bins = list(np.arange(0, max((locus.end - locus.start) for locus in loci) + bin_width, bin_width))
+        bins = np.arange(0, max((locus.end - locus.start) for locus in loci) + bin_width, bin_width).tolist()
         hist = []
 
         vals_strict_by_bin = [[] for _ in bins]
@@ -367,12 +369,16 @@ class MIResult:
                 vals_99_ci_by_bin[locus_bin_idx].append(int(r[2]))
 
         for i in range(len(bins)):
+            vsb = vals_strict_by_bin[i]
+            v95b = vals_95_ci_by_bin[i] if vals_95_ci_by_bin else None
+            v99b = vals_99_ci_by_bin[i] if vals_95_ci_by_bin else None
+
             hist.append({
                 "bin": bins[i],
-                "bin_count": len(vals_strict_by_bin[i]),
-                "mi": mean(vals_strict_by_bin[i]),
-                "mi_95": mean(vals_95_ci_by_bin[i]) if vals_95_ci_by_bin else None,
-                "mi_99": mean(vals_99_ci_by_bin[i]) if vals_99_ci_by_bin else None,
+                "bin_count": len(vsb),
+                "mi": mean(vsb) if vsb else None,
+                "mi_95": mean(v95b) if v95b else None,
+                "mi_99": mean(v99b) if v99b else None,
             })
 
         return hist, bins
