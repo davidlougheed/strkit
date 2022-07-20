@@ -41,13 +41,17 @@ long read data should still work.
 
 ```bash
 strkit call \
-  path/to/read/file.bam \  # [REQUIRED] Indexed read file (BAM/CRAM)
+  path/to/read/file.bam \  # [REQUIRED] At least one indexed read file (BAM/CRAM)
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) list of loci to genotype
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
 ```
+
+If more than one read file is specified, the reads will be pooled. This can come in handy if you
+have e.g. multiple flow cells of the same sample split into different BAM files, or the reads are
+split by chromosome.
 
 If you want to output a full call report, you can use the `--json output-file.json` argument to
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
