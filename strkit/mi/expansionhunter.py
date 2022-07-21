@@ -40,6 +40,10 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
 
             # TODO: Handle sex chromosomes
 
+            # Check to make sure call is present in TRF BED file, if it is specified
+            if self._loci_file and self._loci_dict and (contig, str(cv.pos), str(cv.stop)) not in self._loci_dict:
+                continue
+
             if mv is None or fv is None:
                 # Variant isn't found in at least one of the parents, so we can't do anything with it.
                 # TODO: We need to actually check calls, and check with sample ID, not just assume

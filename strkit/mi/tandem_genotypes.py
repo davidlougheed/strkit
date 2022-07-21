@@ -50,6 +50,10 @@ class TandemGenotypesCalculator(BaseCalculator):
                 if locus_data[0] != contig:
                     continue
 
+                # Check to make sure call is present in TRF BED file, if it is specified
+                if self._loci_file and self._loci_dict and lookup[:3] not in self._loci_dict:
+                    continue
+
                 # Check to make sure call is present in all trio individuals
                 if lookup not in mother_calls or lookup not in father_calls:
                     continue
