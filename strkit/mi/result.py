@@ -286,6 +286,7 @@ class MIResult:
             "mi": self.mi_value,
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
+            "n_loci": sum((len(lr) for lr in self.contig_results)),
             "non_matching": [dict(nm) for nm in self._non_matching],
             "hist": hist,
         }
