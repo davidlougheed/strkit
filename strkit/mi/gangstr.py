@@ -57,7 +57,7 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
                 c_gt_95_ci = parse_cis(cs["REPCI"])
                 m_gt_95_ci = parse_cis(ms["REPCI"])
                 f_gt_95_ci = parse_cis(fs["REPCI"])
-            except ValueError:
+            except (ValueError, TypeError):
                 # None call in VCF, skip this call
                 continue
 
