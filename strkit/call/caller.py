@@ -43,7 +43,9 @@ match_score = 2
 mismatch_penalty = 7
 indel_penalty = 5
 min_read_score = 0.9  # TODO: parametrize
+local_search_size = 1  # TODO: parametrize
 
+# TODO: support 'wildcard' bases and create a more advanced matrix
 dna_matrix = parasail.matrix_create("ACGT", match_score, -1 * mismatch_penalty)
 
 
@@ -54,7 +56,6 @@ def get_repeat_count(
         flank_right_seq: str,
         motif: str
 ) -> Tuple[int, int]:
-    moving = 0
     to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores = {}
 
@@ -67,7 +68,10 @@ def get_repeat_count(
         size_to_explore, direction = to_explore.pop()
         szs = []
 
-        for i in range(size_to_explore - (1 if moving < 1 else 0), size_to_explore + (2 if moving > -1 else 1)):
+        start_size = size_to_explore - (local_search_size if direction < 1 else 0)
+        end_size = size_to_explore + (local_search_size if direction > -1 else 0)
+
+        for i in range(start_size, end_size + 1):
             if i < 0:
                 continue
 
@@ -226,7 +230,7 @@ def call_locus(t_idx: int, t: tuple, bfs: Tuple[AlignmentFile, ...], ref, min_re
         read_cn_dict[segment.query_name] = read_rc[0]
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
-        # overlaps the region, is P(read is large enough to contain) * P(
+        # overlaps the region, is P(read is large enough to contain) * P(  # TODO: complete this..
         partition_idx = next((i for i in range(len(read_lengths)) if sorted_read_lengths[i] >= tr_len_w_flank), None)
         if partition_idx is None:
             # Fatal
@@ -236,6 +240,7 @@ def call_locus(t_idx: int, t: tuple, bfs: Tuple[AlignmentFile, ...], ref, min_re
                 f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)
         mean_containing_size = read_len if targeted else np.mean(sorted_read_lengths[partition_idx:])
+        # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
         read_weight_dict[segment.query_name] = (
                 (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1))
 
