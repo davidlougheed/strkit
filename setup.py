@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="strkit",
-    version="0.3.0.rc4",
+    version="0.3.0",
 
     python_requires="~=3.7",
     install_requires=[
