@@ -47,6 +47,12 @@ def add_call_parser_args(call_parser):
         help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
 
     call_parser.add_argument(
+        "--integer",
+        action="store_true",
+        help="Return all final calls and repeat counts as integers (whole motif copies). Intermediate calculations "
+             "still allow for partial repeats.")
+
+    call_parser.add_argument(
         "--min-reads",
         type=int,
         default=4,
@@ -57,6 +63,14 @@ def add_call_parser_args(call_parser):
         type=int,
         default=2,
         help="Minimum number of supporting reads needed to call a specific allele peak.")
+
+    # Min PHRED score of 13 for 95% confidence avg. in bases; although this may be over-estimated in ONT.
+    # TODO: cite overest. and put a note in README.
+    call_parser.add_argument(
+        "--min-avg-phred",
+        type=int,
+        default=13,
+        help="Minimum average PHRED score for relevant (flanking + TR) bases required for a read to be used.")
 
     call_parser.add_argument(
         "--flank-size",
@@ -288,10 +302,12 @@ def _exec_call(p_args) -> int:
         p_args.loci,
         min_reads=p_args.min_reads,
         min_allele_reads=p_args.min_allele_reads,
+        min_avg_phred=p_args.min_avg_phred,
         num_bootstrap=p_args.num_bootstrap,
         flank_size=p_args.flank_size,
         sex_chroms=p_args.sex_chr,
         targeted=p_args.targeted,
+        return_integers=p_args.integer,
         json_path=p_args.json,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,

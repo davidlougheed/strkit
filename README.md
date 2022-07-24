@@ -76,10 +76,16 @@ export OMP_NUM_THREADS=1
 * `--min-reads ##`: Minimum number of supporting reads needed to make a call. Default: 4
 * `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
   **Default:** 2
+* `--min-avg-phred ##`: Minimum average PHRED score for relevant bases (flanking region + tandem repeat).
+  Read segments with average PHRED scores below this (common with a threshold of ~13 and ONT Ultra Long reads, 
+  for example) will be skipped. **Default:** 13
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
 * `--targeted`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
+* `--integer`: Turn on integer genotyping mode, which rounds reference and allele copy numbers to the nearest
+  integer without considering difference relative to reference. Fractional copy numbers are still used when
+  making calls. **Default:** off
 * `--num-bootstrap ###`: Now many bootstrap re-samplings to perform. **Default:** 100
 * `--sex-chr ??`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
