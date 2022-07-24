@@ -126,8 +126,8 @@ def call_locus(t_idx: int, t: tuple, bfs: Tuple[AlignmentFile, ...], ref, min_re
 
     try:
         ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
-        ref_right_flank_seq = ref.fetch(ref_contig, right_coord - 1, right_flank_coord)
-        ref_seq = ref.fetch(ref_contig, left_coord, right_coord - 1)
+        ref_right_flank_seq = ref.fetch(ref_contig, right_coord, right_flank_coord)
+        ref_seq = ref.fetch(ref_contig, left_coord, right_coord)
     except IndexError:
         log_warning(
             f"Coordinates out of range in provided reference FASTA for region {ref_contig} with flank size "
