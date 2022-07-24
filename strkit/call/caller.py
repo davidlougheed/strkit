@@ -444,9 +444,9 @@ def call_sample(
 
     if json_path:
         if json_path == "stdout":
-            json.dump(results, sys.stdout)
+            json.dump(results, sys.stdout, indent=2)
             sys.stdout.write("\n")
             sys.stdout.flush()
         else:
             with open(json_path, "w") as jf:
-                json.dump(results, jf)
+                json.dump(results, jf, indent=2)
