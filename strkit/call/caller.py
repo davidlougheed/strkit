@@ -84,10 +84,10 @@ def get_repeat_count(
 
         szs = []
 
-        start_size = size_to_explore - (local_search_range if direction < 1 else 0)
+        start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
         end_size = size_to_explore + (local_search_range if direction > -1 else 0)
 
-        for i in range(max(start_size, 0), end_size + 1):
+        for i in range(start_size, end_size + 1):
             rs = sizes_and_scores.get(i)
             if rs is None:
                 # Generate a candidate TR tract by copying the provided motif 'i' times & score it
@@ -293,7 +293,7 @@ def call_locus(
         tr_len_w_flank = tr_len + flank_len
 
         read_cn, read_cn_score = get_repeat_count(
-            start_count=round(tr_len / motif_size),
+            start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
             tr_seq=tr_read_seq,
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
