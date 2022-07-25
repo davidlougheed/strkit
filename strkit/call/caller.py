@@ -111,9 +111,10 @@ def get_repeat_count(
 
     p_szs = {float(int_res[0]): int_res[1] for int_res in top_int_res}
 
+    j_range = range(-1 * motif_size + 1, motif_size)
     for int_res in top_int_res:
         i_mm = motif * int_res[0]  # Best integer candidate
-        for j in range(-1 * motif_size + 1, motif_size):
+        for j in j_range:
             if j == 0:
                 # Already done
                 continue
@@ -218,8 +219,8 @@ def call_locus(
         for bf in bfs
         for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord)
     ]
-    read_lengths = [segment.query_alignment_length for segment in overlapping_segments]
-    sorted_read_lengths = sorted(read_lengths)
+    read_lengths = np.fromiter((segment.query_alignment_length for segment in overlapping_segments), dtype=np.int)
+    sorted_read_lengths = np.sort(read_lengths)
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         qs = segment.query_sequence
@@ -270,7 +271,7 @@ def call_locus(
             continue
 
         qqs = np.array(qq[left_flank_end:right_flank_start])
-        if len(qqs) and (m_qqs := np.mean(qqs)) < min_avg_phred:
+        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:
             log_debug(
                 f"Skipping read {segment.query_name} due to low average base quality ({m_qqs} < {min_avg_phred}")
             continue
@@ -309,8 +310,8 @@ def call_locus(
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
         # overlaps the region, is P(read is large enough to contain) * P(  # TODO: complete this..
-        partition_idx = next((i for i in range(len(read_lengths)) if sorted_read_lengths[i] >= tr_len_w_flank), None)
-        if partition_idx is None:
+        partition_idx = np.searchsorted(sorted_read_lengths, tr_len_w_flank, side="right")
+        if partition_idx == sorted_read_lengths.shape[0]:  # tr_len_w_flank is longer than the longest read... :(
             # Fatal
             # TODO: Just skip this locus
             log_error(
@@ -327,8 +328,8 @@ def call_locus(
         return None
 
     # Dicts are ordered in Python; very nice :)
-    read_cns = np.array(list(read_cn_dict.values()))
-    read_weights = np.array(list(read_weight_dict.values()))
+    read_cns = np.fromiter(read_cn_dict.values(), dtype=np.float)
+    read_weights = np.fromiter(read_weight_dict.values(), dtype=np.float)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
     call = call_alleles(
@@ -344,38 +345,34 @@ def call_locus(
         force_int=False,
     ) or {}  # Still false-y
 
-    peaks_data = {
-        "means": list(call["peaks"]),  # from np.ndarray
-        "weights": list(call["peak_weights"]),  # from np.ndarray
-        "stdevs": list(call["peak_stdevs"]),  # from np.ndarray
-        "modal_n": int(call["modal_n_peaks"]),  # from np.int64
-    } if call else None
+    call_peaks = call.get("peaks")
+    call_weights = call.get("peak_weights")
+    call_stdevs = call.get("peak_stdevs")
+    call_modal_n = call.get("modal_n_peaks")
 
     read_peak_labels = None
     # We cannot call read-level cluster labels with >2 peaks;
     # don't know how re-sampling has occurred.
-    if peaks_data and peaks_data["modal_n"] <= 2:
-        mn = peaks_data["modal_n"]
-        ws = peaks_data["weights"][:mn]
+    if call_modal_n and call_modal_n <= 2:
+        ws = call_weights[:call_modal_n]
         final_model = GaussianMixture(
-            n_components=mn,
+            n_components=call_modal_n,
             covariance_type="spherical",
             max_iter=1,  # Lowest iteration # to keep it close to predicted parameters
             weights_init=ws/np.sum(ws),
-            means_init=np.array(peaks_data["means"][:mn]).reshape(-1, 1),
-            precisions_init=1 / (np.array(peaks_data["stdevs"][:mn]) ** 2),  # TODO: Check, this looks wrong
+            means_init=call_peaks[:call_modal_n].reshape(-1, 1),
+            precisions_init=1 / (call_stdevs[:call_modal_n] ** 2),  # TODO: Check, this looks wrong
         )
-        rvs = np.array(list(read_cn_dict.values())).reshape(-1, 1)
-        res = final_model.fit_predict(rvs)
+        res = final_model.fit_predict(read_cns.reshape(-1, 1))
         read_peak_labels = {k: int(v) for k, v in zip(read_cn_dict.keys(), res)}
 
     def _round_to_base_pos(x) -> float:
         return round(float(x) * motif_size) / motif_size
 
-    def _ndarray_serialize(x: Iterable) -> List[Union[int, float]]:
+    def _ndarray_serialize(x: Iterable) -> List[Union[int, float, np.int, np.float]]:
         return [(round(y) if return_integers else _round_to_base_pos(y)) for y in x]
 
-    def _nested_ndarray_serialize(x: Iterable) -> List[List[Union[int, float]]]:
+    def _nested_ndarray_serialize(x: Iterable) -> List[List[Union[int, float, np.int, np.float]]]:
         return [_ndarray_serialize(y) for y in x]
 
     return {
@@ -388,7 +385,12 @@ def call_locus(
         "call": apply_or_none(_ndarray_serialize, call.get("call")),
         "call_95_cis": apply_or_none(_nested_ndarray_serialize, call.get("call_95_cis")),
         "call_99_cis": apply_or_none(_nested_ndarray_serialize, call.get("call_99_cis")),
-        "peaks": peaks_data,
+        "peaks": {
+            "means": call_peaks.tolist(),  # from np.ndarray
+            "weights": call_weights.tolist(),  # from np.ndarray
+            "stdevs": call_stdevs.tolist(),  # from np.ndarray
+            "modal_n": call_modal_n.item(),  # from np.int64
+        } if call else None,
         "read_cns": read_cn_dict,
         "read_weights": read_weight_dict,
         "read_peak_labels": read_peak_labels,
