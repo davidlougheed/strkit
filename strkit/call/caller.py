@@ -420,8 +420,6 @@ def locus_worker(
 
     while True:
         td = locus_queue.get()
-        sys.stdout.flush()
-
         if td is None:  # Kill signal
             break
 
