@@ -174,7 +174,7 @@ def call_locus(
     left_coord = int(t[1])
     right_coord = int(t[2])
 
-    left_flank_coord = left_coord - flank_size - 1
+    left_flank_coord = left_coord - flank_size
     right_flank_coord = right_coord + flank_size
 
     ref_left_flank_seq = ""
