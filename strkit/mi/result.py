@@ -391,7 +391,7 @@ class MIResult:
         bin_count_str = "\t".join(str(b["bin_count"]) for b in hist)
 
         def _format_means(bin_vals):
-            return "\t".join(f"{mean(b)*100:.2f}" if b else "-" for b in bin_vals)
+            return "\t".join(f"{b*100:.2f}" if b else "-" for b in bin_vals)
 
         vals_95_ci_by_bin = [b["mi_95"] for b in hist]
         vals_99_ci_by_bin = [b["mi_99"] for b in hist]
