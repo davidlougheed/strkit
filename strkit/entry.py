@@ -448,19 +448,19 @@ def _exec_viz_server(p_args):
     json_file = pathlib.Path(p_args.json)
 
     if not json_file.exists():
-        print(f"Error: could not find JSON call file at '{json_file}'", file=sys.stderr)
+        print(f"Error: could not find JSON call report file at '{json_file}'", file=sys.stderr)
         return 1
 
     with open(json_file, "r") as jf:
-        call_data = json.load(jf)
+        call_report = json.load(jf)
 
     idx = p_args.i
-    if idx < 1 or idx > len(call_data):
+    if idx < 1 or idx > len(call_report["results"]):
         print(f"Error: JSON offset out of bounds: '{idx}'", file=sys.stderr)
         return 1
 
     viz_run_server(
-        call_data=call_data,
+        call_report=call_report,
         initial_i=idx-1,
         ref=p_args.ref,
         # ref_index=ref_index,
