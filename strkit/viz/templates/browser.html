@@ -11,6 +11,8 @@
 <!--    <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>-->
 
     <script>
+        let params = {};
+
         // --------------------------------------------------------------------
         // Adapted from https://observablehq.com/@d3/histogram until the next set of '----'
         // Copyright 2021 Observable, Inc.
@@ -113,7 +115,7 @@
             .selectAll("rect")
             .data(bins)
             .join("rect")
-              .attr("x", d => xScale(d.x0) + insetLeft - barWidth(d)/2)
+              .attr("x", d => xScale(d.x0) + insetLeft - (params.fractional ? 0 : barWidth(d)/2))
               .attr("width", barWidth)
               .attr("y", (d, i) => yScale(Y[i]))
               .attr("height", (d, i) => yScale(0) - yScale(Y[i]))
@@ -195,12 +197,12 @@
             const scale = document.createElement("div");
             scale.setAttribute("data-label", `Allele ${j+1}`);
             const scaleGradient = document.createElement("div");
-            scaleGradient.setAttribute("data-lower", b.min.toFixed(0));
+            scaleGradient.setAttribute("data-lower", b.min.toFixed(params.fractional ? 1 : 0));
             scaleGradient.setAttribute(
                 "style",
                 `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
                  --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
-            scaleGradient.setAttribute("data-upper", b.max.toFixed(0));
+            scaleGradient.setAttribute("data-upper", b.max.toFixed(params.fractional ? 1 : 0));
             scale.appendChild(scaleGradient);
             scalesContainer.appendChild(scale);
         };
@@ -254,10 +256,10 @@
 
             regionDisplay.innerText = region;
             motifDisplay.innerText = callData.motif;
-            refCopies.innerText = callData.ref_cn;
-            callDisplay.innerText = callData.call.map(c => c.toFixed(0)).join(" | ");
+            refCopies.innerText = callData.ref_cn.toFixed(params.fractional ? 1 : 0);
+            callDisplay.innerText = callData.call.map(c => c.toFixed(params.fractional ? 1 : 0)).join(" | ");
             call95Display.innerText = callData.call_95_cis
-                .map(ci => "(" + ci.map(c => c.toFixed(0)).join("-") + ")").join(" | ");
+                .map(ci => "(" + ci.map(c => c.toFixed(params.fractional ? 1 : 0)).join("-") + ")").join(" | ");
 
             const getReadsForPeak = q => Object.entries(callData.read_peak_labels)
                 .filter(e => e[1] === q)
@@ -332,8 +334,8 @@
                         }
                         return `<div class="alignment-data">
                                 <label>Read Name:</label><span>${read}</span>
-                                <label>Est. Copy #:</label><span>${cn}</span>
-                                <label>Rel. Copy #:</label><span>${(cn - callData.ref_cn).toFixed(0)}</span>
+                                <label>Est. Copy #:</label><span>${cn.toFixed(1)}</span>
+                                <label>Rel. Copy #:</label><span>${(cn - callData.ref_cn).toFixed(1)}</span>
                                 <label>Peak Label:</label><span>${peakLabel}</span>
                             </div>`;
                     }
@@ -354,6 +356,12 @@
             fetch(`/call_data/${i}`)
                 .then(r => r.json())
                 .then(renderCall)
+                .catch(console.error);
+
+        const fetchParams = () =>
+            fetch(`/params`)
+                .then(r => r.json())
+                .then(ps => {params = ps;})
                 .catch(console.error);
 
         const handleSearchResultClick = i => {
@@ -412,8 +420,10 @@
             });
 
             // Load initial data
-            performSearch();
-            fetchCallData({{ initial_i }});
+            fetchParams().then(() => {
+                performSearch();
+                fetchCallData({{ initial_i }});
+            });
         });
     </script>
 
@@ -508,7 +518,7 @@
             margin-bottom: 8px;
             width: 36em;
             display: grid;
-            grid-template-columns: 7em 10em 7em 10em;
+            grid-template-columns: 7em 7em 7em 14em;
             column-gap: 8px;
             row-gap: 4px;
             border: 1px solid #E3E3E3;

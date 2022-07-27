@@ -15,14 +15,20 @@ def browser():
         **app.config["PARAMS"])
 
 
+@app.route("/params")
+def get_params():
+    cr = app.config["CALL_REPORT"]
+    return cr["parameters"]
+
+
 @app.route("/loci")
 def get_loci():
-    cd = app.config["CALL_DATA"]
-    ecd = list(enumerate(cd))  # TODO: cache
+    cr = app.config["CALL_REPORT"]
+    ecd = list(enumerate(cr["results"]))  # TODO: cache
 
     q = request.args.get("q", "").strip()
     if q:
-        res = list(filter(lambda x: q.lower() in  f"{x[1]['contig']}:{x[1]['start']}-{x[1]['end']}", ecd))  # TODO
+        res = list(filter(lambda x: q.lower() in f"{x[1]['contig']}:{x[1]['start']}-{x[1]['end']}", ecd))  # TODO
     else:
         # TODO: nicer priority
         res = ecd[:10]
@@ -36,10 +42,11 @@ def get_loci():
 
 @app.route("/call_data/<int:i>")
 def get_call_data(i: int):
-    cd = app.config["CALL_DATA"]
-    if i < 0 or i > len(cd) - 1:
+    cr = app.config["CALL_REPORT"]
+    cr_res = cr["results"]
+    if i < 0 or i > len(cr_res) - 1:
         raise NotFound()
-    return app.config["CALL_DATA"][i]
+    return cr_res[i]
 
 
 # @app.route("/ref")
@@ -62,6 +69,6 @@ def get_align_index_file():
     return send_file(app.config["PARAMS"]["align_index"], conditional=True)
 
 
-def run_server(call_data, **kwargs):
-    app.config.from_mapping(dict(CALL_DATA=call_data, PARAMS=kwargs))
+def run_server(call_report, **kwargs):
+    app.config.from_mapping(dict(CALL_REPORT=call_report, PARAMS=kwargs))
     app.run(host="localhost", port=5011, debug=True)
