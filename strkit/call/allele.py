@@ -221,9 +221,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
     # Report the median estimates (TODO: ???)
     # and the confidence intervals.
 
-    # TODO: enable for numpy >=1.22
-    # medians_of_means = np.percentile(allele_samples, 50, axis=1, method="interpolated_inverted_cdf")
-    medians_of_means = np.percentile(allele_samples, 50, axis=1, interpolation="nearest")
+    medians_of_means = np.percentile(allele_samples, 50, axis=1, method="interpolated_inverted_cdf")
     medians_of_means_final = medians_of_means
     if force_int:
         medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
