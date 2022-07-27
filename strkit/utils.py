@@ -1,10 +1,13 @@
-from typing import Any, Callable, Iterable, Tuple
+import math
+from typing import Any, Callable, Iterable, Tuple, Union
 
 __all__ = [
     "apply_or_none",
     "int_tuple",
+    "float_tuple",
     "parse_cis",
     "cis_overlap",
+    "sign",
 ]
 
 
@@ -17,8 +20,12 @@ def int_tuple(x: Iterable) -> Tuple[int, ...]:
     return tuple(map(int, x))
 
 
-def parse_cis(cis, commas=False):
-    return tuple(map(lambda ci: tuple(map(int, ci.split("," if commas else "-"))), cis))
+def float_tuple(x: Iterable) -> Tuple[float, ...]:
+    return tuple(map(float, x))
+
+
+def parse_cis(cis, commas=False, dtype=int):
+    return tuple(map(lambda ci: tuple(map(dtype, ci.split("," if commas else "-"))), cis))
 
 
 def cis_overlap(ci1, ci2) -> bool:
@@ -30,3 +37,7 @@ def cis_overlap(ci1, ci2) -> bool:
     # int logic: ci1[0] <= ci2[1] and ci2[0] <= ci1[1]
     # float logic: lets add some epsilon to prevent little issues
     return (ci2[1] - ci1[0]) > epsilon and (ci1[1] - ci2[0]) > epsilon
+
+
+def sign(x: Union[int, float]) -> int:
+    return round(math.copysign(1, x))

@@ -1,5 +1,6 @@
 import heapq
 import json
+import math
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
 import numpy as np
@@ -11,7 +12,7 @@ from sklearn.mixture import GaussianMixture
 from typing import Dict, List, Iterable, Optional, Tuple, Union
 
 from strkit.call.allele import get_n_alleles, call_alleles
-from strkit.utils import apply_or_none
+from strkit.utils import apply_or_none, sign
 
 __all__ = [
     "call_sample",
@@ -44,23 +45,111 @@ mismatch_penalty = 7
 indel_penalty = 5
 min_read_score = 0.9  # TODO: parametrize
 local_search_range = 3  # TODO: parametrize
+base_wildcard_threshold = 3
 
-# TODO: support 'wildcard' bases and create a more advanced matrix
-dna_matrix = parasail.matrix_create("ACGT", match_score, -1 * mismatch_penalty)
+# TODO: Customize matrix based on error chances
+# Create a substitution matrix for alignment.
+# Include IUPAC wildcard bases to allow for motifs with multiple possible motifs.
+# Include a wildcard base 'X' for very low-confidence base calls, to prevent needlessly harsh penalties - this is
+# inserted into a read in place of bases with low PHRED scores.
+dna_bases_str = "ACGTRYSWKMBDHVNX"
+dna_bases = {b: i for i, b in enumerate(dna_bases_str)}
+dna_codes = {
+    "R": ("A", "G"),
+    "Y": ("C", "T"),
+    "S": ("G", "C"),
+    "W": ("A", "T"),
+    "K": ("G", "T"),
+    "M": ("A", "C"),
+    "B": ("C", "G", "T"),
+    "D": ("A", "C", "T"),
+    "H": ("A", "C", "T"),
+    "V": ("A", "C", "G"),
+    "N": ("A", "C", "G", "T"),
+
+    "X": ("A", "C", "G", "T"),  # Special character for matching low-quality bases
+}
+dna_matrix = parasail.matrix_create(dna_bases_str, match_score, -1 * mismatch_penalty)
+
+for code, code_matches in dna_codes.items():
+    for cm in code_matches:
+        dna_matrix[dna_bases[code], dna_bases[cm]] = 2 if code != "X" else 0
+        dna_matrix[dna_bases[cm], dna_bases[code]] = 2 if code != "X" else 0
 
 
-def score_candidate(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str) -> Tuple[int, str]:
-    # TODO: for ref, extend right and then extend left ? then stick with flank direction?
+def score_candidate(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str,
+                    **_kwargs) -> int:
+    # TODO: sub-flank again, to avoid more errors in flanking region contributing to score?
+    # Always assign parasail results to variables due to funky memory allocation behaviour
+    r = parasail.sg_stats_scan_sat(
+        flank_left_seq + tr_candidate + flank_right_seq, db_seq, indel_penalty, indel_penalty, dna_matrix)
+    return r.score
 
+
+def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str,
+                         **kwargs) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+    ref_size = kwargs.pop("ref_size")
+
+    # Always assign parasail results to variables due to funky memory allocation behaviour
+    ext_r_seq = flank_left_seq + tr_candidate
     r_fwd = parasail.sg_de_stats_rowcol_scan_sat(
-        flank_left_seq + tr_candidate, db_seq, indel_penalty, indel_penalty, dna_matrix)
-    r_rev = parasail.sg_db_stats_rowcol_scan_sat(
-        tr_candidate + flank_right_seq, db_seq, indel_penalty, indel_penalty, dna_matrix)
+        ext_r_seq, db_seq, indel_penalty, indel_penalty, dna_matrix)
+    r_adj = r_fwd.end_ref + 1 - len(flank_left_seq) - ref_size  # Amount to tweak boundary on the right side by
 
-    return max((
-        (r_fwd.score, "lf"),
-        (r_rev.score, "rf")
-    ), key=lambda x: x[0])
+    db_seq_rev = db_seq[::-1]
+    ext_l_seq = (tr_candidate + flank_right_seq[max(r_adj, 0):])[::-1]  # reverse
+
+    r_rev = parasail.sg_de_stats_rowcol_scan_sat(
+        ext_l_seq, db_seq_rev, indel_penalty, indel_penalty, dna_matrix)
+    l_adj = r_rev.end_ref + 1 - len(flank_right_seq) - ref_size  # Amount to tweak boundary on the left side by
+
+    return (r_fwd.score, r_adj), (r_rev.score, l_adj)
+
+
+def gen_frac_repeats(motif: str, base_tr: str, j: int):
+    tr_s = base_tr[abs(j):] if j < 0 else motif[j:] + base_tr
+    tr_e = base_tr[:j] if j < 0 else base_tr + motif[:j]
+    return tr_s, tr_e
+
+
+def get_fractional_rc(top_int_res: List[Tuple[int, int]], motif: str, flank_left_seq: str, flank_right_seq: str,
+                      db_seq: str) -> Tuple[float, int]:
+    motif_size = len(motif)
+    p_szs = {float(int_res[0]): (int_res[1], motif * int_res[0]) for int_res in top_int_res}
+
+    j_range = range(-1 * motif_size + 1, motif_size)
+    for int_res in top_int_res:
+        i_mm = motif * int_res[0]  # Best integer candidate
+        for j in j_range:
+            if j == 0:
+                # Already done
+                continue
+
+            frac_cn = int_res[0] + j / motif_size
+
+            if frac_cn in p_szs:
+                continue
+
+            tr_s, tr_e = gen_frac_repeats(motif, i_mm, j)
+            p_szs[frac_cn] = max((
+                score_candidate(
+                    db_seq=db_seq,
+                    # Add or subtract partial copies at start
+                    tr_candidate=tr_s,
+                    flank_left_seq=flank_left_seq,
+                    flank_right_seq=flank_right_seq,
+                ),
+                score_candidate(
+                    db_seq=db_seq,
+                    # Add or subtract partial copies at end
+                    tr_candidate=tr_e,
+                    flank_left_seq=flank_left_seq,
+                    flank_right_seq=flank_right_seq,
+                ),
+            ))
+
+    res: Tuple[float, int] = max(p_szs.items(), key=lambda x: x[1])
+    return res
 
 
 def get_repeat_count(
@@ -69,13 +158,12 @@ def get_repeat_count(
     flank_left_seq: str,
     flank_right_seq: str,
     motif: str,
-) -> Tuple[float, int]:
+    fractional: bool = False,
+) -> Tuple[Union[int, float], int]:
     to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores: Dict[int, int] = {}
 
     db_seq = flank_left_seq + tr_seq + flank_right_seq
-
-    motif_size = len(motif)
 
     while to_explore:
         size_to_explore, direction = to_explore.pop()
@@ -92,7 +180,7 @@ def get_repeat_count(
             if rs is None:
                 # Generate a candidate TR tract by copying the provided motif 'i' times & score it
                 # Separate this from the .get() to postpone computation to until we need it
-                sizes_and_scores[i] = rs = score_candidate(db_seq, motif * i, flank_left_seq, flank_right_seq)[0]
+                sizes_and_scores[i] = rs = score_candidate(db_seq, motif * i, flank_left_seq, flank_right_seq)
 
             szs.append((i, rs))
 
@@ -104,42 +192,125 @@ def get_repeat_count(
             if new_rc >= 0:
                 to_explore.append((new_rc, -1))
 
+    if fractional:
+        # Refine further using partial copy numbers, starting from the best couple of integer copy numbers
+        # noinspection PyTypeChecker
+        top_int_res: List[Tuple[int, int]] = sorted(sizes_and_scores.items(), reverse=True, key=lambda x: x[1])[:3]
+        return get_fractional_rc(top_int_res, motif, flank_left_seq, flank_right_seq, db_seq)
+
     # noinspection PyTypeChecker
-    top_int_res: List[Tuple[int, int]] = sorted(sizes_and_scores.items(), reverse=True, key=lambda x: x[1])[:3]
+    res: Tuple[int, int] = max(sizes_and_scores.items(), key=lambda x: x[1])
+    return res[0], res[1]
 
-    # Refine further using partial copy numbers, starting from the best couple of integer copy numbers
 
-    p_szs = {float(int_res[0]): int_res[1] for int_res in top_int_res}
+def get_ref_repeat_count(
+    start_count: int,
+    tr_seq: str,
+    flank_left_seq: str,
+    flank_right_seq: str,
+    motif: str,
+    ref_size: int,
+    fractional: bool = False,
+):
+    to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
 
+    fwd_sizes_scores_adj: Dict[Union[int, float], Tuple[int, int]] = {}
+    rev_sizes_scores_adj: Dict[Union[int, float], Tuple[int, int]] = {}
+
+    db_seq = flank_left_seq + tr_seq + flank_right_seq
+
+    motif_size = len(motif)
     j_range = range(-1 * motif_size + 1, motif_size)
-    for int_res in top_int_res:
-        i_mm = motif * int_res[0]  # Best integer candidate
-        for j in j_range:
-            if j == 0:
-                # Already done
-                continue
 
-            frac_cn = int_res[0] + j / motif_size
+    while to_explore:
+        size_to_explore, direction = to_explore.pop()
+        if size_to_explore < 0:
+            continue
 
-            if frac_cn in p_szs:
-                continue
+        fwd_scores = []  # For right-side adjustment
+        rev_scores = []  # For left-side adjustment
 
-            p_szs[frac_cn] = max((
-                score_candidate(
-                    db_seq=db_seq,
-                    # Add or subtract partial copies at start
-                    tr_candidate=i_mm[abs(j):] if j < 0 else motif[j:] + i_mm,
-                    flank_left_seq=flank_left_seq,
-                    flank_right_seq=flank_right_seq)[0],
-                score_candidate(
-                    db_seq=db_seq,
-                    # Add or subtract partial copies at end
-                    tr_candidate=i_mm[:j] if j < 0 else i_mm + motif[:j],
-                    flank_left_seq=flank_left_seq,
-                    flank_right_seq=flank_right_seq)[0],
-            ))
+        start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
+        end_size = size_to_explore + (local_search_range if direction > -1 else 0)
 
-    return max(p_szs.items(), key=lambda x: x[1])
+        for i in range(start_size, end_size + 1):
+            i_mm = motif * i
+
+            if fractional:
+                for j in j_range:  # j_range:
+                    frac_cn = i + j/motif_size
+
+                    fwd_rs = fwd_sizes_scores_adj.get(frac_cn)
+                    rev_rs = rev_sizes_scores_adj.get(frac_cn)
+
+                    if fwd_rs is None or rev_rs is None:
+                        # Generate a candidate TR tract by copying the provided motif 'i +/- frac j' times & score it
+                        # Separate this from the .get() to postpone computation to until we need it
+
+                        tr_s, tr_e = gen_frac_repeats(motif, i_mm, j)
+
+                        res_s = score_ref_boundaries(db_seq, tr_s, flank_left_seq, flank_right_seq, ref_size=ref_size)
+                        res_e = score_ref_boundaries(db_seq, tr_e, flank_left_seq, flank_right_seq, ref_size=ref_size)
+
+                        res = res_s if (res_s[0][0] + res_s[1][0]) > (res_e[0][0] + res_e[1][0]) else res_e
+
+                        fwd_sizes_scores_adj[frac_cn] = fwd_rs = res[0]
+                        rev_sizes_scores_adj[frac_cn] = rev_rs = res[1]
+
+                    fwd_scores.append((frac_cn, fwd_rs, i))
+                    rev_scores.append((frac_cn, rev_rs, i))
+
+            else:
+                fwd_rs = fwd_sizes_scores_adj.get(i)
+                rev_rs = rev_sizes_scores_adj.get(i)
+
+                if fwd_rs is None or rev_rs is None:
+                    res = score_ref_boundaries(db_seq, i_mm, flank_left_seq, flank_right_seq, ref_size=ref_size)
+
+                    fwd_sizes_scores_adj[i] = fwd_rs = res[0]
+                    rev_sizes_scores_adj[i] = rev_rs = res[1]
+
+                fwd_scores.append((i, fwd_rs, i))
+                rev_scores.append((i, rev_rs, i))
+
+        mv: Tuple[int, int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
+        if mv[2] > size_to_explore and (
+                (new_rc := mv[2] + 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
+            if new_rc >= 0:
+                to_explore.append((new_rc, 1))
+        if mv[2] < size_to_explore and (
+                (new_rc := mv[2] - 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
+            if new_rc >= 0:
+                to_explore.append((new_rc, -1))
+
+    # noinspection PyTypeChecker
+    fwd_top_res: Tuple[Union[int, float], tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])
+    # noinspection PyTypeChecker
+    rev_top_res: Tuple[Union[int, float], tuple] = max(rev_sizes_scores_adj.items(), key=lambda x: x[1][0])
+
+    # Ignore negative differences (contractions vs TRF definition), but follow expansions
+    # TODO: Should we incorporate contractions? How would that work?
+
+    if fractional:
+        l_offset = rev_top_res[1][1]
+        r_offset = fwd_top_res[1][1]
+    else:
+        l_offset = sign(rev_top_res[1][1]) * math.floor(abs(rev_top_res[1][1]) / motif_size) * motif_size
+        r_offset = sign(fwd_top_res[1][1]) * math.floor(abs(fwd_top_res[1][1]) / motif_size) * motif_size
+
+    if l_offset > 0:
+        flank_left_seq = flank_left_seq[:-1*l_offset]
+    if r_offset > 0:
+        flank_right_seq = flank_right_seq[r_offset:]
+
+    final_res = get_repeat_count(
+        round(start_count + (max(0, l_offset) + max(0, r_offset)) / motif_size),  # always start with int here
+        db_seq,
+        flank_left_seq,
+        flank_right_seq,
+        motif)
+
+    return final_res, l_offset, r_offset
 
 
 def normalize_contig(contig: str, has_chr: bool):
@@ -158,12 +329,10 @@ def call_locus(
     flank_size: int,
     sex_chroms: Optional[str] = None,
     targeted: bool = False,
-    return_integers: bool = False,
+    fractional: bool = False,
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True
 ) -> Optional[dict]:
-    # TODO: Figure out coords properly!!!
-
     contig: str = t[0]
     read_contig = normalize_contig(contig, read_file_has_chr)
     ref_contig = normalize_contig(contig, ref_file_has_chr)
@@ -204,12 +373,24 @@ def call_locus(
         return None
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
-    ref_cn, _ = get_repeat_count(
+    ref_cn: Union[int, float]
+    (ref_cn, _), l_offset, r_offset = get_ref_repeat_count(
         round(len(ref_seq) / motif_size),  # Initial estimate of copy number based on coordinates + motif size
         ref_seq,
         ref_left_flank_seq,
         ref_right_flank_seq,
-        motif)
+        motif,
+        ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
+        fractional=fractional,
+    )
+
+    # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
+    # more spaces in which an indel could end up), adjust our coordinates to match.
+    # Currently, contractions of the TR region are ignored.
+    if l_offset > 0:
+        left_coord -= max(0, l_offset)
+    if r_offset > 0:
+        right_coord += max(0, r_offset)
 
     read_cn_dict = {}
     read_weight_dict = {}
@@ -292,12 +473,16 @@ def call_locus(
         flank_len = len(flank_left_seq) + len(flank_right_seq)
         tr_len_w_flank = tr_len + flank_len
 
+        # TODO: wildcards in flanking region too?
+        tr_read_seq_wc = "".join(tr_read_seq[i] if qqs[i] > base_wildcard_threshold else "X" for i in np.arange(tr_len))
+
         read_cn, read_cn_score = get_repeat_count(
             start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
-            tr_seq=tr_read_seq,
+            tr_seq=tr_read_seq_wc,
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
+            fractional=fractional,
         )
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
@@ -328,7 +513,7 @@ def call_locus(
         return None
 
     # Dicts are ordered in Python; very nice :)
-    read_cns = np.fromiter(read_cn_dict.values(), dtype=np.float)
+    read_cns = np.fromiter(read_cn_dict.values(), dtype=np.float if fractional else np.int)
     read_weights = np.fromiter(read_weight_dict.values(), dtype=np.float)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
@@ -342,7 +527,7 @@ def call_locus(
         separate_strands=False,
         read_bias_corr_min=0,
         gm_filter_factor=3,
-        force_int=False,
+        force_int=not fractional,
     ) or {}  # Still false-y
 
     call_peaks = call.get("peaks")
@@ -370,7 +555,7 @@ def call_locus(
         return round(float(x) * motif_size) / motif_size
 
     def _ndarray_serialize(x: Iterable) -> List[Union[int, float, np.int, np.float]]:
-        return [(round(y) if return_integers else _round_to_base_pos(y)) for y in x]
+        return [(round(y) if not fractional else _round_to_base_pos(y)) for y in x]
 
     def _nested_ndarray_serialize(x: Iterable) -> List[List[Union[int, float, np.int, np.float]]]:
         return [_ndarray_serialize(y) for y in x]
@@ -381,7 +566,7 @@ def call_locus(
         "start": left_coord,
         "end": right_coord,
         "motif": motif,
-        "ref_cn": round(ref_cn) if return_integers else ref_cn,
+        "ref_cn": ref_cn,
         "call": apply_or_none(_ndarray_serialize, call.get("call")),
         "call_95_cis": apply_or_none(_nested_ndarray_serialize, call.get("call_95_cis")),
         "call_99_cis": apply_or_none(_nested_ndarray_serialize, call.get("call_99_cis")),
@@ -407,7 +592,7 @@ def locus_worker(
         flank_size: int,
         sex_chroms: Optional[str],
         targeted: bool,
-        return_integers: bool,
+        fractional: bool,
         locus_queue: mp.Queue) -> List[dict]:
 
     import pysam as p
@@ -435,7 +620,7 @@ def locus_worker(
             flank_size=flank_size,
             sex_chroms=sex_chroms,
             targeted=targeted,
-            return_integers=return_integers,
+            fractional=fractional,
             read_file_has_chr=read_file_has_chr,
             ref_file_has_chr=ref_file_has_chr,
         )
@@ -463,7 +648,7 @@ def call_sample(
     flank_size: int = 70,
     sex_chroms: Optional[str] = None,
     targeted: bool = False,
-    return_integers: bool = False,
+    fractional: bool = False,
     json_path: Optional[str] = None,
     output_tsv: bool = True,
     processes: int = 1
@@ -482,7 +667,7 @@ def call_sample(
         flank_size,
         sex_chroms,
         targeted,
-        return_integers,
+        fractional,
         locus_queue,
     )
     result_lists = []

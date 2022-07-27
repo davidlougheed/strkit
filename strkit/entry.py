@@ -47,10 +47,9 @@ def add_call_parser_args(call_parser):
         help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
 
     call_parser.add_argument(
-        "--integer",
+        "--fractional",
         action="store_true",
-        help="Return all final calls and repeat counts as integers (whole motif copies). Intermediate calculations "
-             "still allow for partial repeats.")
+        help="Call fractional repeat counts (partial repeats). Experimental!")
 
     call_parser.add_argument(
         "--min-reads",
@@ -307,7 +306,7 @@ def _exec_call(p_args) -> int:
         flank_size=p_args.flank_size,
         sex_chroms=p_args.sex_chr,
         targeted=p_args.targeted,
-        return_integers=p_args.integer,
+        fractional=p_args.fractional,
         json_path=p_args.json,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,

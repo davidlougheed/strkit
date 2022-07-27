@@ -83,9 +83,8 @@ export OMP_NUM_THREADS=1
   **Default:** 70
 * `--targeted`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
-* `--integer`: Turn on integer genotyping mode, which rounds reference and allele copy numbers to the nearest
-  integer without considering difference relative to reference. Fractional copy numbers are still used when
-  making calls. **Default:** off
+* `--fractional`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and in
+  allele calls. *Experimental!* **Default:** off
 * `--num-bootstrap ###`: Now many bootstrap re-samplings to perform. **Default:** 100
 * `--sex-chr ??`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
