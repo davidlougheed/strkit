@@ -7,9 +7,12 @@ import numpy as np
 import parasail
 import sys
 
+from datetime import datetime
 from pysam import AlignmentFile
 from sklearn.mixture import GaussianMixture
 from typing import Dict, List, Iterable, Optional, Tuple, Union
+
+from strkit import __version__
 
 from strkit.call.allele import get_n_alleles, call_alleles
 from strkit.utils import apply_or_none, sign
@@ -637,6 +640,10 @@ def parse_loci_bed(loci_file: str):
         yield from (tuple(line.split("\t")) for line in (s.strip() for s in tf) if line)
 
 
+def _cn_to_str(cn: Union[int, float]) -> str:
+    return f"{cn:.1f}" if isinstance(cn, float) else str(cn)
+
+
 def call_sample(
     read_files: Tuple[str, ...],
     reference_file: str,
@@ -653,23 +660,26 @@ def call_sample(
     output_tsv: bool = True,
     processes: int = 1
 ):
+    start_time = datetime.now()
 
     manager = mp.Manager()
     locus_queue = manager.Queue()
 
-    job_args = (
-        read_files,
-        reference_file,
-        min_reads,
-        min_allele_reads,
-        min_avg_phred,
-        num_bootstrap,
-        flank_size,
-        sex_chroms,
-        targeted,
-        fractional,
-        locus_queue,
-    )
+    # Order matters here!!
+    job_params = {
+        "read_files": read_files,
+        "reference_file": reference_file,
+        "min_reads": min_reads,
+        "min_allele_reads": min_allele_reads,
+        "min_avg_phred": min_avg_phred,
+        "num_bootstrap": num_bootstrap,
+        "flank_size": flank_size,
+        "sex_chroms": sex_chroms,
+        "targeted": targeted,
+        "fractional": fractional,
+    }
+
+    job_args = (*job_params.values(), locus_queue)
     result_lists = []
 
     pool_class = mp.Pool if processes > 1 else mpd.Pool
@@ -694,8 +704,7 @@ def call_sample(
     # Merge sorted result lists into single sorted list.
     results: Tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
 
-    def _cn_to_str(cn: Union[int, float]) -> str:
-        return f"{cn:.1f}" if isinstance(cn, float) else str(cn)
+    time_taken = datetime.now() - start_time
 
     if output_tsv:
         for res in results:
@@ -721,10 +730,23 @@ def call_sample(
             )) + "\n")
 
     if json_path:
+        json_report = {
+            "caller": {
+                "name": "strkit",
+                "version": __version__,
+            },
+            "parameters": {
+                **job_params,
+                "processes": processes,
+            },
+            "runtime": time_taken.total_seconds(),
+            "results": results,
+        }
+
         if json_path == "stdout":
-            json.dump(results, sys.stdout, indent=2)
+            json.dump(json_report, sys.stdout, indent=2)
             sys.stdout.write("\n")
             sys.stdout.flush()
         else:
             with open(json_path, "w") as jf:
-                json.dump(results, jf, indent=2)
+                json.dump(json_report, jf, indent=2)
