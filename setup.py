@@ -5,9 +5,12 @@ from setuptools import setup
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open("./strkit/VERSION", "r") as vf:
+    version = vf.read().strip()
+
 setup(
     name="strkit",
-    version="0.4.0.rc2",
+    version=version,
 
     python_requires="~=3.7",
     install_requires=[

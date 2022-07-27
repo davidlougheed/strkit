@@ -1,1 +1,2 @@
+include strkit/VERSION
 include strkit/viz/templates/*.html
