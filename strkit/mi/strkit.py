@@ -2,7 +2,7 @@ from typing import Tuple
 
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
-from ..utils import int_tuple, parse_cis
+from ..utils import int_tuple, float_tuple, parse_cis
 
 __all__ = [
     "StrKitCalculator",
@@ -10,6 +10,8 @@ __all__ = [
 
 
 class StrKitCalculator(BaseCalculator):
+    fractional = False
+
     @staticmethod
     def get_contigs_from_fh(fh) -> set:
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
@@ -25,10 +27,13 @@ class StrKitCalculator(BaseCalculator):
 
     @staticmethod
     def make_calls_dict(ph, contig):
+        tuple_conv = float_tuple if StrKitCalculator.fractional else int_tuple
+        dtype = float if StrKitCalculator.fractional else int
+
         return {
             tuple(line[:4]): (
-                int_tuple(line[-2].split("|")),
-                parse_cis(line[-1].split("|")),
+                tuple_conv(line[-2].split("|")),
+                parse_cis(line[-1].split("|"), dtype=dtype),
                 None  # parse_cis(line[-1:].split("|")),
             )
             for line in (pv.strip().split("\t") for pv in ph)
@@ -36,6 +41,9 @@ class StrKitCalculator(BaseCalculator):
         }
 
     def calculate_contig(self, contig: str) -> MIContigResult:
+        tuple_conv = float_tuple if StrKitCalculator.fractional else int_tuple
+        dtype = float if StrKitCalculator.fractional else int
+
         cr = MIContigResult(includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
@@ -75,11 +83,11 @@ class StrKitCalculator(BaseCalculator):
                     end=int(lookup[2]),
                     motif=lookup[3],
 
-                    child_gt=int_tuple(calls),
+                    child_gt=tuple_conv(calls),
                     mother_gt=m_gt,
                     father_gt=f_gt,
 
-                    child_gt_95_ci=parse_cis(locus_data[-1].split("|")),
+                    child_gt_95_ci=parse_cis(locus_data[-1].split("|"), dtype=dtype),
                     mother_gt_95_ci=m_gt_95_ci,
                     father_gt_95_ci=f_gt_95_ci,
 
@@ -87,7 +95,9 @@ class StrKitCalculator(BaseCalculator):
                     # mother_gt_99_ci=m_gt_99_ci,
                     # father_gt_99_ci=f_gt_99_ci,
 
-                    reference_copies=int(locus_data[4]),
+                    reference_copies=dtype(locus_data[4]),
+
+                    decimal=StrKitCalculator.fractional,
                 ))
 
         return cr
