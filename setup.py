@@ -15,7 +15,7 @@ setup(
         "pysam>=0.16.0.1,<0.20",
         "numpy>=1.23,<=1.24",
         "parasail>=1.2.4,<1.3",
-        "scikit-learn>=1.0,<1.2",
+        "scikit-learn>=1.1,<1.2",
     ],
 
     description="A toolkit for analyzing variation in short(ish) tandem repeats.",
