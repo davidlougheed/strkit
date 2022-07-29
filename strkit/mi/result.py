@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import sys
+import scipy.stats as sst
 
 from typing import List, Iterable, Optional, Tuple, Union
 
@@ -15,6 +16,21 @@ __all__ = [
 ]
 
 
+OptionalReadCounts = Optional[Tuple[Tuple[int, ...], Tuple[int, ...]]]
+
+INHERITANCE_CONFIGS = (
+    (0, 1, 0, 0),  # allele 0 maternal, allele 1 paternal, maternal 0 allele, paternal 0 allele
+    (0, 1, 0, 1),  # allele 0 maternal, allele 1 paternal, maternal 0 allele, paternal 1 allele
+    (0, 1, 1, 0),  # allele 0 maternal, allele 1 paternal, maternal 1 allele, paternal 0 allele
+    (0, 1, 1, 1),  # allele 0 maternal, allele 1 paternal, maternal 1 allele, paternal 1 allele
+
+    (1, 0, 0, 0),  # allele 1 maternal, allele 0 paternal, maternal 0 allele, paternal 0 allele
+    (1, 0, 0, 1),  # allele 1 maternal, allele 0 paternal, maternal 0 allele, paternal 1 allele
+    (1, 0, 1, 0),  # allele 1 maternal, allele 0 paternal, maternal 1 allele, paternal 0 allele
+    (1, 0, 1, 1),  # allele 1 maternal, allele 0 paternal, maternal 1 allele, paternal 1 allele
+)
+
+
 class MILocusData:
     def __init__(
             self,
@@ -27,9 +43,15 @@ class MILocusData:
             child_gt_95_ci=None, mother_gt_95_ci=None, father_gt_95_ci=None,
             child_gt_99_ci=None, mother_gt_99_ci=None, father_gt_99_ci=None,
 
+            child_read_counts: OptionalReadCounts = None,
+            mother_read_counts: OptionalReadCounts = None,
+            father_read_counts: OptionalReadCounts = None,
+
             reference_copies=None,
             decimal: bool = False,
-            widen: float = 0):
+            widen: float = 0,
+
+            perform_x2_test: bool = False):
         self._contig = contig
         self._start = start
         self._end = end
@@ -45,11 +67,23 @@ class MILocusData:
         self._mother_gt_99_ci = mother_gt_99_ci
         self._father_gt_99_ci = father_gt_99_ci
 
+        self._child_read_counts: OptionalReadCounts = child_read_counts
+        self._child_read_counts_flattened: Optional[np.ndarray] = (
+            np.array([z for y in child_read_counts for z in y]) if child_read_counts else None)
+        self._mother_read_counts: OptionalReadCounts = mother_read_counts
+        self._father_read_counts: OptionalReadCounts = father_read_counts
+
         self._reference_copies = reference_copies
 
         self._decimal = decimal
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
+
+        self._perform_x2_test = perform_x2_test
+
+        self._x2_test_result = None
+        if perform_x2_test:
+            self._x2_test_result = self.x2_test()
 
     @property
     def contig(self) -> str:
@@ -123,6 +157,10 @@ class MILocusData:
     def reference_copies(self) -> Optional[int]:
         return self._reference_copies
 
+    @property
+    def x2_test_result(self) -> Optional[float]:
+        return self._x2_test_result
+
     @staticmethod
     def _respects_strict_ci(c_gt, m_gt, f_gt) -> bool:
         # First hypothesis: first allele from mother, second from father
@@ -186,6 +224,63 @@ class MILocusData:
 
         return respects_mi_strict, respects_mi_95_ci, respects_mi_99_ci
 
+    def x2_test(self) -> float:
+        chi_sq_res = []
+
+        cr_all = self._child_read_counts_flattened
+        cr_len = cr_all.shape[0]
+
+        for config in INHERITANCE_CONFIGS[:4]:  # Don't need child allele configs here
+            # TODO: I'm pretty sure this can be more numpy-ified / sped up
+
+            mat_reads = self._mother_read_counts[config[2]]
+            pat_reads = self._father_read_counts[config[3]]
+
+            if not mat_reads or not pat_reads:
+                w = []
+                if not mat_reads:
+                    w.append("maternal")
+                if not pat_reads:
+                    w.append("paternal")
+                sys.stderr.write(
+                    f"Warning: {self.contig}:{self.start}-{self.end} - encountered empty readset for "
+                    f"{' and '.join(w)} allele\n")
+                sys.stderr.flush()
+                return 1.0
+
+            parent_all = np.array((*mat_reads, *pat_reads))
+            parent_len = parent_all.shape[0]
+            diff = cr_len - parent_len
+
+            min_cn = min((*(cr_all.tolist()), *parent_all))
+            max_cn = max((*(cr_all.tolist()), *parent_all))
+
+            cr_all_resamp = cr_all
+            if diff > 0:
+                # TODO; seed sample
+                parent_all = np.concatenate((parent_all, np.random.choice(parent_all, size=diff)), axis=None)
+            elif diff < 0:
+                # TODO; seed sample
+                cr_all_resamp = np.concatenate((cr_all, np.random.choice(cr_all, size=abs(diff))), axis=None)
+
+            # Add in fake counts to get at least one read parent->child in common to avoid weird divergent results
+            # Effectively pseudo-counts
+            # TODO: instead, just remove 0 categories
+            child_freqs = [1] * (max_cn + 1 - min_cn)
+            parent_freqs = [1] * (max_cn + 1 - min_cn)
+
+            for c in cr_all_resamp:
+                child_freqs[c - min_cn] += 1
+
+            for c in parent_all:
+                parent_freqs[c - min_cn] += 1
+
+            # X2 test to check difference in distribution
+            x_sq_test = sst.chi2_contingency(np.array([child_freqs, parent_freqs]))
+            chi_sq_res.append((x_sq_test[1], min_cn, max_cn, child_freqs, parent_freqs, config))
+
+        return max(chi_sq_res, key=lambda x: x[0])[0]
+
     def __iter__(self):  # for dict casting
         yield "contig", self._contig
         yield "start", self._start
@@ -193,10 +288,13 @@ class MILocusData:
         yield "motif", self._motif
         yield "child_gt", self._child_gt
         yield "child_gt_95_ci", self._child_gt_95_ci
+        yield "child_read_counts", self._child_read_counts
         yield "mother_gt", self._mother_gt
         yield "mother_gt_95_ci", self._mother_gt_95_ci
+        yield "mother_read_counts", self._mother_read_counts
         yield "father_gt", self._father_gt
         yield "father_gt_95_ci", self._father_gt_95_ci
+        yield "father_read_counts", self._father_read_counts
 
     def __str__(self):
         def _opt_ci_str(ci_str, level="95"):
@@ -212,15 +310,18 @@ class MILocusData:
 
 
 class MIContigResult:
-    def __init__(self, includes_95_ci: bool = False, includes_99_ci: bool = False):
+    def __init__(self, includes_95_ci: bool = False, includes_99_ci: bool = False, perform_x2_test: bool = False):
         self._loci_data: List[MILocusData] = []
         self._includes_95_ci = includes_95_ci
         self._includes_99_ci = includes_99_ci
+        self._perform_x2_test = perform_x2_test
 
     def append(self, item: MILocusData):
         self._loci_data.append(item)
 
     def get_sums_and_non_matching(self) -> Tuple[Tuple[int, Optional[int],  Optional[int]], List[MILocusData]]:
+        sig_thresh = 0.05
+
         value = 0
         value_95_ci = 0 if self._includes_95_ci else None
         value_99_ci = 0 if self._includes_99_ci else None
@@ -228,7 +329,7 @@ class MIContigResult:
 
         for locus in self._loci_data:
             r = locus.respects_mi()
-            if not any(r[:2]):
+            if not any(r[:2]) or (self._perform_x2_test and locus.x2_test_result < sig_thresh):
                 # TODO: Custom ability to choose level...
                 non_matching.append(locus)
             value += r[0]
@@ -256,23 +357,29 @@ class MIResult:
                  mi_value_99_ci: Optional[float],
                  contig_results: Iterable[MIContigResult],
                  non_matching: List[MILocusData],
-                 widen: float = 0):
+                 widen: float = 0,
+                 perform_x2_test: bool = False):
         self.mi_value = mi_value
         self.mi_value_95_ci = mi_value_95_ci
         self.mi_value_99_ci = mi_value_99_ci
         self._contig_results: Tuple[MIContigResult] = tuple(contig_results)
         self._non_matching: List[MILocusData] = non_matching
         self.widen = widen
+        self._perform_x2_test = perform_x2_test
 
     @property
-    def contig_results(self):
+    def contig_results(self) -> Tuple[MIContigResult]:
         return self._contig_results
 
     @property
-    def non_matching(self):
+    def non_matching(self) -> List[MILocusData]:
         return self._non_matching
 
-    def as_csv_row(self, sep=","):
+    @property
+    def perform_x2_test(self) -> bool:
+        return self.perform_x2_test
+
+    def as_csv_row(self, sep=",") -> str:
         return f"{self.mi_value}{sep}{self.mi_value_95_ci}{sep}{self.mi_value_99_ci}\n"
 
     @staticmethod
@@ -302,7 +409,14 @@ class MIResult:
 
     def non_matching_tsv(self, sep="\t") -> str:
         res = ""
-        for nm in sorted(self._non_matching, key=lambda x: (CHROMOSOMES.index(x.contig), x.start, x.motif)):
+
+        def _sort_key_pos(locus: MILocusData):
+            return CHROMOSOMES.index(locus.contig), locus.start, locus.motif
+
+        def _sort_key_x2_test(locus: MILocusData):
+            return locus.x2_test_result
+
+        for nm in sorted(self._non_matching, key=_sort_key_x2_test if self._perform_x2_test else _sort_key_pos):
             res += sep.join((
                 *nm.locus_str_data,
 
@@ -322,6 +436,8 @@ class MIResult:
                 nm.father_gt_99_ci_str,
 
                 str(nm.reference_copies or ""),  # Reference number of copies (or blank depending on caller)
+
+                *((str(nm.x2_test_result),) if self._perform_x2_test else ()),
             )) + "\n"
         return res
 

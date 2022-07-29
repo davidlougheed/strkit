@@ -28,6 +28,8 @@ class BaseCalculator(ABC):
 
             widen: float = 0,
 
+            perform_x2_test: bool = False,
+
             debug: bool = False,
     ):
         self._child_call_file: Path = child_call_file
@@ -44,7 +46,13 @@ class BaseCalculator(ABC):
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
 
+        self._perform_x2_test: bool = perform_x2_test
+
         self._debug: bool = debug
+
+    @property
+    def perform_x2_test(self) -> bool:
+        return self._perform_x2_test
 
     def _make_loci_dict(self) -> dict:
         if not self._loci_file:
@@ -172,4 +180,11 @@ class BaseCalculator(ABC):
         res_95_ci = None if res_95_ci is None else (res_95_ci / n_total)
         res_99_ci = None if res_99_ci is None else (res_99_ci / n_total)
 
-        return MIResult(res, res_95_ci, res_99_ci, contig_results, non_matching, self._widen)
+        return MIResult(
+            res,
+            res_95_ci,
+            res_99_ci,
+            contig_results,
+            non_matching,
+            self._widen,
+            self._perform_x2_test)

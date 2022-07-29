@@ -16,7 +16,7 @@ from strkit.mi.expansionhunter import ExpansionHunterCalculator
 from strkit.mi.gangstr import GangSTRCalculator
 from strkit.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
 from strkit.mi.straglr import StraglrCalculator, StraglrReCallCalculator
-from strkit.mi.strkit import StrKitCalculator
+from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator
 from strkit.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
 from strkit.viz.server import run_server as viz_run_server
 
@@ -170,6 +170,7 @@ CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
     c.CALLER_STRAGLR: StraglrCalculator,
     c.CALLER_STRAGLR_RECALL: StraglrReCallCalculator,
     c.CALLER_STRKIT: StrKitCalculator,
+    c.CALLER_STRKIT_JSON: StrKitJSONCalculator,
     c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
     c.CALLER_TANDEM_GENOTYPES_RECALL: TandemGenotypesReCallCalculator,
 }
@@ -223,6 +224,14 @@ def add_mi_parser_args(mi_parser):
         type=int,
         default=10,
         help="Bin width for generated MI histograms.")
+    # -----------------------------------------------------------------------------------
+
+    mi_parser.add_argument(
+        "--x2-test",
+        action="store_true",
+        help="Calculate allele inheritance chi-squared test to detect de novo mutation in trios. Available for "
+             "strkit-json only.")
+
     # -----------------------------------------------------------------------------------
 
     mi_parser.add_argument(
@@ -343,6 +352,11 @@ def _exec_mi(p_args) -> int:
         sys.stderr.write(f"Error: Unknown or unimplemented caller '{caller}'\n")
         exit(1)
 
+    perform_x2_test = p_args.x2_test
+    if caller != c.CALLER_STRKIT_JSON and perform_x2_test:
+        sys.stderr.write(f"Error: Caller '{caller}' does not support inheritance chi-squared tests.\n")
+        exit(1)
+
     child_file = getattr(p_args, "child-calls")  # First call file is not optional
     mother_file = getattr(p_args, "mother-calls", None)
     father_file = getattr(p_args, "father-calls", None)
@@ -369,6 +383,8 @@ def _exec_mi(p_args) -> int:
         loci_file=trf_bed_file,
 
         widen=getattr(p_args, "widen", 0) or 0,
+
+        perform_x2_test=perform_x2_test,
 
         debug=p_args.debug,
     )
