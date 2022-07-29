@@ -296,6 +296,9 @@ class MILocusData:
         yield "father_gt_95_ci", self._father_gt_95_ci
         yield "father_read_counts", self._father_read_counts
 
+        if self._perform_x2_test:
+            yield "x2_p", self._x2_test_result
+
     def __str__(self):
         def _opt_ci_str(ci_str, level="95"):
             return "" if not ci_str else f" [{level}%: {ci_str}]"
@@ -394,7 +397,7 @@ class MIResult:
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
             "n_loci": sum((len(lr) for lr in self.contig_results)),
-            "non_matching": [dict(nm) for nm in self._non_matching],
+            "non_matching": [dict(nm) for nm in self.non_matching_sorted],
             "hist": hist,
         }
 
@@ -407,16 +410,23 @@ class MIResult:
         with open(json_path, "w") as jf:
             json.dump(obj, jf, indent=2)
 
+    @staticmethod
+    def _nm_sort_key_pos(locus: MILocusData):
+        return CHROMOSOMES.index(locus.contig), locus.start, locus.motif
+
+    @staticmethod
+    def _nm_sort_key_x2_test(locus: MILocusData):
+        return locus.x2_test_result
+
+    @property
+    def non_matching_sorted(self):
+        return sorted(
+            self._non_matching, key=self._nm_sort_key_x2_test if self._perform_x2_test else self._nm_sort_key_pos)
+
     def non_matching_tsv(self, sep="\t") -> str:
         res = ""
 
-        def _sort_key_pos(locus: MILocusData):
-            return CHROMOSOMES.index(locus.contig), locus.start, locus.motif
-
-        def _sort_key_x2_test(locus: MILocusData):
-            return locus.x2_test_result
-
-        for nm in sorted(self._non_matching, key=_sort_key_x2_test if self._perform_x2_test else _sort_key_pos):
+        for nm in self.non_matching_sorted:
             res += sep.join((
                 *nm.locus_str_data,
 
