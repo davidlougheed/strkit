@@ -12,7 +12,7 @@ setup(
     name="strkit",
     version=version,
 
-    python_requires="~=3.7",
+    python_requires="~=3.8",
     install_requires=[
         "Flask>=2.1.3,<2.2",
         "pysam>=0.16.0.1,<0.20",
