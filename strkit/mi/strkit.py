@@ -126,13 +126,13 @@ class StrKitJSONCalculator(BaseCalculator):
     def get_read_counts(res: dict, dtype=int):
         # TODO: This only works with diploids...
 
-        read_cns = res["read_cns"]
-        read_peaks = res["read_peak_labels"]
+        read_cns = [r["cn"] for r in res["reads"].values()]
+        read_peaks = [r["peak"] for r in res["reads"].values()]
 
         n = res["peaks"]["modal_n"]
 
         if n < 2 or len(set(res["call"])) == 1:
-            rcs = np.fromiter(read_cns.values(), dtype=dtype)
+            rcs = np.array(read_cns, dtype=dtype)
             np.random.shuffle(rcs)  # TODO: seed shuffle
             part = rcs.shape[0] // 2
             return tuple(rcs[:part].tolist()), tuple(rcs[part:].tolist())
@@ -140,7 +140,7 @@ class StrKitJSONCalculator(BaseCalculator):
         rc = []
         for _ in range(n):
             rc.append([])
-        for r, cn in read_cns.items():
+        for r, cn in enumerate(read_cns):
             rc[read_peaks[r]].append(cn)
         return tuple(map(tuple, rc))
 

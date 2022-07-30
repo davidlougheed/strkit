@@ -221,8 +221,12 @@
          *     ref_cn: number,
          *     call: number[],
          *     call_95_cis: Array.<number[]>,
-         *     read_cns: Object.<string, number>,
-         *     read_peak_labels: Object.<string, number>,
+         *     reads: {
+         *         cn: number,
+         *         weight: number,
+         *         peak: number,
+         *     },
+         *     read_peaks_called: boolean,
          *     peaks: {
          *         means: number[],
          *         weights: number[],
@@ -235,7 +239,7 @@
             console.log("call data", callData);
 
             /** @type number[] */
-            const cns = Object.values(callData.read_cns);
+            const cns = Object.values(callData.reads).map(read => read.cn);
             const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
 
             histogramContainer.innerHTML = "";
@@ -261,15 +265,15 @@
             call95Display.innerText = callData.call_95_cis
                 .map(ci => "(" + ci.map(c => c.toFixed(params.fractional ? 1 : 0)).join("-") + ")").join(" | ");
 
-            const getReadsForPeak = q => Object.entries(callData.read_peak_labels)
-                .filter(e => e[1] === q)
-                .map(e => callData.read_cns[e[0]]);
+            const getReadsForPeak = q => Object.entries(callData.reads)
+                .filter(e => e[1]["peak"] === q)
+                .map(e => e[1]["cn"]);
 
             scalesContainer.innerHTML = "";
             igvContainer.innerHTML = "";  // TODO: properly deconstruct old browser
 
             const readColours = (() => {
-                if (!callData.read_peak_labels || !Object.entries(callData.read_peak_labels).length) return {};
+                if (!callData.read_peaks_called || !Object.entries(callData.reads).length) return {};
 
                 const bounds = (() => {
                     if (callData.peaks.means.length > 1) {

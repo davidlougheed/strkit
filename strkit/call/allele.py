@@ -227,7 +227,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
         medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
     medians_of_weights = np.percentile(allele_weight_samples, 50, axis=1, interpolation="nearest")
     medians_of_stdevs = np.percentile(allele_stdev_samples, 50, axis=1, interpolation="nearest")
-    modal_n_peaks = statistics.mode(sample_peaks)
+    modal_n_peaks = statistics.mode(sample_peaks).item()
 
     return {
         "call": medians_of_means_final.flatten(),

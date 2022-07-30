@@ -395,8 +395,7 @@ def call_locus(
     if r_offset > 0:
         right_coord += max(0, r_offset)
 
-    read_cn_dict = {}
-    read_weight_dict = {}
+    read_dict = {}
 
     overlapping_segments = [
         segment
@@ -494,8 +493,6 @@ def call_locus(
             log_debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
             continue
 
-        read_cn_dict[segment.query_name] = read_cn
-
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
         # overlaps the region, is P(read is large enough to contain) * P(  # TODO: complete this..
         partition_idx = np.searchsorted(sorted_read_lengths, tr_len_w_flank, side="right")
@@ -506,18 +503,23 @@ def call_locus(
                 f"Something strange happened; could not find an encompassing read where one should be guaranteed. "
                 f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)
+
         mean_containing_size = read_len if targeted else np.mean(sorted_read_lengths[partition_idx:])
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
-        read_weight_dict[segment.query_name] = (
-                (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1))
+        read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
+
+        read_dict[segment.query_name] = {
+            "cn": read_cn,
+            "weight": read_weight,
+        }
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
     if n_alleles is None:
         return None
 
     # Dicts are ordered in Python; very nice :)
-    read_cns = np.fromiter(read_cn_dict.values(), dtype=np.float if fractional else np.int)
-    read_weights = np.fromiter(read_weight_dict.values(), dtype=np.float)
+    read_cns = np.fromiter((r["cn"] for r in read_dict.values()), dtype=np.float if fractional else np.int)
+    read_weights = np.fromiter((r["weight"] for r in read_dict.values()), dtype=np.float)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
     call = call_alleles(
@@ -538,10 +540,10 @@ def call_locus(
     call_stdevs = call.get("peak_stdevs")
     call_modal_n = call.get("modal_n_peaks")
 
-    read_peak_labels = None
     # We cannot call read-level cluster labels with >2 peaks;
     # don't know how re-sampling has occurred.
-    if call_modal_n and call_modal_n <= 2:
+    read_peaks_called = call_modal_n and call_modal_n <= 2
+    if read_peaks_called:
         ws = call_weights[:call_modal_n]
         final_model = GaussianMixture(
             n_components=call_modal_n,
@@ -552,7 +554,8 @@ def call_locus(
             precisions_init=1 / (call_stdevs[:call_modal_n] ** 2),  # TODO: Check, this looks wrong
         )
         res = final_model.fit_predict(read_cns.reshape(-1, 1))
-        read_peak_labels = {k: int(v) for k, v in zip(read_cn_dict.keys(), res)}
+        for k, v in zip(read_dict.keys(), res):
+            read_dict[k]["peak"] = v.item()
 
     def _round_to_base_pos(x) -> float:
         return round(float(x) * motif_size) / motif_size
@@ -577,11 +580,10 @@ def call_locus(
             "means": call_peaks.tolist(),  # from np.ndarray
             "weights": call_weights.tolist(),  # from np.ndarray
             "stdevs": call_stdevs.tolist(),  # from np.ndarray
-            "modal_n": call_modal_n.item(),  # from np.int64
+            "modal_n": call_modal_n,
         } if call else None,
-        "read_cns": read_cn_dict,
-        "read_weights": read_weight_dict,
-        "read_peak_labels": read_peak_labels,
+        "reads": read_dict,
+        "read_peaks_called": read_peaks_called,
     }
 
 
