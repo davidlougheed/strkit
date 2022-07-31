@@ -719,7 +719,7 @@ def call_sample(
                 str(res["end"]),
                 res["motif"],
                 _cn_to_str(res["ref_cn"]),
-                ",".join(map(_cn_to_str, sorted(res["read_cns"].values()))),
+                ",".join(map(_cn_to_str, sorted(r["cn"] for r in res["reads"].values()))),
                 "|".join(map(_cn_to_str, res["call"])) if has_call else ".",
                 ("|".join("-".join(map(_cn_to_str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
 
