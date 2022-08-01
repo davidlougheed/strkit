@@ -232,6 +232,35 @@ def add_mi_parser_args(mi_parser):
         help="Calculate allele inheritance chi-squared test to detect de novo mutation in trios. Available for "
              "strkit-json only.")
 
+    mi_parser.add_argument(
+        "--sig-level",
+        type=float,
+        default=0.05,
+        help=(
+            "Significance level for chi-squared test results. Without correction, this parameter functions as a "
+            "simple threshold. When a multiple testing correction method is applied, this parameter specifies the "
+            "desired significance level, alpha."
+        ))
+
+    mi_parser.add_argument(
+        "--mt-corr",
+        type=str,
+        choices=(
+            "none",
+            "bonferroni",
+            "sidak",
+            "holm-sidak",
+            "holm",
+            "simes-hochberg",
+            "fdr_bh",
+            "fdr_by",
+            "fdr_tsbh",
+            "fdr_tsbky",
+        ),
+        default="none",
+        help="",  # TODO
+    )
+
     # -----------------------------------------------------------------------------------
 
     mi_parser.add_argument(
@@ -385,6 +414,8 @@ def _exec_mi(p_args) -> int:
         widen=getattr(p_args, "widen", 0) or 0,
 
         perform_x2_test=perform_x2_test,
+        sig_thresh=p_args.sig_level,
+        mt_corr=p_args.mt_corr,
 
         debug=p_args.debug,
     )
@@ -411,7 +442,7 @@ def _exec_mi(p_args) -> int:
         if p_args.hist:
             print(res.histogram_text(bin_width=p_args.bin_width))
         print("---")
-        sys.stdout.write(res.non_matching_tsv())
+        sys.stdout.write(res.locus_tsv())
         sys.stdout.flush()
 
     if p_args.json:

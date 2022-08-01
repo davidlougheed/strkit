@@ -29,6 +29,8 @@ class BaseCalculator(ABC):
             widen: float = 0,
 
             perform_x2_test: bool = False,
+            sig_thresh: float = 0.05,
+            mt_corr: str = "none",
 
             debug: bool = False,
     ):
@@ -47,12 +49,22 @@ class BaseCalculator(ABC):
         self._widen: float = widen
 
         self._perform_x2_test: bool = perform_x2_test
+        self._sig_thresh: float = sig_thresh
+        self._mt_corr: str = mt_corr
 
         self._debug: bool = debug
 
     @property
     def perform_x2_test(self) -> bool:
         return self._perform_x2_test
+
+    @property
+    def sig_thresh(self) -> float:
+        return self._sig_thresh
+
+    @property
+    def mt_corr(self) -> str:
+        return self._mt_corr
 
     def _make_loci_dict(self) -> dict:
         if not self._loci_file:
@@ -180,11 +192,16 @@ class BaseCalculator(ABC):
         res_95_ci = None if res_95_ci is None else (res_95_ci / n_total)
         res_99_ci = None if res_99_ci is None else (res_99_ci / n_total)
 
-        return MIResult(
+        res = MIResult(
             res,
             res_95_ci,
             res_99_ci,
             contig_results,
             non_matching,
             self._widen,
-            self._perform_x2_test)
+            self.perform_x2_test,
+            self.sig_thresh,
+            self.mt_corr)
+
+        if self.perform_x2_test:
+            res.correct_for_multiple_testing()

@@ -3,11 +3,13 @@ import numpy as np
 import sys
 import scipy.stats as sst
 
-from typing import List, Iterable, Optional, Tuple, Union
-
 from statistics import mean
+from statsmodels.stats.multitest import multipletests
+
 from strkit.constants import CHROMOSOMES
 from strkit.utils import cis_overlap
+
+from typing import List, Iterable, Optional, Tuple, Union
 
 __all__ = [
     "MILocusData",
@@ -83,7 +85,7 @@ class MILocusData:
 
         self._x2_test_result = None
         if perform_x2_test:
-            self._x2_test_result = self.x2_test()
+            self.x2_test_result = self.x2_test()
 
     @property
     def contig(self) -> str:
@@ -160,6 +162,11 @@ class MILocusData:
     @property
     def x2_test_result(self) -> Optional[float]:
         return self._x2_test_result
+
+    @x2_test_result.setter
+    def x2_test_result(self, value: Optional[float]):
+        assert value is None or 0 <= value <= 1
+        self._x2_test_result = value
 
     @staticmethod
     def _respects_strict_ci(c_gt, m_gt, f_gt) -> bool:
@@ -322,8 +329,6 @@ class MIContigResult:
         self._loci_data.append(item)
 
     def get_sums_and_non_matching(self) -> Tuple[Tuple[int, Optional[int],  Optional[int]], List[MILocusData]]:
-        sig_thresh = 0.05
-
         value = 0
         value_95_ci = 0 if self._includes_95_ci else None
         value_99_ci = 0 if self._includes_99_ci else None
@@ -331,7 +336,7 @@ class MIContigResult:
 
         for locus in self._loci_data:
             r = locus.respects_mi()
-            if not any(r[:2]) or (self._perform_x2_test and locus.x2_test_result < sig_thresh):
+            if not any(r[:2]):
                 # TODO: Custom ability to choose level...
                 non_matching.append(locus)
             value += r[0]
@@ -358,28 +363,57 @@ class MIResult:
                  mi_value_95_ci: Optional[float],
                  mi_value_99_ci: Optional[float],
                  contig_results: Iterable[MIContigResult],
-                 non_matching: List[MILocusData],
+                 output_loci: List[MILocusData],
                  widen: float = 0,
-                 perform_x2_test: bool = False):
-        self.mi_value = mi_value
-        self.mi_value_95_ci = mi_value_95_ci
-        self.mi_value_99_ci = mi_value_99_ci
+                 perform_x2_test: bool = False,
+                 sig_thresh: float = 0.05,
+                 mt_corr: str = "none"):
+        self.mi_value: float = mi_value
+        self.mi_value_95_ci: Optional[float] = mi_value_95_ci
+        self.mi_value_99_ci: Optional[float] = mi_value_99_ci
         self._contig_results: Tuple[MIContigResult] = tuple(contig_results)
-        self._non_matching: List[MILocusData] = non_matching
-        self.widen = widen
-        self._perform_x2_test = perform_x2_test
+        self._output_loci: List[MILocusData] = output_loci
+        self.widen: float = widen
+        self._perform_x2_test: bool = perform_x2_test
+        self._sig_thresh: float = sig_thresh
+        self._mt_corr: str = mt_corr  # Method to use when correcting for multiple testing
 
     @property
     def contig_results(self) -> Tuple[MIContigResult]:
         return self._contig_results
 
     @property
-    def non_matching(self) -> List[MILocusData]:
-        return self._non_matching
+    def output_loci(self) -> List[MILocusData]:
+        return self._output_loci
 
     @property
     def perform_x2_test(self) -> bool:
         return self.perform_x2_test
+
+    def correct_for_multiple_testing(self):
+        if not self._perform_x2_test:
+            sys.stdout.write("Warning: cannot correct for multiple testing when X2 test is not enabled\n")
+            return
+
+        loci = [locus for cr in self.contig_results for locus in cr]
+        p_values = np.fromiter((locus.x2_test_result for cr in self.contig_results for locus in cr), dtype=np.float)
+
+        if (mtm := self._mt_corr) == "none":
+            p_corr = p_values
+            rejected_hs = (p_corr < self._sig_thresh)
+        else:
+            rejected_hs, p_corr, _, _ = multipletests(
+                p_values,
+                alpha=self._sig_thresh,
+                method=mtm)  # Correct for multiple testing effects using the specified method
+
+        new_output_loci = []
+
+        for pc, rej_h, locus in filter(lambda x: x[1], zip(p_corr, rejected_hs, loci)):
+            locus.x2_test_result = pc
+            new_output_loci.append(locus)
+
+        self._output_loci = new_output_loci
 
     def as_csv_row(self, sep=",") -> str:
         return f"{self.mi_value}{sep}{self.mi_value_95_ci}{sep}{self.mi_value_99_ci}\n"
@@ -396,7 +430,7 @@ class MIResult:
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
             "n_loci": sum((len(lr) for lr in self.contig_results)),
-            "non_matching": [dict(nm) for nm in self.non_matching_sorted],
+            "significant_loci": [dict(nm) for nm in self.sorted_output_loci],
             "hist": hist,
         }
 
@@ -418,35 +452,35 @@ class MIResult:
         return locus.x2_test_result
 
     @property
-    def non_matching_sorted(self):
+    def sorted_output_loci(self):
         return sorted(
-            self._non_matching, key=self._nm_sort_key_x2_test if self._perform_x2_test else self._nm_sort_key_pos)
+            self._output_loci, key=self._nm_sort_key_x2_test if self._perform_x2_test else self._nm_sort_key_pos)
 
-    def non_matching_tsv(self, sep="\t") -> str:
+    def locus_tsv(self, sep="\t") -> str:
         res = ""
 
-        for nm in self.non_matching_sorted:
+        for locus in self.sorted_output_loci:
             res += sep.join((
-                *nm.locus_str_data,
+                *locus.locus_str_data,
 
                 # Child genotype + CIs if available
-                nm.child_gt_str,
-                nm.child_gt_95_ci_str,
-                nm.child_gt_99_ci_str,
+                locus.child_gt_str,
+                locus.child_gt_95_ci_str,
+                locus.child_gt_99_ci_str,
 
                 # Mother genotype + CIs if available
-                nm.mother_gt_str,
-                nm.mother_gt_95_ci_str,
-                nm.mother_gt_99_ci_str,
+                locus.mother_gt_str,
+                locus.mother_gt_95_ci_str,
+                locus.mother_gt_99_ci_str,
 
                 # Father genotype + CIs if available
-                nm.father_gt_str,
-                nm.father_gt_95_ci_str,
-                nm.father_gt_99_ci_str,
+                locus.father_gt_str,
+                locus.father_gt_95_ci_str,
+                locus.father_gt_99_ci_str,
 
-                str(nm.reference_copies or ""),  # Reference number of copies (or blank depending on caller)
+                str(locus.reference_copies or ""),  # Reference number of copies (or blank depending on caller)
 
-                *((str(nm.x2_test_result),) if self._perform_x2_test else ()),
+                *((str(locus.x2_test_result),) if self._perform_x2_test else ()),
             )) + "\n"
         return res
 

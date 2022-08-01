@@ -20,6 +20,7 @@ setup(
         "parasail>=1.2.4,<1.3",
         "scikit-learn>=1.1,<1.2",
         "scipy>=1.7,<1.9",
+        "statsmodels>=0.13.2,<0.14",
     ],
 
     description="A toolkit for analyzing variation in short(ish) tandem repeats.",
