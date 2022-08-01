@@ -9,6 +9,7 @@ from ..utils import int_tuple, float_tuple, parse_cis
 
 __all__ = [
     "StrKitCalculator",
+    "StrKitJSONCalculator",
 ]
 
 
