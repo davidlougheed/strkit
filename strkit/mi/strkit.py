@@ -171,7 +171,7 @@ class StrKitJSONCalculator(BaseCalculator):
         tuple_conv = float_tuple if fractional else int_tuple
         dtype = float if fractional else int
 
-        cr = MIContigResult(includes_95_ci=True, perform_x2_test=self.perform_x2_test)
+        cr = MIContigResult(includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
             m_report = json.load(mh)

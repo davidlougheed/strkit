@@ -313,11 +313,10 @@ class MILocusData:
 
 
 class MIContigResult:
-    def __init__(self, includes_95_ci: bool = False, includes_99_ci: bool = False, perform_x2_test: bool = False):
+    def __init__(self, includes_95_ci: bool = False, includes_99_ci: bool = False):
         self._loci_data: List[MILocusData] = []
-        self._includes_95_ci = includes_95_ci
-        self._includes_99_ci = includes_99_ci
-        self._perform_x2_test = perform_x2_test
+        self._includes_95_ci: bool = includes_95_ci
+        self._includes_99_ci: bool = includes_99_ci
 
     def append(self, item: MILocusData):
         self._loci_data.append(item)
