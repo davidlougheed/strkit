@@ -172,9 +172,7 @@ will be in the final release:
 
 ## Copyright and License
 
-Copyright (C) 2021-2022  David Lougheed & McGill University
-
-Portions (`viz`) copyright (C) 2021-2022  David Lougheed
+Copyright (C) 2021-2022  David Lougheed
 
 Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
 Used under the terms of the ISC license.
