@@ -404,14 +404,14 @@ class MIResult:
         loci = [locus for cr in self.contig_results for locus in cr]
         p_values = np.fromiter((locus.p_value for cr in self.contig_results for locus in cr), dtype=np.float)
 
-        if (mtm := self._mt_corr) == "none":
-            p_corr = p_values
-            rejected_hs = (p_corr < self._sig_thresh)
-        else:
+        if (mtm := self._mt_corr) != "none":
             rejected_hs, p_corr, _, _ = multipletests(
                 p_values,
                 alpha=self._sig_thresh,
                 method=mtm)  # Correct for multiple testing effects using the specified method
+        else:  # No MT correction; just use p-values as-is
+            p_corr = p_values
+            rejected_hs = (p_corr < self._sig_thresh)
 
         new_output_loci = []
 
