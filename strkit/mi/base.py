@@ -205,3 +205,5 @@ class BaseCalculator(ABC):
 
         if self.perform_x2_test:
             res.correct_for_multiple_testing()
+
+        return res
