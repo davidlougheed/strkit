@@ -59,6 +59,14 @@ If you want to output a full call report, you can use the `--json output-file.js
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
 labels, and some other information that isn't included in the normal TSV file.
 
+Note that the reference genome must be BGZipped and indexed using `samtools faidx`:
+
+```bash
+# Starting from a .fa:
+bgzip my-reference.fa  # Replaces .fa with a .fa.gz file
+samtools faidx my-reference.fa.gz  # Generates a .fai index file
+```
+
 ##### Note on OpenMP Threading
 
 Slow performance can result from running `strkit call` or `strkit re-call` on a system with OpenMP, 
