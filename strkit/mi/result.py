@@ -372,7 +372,7 @@ class MIResult:
                  output_loci: List[MILocusData],
                  widen: float = 0,
                  perform_x2_test: bool = False,
-                 sig_thresh: float = 0.05,
+                 sig_level: float = 0.05,
                  mt_corr: str = "none"):
         self.mi_value: float = mi_value
         self.mi_value_95_ci: Optional[float] = mi_value_95_ci
@@ -381,7 +381,7 @@ class MIResult:
         self._output_loci: List[MILocusData] = output_loci
         self.widen: float = widen
         self._perform_x2_test: bool = perform_x2_test
-        self._sig_thresh: float = sig_thresh
+        self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr  # Method to use when correcting for multiple testing
 
     @property
@@ -407,11 +407,11 @@ class MIResult:
         if (mtm := self._mt_corr) != "none":
             rejected_hs, p_corr, _, _ = multipletests(
                 p_values,
-                alpha=self._sig_thresh,
+                alpha=self._sig_level,
                 method=mtm)  # Correct for multiple testing effects using the specified method
         else:  # No MT correction; just use p-values as-is
             p_corr = p_values
-            rejected_hs = (p_corr < self._sig_thresh)
+            rejected_hs = (p_corr < self._sig_level)
 
         new_output_loci = []
 

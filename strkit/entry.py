@@ -414,7 +414,7 @@ def _exec_mi(p_args) -> int:
         widen=getattr(p_args, "widen", 0) or 0,
 
         perform_x2_test=perform_x2_test,
-        sig_thresh=p_args.sig_level,
+        sig_level=p_args.sig_level,
         mt_corr=p_args.mt_corr,
 
         debug=p_args.debug,

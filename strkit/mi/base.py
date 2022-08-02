@@ -29,7 +29,7 @@ class BaseCalculator(ABC):
             widen: float = 0,
 
             perform_x2_test: bool = False,
-            sig_thresh: float = 0.05,
+            sig_level: float = 0.05,
             mt_corr: str = "none",
 
             debug: bool = False,
@@ -49,7 +49,7 @@ class BaseCalculator(ABC):
         self._widen: float = widen
 
         self._perform_x2_test: bool = perform_x2_test
-        self._sig_thresh: float = sig_thresh
+        self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr
 
         self._debug: bool = debug
@@ -59,8 +59,8 @@ class BaseCalculator(ABC):
         return self._perform_x2_test
 
     @property
-    def sig_thresh(self) -> float:
-        return self._sig_thresh
+    def sig_level(self) -> float:
+        return self._sig_level
 
     @property
     def mt_corr(self) -> str:
@@ -200,7 +200,7 @@ class BaseCalculator(ABC):
             non_matching,
             self._widen,
             self.perform_x2_test,
-            self.sig_thresh,
+            self.sig_level,
             self.mt_corr)
 
         if self.perform_x2_test:
