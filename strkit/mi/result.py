@@ -83,9 +83,10 @@ class MILocusData:
 
         self._perform_x2_test = perform_x2_test
 
-        self._x2_test_result = None
+        self._p_value = None
+        self._adj_p_value = None
         if perform_x2_test:
-            self.x2_test_result = self.x2_test()
+            self._p_value = self.x2_test()
 
     @property
     def contig(self) -> str:
@@ -160,13 +161,17 @@ class MILocusData:
         return self._reference_copies
 
     @property
-    def x2_test_result(self) -> Optional[float]:
-        return self._x2_test_result
+    def p_value(self) -> Optional[float]:
+        return self._p_value
 
-    @x2_test_result.setter
-    def x2_test_result(self, value: Optional[float]):
+    @property
+    def adj_p_value(self) -> Optional[float]:
+        return self._adj_p_value
+
+    @adj_p_value.setter
+    def adj_p_value(self, value: Optional[float]):
         assert value is None or 0 <= value <= 1
-        self._x2_test_result = value
+        self._adj_p_value = value
 
     @staticmethod
     def _respects_strict_ci(c_gt, m_gt, f_gt) -> bool:
@@ -304,7 +309,8 @@ class MILocusData:
         yield "father_read_counts", self._father_read_counts
 
         if self._perform_x2_test:
-            yield "x2_p", self._x2_test_result
+            yield "x2_p", self._p_value
+            yield "x2_p_adj", self._adj_p_value
 
     def __str__(self):
         def _opt_ci_str(ci_str, level="95"):
@@ -396,7 +402,7 @@ class MIResult:
             return
 
         loci = [locus for cr in self.contig_results for locus in cr]
-        p_values = np.fromiter((locus.x2_test_result for cr in self.contig_results for locus in cr), dtype=np.float)
+        p_values = np.fromiter((locus.p_value for cr in self.contig_results for locus in cr), dtype=np.float)
 
         if (mtm := self._mt_corr) == "none":
             p_corr = p_values
@@ -410,7 +416,7 @@ class MIResult:
         new_output_loci = []
 
         for pc, rej_h, locus in filter(lambda x: x[1], zip(p_corr, rejected_hs, loci)):
-            locus.x2_test_result = pc
+            locus.adj_p_value = pc
             new_output_loci.append(locus)
 
         self._output_loci = new_output_loci
@@ -447,9 +453,10 @@ class MIResult:
     def _nm_sort_key_pos(locus: MILocusData):
         return CHROMOSOMES.index(locus.contig), locus.start, locus.motif
 
-    @staticmethod
-    def _nm_sort_key_x2_test(locus: MILocusData):
-        return locus.x2_test_result
+    def _nm_sort_key_x2_test(self, locus: MILocusData):
+        if self._mt_corr != "none":
+            return locus.adj_p_value
+        return locus.p_value
 
     @property
     def sorted_output_loci(self):
@@ -480,7 +487,8 @@ class MIResult:
 
                 str(locus.reference_copies or ""),  # Reference number of copies (or blank depending on caller)
 
-                *((str(locus.x2_test_result),) if self._perform_x2_test else ()),
+                *((str(locus.p_value),) if self._perform_x2_test else ()),
+                *((str(locus.adj_p_value),) if self._perform_x2_test and self._mt_corr != "none" else ()),
             )) + "\n"
         return res
 
