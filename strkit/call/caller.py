@@ -1,3 +1,9 @@
+# Disable OpenMP multithreading since it adds enormous overhead when multiprocessing
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+
+# ----------------------------------------------------------------------------------------------------------------------
+
 import heapq
 import json
 import math
