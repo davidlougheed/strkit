@@ -71,12 +71,14 @@ samtools faidx my-reference.fa.gz  # Generates a .fai index file
 
 Slow performance can result from running `strkit call` or `strkit re-call` on a system with OpenMP, 
 due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
-here due to  repeated initializations of the Gaussian mixture model.) To fix this, set the following
-environment variable before running:
+here due to  repeated initializations of the Gaussian mixture model.) To fix this, the following
+environment variable is auto-set (hardcoded) before running:
 
 ```bash
 export OMP_NUM_THREADS=1
 ```
+
+If this hard-coded value interferes with your use case, please open an issue.
 
 
 #### All optional flags:
