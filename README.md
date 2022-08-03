@@ -102,6 +102,8 @@ If this hard-coded value interferes with your use case, please open an issue.
   **Default:** *none*
 * `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json`, no output will be generated, which isn't very 
   helpful. **Default:** TSV output on
+* `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 
+  Useful for replicability.
 
 
 ### `strkit visualize`: Call visualizer

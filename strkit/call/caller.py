@@ -337,12 +337,15 @@ def call_locus(
     min_avg_phred: int,
     num_bootstrap: int,
     flank_size: int,
+    seed: int,
     sex_chroms: Optional[str] = None,
     targeted: bool = False,
     fractional: bool = False,
     read_file_has_chr: bool = True,
-    ref_file_has_chr: bool = True
+    ref_file_has_chr: bool = True,
 ) -> Optional[dict]:
+    rng = np.random.default_rng(seed=seed)
+
     contig: str = t[0]
     read_contig = normalize_contig(contig, read_file_has_chr)
     ref_contig = normalize_contig(contig, ref_file_has_chr)
@@ -540,6 +543,7 @@ def call_locus(
         read_bias_corr_min=0,
         gm_filter_factor=3,
         force_int=not fractional,
+        seed=rng.integers(0, 4096).item(),
     ) or {}  # Still false-y
 
     call_peaks = call.get("peaks")
@@ -634,7 +638,7 @@ def locus_worker(
         if td is None:  # Kill signal
             break
 
-        t_idx, t = td
+        t_idx, t, locus_seed = td
         res = call_locus(
             t_idx, t, bfs, ref,
             min_reads=min_reads,
@@ -642,6 +646,7 @@ def locus_worker(
             min_avg_phred=min_avg_phred,
             num_bootstrap=num_bootstrap,
             flank_size=flank_size,
+            seed=locus_seed,
             sex_chroms=sex_chroms,
             targeted=targeted,
             fractional=fractional,
@@ -679,9 +684,14 @@ def call_sample(
     fractional: bool = False,
     json_path: Optional[str] = None,
     output_tsv: bool = True,
-    processes: int = 1
+    processes: int = 1,
+    seed: Optional[int] = None,
 ):
+    # Start the call timer
     start_time = datetime.now()
+
+    # Seed the random number generator if a seed is provided, for replicability
+    rng = np.random.default_rng(seed=seed)
 
     manager = mp.Manager()
     locus_queue = manager.Queue()
@@ -711,7 +721,10 @@ def call_sample(
         # Add all loci from the BED file to the queue, allowing each job
         # to pull from the queue as it becomes freed up to do so.
         for t_idx, t in enumerate(parse_loci_bed(loci_file), 1):
-            locus_queue.put((t_idx, t))
+            # We use locus-specific random seeds for replicability, no matter which order
+            # the loci are yanked out of the queue / how many processes we have.
+            # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
+            locus_queue.put((t_idx, t, rng.integers(0, 4096).item()))
 
         # At the end of the queue, add a None value (* the # of processes).
         # When a job encounters a None value, it will terminate.

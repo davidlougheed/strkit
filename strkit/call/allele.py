@@ -67,7 +67,10 @@ def call_alleles(repeats_fwd: RepeatCounts,
                  separate_strands: bool,
                  read_bias_corr_min: int,
                  gm_filter_factor: int,
-                 force_int: bool) -> Optional[dict]:
+                 force_int: bool,
+                 seed: Optional[int]) -> Optional[dict]:
+    rng: np.random.Generator = np.random.default_rng(seed=seed)
+
     n_gm_init = 3
 
     fwd_strand_reads = np.array(repeats_fwd)
@@ -108,30 +111,33 @@ def call_alleles(repeats_fwd: RepeatCounts,
         # forward and reverse-strand reads along the way
         # (if we've passed the coverage threshold)
 
-        fwd_strand_samples = np.random.choice(
+        fwd_strand_samples = rng.choice(
             fwd_strand_reads,
             size=(bootstrap_iterations, target_length),
             replace=True,
             p=fwd_strand_weights,
         )
 
-        rev_strand_samples = np.random.choice(
+        rev_strand_samples = rng.choice(
             rev_strand_reads,
             size=(bootstrap_iterations, target_length),
             replace=True,
             p=rev_strand_weights,
         )
 
-        concat_samples = np.sort(np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1))
+        concat_samples = np.sort(
+            np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1),
+            kind="stable")
 
     else:
         concat_samples = np.sort(
-            np.random.choice(
+            rng.choice(
                 combined_reads,
                 size=(bootstrap_iterations, combined_len),
                 replace=True,
                 p=combined_weights,
-            ) if bootstrap_iterations > 1 else np.array([combined_reads]))
+            ) if bootstrap_iterations > 1 else np.array([combined_reads]),
+            kind="stable")
 
     cache = {}
 
@@ -155,6 +161,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
                     # init_params="k-means++",  # TODO: scikit-learn 1.1.0 when available on CC
                     covariance_type="spherical",
                     n_init=n_gm_init,
+                    random_state=rng.integers(0, 4096).item(),
                 ).fit(sample_rs)
 
                 means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
@@ -192,7 +199,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
 
         if n_to_resample:
             # Re-sample means if any are removed, based on weights (re-normalized), to match total # of alleles
-            resampled_indices = np.random.choice(
+            resampled_indices = rng.choice(
                 np.arange(len(means)),
                 size=n_to_resample,
                 p=normalize(weights.reshape(1, -1), norm="l1").flatten())
@@ -204,7 +211,7 @@ def call_alleles(repeats_fwd: RepeatCounts,
             resampled_weights = weights
             resampled_stdevs = stdevs
 
-        argsorted_means = np.argsort(resampled_means, axis=0)
+        argsorted_means = np.argsort(resampled_means, axis=0, kind="stable")
         sorted_allele_estimates = resampled_means[argsorted_means].reshape(-1, 1)
         sorted_allele_weight_estimates = resampled_weights[argsorted_means].reshape(-1, 1)
         sorted_allele_stdev_estimates = resampled_stdevs[argsorted_means].reshape(-1, 1)
@@ -214,12 +221,12 @@ def call_alleles(repeats_fwd: RepeatCounts,
         allele_stdev_samples = np.append(allele_stdev_samples, sorted_allele_stdev_estimates, axis=1)
 
     # Calculate 95% and 99% confidence intervals for each allele from the bootstrap distributions.
-    allele_samples.sort(axis=1)
+    allele_samples.sort(axis=1, kind="stable")
     allele_cis_95 = _calculate_cis(allele_samples, force_int=force_int, ci="95")
     allele_cis_99 = _calculate_cis(allele_samples, force_int=force_int, ci="99")
-    allele_weight_samples.sort(axis=1)
-    allele_stdev_samples.sort(axis=1)
-    sample_peaks.sort()  # To make mode consistent, given same set of peak #s
+    allele_weight_samples.sort(axis=1, kind="stable")
+    allele_stdev_samples.sort(axis=1, kind="stable")
+    sample_peaks.sort(kind="stable")  # To make mode consistent, given same set of peak #s
 
     # TODO: Calculate CIs based on Gaussians from allele samples instead? Ask someone...
     #  - Could take median of 2.5 percentiles and 97.5 percentiles from Gaussians instead, median of means

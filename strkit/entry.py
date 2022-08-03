@@ -107,6 +107,11 @@ def add_call_parser_args(call_parser):
         action="store_true",
         help="If passed, no TSV call output will be written to stdout.")
 
+    call_parser.add_argument(
+        "--seed",
+        type=int,
+        help="Random seed to pass to random number generators for result replicability.")
+
 
 def add_re_call_parser_args(re_call_parser):
     re_call_parser.add_argument(
@@ -348,6 +353,7 @@ def _exec_call(p_args) -> int:
         json_path=p_args.json,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,
+        seed=p_args.seed,
     )
 
     return 0
