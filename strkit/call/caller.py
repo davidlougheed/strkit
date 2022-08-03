@@ -15,7 +15,6 @@ import sys
 
 from datetime import datetime
 from pysam import AlignmentFile
-from sklearn.mixture import GaussianMixture
 from typing import Dict, List, Iterable, Optional, Tuple, Union
 
 from strkit import __version__
@@ -55,6 +54,8 @@ indel_penalty = 5
 min_read_score = 0.9  # TODO: parametrize
 local_search_range = 3  # TODO: parametrize
 base_wildcard_threshold = 3
+
+roughly_equiv_stdev_dist = 1
 
 # TODO: Customize matrix based on error chances
 # Create a substitution matrix for alignment.
@@ -550,18 +551,30 @@ def call_locus(
     # don't know how re-sampling has occurred.
     read_peaks_called = call_modal_n and call_modal_n <= 2
     if read_peaks_called:
-        ws = call_weights[:call_modal_n]
-        final_model = GaussianMixture(
-            n_components=call_modal_n,
-            covariance_type="spherical",
-            max_iter=1,  # Lowest iteration # to keep it close to predicted parameters
-            weights_init=ws/np.sum(ws),
-            means_init=call_peaks[:call_modal_n].reshape(-1, 1),
-            precisions_init=1 / (call_stdevs[:call_modal_n] ** 2),  # TODO: Check, this looks wrong
-        )
-        res = final_model.fit_predict(read_cns.reshape(-1, 1))
-        for k, v in zip(read_dict.keys(), res):
-            read_dict[k]["peak"] = v.item()
+        peaks = call_peaks[:call_modal_n]
+        stdevs = call_stdevs[:call_modal_n]
+        weights = call_weights[:call_modal_n]
+
+        allele_reads = []
+        for _ in range(call_modal_n):
+            allele_reads.append([])
+
+        for r, rd in read_dict.items():
+            cn = rd["cn"]
+
+            sd_dist = np.abs((peaks - cn) / stdevs)
+            weighted_dist = np.abs(((peaks - cn) / stdevs) * weights)
+
+            # Hack: if both peaks are 1 stdev away, pretend we aren't sure and fill in whichever allele has less
+            peak: int = (
+                # bool to int conversion: 1 if we add to allele_reads[1]
+                int(len(allele_reads[0]) > len(allele_reads[1]))
+                if call_modal_n == 2 and np.all(sd_dist < roughly_equiv_stdev_dist)
+                else np.argmin(weighted_dist).item()
+            )
+
+            allele_reads[peak].append(r)
+            rd["peak"] = peak
 
     def _round_to_base_pos(x) -> float:
         return round(float(x) * motif_size) / motif_size
