@@ -7,6 +7,7 @@ import sys
 from typing import Dict, List, Optional, Type
 
 import strkit.constants as c
+from strkit import __version__
 from strkit.aligned.lengths import aligned_lengths_cmd
 from strkit.call import call_sample, re_call_all_alleles
 from strkit.catalog.combine import combine_catalogs
@@ -531,6 +532,8 @@ def main(args: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description="A toolkit for analyzing variation in short(ish) tandem repeats.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument("--version", "-v", action="version", version=__version__)
 
     subparsers = parser.add_subparsers()
 
