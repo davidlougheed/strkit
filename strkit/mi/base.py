@@ -172,17 +172,17 @@ class BaseCalculator(ABC):
         n_total = 0
 
         contig_results = []
-        non_matching = []
+        output_loci = []
 
         for contig_result in map(self.calculate_contig, included_contigs):
             contig_results.append(contig_result)
-            r, nm = contig_result.get_sums_and_non_matching()
+            r, nm = contig_result.process_loci(calculate_non_matching=not self.perform_x2_test)
             value, value_95_ci, value_99_ci = r
             res += value
             res_95_ci = None if value_95_ci is None else (res_95_ci + value_95_ci)
             res_99_ci = None if value_99_ci is None else (res_99_ci + value_99_ci)
             n_total += len(contig_result)
-            non_matching.extend(nm)
+            output_loci.extend(nm)
 
         if n_total == 0:
             sys.stderr.write("Warning: no common loci found\n")
@@ -197,13 +197,13 @@ class BaseCalculator(ABC):
             res_95_ci,
             res_99_ci,
             contig_results,
-            non_matching,
+            output_loci,
             self._widen,
             self.perform_x2_test,
             self.sig_level,
             self.mt_corr)
 
         if self.perform_x2_test:
-            res.correct_for_multiple_testing()
+            res.correct_for_multiple_testing()  # Also calculates new output loci
 
         return res

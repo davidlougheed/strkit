@@ -21,13 +21,13 @@ class StrKitCalculator(BaseCalculator):
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
 
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> Tuple[set, set, set]:
-        with open(self._mother_call_file, "r") as mvf, open(self._father_call_file, "r") as fvf, \
-                open(self._child_call_file, "r") as cvf:
+        with open(self._mother_call_file, "r") as mvf:
             mc = self.get_contigs_from_fh(mvf)
+        with open(self._father_call_file, "r") as fvf:
             fc = self.get_contigs_from_fh(fvf)
+        with open(self._child_call_file, "r") as cvf:
             cc = self.get_contigs_from_fh(cvf)
-
-            return mc, fc, cc
+        return mc, fc, cc
 
     @staticmethod
     def make_calls_dict(ph, contig):
@@ -115,13 +115,13 @@ class StrKitJSONCalculator(BaseCalculator):
         return {res["contig"] for res in report["results"]}
 
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> Tuple[set, set, set]:
-        with open(self._mother_call_file, "r") as mvf, open(self._father_call_file, "r") as fvf, \
-                open(self._child_call_file, "r") as cvf:
+        with open(self._mother_call_file, "r") as mvf:
             mc = self.get_contigs_from_fh(mvf)
+        with open(self._father_call_file, "r") as fvf:
             fc = self.get_contigs_from_fh(fvf)
+        with open(self._child_call_file, "r") as cvf:
             cc = self.get_contigs_from_fh(cvf)
-
-            return mc, fc, cc
+        return mc, fc, cc
 
     @staticmethod
     def get_read_counts(res: dict, dtype=int):
@@ -174,12 +174,10 @@ class StrKitJSONCalculator(BaseCalculator):
         cr = MIContigResult(includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
-            m_report = json.load(mh)
-            mother_data = self.make_calls_dict(m_report, contig)
+            mother_data = self.make_calls_dict(json.load(mh), contig)
 
         with open(self._father_call_file) as fh:
-            f_report = json.load(fh)
-            father_data = self.make_calls_dict(f_report, contig)
+            father_data = self.make_calls_dict(json.load(fh), contig)
 
         for res in c_report["results"]:
             if res["contig"] != contig:

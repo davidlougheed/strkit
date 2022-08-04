@@ -81,8 +81,6 @@ class MILocusData:
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
 
-        self._perform_x2_test = perform_x2_test
-
         self._p_value = None
         self._adj_p_value = None
         if perform_x2_test:
@@ -308,8 +306,9 @@ class MILocusData:
         yield "father_gt_95_ci", self._father_gt_95_ci
         yield "father_read_counts", self._father_read_counts
 
-        if self._perform_x2_test:
+        if self._p_value:
             yield "x2_p", self._p_value
+        if self._adj_p_value:
             yield "x2_p_adj", self._adj_p_value
 
     def __str__(self):
@@ -334,7 +333,9 @@ class MIContigResult:
     def append(self, item: MILocusData):
         self._loci_data.append(item)
 
-    def get_sums_and_non_matching(self) -> Tuple[Tuple[int, Optional[int],  Optional[int]], List[MILocusData]]:
+    def process_loci(
+            self,
+            calculate_non_matching: bool = True) -> Tuple[Tuple[int, Optional[int], Optional[int]], List[MILocusData]]:
         value = 0
         value_95_ci = 0 if self._includes_95_ci else None
         value_99_ci = 0 if self._includes_99_ci else None
@@ -342,7 +343,7 @@ class MIContigResult:
 
         for locus in self._loci_data:
             r = locus.respects_mi()
-            if not any(r[:2]):
+            if calculate_non_matching and not any(r[:2]):
                 # TODO: Custom ability to choose level...
                 non_matching.append(locus)
             value += r[0]
