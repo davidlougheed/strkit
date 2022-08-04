@@ -95,7 +95,7 @@ If this hard-coded value interferes with your use case, please open an issue.
   the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
 * `--fractional` or `f`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and 
   in allele calls. *Experimental!* **Default:** off
-* `--num-bootstrap ###`: Now many bootstrap re-samplings to perform. **Default:** 100
+* `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
 * `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 
