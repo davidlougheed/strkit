@@ -238,7 +238,6 @@ class MILocusData:
         chi_sq_res = []
 
         cr_all = self._child_read_counts_flattened
-        cr_len = cr_all.shape[0]
 
         for config in INHERITANCE_CONFIGS[:4]:  # Don't need child allele configs here
             # TODO: I'm pretty sure this can be more numpy-ified / sped up
@@ -259,19 +258,11 @@ class MILocusData:
                 return 1.0
 
             parent_all = np.array((*mat_reads, *pat_reads))
-            parent_len = parent_all.shape[0]
-            diff = cr_len - parent_len
 
-            min_cn = min((*(cr_all.tolist()), *parent_all))
-            max_cn = max((*(cr_all.tolist()), *parent_all))
+            min_cn = min((*cr_all, *parent_all))
+            max_cn = max((*cr_all, *parent_all))
 
             cr_all_resamp = cr_all
-            if diff > 0:
-                # TODO; seed sample
-                parent_all = np.concatenate((parent_all, np.random.choice(parent_all, size=diff)), axis=None)
-            elif diff < 0:
-                # TODO; seed sample
-                cr_all_resamp = np.concatenate((cr_all, np.random.choice(cr_all, size=abs(diff))), axis=None)
 
             n_bins = max_cn + 1 - min_cn
             child_freqs: List[int] = [0] * n_bins
@@ -287,8 +278,8 @@ class MILocusData:
             child_freqs = [v for i, v in enumerate(child_freqs) if i not in empty_bins]
             parent_freqs = [v for i, v in enumerate(parent_freqs) if i not in empty_bins]
 
-            # X2 test to check difference in distribution
-            x_sq_test = sst.chi2_contingency(np.array([child_freqs, parent_freqs]))
+            # X2 test to check difference in distribution - don't apply Yates' correction
+            x_sq_test = sst.chi2_contingency(np.array([child_freqs, parent_freqs]), correction=False)
             chi_sq_res.append((x_sq_test[1], min_cn, max_cn, child_freqs, parent_freqs, config))
 
         return max(chi_sq_res, key=lambda x: x[0])[0]
