@@ -30,25 +30,25 @@ def add_call_parser_args(call_parser):
         help="BAM file(s) with reads to call from. If multiple files are specified, the reads will be pooled.")
 
     call_parser.add_argument(
-        "--ref",
+        "--ref", "-r",
         type=str,
         required=True,
         help="Path to a reference genome, FASTA-formatted and indexed.")
 
     call_parser.add_argument(
-        "--loci",
+        "--loci", "-l",
         type=str,
         required=True,
         help="Specifies a BED file with all loci to call. The last column of the BED must contain the motif sequences "
              "of the loci.")
 
     call_parser.add_argument(
-        "--targeted",
+        "--targeted", "-t",
         action="store_true",
         help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
 
     call_parser.add_argument(
-        "--fractional",
+        "--fractional", "-f",
         action="store_true",
         help="Call fractional repeat counts (partial repeats). Experimental!")
 
@@ -79,26 +79,26 @@ def add_call_parser_args(call_parser):
         help="Number of bases around the locus to use for context.")
 
     call_parser.add_argument(
-        "--processes",
+        "--processes", "-p",
         type=int,
         default=1,
         help="Number of processes to use when calling.")
 
     call_parser.add_argument(
-        "--num-bootstrap",
+        "--num-bootstrap", "-b",
         type=int,
         default=100,
         help="Specifies the number of bootstrap samples to use to calculate confidence intervals and median genotype "
              "estimate.")
 
     call_parser.add_argument(
-        "--sex-chr",
+        "--sex-chr", "-x",
         type=str,
         help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
              "be genotyped.")
 
     call_parser.add_argument(
-        "--json",
+        "--json", "-j",
         type=str,
         help="Path to write JSON-formatted calls to. If left blank, no JSON file will be written. If the value is set "
              "to 'stdout', JSON will be written to stdout, after the TSV unless TSV output is disabled.")

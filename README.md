@@ -83,7 +83,7 @@ If this hard-coded value interferes with your use case, please open an issue.
 
 #### All optional flags:
 
-* `--min-reads ##`: Minimum number of supporting reads needed to make a call. Default: 4
+* `--min-reads ##`: Minimum number of supporting reads needed to make a call. **Default:** 4
 * `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
   **Default:** 2
 * `--min-avg-phred ##`: Minimum average PHRED score for relevant bases (flanking region + tandem repeat).
@@ -91,15 +91,15 @@ If this hard-coded value interferes with your use case, please open an issue.
   for example) will be skipped. **Default:** 13
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
-* `--targeted`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
+* `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
-* `--fractional`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and in
-  allele calls. *Experimental!* **Default:** off
+* `--fractional` or `f`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and 
+  in allele calls. *Experimental!* **Default:** off
 * `--num-bootstrap ###`: Now many bootstrap re-samplings to perform. **Default:** 100
-* `--sex-chr ??`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
+* `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
-* `--json [path]`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV output.
-  **Default:** *none*
+* `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 
+  output. **Default:** *none*
 * `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json`, no output will be generated, which isn't very 
   helpful. **Default:** TSV output on
 * `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 
