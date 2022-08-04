@@ -264,7 +264,11 @@ def add_mi_parser_args(mi_parser):
             "fdr_tsbky",
         ),
         default="none",
-        help="",  # TODO
+        help=(
+            "Method to use for multiple testing correction. Under the hood, this uses the statsmodels library, and"
+            "so the options are (mostly) identical to theirs: https://www.statsmodels.org/v0.13.0/generated/statsmodels"
+            ".stats.multitest.multipletests.html"
+        ),
     )
 
     # -----------------------------------------------------------------------------------
