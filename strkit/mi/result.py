@@ -273,17 +273,19 @@ class MILocusData:
                 # TODO; seed sample
                 cr_all_resamp = np.concatenate((cr_all, np.random.choice(cr_all, size=abs(diff))), axis=None)
 
-            # Add in fake counts to get at least one read parent->child in common to avoid weird divergent results
-            # Effectively pseudo-counts
-            # TODO: instead, just remove 0 categories
-            child_freqs = [1] * (max_cn + 1 - min_cn)
-            parent_freqs = [1] * (max_cn + 1 - min_cn)
+            n_bins = max_cn + 1 - min_cn
+            child_freqs: List[int] = [0] * n_bins
+            parent_freqs: List[int] = [0] * n_bins
 
             for c in cr_all_resamp:
                 child_freqs[c - min_cn] += 1
 
             for c in parent_all:
                 parent_freqs[c - min_cn] += 1
+
+            empty_bins: set = {i for i in range(n_bins) if not child_freqs[i] and not parent_freqs[i]}
+            child_freqs = [v for i, v in enumerate(child_freqs) if i not in empty_bins]
+            parent_freqs = [v for i, v in enumerate(parent_freqs) if i not in empty_bins]
 
             # X2 test to check difference in distribution
             x_sq_test = sst.chi2_contingency(np.array([child_freqs, parent_freqs]))
