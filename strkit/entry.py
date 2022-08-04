@@ -124,7 +124,7 @@ def add_re_call_parser_args(re_call_parser):
         help="The program which called the TR genotypes.")
 
     re_call_parser.add_argument(
-        "--num-bootstrap",
+        "--num-bootstrap", "-b",
         type=int,
         default=100,
         help="Specifies the number of bootstrap samples to use to calculate confidence intervals and median genotype "
@@ -150,19 +150,19 @@ def add_re_call_parser_args(re_call_parser):
              "resampling. If this is set too low, may lead to calling bias or dropout.")
 
     re_call_parser.add_argument(
-        "--processes",
+        "--processes", "-p",
         type=int,
         default=1,
         help="Number of processes to use when calling.")
 
     re_call_parser.add_argument(
-        "--contig",
+        "--contig", "--chr",
         type=str,
         default=argparse.SUPPRESS,
         help="Specifies a specific contig to process (optional).")
 
     re_call_parser.add_argument(
-        "--sex-chr",
+        "--sex-chr", "-x",
         type=str,
         help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
              "be genotyped.")
