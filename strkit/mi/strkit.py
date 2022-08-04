@@ -1,4 +1,4 @@
-import json
+import orjson as json
 import numpy as np
 
 from typing import Tuple
@@ -111,7 +111,7 @@ class StrKitCalculator(BaseCalculator):
 class StrKitJSONCalculator(BaseCalculator):
     @staticmethod
     def get_contigs_from_fh(fh) -> set:
-        report = json.load(fh)
+        report = json.loads(fh.read())
         return {res["contig"] for res in report["results"]}
 
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> Tuple[set, set, set]:
@@ -164,7 +164,7 @@ class StrKitJSONCalculator(BaseCalculator):
 
     def calculate_contig(self, contig: str) -> MIContigResult:
         with open(self._child_call_file, "r") as ch:
-            c_report = json.load(ch)
+            c_report = json.loads(ch.read())
 
         fractional = c_report["parameters"]["fractional"]
 
@@ -174,10 +174,10 @@ class StrKitJSONCalculator(BaseCalculator):
         cr = MIContigResult(includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
-            mother_data = self.make_calls_dict(json.load(mh), contig)
+            mother_data = self.make_calls_dict(json.loads(mh.read()), contig)
 
         with open(self._father_call_file) as fh:
-            father_data = self.make_calls_dict(json.load(fh), contig)
+            father_data = self.make_calls_dict(json.loads(fh.read()), contig)
 
         for res in c_report["results"]:
             if res["contig"] != contig:

@@ -1,5 +1,5 @@
 import argparse
-import json
+import orjson
 import pathlib
 import os
 import sys
@@ -506,7 +506,7 @@ def _exec_viz_server(p_args):
         return 1
 
     with open(json_file, "r") as jf:
-        call_report = json.load(jf)
+        call_report = orjson.loads(jf.read())
 
     idx = p_args.i
     if idx < 1 or idx > len(call_report["results"]):

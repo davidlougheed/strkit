@@ -5,11 +5,11 @@ os.environ["OMP_NUM_THREADS"] = "1"
 # ----------------------------------------------------------------------------------------------------------------------
 
 import heapq
-import json
 import math
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
 import numpy as np
+import orjson
 import parasail
 import sys
 
@@ -778,9 +778,9 @@ def call_sample(
         }
 
         if json_path == "stdout":
-            json.dump(json_report, sys.stdout, indent=2)
+            sys.stdout.buffer.write(orjson.dumps(json_report, option=orjson.OPT_INDENT_2))
             sys.stdout.write("\n")
             sys.stdout.flush()
         else:
-            with open(json_path, "w") as jf:
-                json.dump(json_report, jf, indent=2)
+            with open(json_path, "wb") as jf:
+                jf.write(orjson.dumps(json_report, option=orjson.OPT_INDENT_2))

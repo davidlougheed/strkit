@@ -1,5 +1,5 @@
-import json
 import numpy as np
+import orjson
 import sys
 import scipy.stats as sst
 
@@ -435,13 +435,13 @@ class MIResult:
         }
 
         if json_path == "stdout":
-            json.dump(obj, sys.stdout)
+            sys.stdout.buffer.write(orjson.dumps(obj))
             sys.stdout.write("\n")
             sys.stdout.flush()
             return
 
-        with open(json_path, "w") as jf:
-            json.dump(obj, jf, indent=2)
+        with open(json_path, "wb") as jf:
+            jf.write(orjson.dumps(obj, option=orjson.OPT_INDENT_2))
 
     @staticmethod
     def _nm_sort_key_pos(locus: MILocusData):
