@@ -287,8 +287,8 @@
 
                 bounds.forEach((b, i) => makeScale(i, b));
 
-                return Object.fromEntries(Object.entries(callData.read_peak_labels).map(
-                    ([r, p]) => [r, palettes[p](getScalePosition(bounds[p], callData.read_cns[r]))]));
+                return Object.fromEntries(Object.entries(callData.reads).map(
+                    ([r, rd]) => [r, palettes[rd["peak"]](getScalePosition(bounds[rd["peak"]], rd["cn"]))]));
             })();
 
             // Remove existing browser instance if present
