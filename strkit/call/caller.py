@@ -520,7 +520,7 @@ def call_locus(
 
         read_dict[segment.query_name] = {
             "cn": read_cn,
-            "weight": read_weight,
+            "weight": read_weight.item(),
         }
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
