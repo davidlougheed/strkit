@@ -123,7 +123,7 @@
 
           if (peaks) {
             const xs = [];
-            for (let i = xDomain[0]; i < xDomain[1]; i++) {
+            for (let i = xDomain[0]; i < xDomain[1]; i += 0.05) {
               xs.push(i);
             }
             const line = d3.line()
@@ -131,10 +131,15 @@
               .x(d => xScale(d[0]))
               .y(d => yScale(d[1]));
             const max = yDomain[1];
+            const pdfMaxes = [];
+            for (let i = 0; i < peaks.modal_n; i++) {
+              pdfMaxes.push(1 / (Math.sqrt(2 * Math.PI) * peaks.stdevs[i]));
+            }
+            const maxPdfMax = Math.max(...pdfMaxes);
             for (let i = 0; i < peaks.modal_n; i++) {
               const pdf = normalPdf(peaks.means[i], peaks.stdevs[i]);
               svg.append("path")
-                .datum(xs.map(xx => [xx, pdf(xx) * max * 3 * peaks.weights[i]]))
+                .datum(xs.map(xx => [xx, pdf(xx) * (max / maxPdfMax)])) // peaks.weights[i]
                 .attr("fill", "none")
                 .attr("stroke", i === 0 ? "#33F" : "#F33")
                 .attr("stroke-width", 1.5)
