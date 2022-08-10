@@ -11,10 +11,10 @@ After genotyping the trio with `strkit call`, this command can be used to discov
   3. Look like de novo mutation at a read count distribution level, via a chi-squared independence test,
      where the contingency table looks like the following:
 
-| Read distribution \ Copy number   | 11   | 12   | 13   |
-|-----------------------------------|------|------|------|
-| Parent alleles (best fit)         | 20   | 10   | 0    |
-| Child alleles                     | 2    | 20   | 10   |
+| Read distribution \ Copy number | 11   | 12   | 13   |
+|---------------------------------|------|------|------|
+| Parent reads (best peak fit)    | 20   | 10   | 0    |
+| Child reads                     | 2    | 20   | 10   |
 
 
 ## Trio-level
