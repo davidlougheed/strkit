@@ -7,14 +7,15 @@ __all__ = [
 ]
 
 
-def call_tandem_genotypes(args: Tuple[Optional[str], Optional[str], int, int, int, int, str]) -> str:
+def call_tandem_genotypes(args: Tuple[Optional[str], Optional[str], int, int, int, int, int, str]) -> str:
     contig: Optional[str] = args[0]
     sex_chr: Optional[str] = args[1]
     bootstrap_iterations: int = args[2]
     min_reads: int = args[3]
     min_allele_reads: int = args[4]
     read_bias_corr_min: int = args[5]
-    line: str = args[6]
+    seed: int = args[6]
+    line: str = args[7]
 
     gm_filter_factor: int = 3
 
@@ -44,6 +45,7 @@ def call_tandem_genotypes(args: Tuple[Optional[str], Optional[str], int, int, in
         read_bias_corr_min=read_bias_corr_min,
         gm_filter_factor=gm_filter_factor,
         force_int=True,
+        seed=seed,
     )
 
     if call is None:

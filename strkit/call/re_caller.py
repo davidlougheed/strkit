@@ -38,6 +38,13 @@ def re_call_all_alleles(contig: Optional[str] = None,
     min_reads = _bound_param(min_reads, 2, 512, "min-reads")
     min_allele_reads = _bound_param(min_allele_reads, 1, 512, "min-allele-reads")
 
+    # Seed the random number generator if a seed is provided, for replicability
+    rng = np.random.default_rng(seed=seed)
+
+    def _rng_gen():
+        while True:
+            yield rng.integers(0, 4096).item()
+
     lines = [ls for ls in (line.strip() for line in sys.stdin) if ls]
 
     if caller == tc.CALLER_TANDEM_GENOTYPES:
@@ -59,6 +66,7 @@ def re_call_all_alleles(contig: Optional[str] = None,
         repeat(min_reads),
         repeat(min_allele_reads),
         repeat(read_bias_corr_min),
+        _rng_gen(),
         lines,
     )
 

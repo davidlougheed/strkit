@@ -12,14 +12,15 @@ __all__ = [
 WSP_SPLIT = re.compile(r"\s{3,7}")
 
 
-def call_repeathmm(args: Tuple[Optional[str], Optional[str], int, int, int, int, str]) -> str:
+def call_repeathmm(args: Tuple[Optional[str], Optional[str], int, int, int, int, int, str]) -> str:
     contig: Optional[str] = args[0]
     sex_chr: Optional[str] = args[1]
     bootstrap_iterations: int = args[2]
     min_reads: int = args[3]
     min_allele_reads: int = args[4]
     # skip read_bias_corr_min -- not relevant to repeatHMM
-    line: str = args[6]
+    seed: int = args[6]
+    line: str = args[7]
 
     gm_filter_factor: int = 3
 
@@ -75,6 +76,7 @@ def call_repeathmm(args: Tuple[Optional[str], Optional[str], int, int, int, int,
         read_bias_corr_min=0,  # Not relevant since we don't have separate strand data
         gm_filter_factor=gm_filter_factor,
         force_int=True,
+        seed=seed,
     )
 
     if call is None:

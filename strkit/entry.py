@@ -167,6 +167,11 @@ def add_re_call_parser_args(re_call_parser):
         help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
              "be genotyped.")
 
+    re_call_parser.add_argument(
+        "--seed",
+        type=int,
+        help="Random seed to pass to random number generators for result replicability.")
+
 
 CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
     c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
@@ -376,6 +381,7 @@ def _exec_re_call(p_args) -> int:
         read_bias_corr_min=p_args.read_bias_corr_min,
         caller=p_args.caller,
         processes=p_args.processes,
+        seed=p_args.seed,
     )
 
 
