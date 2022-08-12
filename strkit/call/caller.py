@@ -663,7 +663,7 @@ def locus_worker(
 
 def parse_loci_bed(loci_file: str):
     with open(loci_file, "r") as tf:
-        yield from (tuple(line.split("\t")) for line in (s.strip() for s in tf) if line)
+        yield from (tuple(line.split("\t")) for line in (s.strip() for s in tf) if line and not line.startswith("#"))
 
 
 def _cn_to_str(cn: Union[int, float]) -> str:

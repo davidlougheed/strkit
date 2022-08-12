@@ -73,7 +73,11 @@ class BaseCalculator(ABC):
         with open(self._loci_file, "r") as lf:
             return {
                 tuple(d[:3]): d[3:]
-                for d in (line.strip().split("\t") for line in lf)
+                for d in (
+                    line.split("\t")
+                    for line in map(lambda x: x.strip(), lf)
+                    if line and not line.startswith("#")
+                )
             }
 
     @abstractmethod
