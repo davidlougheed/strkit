@@ -49,6 +49,7 @@ strkit call \
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
+  --seed 183  # Fixed random number generator seed for replicability
 ```
 
 If more than one read file is specified, the reads will be pooled. This can come in handy if you
@@ -58,6 +59,9 @@ split by chromosome.
 If you want to output a full call report, you can use the `--json output-file.json` argument to
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
 labels, and some other information that isn't included in the normal TSV file.
+
+See the '[Caller catalog format & choosing a catalog](./docs/caller_catalog.md)' page for more on
+how to format a locus catalog or choose from existing available catalogs.
 
 Note that the reference genome must be BGZipped and indexed using `samtools faidx`:
 
@@ -81,29 +85,10 @@ export OMP_NUM_THREADS=1
 If this hard-coded value interferes with your use case, please open an issue.
 
 
-#### All optional flags:
+#### Further documentation on the STRkit caller:
 
-* `--min-reads ##`: Minimum number of supporting reads needed to make a call. **Default:** 4
-* `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
-  **Default:** 2
-* `--min-avg-phred ##`: Minimum average PHRED score for relevant bases (flanking region + tandem repeat).
-  Read segments with average PHRED scores below this (common with a threshold of ~13 and ONT Ultra Long reads, 
-  for example) will be skipped. **Default:** 13
-* `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
-  **Default:** 70
-* `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
-  the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
-* `--fractional` or `f`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and 
-  in allele calls. *Experimental!* **Default:** off
-* `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
-* `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
-  Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
-* `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 
-  output. **Default:** *none*
-* `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json`, no output will be generated, which isn't very 
-  helpful. **Default:** TSV output on
-* `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 
-  Useful for replicability.
+  * [Advanced caller usage and configuration](./docs/caller_usage.md)
+  * [Caller catalog format & choosing a catalog](./docs/caller_catalog.md)
 
 
 ### `strkit visualize`: Call visualizer
