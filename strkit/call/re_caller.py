@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import numpy as np
 import sys
 
 import strkit.constants as tc
@@ -22,14 +23,17 @@ def _bound_param(param: int, min_val: int, max_val: int, flag_name: str):
     return new_param
 
 
-def re_call_all_alleles(contig: Optional[str] = None,
-                        sex_chr: Optional[str] = None,
-                        bootstrap_iterations: int = 100,
-                        min_reads: int = 4,
-                        min_allele_reads: int = 2,
-                        read_bias_corr_min: int = 4,
-                        caller: str = tc.CALLER_TANDEM_GENOTYPES,
-                        processes: int = 1) -> int:
+def re_call_all_alleles(
+    contig: Optional[str] = None,
+    sex_chr: Optional[str] = None,
+    bootstrap_iterations: int = 100,
+    min_reads: int = 4,
+    min_allele_reads: int = 2,
+    read_bias_corr_min: int = 4,
+    caller: str = tc.CALLER_TANDEM_GENOTYPES,
+    processes: int = 1,
+    seed: Optional[int] = None,
+) -> int:
     if caller not in tc.CALL_SUPPORTED_CALLERS:
         sys.stderr.write(f"Error: invalid caller '{caller}'")
         return 1
