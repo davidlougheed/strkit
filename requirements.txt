@@ -5,7 +5,7 @@ itsdangerous==2.1.2
 Jinja2==3.1.2
 joblib==1.1.0
 MarkupSafe==2.1.1
-numpy==1.23.1
+numpy==1.23.2
 orjson==3.7.11
 packaging==21.3
 pandas==1.4.3
@@ -14,7 +14,7 @@ patsy==0.5.2
 pyparsing==3.0.9
 pysam==0.19.1
 python-dateutil==2.8.2
-pytz==2022.1
+pytz==2022.2.1
 scikit-learn==1.1.2
 scipy==1.9.0
 six==1.16.0
