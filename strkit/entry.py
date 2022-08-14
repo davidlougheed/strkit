@@ -238,17 +238,21 @@ def add_mi_parser_args(mi_parser):
     # -----------------------------------------------------------------------------------
 
     mi_parser.add_argument(
-        "--x2-test",
-        action="store_true",
-        help="Calculate allele inheritance chi-squared test to detect de novo mutation in trios. Available for "
-             "strkit-json only.")
+        "--test",
+        nargs="?",
+        type=str,
+        default="none",
+        const="x2",
+        choices=("none", "x2", "wmw", "wmw-gt"),
+        help="Perform statistical chi-squared (by default) or Wilcoxon-Mann-Whitney tests to detect de novo mutation "
+             "in trios. Available for strkit-json only.")
 
     mi_parser.add_argument(
         "--sig-level",
         type=float,
         default=0.05,
         help=(
-            "Significance level for chi-squared test results. Without correction, this parameter functions as a "
+            "Significance level for de novo mutation test results. Without correction, this parameter functions as a "
             "simple threshold. When a multiple testing correction method is applied, this parameter specifies the "
             "desired significance level, alpha."
         ))
@@ -398,9 +402,9 @@ def _exec_mi(p_args) -> int:
         sys.stderr.write(f"Error: Unknown or unimplemented caller '{caller}'\n")
         exit(1)
 
-    perform_x2_test = p_args.x2_test
-    if caller != c.CALLER_STRKIT_JSON and perform_x2_test:
-        sys.stderr.write(f"Error: Caller '{caller}' does not support inheritance chi-squared tests.\n")
+    test_to_perform = p_args.test
+    if caller != c.CALLER_STRKIT_JSON and test_to_perform != "none":
+        sys.stderr.write(f"Error: Caller '{caller}' does not support inheritance tests.\n")
         exit(1)
 
     child_file = getattr(p_args, "child-calls")  # First call file is not optional
@@ -430,7 +434,7 @@ def _exec_mi(p_args) -> int:
 
         widen=getattr(p_args, "widen", 0) or 0,
 
-        perform_x2_test=perform_x2_test,
+        test_to_perform=test_to_perform,
         sig_level=p_args.sig_level,
         mt_corr=p_args.mt_corr,
 

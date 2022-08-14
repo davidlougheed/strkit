@@ -8,7 +8,10 @@ After genotyping the trio with `strkit call`, this command can be used to discov
 
   1. Do not respect exact MI
   2. Do not respect MI under the 95% locus confidence intervals
-  3. Look like de novo mutation at a read count distribution level, via a chi-squared independence test,
+  3. Look like de novo mutation at a read count distribution level, via a Mann-Whitney *U* test (with tie correction).
+     The alternative hypothesis can be specified as either two-sided or looking for expansion in the offspring. 
+     *The requirements for this test are invalidated in cases of mosaicism.*
+  4. Look like de novo mutation at a read count distribution level, via a chi-squared independence test,
      where the contingency table looks like the following:
 
 | Read distribution \ Copy number | 11   | 12   | 13   |

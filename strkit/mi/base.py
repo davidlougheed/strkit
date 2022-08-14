@@ -28,7 +28,7 @@ class BaseCalculator(ABC):
 
             widen: float = 0,
 
-            perform_x2_test: bool = False,
+            test_to_perform: str = "none",
             sig_level: float = 0.05,
             mt_corr: str = "none",
 
@@ -48,15 +48,15 @@ class BaseCalculator(ABC):
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
 
-        self._perform_x2_test: bool = perform_x2_test
+        self._test_to_perform: str = test_to_perform
         self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr
 
         self._debug: bool = debug
 
     @property
-    def perform_x2_test(self) -> bool:
-        return self._perform_x2_test
+    def test_to_perform(self) -> str:
+        return self._test_to_perform
 
     @property
     def sig_level(self) -> float:
@@ -180,7 +180,7 @@ class BaseCalculator(ABC):
 
         for contig_result in map(self.calculate_contig, included_contigs):
             contig_results.append(contig_result)
-            r, nm = contig_result.process_loci(calculate_non_matching=not self.perform_x2_test)
+            r, nm = contig_result.process_loci(calculate_non_matching=self.test_to_perform == "none")
             value, value_95_ci, value_99_ci = r
             res += value
             res_95_ci = None if value_95_ci is None else (res_95_ci + value_95_ci)
@@ -203,11 +203,11 @@ class BaseCalculator(ABC):
             contig_results,
             output_loci,
             self._widen,
-            self.perform_x2_test,
+            self.test_to_perform,
             self.sig_level,
             self.mt_corr)
 
-        if self.perform_x2_test:
+        if self.test_to_perform:
             res.correct_for_multiple_testing()  # Also calculates new output loci
 
         return res

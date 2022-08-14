@@ -53,7 +53,7 @@ class MILocusData:
             decimal: bool = False,
             widen: float = 0,
 
-            perform_x2_test: bool = False):
+            test_to_perform: str = "none"):
         self._contig = contig
         self._start = start
         self._end = end
@@ -83,8 +83,8 @@ class MILocusData:
 
         self._p_value = None
         self._adj_p_value = None
-        if perform_x2_test:
-            self._p_value = self.x2_test()
+        if test_to_perform != "none":
+            self._p_value = self.de_novo_test(test_to_perform)
 
     @property
     def contig(self) -> str:
@@ -168,7 +168,11 @@ class MILocusData:
 
     @adj_p_value.setter
     def adj_p_value(self, value: Optional[float]):
-        assert value is None or 0 <= value <= 1
+        try:
+            assert value is None or 0 <= value <= 1
+        except AssertionError as e:
+            sys.stderr.write(f"Error: encountered unexpected value: {value}")
+            raise e
         self._adj_p_value = value
 
     @staticmethod
@@ -234,16 +238,22 @@ class MILocusData:
 
         return respects_mi_strict, respects_mi_95_ci, respects_mi_99_ci
 
-    def x2_test(self) -> float:
-        chi_sq_res = []
+    def de_novo_test(self, test: str) -> Optional[float]:
+        test_res = []
 
         cr_all = self._child_read_counts_flattened
+        cr_all_set = set(cr_all)
 
         for config in INHERITANCE_CONFIGS[:4]:  # Don't need child allele configs here
             # TODO: I'm pretty sure this can be more numpy-ified / sped up
 
             mat_reads = self._mother_read_counts[config[2]]
             pat_reads = self._father_read_counts[config[3]]
+
+            parent_all = np.array((*mat_reads, *pat_reads))
+
+            if len(cr_all_set) == 1 and cr_all_set == set(parent_all) and test.startswith("wmw"):
+                return None  # Complete overlap, NaN p-value for WMW test
 
             if not mat_reads or not pat_reads:
                 w = []
@@ -255,34 +265,46 @@ class MILocusData:
                     f"Warning: {self.contig}:{self.start}-{self.end} - encountered empty readset for "
                     f"{' and '.join(w)} allele\n")
                 sys.stderr.flush()
-                return 1.0
+                return None
 
-            parent_all = np.array((*mat_reads, *pat_reads))
+            if test == "x2":
+                min_cn = min((*cr_all, *parent_all))
+                max_cn = max((*cr_all, *parent_all))
 
-            min_cn = min((*cr_all, *parent_all))
-            max_cn = max((*cr_all, *parent_all))
+                cr_all_resamp = cr_all
 
-            cr_all_resamp = cr_all
+                n_bins = max_cn + 1 - min_cn
+                child_freqs: List[int] = [0] * n_bins
+                parent_freqs: List[int] = [0] * n_bins
 
-            n_bins = max_cn + 1 - min_cn
-            child_freqs: List[int] = [0] * n_bins
-            parent_freqs: List[int] = [0] * n_bins
+                for c in cr_all_resamp:
+                    child_freqs[c - min_cn] += 1
 
-            for c in cr_all_resamp:
-                child_freqs[c - min_cn] += 1
+                for c in parent_all:
+                    parent_freqs[c - min_cn] += 1
 
-            for c in parent_all:
-                parent_freqs[c - min_cn] += 1
+                empty_bins: set = {i for i in range(n_bins) if not child_freqs[i] and not parent_freqs[i]}
+                child_freqs = [v for i, v in enumerate(child_freqs) if i not in empty_bins]
+                parent_freqs = [v for i, v in enumerate(parent_freqs) if i not in empty_bins]
 
-            empty_bins: set = {i for i in range(n_bins) if not child_freqs[i] and not parent_freqs[i]}
-            child_freqs = [v for i, v in enumerate(child_freqs) if i not in empty_bins]
-            parent_freqs = [v for i, v in enumerate(parent_freqs) if i not in empty_bins]
+                # X2 test to check difference in distribution - don't apply Yates' correction
+                p_val = sst.chi2_contingency(np.array([child_freqs, parent_freqs]), correction=False)[1]
 
-            # X2 test to check difference in distribution - don't apply Yates' correction
-            x_sq_test = sst.chi2_contingency(np.array([child_freqs, parent_freqs]), correction=False)
-            chi_sq_res.append((x_sq_test[1], min_cn, max_cn, child_freqs, parent_freqs, config))
+            else:  # test == wmw or wmw-gt
+                # Mann-Whitney U test; where we have H0 as the awkward 'equally likely to observe values
+                # from the child that are less than observations from the parent as greater than' (something like that)
+                # See https://www.tandfonline.com/doi/full/10.1080/00031305.2017.1305291
+                # Same-variance requirements should hold almost all the time, unless there is suspected mosaicism
+                # (and then X2 should be used instead)
+                p_val = sst.mannwhitneyu(
+                    cr_all,
+                    parent_all,
+                    alternative="greater" if test == "wmw-gt" else "two-sided",
+                    use_continuity=False)[1]
 
-        return max(chi_sq_res, key=lambda x: x[0])[0]
+            test_res.append(float(p_val))  # cast to make sure we're in native float type
+
+        return max(test_res)
 
     def __iter__(self):  # for dict casting
         yield "contig", self._contig
@@ -300,9 +322,9 @@ class MILocusData:
         yield "father_read_counts", self._father_read_counts
 
         if self._p_value:
-            yield "x2_p", self._p_value
+            yield "p", self._p_value
         if self._adj_p_value:
-            yield "x2_p_adj", self._adj_p_value
+            yield "p_adj", self._adj_p_value
 
     def __str__(self):
         def _opt_ci_str(ci_str, level="95"):
@@ -365,7 +387,7 @@ class MIResult:
                  contig_results: Iterable[MIContigResult],
                  output_loci: List[MILocusData],
                  widen: float = 0,
-                 perform_x2_test: bool = False,
+                 test_to_perform: str = "none",
                  sig_level: float = 0.05,
                  mt_corr: str = "none"):
         self.mi_value: float = mi_value
@@ -374,7 +396,7 @@ class MIResult:
         self._contig_results: Tuple[MIContigResult] = tuple(contig_results)
         self._output_loci: List[MILocusData] = output_loci
         self.widen: float = widen
-        self._perform_x2_test: bool = perform_x2_test
+        self._test_to_perform: str = test_to_perform
         self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr  # Method to use when correcting for multiple testing
 
@@ -387,29 +409,33 @@ class MIResult:
         return self._output_loci
 
     @property
-    def perform_x2_test(self) -> bool:
-        return self.perform_x2_test
+    def test_to_perform(self) -> str:
+        return self.test_to_perform
 
     def correct_for_multiple_testing(self):
-        if not self._perform_x2_test:
-            sys.stdout.write("Warning: cannot correct for multiple testing when X2 test is not enabled\n")
+        if self._test_to_perform == "none":
+            sys.stdout.write("Warning: cannot correct for multiple testing when test is not enabled\n")
             return
 
         loci = [locus for cr in self.contig_results for locus in cr]
-        p_values = np.fromiter((locus.p_value for cr in self.contig_results for locus in cr), dtype=np.float)
+        p_values = [locus.p_value for cr in self.contig_results for locus in cr]
+        not_tested = {i for i, p in enumerate(p_values) if p is None}
+
+        loci_filt = [locus for i, locus in enumerate(loci) if i not in not_tested]
+        p_values_filt = np.fromiter((p for i, p in enumerate(p_values) if i not in not_tested), dtype=np.float64)
 
         if (mtm := self._mt_corr) != "none":
             rejected_hs, p_corr, _, _ = multipletests(
-                p_values,
+                p_values_filt,
                 alpha=self._sig_level,
                 method=mtm)  # Correct for multiple testing effects using the specified method
         else:  # No MT correction; just use p-values as-is
-            p_corr = p_values
+            p_corr = p_values_filt
             rejected_hs = (p_corr < self._sig_level)
 
         new_output_loci = []
 
-        for pc, rej_h, locus in filter(lambda x: x[1], zip(p_corr, rejected_hs, loci)):
+        for pc, rej_h, locus in filter(lambda x: x[1], zip(p_corr, rejected_hs, loci_filt)):
             locus.adj_p_value = pc
             new_output_loci.append(locus)
 
@@ -430,8 +456,9 @@ class MIResult:
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
             "n_loci": sum((len(lr) for lr in self.contig_results)),
-            "significant_loci": [dict(nm) for nm in self.sorted_output_loci],
+            "test": self._test_to_perform,
             "hist": hist,
+            "significant_loci": [dict(nm) for nm in self.sorted_output_loci],
         }
 
         if json_path == "stdout":
@@ -447,7 +474,7 @@ class MIResult:
     def _nm_sort_key_pos(locus: MILocusData):
         return CHROMOSOMES.index(locus.contig), locus.start, locus.motif
 
-    def _nm_sort_key_x2_test(self, locus: MILocusData):
+    def _nm_sort_key_test(self, locus: MILocusData):
         if self._mt_corr != "none":
             return locus.adj_p_value
         return locus.p_value
@@ -455,7 +482,7 @@ class MIResult:
     @property
     def sorted_output_loci(self):
         return sorted(
-            self._output_loci, key=self._nm_sort_key_x2_test if self._perform_x2_test else self._nm_sort_key_pos)
+            self._output_loci, key=self._nm_sort_key_test if self._test_to_perform != "none" else self._nm_sort_key_pos)
 
     def locus_tsv(self, sep="\t") -> str:
         res = ""
@@ -481,8 +508,8 @@ class MIResult:
 
                 str(locus.reference_copies or ""),  # Reference number of copies (or blank depending on caller)
 
-                *((str(locus.p_value),) if self._perform_x2_test else ()),
-                *((str(locus.adj_p_value),) if self._perform_x2_test and self._mt_corr != "none" else ()),
+                *((str(locus.p_value),) if self._test_to_perform != "none" else ()),
+                *((str(locus.adj_p_value),) if self._test_to_perform != "none" and self._mt_corr != "none" else ()),
             )) + "\n"
         return res
 

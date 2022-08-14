@@ -229,7 +229,7 @@ class StrKitJSONCalculator(BaseCalculator):
 
                 decimal=fractional,
 
-                perform_x2_test=self.perform_x2_test,
+                test_to_perform=self.test_to_perform,
             ))
 
         return cr
