@@ -1,5 +1,4 @@
-# Citations obtained from Gall-Duncan et al. 2022
-# TODO: Complete
+# Citations obtained from Gall-Duncan et al. 2022	.	.	.	.	.	.	.
 # contig	start	end	disease	inheritance	gene	citation	motif
 chr1	57367043	57367125	SCA37	AD	DAB1	Seixas et al. 2017	RAAAT
 chr1	149390802	149390842	NIID;EssentialTremor;ALS;OPDM3	AD;Assoc;Assoc;Familial	NOTCH2NLC	Tian et al. 2019;Sun et al. 2020;Yuan et al. 2020;Yu et al. 2021	GGC
