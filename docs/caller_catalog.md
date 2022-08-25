@@ -46,7 +46,8 @@ Other researchers have done extensive work in identifying and cataloguing loci f
     required to create a desirable locus catalog.
   * The researchers behind the [GangSTR](https://github.com/gymreklab/GangSTR) short-read STR genotyping method
     have prepared [several extensive STR catalogs](https://github.com/gymreklab/GangSTR#gangstr-reference-files) 
-    for different human reference genomes, containing motifs up to 20bp in length, which should work 
-    decently with STRkit.
+    for different human reference genomes, containing motifs up to 20bp in length. However, **these files use
+    1-based closed-interval coordinates**, and should be adjusted (subtracting 1 from all start coordinates) to 
+    transform them into the 0-based half-open interval coordinates when using them with STRkit.
   * We have prepared a [catalog of disease-causing or disease-associated loci](../catalogs/pathogenic_assoc.hg38.tsv) 
     for the `hg38` reference genome, based on the review research done by. It will be available soon (TO COME).
