@@ -13,6 +13,7 @@ import orjson
 import parasail
 import sys
 
+from collections import Counter
 from datetime import datetime
 from pysam import AlignmentFile
 from typing import Dict, List, Iterable, Optional, Tuple, Union
@@ -341,6 +342,7 @@ def call_locus(
     sex_chroms: Optional[str] = None,
     targeted: bool = False,
     fractional: bool = False,
+    count_kmers: str = "none",  # "none" | "peak" | "read"
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
 ) -> Optional[dict]:
@@ -415,11 +417,15 @@ def call_locus(
     read_lengths = np.fromiter((segment.query_alignment_length for segment in overlapping_segments), dtype=np.int)
     sorted_read_lengths = np.sort(read_lengths)
 
+    kmers_by_read: dict[str, dict] = {}
+
     for segment, read_len in zip(overlapping_segments, read_lengths):
+        rn = segment.query_name
+
         qs = segment.query_sequence
 
         if qs is None:  # No aligned segment, I guess
-            log_debug(f"Skipping read {segment.query_name} (no aligned segment)")
+            log_debug(f"Skipping read {rn} (no aligned segment)")
             continue
 
         qq = segment.query_qualities
@@ -459,14 +465,13 @@ def call_locus(
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
             log_debug(
-                f"Skipping read {segment.query_name} in locus {t_idx}: could not get sufficient flanking "
-                f"sequence")
+                f"Skipping read {rn} in locus {t_idx}: could not get sufficient flanking sequence")
             continue
 
         qqs = np.array(qq[left_flank_end:right_flank_start])
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:
             log_debug(
-                f"Skipping read {segment.query_name} due to low average base quality ({m_qqs} < {min_avg_phred}")
+                f"Skipping read {rn} due to low average base quality ({m_qqs} < {min_avg_phred}")
             continue
 
         # -----
@@ -487,6 +492,12 @@ def call_locus(
 
         # TODO: wildcards in flanking region too?
         tr_read_seq_wc = "".join(tr_read_seq[i] if qqs[i] > base_wildcard_threshold else "X" for i in np.arange(tr_len))
+
+        read_kmers = Counter()
+        if count_kmers != "none":
+            for i in range(0, tr_len - motif_size + 1):
+                read_kmers.update((tr_read_seq_wc[i:i+motif_size],))
+            kmers_by_read[rn] = dict(read_kmers)
 
         read_cn, read_cn_score = get_repeat_count(
             start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
@@ -518,7 +529,7 @@ def call_locus(
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
         read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
 
-        read_dict[segment.query_name] = {
+        read_dict[rn] = {
             "cn": read_cn,
             "weight": read_weight.item(),
         }
@@ -550,9 +561,11 @@ def call_locus(
     call_weights = call.get("peak_weights")
     call_stdevs = call.get("peak_stdevs")
     call_modal_n = call.get("modal_n_peaks")
+    call_peak_n_reads = []
 
     # We cannot call read-level cluster labels with >2 peaks;
     # don't know how re-sampling has occurred.
+    peak_kmers = [Counter() for _ in range(call_modal_n)]
     read_peaks_called = call_modal_n and call_modal_n <= 2
     if read_peaks_called:
         peaks = call_peaks[:call_modal_n]
@@ -579,6 +592,13 @@ def call_locus(
 
             allele_reads[peak].append(r)
             rd["peak"] = peak
+            peak_kmers[peak] += kmers_by_read[r]
+
+        call_peak_n_reads = list(map(len, allele_reads))
+
+        if count_kmers in ("read", "both"):
+            for r, kd in kmers_by_read.items():
+                read_dict[r]["kmers"] = kd
 
     def _round_to_base_pos(x) -> float:
         return round(float(x) * motif_size) / motif_size
@@ -604,6 +624,8 @@ def call_locus(
             "weights": call_weights.tolist(),  # from np.ndarray
             "stdevs": call_stdevs.tolist(),  # from np.ndarray
             "modal_n": call_modal_n,
+            "n_reads": call_peak_n_reads,
+            **({"kmers": [dict(c) for c in peak_kmers]} if count_kmers in ("peak", "both") else {}),
         } if call else None,
         "reads": read_dict,
         "read_peaks_called": read_peaks_called,
@@ -621,6 +643,7 @@ def locus_worker(
         sex_chroms: Optional[str],
         targeted: bool,
         fractional: bool,
+        count_kmers: str,
         locus_queue: mp.Queue) -> List[dict]:
 
     import pysam as p
@@ -650,6 +673,7 @@ def locus_worker(
             sex_chroms=sex_chroms,
             targeted=targeted,
             fractional=fractional,
+            count_kmers=count_kmers,
             read_file_has_chr=read_file_has_chr,
             ref_file_has_chr=ref_file_has_chr,
         )
@@ -682,6 +706,7 @@ def call_sample(
     sex_chroms: Optional[str] = None,
     targeted: bool = False,
     fractional: bool = False,
+    count_kmers: str = "none",  # "none" | "peak" | "read"
     json_path: Optional[str] = None,
     output_tsv: bool = True,
     processes: int = 1,
@@ -708,6 +733,7 @@ def call_sample(
         "sex_chroms": sex_chroms,
         "targeted": targeted,
         "fractional": fractional,
+        "count_kmers": count_kmers,
     }
 
     job_args = (*job_params.values(), locus_queue)

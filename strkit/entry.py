@@ -53,6 +53,17 @@ def add_call_parser_args(call_parser):
         help="Call fractional repeat counts (partial repeats). Experimental!")
 
     call_parser.add_argument(
+        "--count-kmers", "-k",
+        nargs="?",
+        type=str,
+        default="none",
+        const="peak",
+        choices=("none", "peak", "read", "both"),
+        help="Count motif-sized k-mers in each read's tandem repeat region. Useful for detecting heterogeneous "
+             "expansion patterns. If set to 'peak', read-level counts will be aggregated into peak-level counts for "
+             "more efficient space and processing. This is the default if the flag is passed by itself.")
+
+    call_parser.add_argument(
         "--min-reads",
         type=int,
         default=4,
@@ -364,6 +375,7 @@ def _exec_call(p_args) -> int:
         sex_chroms=p_args.sex_chr,
         targeted=p_args.targeted,
         fractional=p_args.fractional,
+        count_kmers=p_args.count_kmers,
         json_path=p_args.json,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,
