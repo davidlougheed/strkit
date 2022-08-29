@@ -13,8 +13,12 @@
   **Default:** 70
 * `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
-* `--fractional` or `f`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and 
+* `--fractional` or `-f`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and 
   in allele calls. *Experimental!* **Default:** off
+* `--count-kmers` or `-k`: Turn on motif-sized k-mer counting at the allele level, with `-k peak`, or at the read 
+  level, with `-k read`, or both with `-k both`. If the flag is provided with no value, it will default to `peak.`
+  Note that k-mer counts will only be reported if a `--json` path is specified. This feature can be used to detect
+  motif composition differences between alleles or samples. **Default:** `none`
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
