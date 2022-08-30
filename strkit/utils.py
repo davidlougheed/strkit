@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import math
-from typing import Any, Callable, Iterable, Tuple, Union
+from typing import Any, Callable, Iterable, Union
 
 __all__ = [
     "apply_or_none",
@@ -16,11 +18,11 @@ def apply_or_none(fn: Callable, x: Any):
     return fn(x) if x is not None else None
 
 
-def int_tuple(x: Iterable) -> Tuple[int, ...]:
+def int_tuple(x: Iterable) -> tuple[int, ...]:
     return tuple(map(int, x))
 
 
-def float_tuple(x: Iterable) -> Tuple[float, ...]:
+def float_tuple(x: Iterable) -> tuple[float, ...]:
     return tuple(map(float, x))
 
 

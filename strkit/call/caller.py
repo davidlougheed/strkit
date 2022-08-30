@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Disable OpenMP multithreading since it adds enormous overhead when multiprocessing
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -9,18 +11,18 @@ import math
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
 import numpy as np
-import orjson
 import parasail
 import sys
 
 from collections import Counter
 from datetime import datetime
 from pysam import AlignmentFile
-from typing import Dict, List, Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Union
 
 from strkit import __version__
 
 from strkit.call.allele import get_n_alleles, call_alleles
+from strkit.json import dumps_indented
 from strkit.utils import apply_or_none, sign
 
 __all__ = [
@@ -98,7 +100,7 @@ def score_candidate(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_r
 
 
 def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str,
-                         **kwargs) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+                         **kwargs) -> tuple[tuple[int, int], tuple[int, int]]:
     ref_size = kwargs.pop("ref_size")
 
     # Always assign parasail results to variables due to funky memory allocation behaviour
@@ -123,8 +125,8 @@ def gen_frac_repeats(motif: str, base_tr: str, j: int):
     return tr_s, tr_e
 
 
-def get_fractional_rc(top_int_res: List[Tuple[int, int]], motif: str, flank_left_seq: str, flank_right_seq: str,
-                      db_seq: str) -> Tuple[float, int]:
+def get_fractional_rc(top_int_res: list[tuple[int, int]], motif: str, flank_left_seq: str, flank_right_seq: str,
+                      db_seq: str) -> tuple[float, int]:
     motif_size = len(motif)
     p_szs = {float(int_res[0]): (int_res[1], motif * int_res[0]) for int_res in top_int_res}
 
@@ -159,7 +161,7 @@ def get_fractional_rc(top_int_res: List[Tuple[int, int]], motif: str, flank_left
                 ),
             ))
 
-    res: Tuple[float, int] = max(p_szs.items(), key=lambda x: x[1])
+    res: tuple[float, int] = max(p_szs.items(), key=lambda x: x[1])
     return res
 
 
@@ -170,9 +172,9 @@ def get_repeat_count(
     flank_right_seq: str,
     motif: str,
     fractional: bool = False,
-) -> Tuple[Union[int, float], int]:
+) -> tuple[Union[int, float], int]:
     to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
-    sizes_and_scores: Dict[int, int] = {}
+    sizes_and_scores: dict[int, int] = {}
 
     db_seq = flank_left_seq + tr_seq + flank_right_seq
 
@@ -195,7 +197,7 @@ def get_repeat_count(
 
             szs.append((i, rs))
 
-        mv: Tuple[int, int] = max(szs, key=lambda x: x[1])
+        mv: tuple[int, int] = max(szs, key=lambda x: x[1])
         if mv[0] > size_to_explore and (new_rc := mv[0] + 1) not in sizes_and_scores:
             if new_rc >= 0:
                 to_explore.append((new_rc, 1))
@@ -206,11 +208,11 @@ def get_repeat_count(
     if fractional:
         # Refine further using partial copy numbers, starting from the best couple of integer copy numbers
         # noinspection PyTypeChecker
-        top_int_res: List[Tuple[int, int]] = sorted(sizes_and_scores.items(), reverse=True, key=lambda x: x[1])[:3]
+        top_int_res: list[tuple[int, int]] = sorted(sizes_and_scores.items(), reverse=True, key=lambda x: x[1])[:3]
         return get_fractional_rc(top_int_res, motif, flank_left_seq, flank_right_seq, db_seq)
 
     # noinspection PyTypeChecker
-    res: Tuple[int, int] = max(sizes_and_scores.items(), key=lambda x: x[1])
+    res: tuple[int, int] = max(sizes_and_scores.items(), key=lambda x: x[1])
     return res[0], res[1]
 
 
@@ -225,8 +227,8 @@ def get_ref_repeat_count(
 ):
     to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
 
-    fwd_sizes_scores_adj: Dict[Union[int, float], Tuple[int, int]] = {}
-    rev_sizes_scores_adj: Dict[Union[int, float], Tuple[int, int]] = {}
+    fwd_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
+    rev_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
 
     db_seq = flank_left_seq + tr_seq + flank_right_seq
 
@@ -284,7 +286,7 @@ def get_ref_repeat_count(
                 fwd_scores.append((i, fwd_rs, i))
                 rev_scores.append((i, rev_rs, i))
 
-        mv: Tuple[int, int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
+        mv: tuple[int, int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
         if mv[2] > size_to_explore and (
                 (new_rc := mv[2] + 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
             if new_rc >= 0:
@@ -295,9 +297,9 @@ def get_ref_repeat_count(
                 to_explore.append((new_rc, -1))
 
     # noinspection PyTypeChecker
-    fwd_top_res: Tuple[Union[int, float], tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])
+    fwd_top_res: tuple[Union[int, float], tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])
     # noinspection PyTypeChecker
-    rev_top_res: Tuple[Union[int, float], tuple] = max(rev_sizes_scores_adj.items(), key=lambda x: x[1][0])
+    rev_top_res: tuple[Union[int, float], tuple] = max(rev_sizes_scores_adj.items(), key=lambda x: x[1][0])
 
     # Ignore negative differences (contractions vs TRF definition), but follow expansions
     # TODO: Should we incorporate contractions? How would that work?
@@ -331,7 +333,7 @@ def normalize_contig(contig: str, has_chr: bool):
 def call_locus(
     t_idx: int,
     t: tuple,
-    bfs: Tuple[AlignmentFile, ...],
+    bfs: tuple[AlignmentFile, ...],
     ref,
     min_reads: int,
     min_allele_reads: int,
@@ -565,7 +567,7 @@ def call_locus(
 
     # We cannot call read-level cluster labels with >2 peaks;
     # don't know how re-sampling has occurred.
-    peak_kmers = [Counter() for _ in range(call_modal_n)]
+    peak_kmers = [Counter() for _ in range(call_modal_n or 0)]
     read_peaks_called = call_modal_n and call_modal_n <= 2
     if read_peaks_called:
         peaks = call_peaks[:call_modal_n]
@@ -603,10 +605,10 @@ def call_locus(
     def _round_to_base_pos(x) -> float:
         return round(float(x) * motif_size) / motif_size
 
-    def _ndarray_serialize(x: Iterable) -> List[Union[int, float, np.int, np.float]]:
+    def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int, np.float]]:
         return [(round(y) if not fractional else _round_to_base_pos(y)) for y in x]
 
-    def _nested_ndarray_serialize(x: Iterable) -> List[List[Union[int, float, np.int, np.float]]]:
+    def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, float, np.int, np.float]]]:
         return [_ndarray_serialize(y) for y in x]
 
     return {
@@ -633,7 +635,7 @@ def call_locus(
 
 
 def locus_worker(
-        read_files: Tuple[str, ...],
+        read_files: tuple[str, ...],
         reference_file: str,
         min_reads: int,
         min_allele_reads: int,
@@ -644,7 +646,7 @@ def locus_worker(
         targeted: bool,
         fractional: bool,
         count_kmers: str,
-        locus_queue: mp.Queue) -> List[dict]:
+        locus_queue: mp.Queue) -> list[dict]:
 
     import pysam as p
 
@@ -654,7 +656,7 @@ def locus_worker(
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
     read_file_has_chr = any(r.startswith("chr") for bf in bfs for r in bf.references)
 
-    results: List[dict] = []
+    results: list[dict] = []
 
     while True:
         td = locus_queue.get()
@@ -695,7 +697,7 @@ def _cn_to_str(cn: Union[int, float]) -> str:
 
 
 def call_sample(
-    read_files: Tuple[str, ...],
+    read_files: tuple[str, ...],
     reference_file: str,
     loci_file: str,
     min_reads: int = 4,
@@ -762,7 +764,7 @@ def call_sample(
             result_lists.append(j.get())
 
     # Merge sorted result lists into single sorted list.
-    results: Tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
+    results: tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
 
     time_taken = datetime.now() - start_time
 
@@ -804,9 +806,9 @@ def call_sample(
         }
 
         if json_path == "stdout":
-            sys.stdout.buffer.write(orjson.dumps(json_report, option=orjson.OPT_INDENT_2))
+            sys.stdout.buffer.write(dumps_indented(json_report))
             sys.stdout.write("\n")
             sys.stdout.flush()
         else:
             with open(json_path, "wb") as jf:
-                jf.write(orjson.dumps(json_report, option=orjson.OPT_INDENT_2))
+                jf.write(dumps_indented(json_report))

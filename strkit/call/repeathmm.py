@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import ast
 import re
 
-from typing import Optional, Tuple
+from typing import Optional
 
 from .allele import get_n_alleles, call_alleles
 
@@ -12,7 +14,7 @@ __all__ = [
 WSP_SPLIT = re.compile(r"\s{3,7}")
 
 
-def call_repeathmm(args: Tuple[Optional[str], Optional[str], int, int, int, int, int, str]) -> str:
+def call_repeathmm(args: tuple[Optional[str], Optional[str], int, int, int, int, int, str]) -> str:
     contig: Optional[str] = args[0]
     sex_chr: Optional[str] = args[1]
     bootstrap_iterations: int = args[2]

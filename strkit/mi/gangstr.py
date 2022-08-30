@@ -1,6 +1,6 @@
-import pysam
+from __future__ import annotations
 
-from typing import Tuple
+import pysam
 
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
@@ -11,7 +11,7 @@ __all__ = ["GangSTRCalculator"]
 
 
 class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
-    def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> Tuple[set, set, set]:
+    def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
         return self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
 
     def calculate_contig(self, contig: str) -> MIContigResult:

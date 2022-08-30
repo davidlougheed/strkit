@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import sys
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 from .result import MIContigResult, MIResult
 from ..utils import cis_overlap
@@ -81,7 +83,7 @@ class BaseCalculator(ABC):
             }
 
     @abstractmethod
-    def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> Tuple[set, set, set]:
+    def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
         return set(), set(), set()
 
     def get_trio_contigs(self, include_sex_chromosomes: bool = False) -> set:
@@ -104,18 +106,18 @@ class BaseCalculator(ABC):
     def gts_respect_mi(
             self,
 
-            c_gt: Union[Tuple[int, ...], Tuple[float, ...]],
-            m_gt: Union[Tuple[int, ...], Tuple[float, ...]],
-            f_gt: Union[Tuple[int, ...], Tuple[float, ...]],
+            c_gt: Union[tuple[int, ...], tuple[float, ...]],
+            m_gt: Union[tuple[int, ...], tuple[float, ...]],
+            f_gt: Union[tuple[int, ...], tuple[float, ...]],
 
-            c_gt_ci: Optional[Tuple] = None,
-            m_gt_ci: Optional[Tuple] = None,
-            f_gt_ci: Optional[Tuple] = None,
+            c_gt_ci: Optional[tuple] = None,
+            m_gt_ci: Optional[tuple] = None,
+            f_gt_ci: Optional[tuple] = None,
 
             decimal: bool = False,
 
             widen: Optional[float] = None,
-    ) -> Tuple[bool, Optional[bool]]:
+    ) -> tuple[bool, Optional[bool]]:
         # First hypothesis: first allele from mother, second from father
         # Second hypothesis: first allele from father, first from mother
         respects_mi_strict = any((

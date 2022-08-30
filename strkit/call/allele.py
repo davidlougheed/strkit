@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Disable OpenMP multithreading since it adds enormous overhead when multiprocessing
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -12,7 +14,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import normalize
 from warnings import simplefilter
 
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, Optional, Union
 
 import strkit.constants as cc
 
@@ -22,7 +24,7 @@ __all__ = [
     "call_alleles",
 ]
 
-RepeatCounts = Union[List[int], Tuple[int, ...], List[float], Tuple[float, ...]]
+RepeatCounts = Union[list[int], tuple[int, ...], list[float], tuple[float, ...]]
 
 
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles

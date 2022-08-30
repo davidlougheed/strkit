@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import numpy as np
-import orjson
 import sys
 import scipy.stats as sst
 
@@ -7,9 +8,10 @@ from statistics import mean
 from statsmodels.stats.multitest import multipletests
 
 from strkit.constants import CHROMOSOMES
+from strkit.json import json, dumps_indented
 from strkit.utils import cis_overlap
 
-from typing import List, Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Union
 
 __all__ = [
     "MILocusData",
@@ -18,7 +20,7 @@ __all__ = [
 ]
 
 
-OptionalReadCounts = Optional[Tuple[Tuple[int, ...], Tuple[int, ...]]]
+OptionalReadCounts = Optional[tuple[tuple[int, ...], tuple[int, ...]]]
 
 INHERITANCE_CONFIGS = (
     (0, 1, 0, 0),  # allele 0 maternal, allele 1 paternal, maternal 0 allele, paternal 0 allele
@@ -224,7 +226,7 @@ class MILocusData:
             (cis_overlap(c_gt_ci[1], m_gt_ci_1) and cis_overlap(c_gt_ci[0], f_gt_ci_1)),
         ))
 
-    def respects_mi(self, widen: Optional[float] = None) -> Tuple[bool, Optional[bool], Optional[bool]]:
+    def respects_mi(self, widen: Optional[float] = None) -> tuple[bool, Optional[bool], Optional[bool]]:
         fn = self._respects_decimal_ci if self._decimal else MILocusData._respects_strict_ci
         respects_mi_strict = fn(self._child_gt, self._mother_gt, self._father_gt)
 
@@ -274,8 +276,8 @@ class MILocusData:
                 cr_all_resamp = cr_all
 
                 n_bins = max_cn + 1 - min_cn
-                child_freqs: List[int] = [0] * n_bins
-                parent_freqs: List[int] = [0] * n_bins
+                child_freqs: list[int] = [0] * n_bins
+                parent_freqs: list[int] = [0] * n_bins
 
                 for c in cr_all_resamp:
                     child_freqs[c - min_cn] += 1
@@ -341,7 +343,7 @@ class MILocusData:
 
 class MIContigResult:
     def __init__(self, includes_95_ci: bool = False, includes_99_ci: bool = False):
-        self._loci_data: List[MILocusData] = []
+        self._loci_data: list[MILocusData] = []
         self._includes_95_ci: bool = includes_95_ci
         self._includes_99_ci: bool = includes_99_ci
 
@@ -350,7 +352,7 @@ class MIContigResult:
 
     def process_loci(
             self,
-            calculate_non_matching: bool = True) -> Tuple[Tuple[int, Optional[int], Optional[int]], List[MILocusData]]:
+            calculate_non_matching: bool = True) -> tuple[tuple[int, Optional[int], Optional[int]], list[MILocusData]]:
         value = 0
         value_95_ci = 0 if self._includes_95_ci else None
         value_99_ci = 0 if self._includes_99_ci else None
@@ -385,7 +387,7 @@ class MIResult:
                  mi_value_95_ci: Optional[float],
                  mi_value_99_ci: Optional[float],
                  contig_results: Iterable[MIContigResult],
-                 output_loci: List[MILocusData],
+                 output_loci: list[MILocusData],
                  widen: float = 0,
                  test_to_perform: str = "none",
                  sig_level: float = 0.05,
@@ -393,19 +395,19 @@ class MIResult:
         self.mi_value: float = mi_value
         self.mi_value_95_ci: Optional[float] = mi_value_95_ci
         self.mi_value_99_ci: Optional[float] = mi_value_99_ci
-        self._contig_results: Tuple[MIContigResult] = tuple(contig_results)
-        self._output_loci: List[MILocusData] = output_loci
+        self._contig_results: tuple[MIContigResult] = tuple(contig_results)
+        self._output_loci: list[MILocusData] = output_loci
         self.widen: float = widen
         self._test_to_perform: str = test_to_perform
         self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr  # Method to use when correcting for multiple testing
 
     @property
-    def contig_results(self) -> Tuple[MIContigResult]:
+    def contig_results(self) -> tuple[MIContigResult]:
         return self._contig_results
 
     @property
-    def output_loci(self) -> List[MILocusData]:
+    def output_loci(self) -> list[MILocusData]:
         return self._output_loci
 
     @property
@@ -462,13 +464,13 @@ class MIResult:
         }
 
         if json_path == "stdout":
-            sys.stdout.buffer.write(orjson.dumps(obj))
+            sys.stdout.buffer.write(json.dumps(obj))
             sys.stdout.write("\n")
             sys.stdout.flush()
             return
 
         with open(json_path, "wb") as jf:
-            jf.write(orjson.dumps(obj, option=orjson.OPT_INDENT_2))
+            jf.write(dumps_indented(obj))
 
     @staticmethod
     def _nm_sort_key_pos(locus: MILocusData):
@@ -531,10 +533,10 @@ class MIResult:
 
         return f"{header_str}\n{mi_vals_str}"
 
-    def calculate_histogram(self, bin_width: int = 10) -> Tuple[List[dict], list]:
+    def calculate_histogram(self, bin_width: int = 10) -> tuple[list[dict], list]:
         # TODO: Don't duplicate with calculate()
 
-        loci: List[MILocusData] = []
+        loci: list[MILocusData] = []
         for cr in self._contig_results:
             loci.extend(list(cr))
 

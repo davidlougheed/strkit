@@ -1,5 +1,4 @@
 import argparse
-import orjson
 import pathlib
 import os
 import sys
@@ -12,6 +11,7 @@ from strkit.aligned.lengths import aligned_lengths_cmd
 from strkit.call import call_sample, re_call_all_alleles
 from strkit.catalog.combine import combine_catalogs
 from strkit.convert.converter import convert
+from strkit.json import json
 from strkit.mi.base import BaseCalculator
 from strkit.mi.expansionhunter import ExpansionHunterCalculator
 from strkit.mi.gangstr import GangSTRCalculator
@@ -532,7 +532,7 @@ def _exec_viz_server(p_args):
         return 1
 
     with open(json_file, "r") as jf:
-        call_report = orjson.loads(jf.read())
+        call_report = json.loads(jf.read())
 
     idx = p_args.i
     if idx < 1 or idx > len(call_report["results"]):

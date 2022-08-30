@@ -1,4 +1,6 @@
-from typing import Optional, Tuple
+from __future__ import annotations
+
+from typing import Optional
 
 from .allele import get_n_alleles, call_alleles
 
@@ -8,7 +10,7 @@ __all__ = [
 ]
 
 
-def preprocess_lines_straglr(lines: list) -> list:
+def preprocess_lines_straglr(lines: list[str]) -> list[tuple[tuple, str, list, list, list, list, str]]:
     # Need to group lines by locus since straglr does read-level stuff
     new_lines = []
     acc = None
@@ -41,7 +43,7 @@ def _tenths_str(s: float):
     return f"{round(s * 10) / 10:.1f}"
 
 
-def call_straglr(args: Tuple[Optional[str], Optional[str], int, int, int, int, int, tuple]) -> str:
+def call_straglr(args: tuple[Optional[str], Optional[str], int, int, int, int, int, tuple]) -> str:
     contig: Optional[str] = args[0]
     sex_chr: Optional[str] = args[1]
     bootstrap_iterations: int = args[2]

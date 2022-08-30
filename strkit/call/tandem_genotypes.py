@@ -1,4 +1,6 @@
-from typing import Optional, Tuple
+from __future__ import annotations
+
+from typing import Optional
 
 from .allele import get_n_alleles, call_alleles
 
@@ -7,7 +9,7 @@ __all__ = [
 ]
 
 
-def call_tandem_genotypes(args: Tuple[Optional[str], Optional[str], int, int, int, int, int, str]) -> str:
+def call_tandem_genotypes(args: tuple[Optional[str], Optional[str], int, int, int, int, int, str]) -> str:
     contig: Optional[str] = args[0]
     sex_chr: Optional[str] = args[1]
     bootstrap_iterations: int = args[2]
