@@ -19,6 +19,20 @@ STRkit can be installed from PyPI via `pip` with the following command:
 python -m pip install strkit
 ```
 
+For the faster `orjson` library for JSON parsing and serialization, specify
+the `rustdeps` extra:
+
+```bash
+python -m pip install strkit[rustdeps]
+```
+
+On some Alliance (DRAC/CC) clusters, this will require loading Rust first:
+
+```bash
+module load rust
+python -m pip install strkit[rustdeps]
+```
+
 
 ## Commands
 
