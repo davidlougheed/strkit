@@ -33,6 +33,12 @@ Here are a few notes on catalogs:
     We also add in a non-IUPAC code, `X`, which behaves like `N` in that it represents any base, 
     but instead of giving a reward of `+2` it neither penalizes nor rewards alignment, 
     and penalizes a gap. We use this internally to represent low-confidence base calls.
+  * Related to the above, this can be important for diseases such as SCA37, where the motif composition 
+    (rather than the actual copy number) is associated with disease 
+    ([Seixas *et al.* 2017](https://doi.org/10.1016%2Fj.ajhg.2017.06.007)). Here, STRkit's motif-sized k-mer counting
+    function can be used during calling with the `--count-kmers` flag. See the 
+    [advanced usage](https://github.com/davidlougheed/strkit/blob/master/docs/caller_usage.md#all-optional-flags) page 
+    for more.
 
 
 ## Choosing an existing catalog
