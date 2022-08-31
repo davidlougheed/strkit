@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import multiprocessing as mp
 import numpy as np
 import sys

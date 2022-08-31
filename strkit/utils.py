@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-def apply_or_none(fn: Callable, x: Any):
+def apply_or_none(fn: Callable, x: Any) -> Any:
     # Python: add any type of monad functionality challenge [IMPOSSIBLE]
     return fn(x) if x is not None else None
 

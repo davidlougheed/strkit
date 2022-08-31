@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import argparse
 import pathlib
 import os
 import sys
 
-from typing import Dict, List, Optional, Type
+from typing import Optional, Type
 
 import strkit.constants as c
 from strkit import __version__
@@ -184,7 +186,7 @@ def add_re_call_parser_args(re_call_parser):
         help="Random seed to pass to random number generators for result replicability.")
 
 
-CALC_CLASSES: Dict[str, Type[BaseCalculator]] = {
+CALC_CLASSES: dict[str, Type[BaseCalculator]] = {
     c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
     c.CALLER_GANGSTR: GangSTRCalculator,
     c.CALLER_REPEATHMM: RepeatHMMCalculator,
@@ -554,7 +556,7 @@ def _exec_viz_server(p_args):
     return 0
 
 
-def main(args: Optional[List[str]] = None):
+def main(args: Optional[list[str]] = None):
     parser = argparse.ArgumentParser(
         description="A toolkit for analyzing variation in short(ish) tandem repeats.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)

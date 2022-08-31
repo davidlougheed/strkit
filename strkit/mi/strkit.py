@@ -18,7 +18,7 @@ class StrKitCalculator(BaseCalculator):
     fractional = False
 
     @staticmethod
-    def get_contigs_from_fh(fh) -> set:
+    def get_contigs_from_fh(fh) -> set[str]:
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
 
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pysam
 
 __all__ = ["VCFCalculatorMixin"]
@@ -5,7 +7,7 @@ __all__ = ["VCFCalculatorMixin"]
 
 class VCFCalculatorMixin:
     @staticmethod
-    def get_contigs_from_files(mother_call_file, father_call_file, child_call_file):
+    def get_contigs_from_files(mother_call_file, father_call_file, child_call_file) -> tuple[set, set, set]:
         mvf = pysam.VariantFile(str(mother_call_file))
         mc = set(mvf.header.contigs)
 

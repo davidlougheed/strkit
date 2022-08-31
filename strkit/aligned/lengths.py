@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import pysam
 import sys
 
-from typing import List, Literal, Optional, Tuple
+from typing import Literal, Optional
 from strkit.call.allele import call_alleles
 
 __all__ = [
@@ -10,7 +12,7 @@ __all__ = [
 ]
 
 
-def aligned_lengths(file: str, region: str) -> Tuple[Optional[List[int]], Optional[List[int]]]:
+def aligned_lengths(file: str, region: str) -> tuple[Optional[list[int]], Optional[list[int]]]:
     try:
         chrom, coords = region.split(":")
         pos1, pos2 = map(int, coords.split("-"))

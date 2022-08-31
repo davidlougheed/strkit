@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import pysam
+
+from typing import Union
 
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
@@ -8,7 +12,7 @@ from ..utils import parse_cis
 __all__ = ["ExpansionHunterCalculator"]
 
 
-def _unzip_gt(vals):
+def _unzip_gt(vals) -> tuple[tuple[Union[int, float, None], ...], tuple[Union[int, float, None], ...]]:
     try:
         return (vals[0][0], vals[1][0]), parse_cis((vals[0][1], vals[1][1]))
     except ValueError:
