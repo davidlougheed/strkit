@@ -114,7 +114,7 @@
             .selectAll("rect")
             .data(bins)
             .join("rect")
-              .attr("x", d => xScale(d.x0) + insetLeft - (params.fractional ? 0 : barWidth(d)/2))
+              .attr("x", d => xScale(d.x0) + insetLeft - (params.report.fractional ? 0 : barWidth(d)/2))
               .attr("width", barWidth)
               .attr("y", (d, i) => yScale(Y[i]))
               .attr("height", (d, i) => yScale(0) - yScale(Y[i]))
@@ -201,12 +201,12 @@
             const scale = document.createElement("div");
             scale.setAttribute("data-label", `Allele ${j+1}`);
             const scaleGradient = document.createElement("div");
-            scaleGradient.setAttribute("data-lower", b.min.toFixed(params.fractional ? 1 : 0));
+            scaleGradient.setAttribute("data-lower", b.min.toFixed(params.report.fractional ? 1 : 0));
             scaleGradient.setAttribute(
                 "style",
                 `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
                  --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
-            scaleGradient.setAttribute("data-upper", b.max.toFixed(params.fractional ? 1 : 0));
+            scaleGradient.setAttribute("data-upper", b.max.toFixed(params.report.fractional ? 1 : 0));
             scale.appendChild(scaleGradient);
             scalesContainer.appendChild(scale);
         };
@@ -264,10 +264,10 @@
 
             regionDisplay.innerText = region;
             motifDisplay.innerText = callData.motif;
-            refCopies.innerText = callData.ref_cn.toFixed(params.fractional ? 1 : 0);
-            callDisplay.innerText = callData.call.map(c => c.toFixed(params.fractional ? 1 : 0)).join(" | ");
+            refCopies.innerText = callData.ref_cn.toFixed(params.report.fractional ? 1 : 0);
+            callDisplay.innerText = callData.call.map(c => c.toFixed(params.report.fractional ? 1 : 0)).join(" | ");
             call95Display.innerText = callData.call_95_cis
-                .map(ci => "(" + ci.map(c => c.toFixed(params.fractional ? 1 : 0)).join("-") + ")").join(" | ");
+                .map(ci => "(" + ci.map(c => c.toFixed(params.report.fractional ? 1 : 0)).join("-") + ")").join(" | ");
 
             const getReadsForPeak = q => Object.entries(callData.reads)
                 .filter(e => e[1]["peak"] === q)
@@ -302,27 +302,30 @@
                 browser = null;
             }
 
+            const alignTracks = [];
+            for (let i = 0; i < params.cmd.align_names.length; i++) {
+                alignTracks.push({
+                    name: params.cmd.align_names[i],
+                    url: `/align_files/${i}`,
+                    indexURL: `/align_indices/${i}`,
+                    format: params.cmd.align_formats[i],
+                    showSoftClips: true,
+                    showInsertionText: true,
+                    showDeletionText: true,
+                    color: alignment => readColours[alignment.readName] ?? "rgb(180, 180, 180)",
+                    sort: {
+                        chr: callData.contig,
+                        position: ((callData.start + callData.end) / 2).toFixed(0),
+                        option: "INSERT_SIZE",
+                    },
+                });
+            }
+
             // Set up new IGV browser instance
             igv.createBrowser(igvContainer, {
                 genome: "{{ ref }}",
                 locus: region,
-                tracks: [
-                    {
-                        name: "{{ align_name }}",
-                        url: "/align",
-                        indexURL: "/align_index",
-                        format: "{{ align_format }}",
-                        showSoftClips: true,
-                        showInsertionText: true,
-                        showDeletionText: true,
-                        color: alignment => readColours[alignment.readName] ?? "rgb(180, 180, 180)",
-                        sort: {
-                            chr: callData.contig,
-                            position: ((callData.start + callData.end) / 2).toFixed(0),
-                            option: "INSERT_SIZE",
-                        },
-                    },
-                ],
+                tracks: alignTracks,
             }).then(b => {
                 browser = b;
                 browser.on("trackclick", (track, popoverData) => {

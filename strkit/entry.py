@@ -353,8 +353,13 @@ def add_cv_parser_args(al_parser):
 
 
 def add_vs_parser_args(vs_parser):
-    vs_parser.add_argument("align_file", type=str, help="Alignment file to visualize.")
-    vs_parser.add_argument("--align-index", type=str, default="", help="Index for alignment file to visualize.")
+    vs_parser.add_argument("align_files", nargs="+", type=str, help="Alignment file(s) to visualize.")
+    vs_parser.add_argument(
+        "--align-indices",
+        nargs="*",
+        type=str,
+        help="Index/indices for alignment file to visualize. If specified, the number of arguments must match the "
+             "number of given alignment files.")
     vs_parser.add_argument(
         "--ref", type=str, default="hg38",
         help="Reference genome code used for visualization and calls. Default: hg38")
@@ -499,21 +504,28 @@ def _exec_convert(p_args):
 
 
 def _exec_viz_server(p_args):
-    align_file = str(pathlib.Path(p_args.align_file).resolve())
-    align_type = os.path.splitext(align_file)[-1].lstrip(".")
+    align_files = [str(pathlib.Path(af).resolve()) for af in p_args.align_files]
+    align_indices = [str(pathlib.Path(aif).resolve()) for aif in (p_args.align_indices or ())]
 
-    if align_type not in ("bam", "cram"):
-        print(f"Error: file type '{align_type}' not supported", file=sys.stderr)
+    if align_indices and len(align_files) != len(align_indices):
+        print(f"Error: number of alignment indices must match number of alignment files ({len(align_indices)} vs. "
+              f"{len(align_files)})", file=sys.stderr)
         return 1
 
-    if p_args.align_index:
-        align_index = str(pathlib.Path(p_args.align_index).resolve())
-    else:
-        align_index = f"{align_file}.{'crai' if align_type == 'cram' else 'bai'}"
+    align_formats = []
 
-    if not os.path.exists(align_index):
-        print(f"Error: missing index at '{align_index}'", file=sys.stderr)
-        return 1
+    for af in align_files:
+        if (align_type := os.path.splitext(af)[-1].lstrip(".")) not in ("bam", "cram"):
+            print(f"Error: file type '{align_type}' not supported", file=sys.stderr)
+            return 1
+        align_formats.append(align_type)
+
+    if not align_indices:
+        for idx, af in enumerate(align_files):
+            if not os.path.exists(align_index := f"{af}.{'crai' if align_formats[idx] == 'cram' else 'bai'}"):
+                print(f"Error: missing index at '{align_index}'", file=sys.stderr)
+                return 1
+            align_indices.append(align_index)
 
     # TODO: Conditionally use this code if ref looks like a path
     # ref = pathlib.Path(p_args.ref).resolve()
@@ -527,9 +539,7 @@ def _exec_viz_server(p_args):
     #     print(f"Error: missing .fai for reference genome at '{ref}'", file=sys.stderr)
     #     return 1
 
-    json_file = pathlib.Path(p_args.json)
-
-    if not json_file.exists():
+    if not (json_file := pathlib.Path(p_args.json)).exists():
         print(f"Error: could not find JSON call report file at '{json_file}'", file=sys.stderr)
         return 1
 
@@ -546,11 +556,11 @@ def _exec_viz_server(p_args):
         initial_i=idx-1,
         ref=p_args.ref,
         # ref_index=ref_index,
-        align=align_file,
-        align_index=align_index,
-        align_name=os.path.basename(align_file),
-        align_index_name=os.path.basename(align_index),
-        align_format=align_type,
+        align_files=align_files,
+        align_indices=align_indices,
+        align_names=[os.path.basename(af) for af in align_files],
+        align_index_names=[os.path.basename(ai) for ai in align_indices],
+        align_formats=align_formats,
     )
 
     return 0

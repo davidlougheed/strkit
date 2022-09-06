@@ -17,8 +17,10 @@ def browser():
 
 @app.route("/params")
 def get_params():
-    cr = app.config["CALL_REPORT"]
-    return cr["parameters"]
+    return {
+        "cmd": app.config["PARAMS"],
+        "report": app.config["CALL_REPORT"]["parameters"],
+    }
 
 
 @app.route("/loci")
@@ -59,14 +61,14 @@ def get_call_data(i: int):
 #     return send_file(app.config["PARAMS"]["ref_index"], conditional=True)
 
 
-@app.route("/align")
-def get_align_file():
-    return send_file(app.config["PARAMS"]["align"], conditional=True)
+@app.route("/align_files/<int:i>")
+def get_align_file(i: int):
+    return send_file(app.config["PARAMS"]["align_files"][i], conditional=True)
 
 
-@app.route("/align_index")
-def get_align_index_file():
-    return send_file(app.config["PARAMS"]["align_index"], conditional=True)
+@app.route("/align_indices/<int:i>")
+def get_align_index_file(i: int):
+    return send_file(app.config["PARAMS"]["align_indices"][i], conditional=True)
 
 
 def run_server(call_report, **kwargs):
