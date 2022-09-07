@@ -16,7 +16,7 @@ import sys
 
 from collections import Counter
 from datetime import datetime
-from pysam import AlignmentFile
+from pysam import AlignmentFile, FastaFile
 from typing import Iterable, Optional, Union
 
 from strkit import __version__
@@ -119,14 +119,19 @@ def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, fl
     return (r_fwd.score, r_adj), (r_rev.score, l_adj)
 
 
-def gen_frac_repeats(motif: str, base_tr: str, j: int):
+def gen_frac_repeats(motif: str, base_tr: str, j: int) -> tuple[str, str]:
     tr_s = base_tr[abs(j):] if j < 0 else motif[j:] + base_tr
     tr_e = base_tr[:j] if j < 0 else base_tr + motif[:j]
     return tr_s, tr_e
 
 
-def get_fractional_rc(top_int_res: list[tuple[int, int]], motif: str, flank_left_seq: str, flank_right_seq: str,
-                      db_seq: str) -> tuple[float, int]:
+def get_fractional_rc(
+    top_int_res: list[tuple[int, int]],
+    motif: str,
+    flank_left_seq: str,
+    flank_right_seq: str,
+    db_seq: str,
+) -> tuple[float, int]:
     motif_size = len(motif)
     p_szs = {float(int_res[0]): (int_res[1], motif * int_res[0]) for int_res in top_int_res}
 
@@ -212,8 +217,7 @@ def get_repeat_count(
         return get_fractional_rc(top_int_res, motif, flank_left_seq, flank_right_seq, db_seq)
 
     # noinspection PyTypeChecker
-    res: tuple[int, int] = max(sizes_and_scores.items(), key=lambda x: x[1])
-    return res[0], res[1]
+    return max(sizes_and_scores.items(), key=lambda x: x[1])
 
 
 def get_ref_repeat_count(
@@ -334,7 +338,7 @@ def call_locus(
     t_idx: int,
     t: tuple,
     bfs: tuple[AlignmentFile, ...],
-    ref,
+    ref: FastaFile,
     min_reads: int,
     min_allele_reads: int,
     min_avg_phred: int,
@@ -713,7 +717,7 @@ def call_sample(
     output_tsv: bool = True,
     processes: int = 1,
     seed: Optional[int] = None,
-):
+) -> None:
     # Start the call timer
     start_time = datetime.now()
 
