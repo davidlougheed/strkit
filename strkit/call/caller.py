@@ -228,97 +228,106 @@ def get_ref_repeat_count(
     motif: str,
     ref_size: int,
     fractional: bool = False,
-):
-    to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
+    respect_coords: bool = False,
+) -> tuple[tuple[Union[int, float], int], int, int]:
+    l_offset: int = 0
+    r_offset: int = 0
 
-    fwd_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
-    rev_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
-
-    db_seq = flank_left_seq + tr_seq + flank_right_seq
-
+    db_seq: str = flank_left_seq + tr_seq + flank_right_seq
     motif_size = len(motif)
-    j_range = range(-1 * motif_size + 1, motif_size)
 
-    while to_explore:
-        size_to_explore, direction = to_explore.pop()
-        if size_to_explore < 0:
-            continue
+    if not respect_coords:  # Extend out coordinates from initial definition
+        to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
 
-        fwd_scores = []  # For right-side adjustment
-        rev_scores = []  # For left-side adjustment
+        fwd_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
+        rev_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
 
-        start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
-        end_size = size_to_explore + (local_search_range if direction > -1 else 0)
+        j_range = range(-1 * motif_size + 1, motif_size)
 
-        for i in range(start_size, end_size + 1):
-            i_mm = motif * i
+        while to_explore:
+            size_to_explore, direction = to_explore.pop()
+            if size_to_explore < 0:
+                continue
 
-            if fractional:
-                for j in j_range:  # j_range:
-                    frac_cn = i + j/motif_size
+            fwd_scores = []  # For right-side adjustment
+            rev_scores = []  # For left-side adjustment
 
-                    fwd_rs = fwd_sizes_scores_adj.get(frac_cn)
-                    rev_rs = rev_sizes_scores_adj.get(frac_cn)
+            start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
+            end_size = size_to_explore + (local_search_range if direction > -1 else 0)
+
+            for i in range(start_size, end_size + 1):
+                i_mm = motif * i
+
+                if fractional:
+                    for j in j_range:  # j_range:
+                        frac_cn = i + j/motif_size
+
+                        fwd_rs = fwd_sizes_scores_adj.get(frac_cn)
+                        rev_rs = rev_sizes_scores_adj.get(frac_cn)
+
+                        if fwd_rs is None or rev_rs is None:
+                            # Generate a candidate TR tract by copying the provided motif 'i +/- frac j' times & score
+                            # it Separate this from the .get() to postpone computation to until we need it
+
+                            tr_s, tr_e = gen_frac_repeats(motif, i_mm, j)
+
+                            res_s = score_ref_boundaries(
+                                db_seq, tr_s, flank_left_seq, flank_right_seq, ref_size=ref_size)
+                            res_e = score_ref_boundaries(
+                                db_seq, tr_e, flank_left_seq, flank_right_seq, ref_size=ref_size)
+
+                            res = res_s if (res_s[0][0] + res_s[1][0]) > (res_e[0][0] + res_e[1][0]) else res_e
+
+                            fwd_sizes_scores_adj[frac_cn] = fwd_rs = res[0]
+                            rev_sizes_scores_adj[frac_cn] = rev_rs = res[1]
+
+                        fwd_scores.append((frac_cn, fwd_rs, i))
+                        rev_scores.append((frac_cn, rev_rs, i))
+
+                else:
+                    fwd_rs = fwd_sizes_scores_adj.get(i)
+                    rev_rs = rev_sizes_scores_adj.get(i)
 
                     if fwd_rs is None or rev_rs is None:
-                        # Generate a candidate TR tract by copying the provided motif 'i +/- frac j' times & score it
-                        # Separate this from the .get() to postpone computation to until we need it
+                        res = score_ref_boundaries(db_seq, i_mm, flank_left_seq, flank_right_seq, ref_size=ref_size)
 
-                        tr_s, tr_e = gen_frac_repeats(motif, i_mm, j)
+                        fwd_sizes_scores_adj[i] = fwd_rs = res[0]
+                        rev_sizes_scores_adj[i] = rev_rs = res[1]
 
-                        res_s = score_ref_boundaries(db_seq, tr_s, flank_left_seq, flank_right_seq, ref_size=ref_size)
-                        res_e = score_ref_boundaries(db_seq, tr_e, flank_left_seq, flank_right_seq, ref_size=ref_size)
+                    fwd_scores.append((i, fwd_rs, i))
+                    rev_scores.append((i, rev_rs, i))
 
-                        res = res_s if (res_s[0][0] + res_s[1][0]) > (res_e[0][0] + res_e[1][0]) else res_e
+            mv: tuple[int, int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
+            if mv[2] > size_to_explore and (
+                    (new_rc := mv[2] + 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
+                if new_rc >= 0:
+                    to_explore.append((new_rc, 1))
+            if mv[2] < size_to_explore and (
+                    (new_rc := mv[2] - 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
+                if new_rc >= 0:
+                    to_explore.append((new_rc, -1))
 
-                        fwd_sizes_scores_adj[frac_cn] = fwd_rs = res[0]
-                        rev_sizes_scores_adj[frac_cn] = rev_rs = res[1]
+        # noinspection PyTypeChecker
+        fwd_top_res: tuple[Union[int, float], tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])
+        # noinspection PyTypeChecker
+        rev_top_res: tuple[Union[int, float], tuple] = max(rev_sizes_scores_adj.items(), key=lambda x: x[1][0])
 
-                    fwd_scores.append((frac_cn, fwd_rs, i))
-                    rev_scores.append((frac_cn, rev_rs, i))
+        # Ignore negative differences (contractions vs TRF definition), but follow expansions
+        # TODO: Should we incorporate contractions? How would that work?
 
-            else:
-                fwd_rs = fwd_sizes_scores_adj.get(i)
-                rev_rs = rev_sizes_scores_adj.get(i)
+        if fractional:
+            l_offset = rev_top_res[1][1]
+            r_offset = fwd_top_res[1][1]
+        else:
+            l_offset = sign(rev_top_res[1][1]) * math.floor(abs(rev_top_res[1][1]) / motif_size) * motif_size
+            r_offset = sign(fwd_top_res[1][1]) * math.floor(abs(fwd_top_res[1][1]) / motif_size) * motif_size
 
-                if fwd_rs is None or rev_rs is None:
-                    res = score_ref_boundaries(db_seq, i_mm, flank_left_seq, flank_right_seq, ref_size=ref_size)
+        if l_offset > 0:
+            flank_left_seq = flank_left_seq[:-1*l_offset]
+        if r_offset > 0:
+            flank_right_seq = flank_right_seq[r_offset:]
 
-                    fwd_sizes_scores_adj[i] = fwd_rs = res[0]
-                    rev_sizes_scores_adj[i] = rev_rs = res[1]
-
-                fwd_scores.append((i, fwd_rs, i))
-                rev_scores.append((i, rev_rs, i))
-
-        mv: tuple[int, int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
-        if mv[2] > size_to_explore and (
-                (new_rc := mv[2] + 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
-            if new_rc >= 0:
-                to_explore.append((new_rc, 1))
-        if mv[2] < size_to_explore and (
-                (new_rc := mv[2] - 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
-            if new_rc >= 0:
-                to_explore.append((new_rc, -1))
-
-    # noinspection PyTypeChecker
-    fwd_top_res: tuple[Union[int, float], tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])
-    # noinspection PyTypeChecker
-    rev_top_res: tuple[Union[int, float], tuple] = max(rev_sizes_scores_adj.items(), key=lambda x: x[1][0])
-
-    # Ignore negative differences (contractions vs TRF definition), but follow expansions
-    # TODO: Should we incorporate contractions? How would that work?
-
-    if fractional:
-        l_offset = rev_top_res[1][1]
-        r_offset = fwd_top_res[1][1]
-    else:
-        l_offset = sign(rev_top_res[1][1]) * math.floor(abs(rev_top_res[1][1]) / motif_size) * motif_size
-        r_offset = sign(fwd_top_res[1][1]) * math.floor(abs(fwd_top_res[1][1]) / motif_size) * motif_size
-
-    if l_offset > 0:
-        flank_left_seq = flank_left_seq[:-1*l_offset]
-    if r_offset > 0:
-        flank_right_seq = flank_right_seq[r_offset:]
+    # ------------------------------------------------------------------------------------------------------------------
 
     final_res = get_repeat_count(
         round(start_count + (max(0, l_offset) + max(0, r_offset)) / motif_size),  # always start with int here
@@ -348,6 +357,7 @@ def call_locus(
     sex_chroms: Optional[str] = None,
     targeted: bool = False,
     fractional: bool = False,
+    respect_ref: bool = False,
     count_kmers: str = "none",  # "none" | "peak" | "read"
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
@@ -403,6 +413,7 @@ def call_locus(
         motif,
         ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
         fractional=fractional,
+        respect_coords=respect_ref,
     )
 
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
@@ -571,9 +582,8 @@ def call_locus(
 
     # We cannot call read-level cluster labels with >2 peaks;
     # don't know how re-sampling has occurred.
-    peak_kmers = [Counter() for _ in range(call_modal_n or 0)]
-    read_peaks_called = call_modal_n and call_modal_n <= 2
-    if read_peaks_called:
+    peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
+    if read_peaks_called := call_modal_n and call_modal_n <= 2:
         peaks = call_peaks[:call_modal_n]
         stdevs = call_stdevs[:call_modal_n]
         weights = call_weights[:call_modal_n]
@@ -649,6 +659,7 @@ def locus_worker(
         sex_chroms: Optional[str],
         targeted: bool,
         fractional: bool,
+        respect_ref: bool,
         count_kmers: str,
         locus_queue: mp.Queue) -> list[dict]:
 
@@ -679,6 +690,7 @@ def locus_worker(
             sex_chroms=sex_chroms,
             targeted=targeted,
             fractional=fractional,
+            respect_ref=respect_ref,
             count_kmers=count_kmers,
             read_file_has_chr=read_file_has_chr,
             ref_file_has_chr=ref_file_has_chr,
@@ -712,6 +724,7 @@ def call_sample(
     sex_chroms: Optional[str] = None,
     targeted: bool = False,
     fractional: bool = False,
+    respect_ref: bool = False,
     count_kmers: str = "none",  # "none" | "peak" | "read"
     json_path: Optional[str] = None,
     output_tsv: bool = True,
@@ -739,6 +752,7 @@ def call_sample(
         "sex_chroms": sex_chroms,
         "targeted": targeted,
         "fractional": fractional,
+        "respect_ref": respect_ref,
         "count_kmers": count_kmers,
     }
 

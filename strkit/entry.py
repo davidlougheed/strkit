@@ -55,6 +55,12 @@ def add_call_parser_args(call_parser):
         help="Call fractional repeat counts (partial repeats). Experimental!")
 
     call_parser.add_argument(
+        "--respect-ref", "-e",
+        action="store_true",
+        help="Do not extend reference TR region coordinates out from what is specified in the catalog. This should "
+             "bring results closer to other callers, but may reduce accuracy.")
+
+    call_parser.add_argument(
         "--count-kmers", "-k",
         nargs="?",
         type=str,
@@ -382,6 +388,7 @@ def _exec_call(p_args) -> int:
         sex_chroms=p_args.sex_chr,
         targeted=p_args.targeted,
         fractional=p_args.fractional,
+        respect_ref=p_args.respect_ref,
         count_kmers=p_args.count_kmers,
         json_path=p_args.json,
         output_tsv=not p_args.no_tsv,
