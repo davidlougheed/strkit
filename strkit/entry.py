@@ -10,14 +10,6 @@ from typing import Optional, Type
 import strkit.constants as c
 from strkit import __version__
 
-from strkit.mi.base import BaseCalculator
-from strkit.mi.expansionhunter import ExpansionHunterCalculator
-from strkit.mi.gangstr import GangSTRCalculator
-from strkit.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
-from strkit.mi.straglr import StraglrCalculator, StraglrReCallCalculator
-from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator
-from strkit.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
-
 
 def add_call_parser_args(call_parser):
     call_parser.add_argument(
@@ -185,20 +177,6 @@ def add_re_call_parser_args(re_call_parser):
         "--seed",
         type=int,
         help="Random seed to pass to random number generators for result replicability.")
-
-
-CALC_CLASSES: dict[str, Type[BaseCalculator]] = {
-    c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
-    c.CALLER_GANGSTR: GangSTRCalculator,
-    c.CALLER_REPEATHMM: RepeatHMMCalculator,
-    c.CALLER_REPEATHMM_RECALL: RepeatHMMReCallCalculator,
-    c.CALLER_STRAGLR: StraglrCalculator,
-    c.CALLER_STRAGLR_RECALL: StraglrReCallCalculator,
-    c.CALLER_STRKIT: StrKitCalculator,
-    c.CALLER_STRKIT_JSON: StrKitJSONCalculator,
-    c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
-    c.CALLER_TANDEM_GENOTYPES_RECALL: TandemGenotypesReCallCalculator,
-}
 
 
 def add_mi_parser_args(mi_parser):
@@ -414,6 +392,27 @@ def _exec_re_call(p_args) -> int:
 
 
 def _exec_mi(p_args) -> int:
+    from strkit.mi.base import BaseCalculator
+    from strkit.mi.expansionhunter import ExpansionHunterCalculator
+    from strkit.mi.gangstr import GangSTRCalculator
+    from strkit.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
+    from strkit.mi.straglr import StraglrCalculator, StraglrReCallCalculator
+    from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator
+    from strkit.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
+
+    calc_classes: dict[str, Type[BaseCalculator]] = {
+        c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
+        c.CALLER_GANGSTR: GangSTRCalculator,
+        c.CALLER_REPEATHMM: RepeatHMMCalculator,
+        c.CALLER_REPEATHMM_RECALL: RepeatHMMReCallCalculator,
+        c.CALLER_STRAGLR: StraglrCalculator,
+        c.CALLER_STRAGLR_RECALL: StraglrReCallCalculator,
+        c.CALLER_STRKIT: StrKitCalculator,
+        c.CALLER_STRKIT_JSON: StrKitJSONCalculator,
+        c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
+        c.CALLER_TANDEM_GENOTYPES_RECALL: TandemGenotypesReCallCalculator,
+    }
+
     caller = p_args.caller.lower()
 
     trf_bed_file = getattr(p_args, "trf_bed") or None
@@ -421,7 +420,7 @@ def _exec_mi(p_args) -> int:
         sys.stderr.write(f"Error: Using mistr with Straglr requires that the --trf-bed flag is used.\n")
         exit(1)
 
-    calc_class: Optional[Type[BaseCalculator]] = CALC_CLASSES.get(caller)
+    calc_class: Optional[Type[BaseCalculator]] = calc_classes.get(caller)
     if not calc_class:
         sys.stderr.write(f"Error: Unknown or unimplemented caller '{caller}'\n")
         exit(1)
