@@ -9,11 +9,7 @@ from typing import Optional, Type
 
 import strkit.constants as c
 from strkit import __version__
-from strkit.aligned.lengths import aligned_lengths_cmd
-from strkit.call import call_sample, re_call_all_alleles
-from strkit.catalog.combine import combine_catalogs
-from strkit.convert.converter import convert
-from strkit.json import json
+
 from strkit.mi.base import BaseCalculator
 from strkit.mi.expansionhunter import ExpansionHunterCalculator
 from strkit.mi.gangstr import GangSTRCalculator
@@ -21,7 +17,6 @@ from strkit.mi.repeathmm import RepeatHMMCalculator, RepeatHMMReCallCalculator
 from strkit.mi.straglr import StraglrCalculator, StraglrReCallCalculator
 from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator
 from strkit.mi.tandem_genotypes import TandemGenotypesCalculator, TandemGenotypesReCallCalculator
-from strkit.viz.server import run_server as viz_run_server
 
 
 def add_call_parser_args(call_parser):
@@ -376,6 +371,7 @@ def add_vs_parser_args(vs_parser):
 
 
 def _exec_call(p_args) -> int:
+    from strkit.call import call_sample
     call_sample(
         tuple(p_args.read_files),
         p_args.ref,
@@ -400,6 +396,8 @@ def _exec_call(p_args) -> int:
 
 
 def _exec_re_call(p_args) -> int:
+    from strkit.call import re_call_all_alleles
+
     contig: Optional[str] = getattr(p_args, "contig", None)
 
     return re_call_all_alleles(
@@ -499,18 +497,24 @@ def _exec_mi(p_args) -> int:
 
 
 def _exec_combine_catalogs(p_args):
+    from strkit.catalog.combine import combine_catalogs
     return combine_catalogs(p_args.caller, p_args.paths)
 
 
 def _exec_aligned_lengths(p_args):
+    from strkit.aligned.lengths import aligned_lengths_cmd
     return aligned_lengths_cmd(p_args.file, p_args.region)
 
 
 def _exec_convert(p_args):
+    from strkit.convert.converter import convert
     return convert(getattr(p_args, "trf-file"), p_args.caller)
 
 
 def _exec_viz_server(p_args):
+    from strkit.json import json
+    from strkit.viz.server import run_server as viz_run_server
+
     align_files = [str(pathlib.Path(af).resolve()) for af in p_args.align_files]
     align_indices = [str(pathlib.Path(aif).resolve()) for aif in (p_args.align_indices or ())]
 
