@@ -66,7 +66,7 @@ strkit call \
   --seed 183  # Fixed random number generator seed for replicability
 ```
 
-If you're aligning HiFi reads, **use the `--realign` option** to get a greater proportion of reads
+If you're using HiFi reads as input, **use the `--realign` option** to get a greater proportion of reads
 incorporated into the computed genotypes. This should not add much performance overhead.
 
 If more than one read file is specified, the reads will be pooled. This can come in handy if you
