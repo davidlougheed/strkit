@@ -30,6 +30,10 @@ RepeatCounts = Union[list[int], tuple[int, ...], list[float], tuple[float, ...]]
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles
 simplefilter("ignore", category=ConvergenceWarning)
 
+# TODO: parameterize
+small_allele_min = 8
+expansion_ratio = 5
+
 
 def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> np.array:
     r = {
@@ -173,10 +177,18 @@ def call_alleles(repeats_fwd: RepeatCounts,
                 mw_filter_1 = means_and_weights[1, :] > ((min_allele_reads - 0.1) / concat_samples.shape[0])
 
                 # Filter out any peaks below some threshold using this magic constant filter factor
+                # - Exception: Large expansions can have very few supporting reads due to quirks of sequencing beyond
+                #   just chance/read length distribution; if we have 2 alleles and the large one is a lot bigger than
+                #   the small one, don't apply this filter
                 # - Discard anything below a specific weight threshold and resample means based on remaining weights
                 #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
                 #   sharing in the worst case where it represents just one allele
-                mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_alleles))
+                if n_components > 2 or (
+                        n_components == 2 and
+                        means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0], small_allele_min)):
+                    mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_alleles))
+                else:
+                    mw_filter_2 = means_and_weights[1, :] > np.finfo(np.float32).eps
 
                 mw_filter = mw_filter_1 & mw_filter_2
                 n_useless = np.size(mw_filter) - np.count_nonzero(mw_filter)
