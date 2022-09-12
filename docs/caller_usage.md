@@ -11,6 +11,10 @@
   for example) will be skipped. **Default:** 13
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
+* `--realign` or `-a`: Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners
+  may soft-clip around large insertions, e.g. with an expansion (I've noticed this with *pbmm2*/*minimap2*). 
+  Currently recommended **for HiFi only**, since this step aggressively filters out realignments with many mismatches 
+  or small indels.
 * `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
 * `--fractional` or `-f`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and 

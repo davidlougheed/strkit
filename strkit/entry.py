@@ -32,6 +32,12 @@ def add_call_parser_args(call_parser):
              "of the loci.")
 
     call_parser.add_argument(
+        "--realign", "-a",
+        action="store_true",
+        help="Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners may "
+             "soft-clip around large insertions, e.g. with an expansion. Recommended for HiFi ONLY!")
+
+    call_parser.add_argument(
         "--targeted", "-t",
         action="store_true",
         help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
@@ -360,6 +366,7 @@ def _exec_call(p_args) -> int:
         num_bootstrap=p_args.num_bootstrap,
         flank_size=p_args.flank_size,
         sex_chroms=p_args.sex_chr,
+        realign=p_args.realign,
         targeted=p_args.targeted,
         fractional=p_args.fractional,
         respect_ref=p_args.respect_ref,

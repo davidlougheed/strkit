@@ -7,6 +7,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 # ----------------------------------------------------------------------------------------------------------------------
 
 import heapq
+import itertools
 import math
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
@@ -17,7 +18,7 @@ import sys
 from collections import Counter
 from datetime import datetime
 from pysam import AlignmentFile, FastaFile
-from typing import Iterable, Optional, Union
+from typing import Iterable, Generator, Optional, Union
 
 from strkit import __version__
 
@@ -51,10 +52,12 @@ def log_debug(*args, **kwargs):
         log_debug_(*args, **kwargs)
 
 
-match_score = 2
-mismatch_penalty = 7
-indel_penalty = 5
+match_score = 2  # TODO: parametrize
+mismatch_penalty = 7  # TODO: parametrize
+indel_penalty = 5  # TODO: parametrize
+realign_indel_open_penalty = 7  # TODO: parametrize
 min_read_score = 0.9  # TODO: parametrize
+min_realign_score_ratio = 0.95  # TODO: parametrize
 local_search_range = 3  # TODO: parametrize
 base_wildcard_threshold = 3
 
@@ -343,6 +346,87 @@ def normalize_contig(contig: str, has_chr: bool):
     return ("chr" if has_chr else "") + contig.replace("chr", "")
 
 
+def get_read_coords_from_matched_pairs(
+    left_flank_coord: int,
+    left_coord: int,
+    right_coord: int,
+    right_flank_coord: int,
+    motif: str,
+    query_seq: str,
+    matched_pairs
+) -> tuple[int, int, int, int]:
+    motif_size = len(motif)
+
+    left_flank_start = -1
+    left_flank_end = -1
+    right_flank_start = -1
+    right_flank_end = -1
+
+    last_idx = -1
+
+    for pair in matched_pairs:
+        # Skip gaps on either side to find mapped flank indices
+
+        if pair[1] <= left_flank_coord:
+            left_flank_start = pair[0]
+        elif pair[1] < left_coord:
+            # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
+            # the STR; if we include the left-most base of the STR, we will have a giant flanking region which
+            # will include part of the tandem repeat itself.
+            left_flank_end = pair[0] + 1  # Add 1 to make it exclusive
+        elif pair[1] >= right_coord and (
+                # Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
+                # in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
+                # in bc1018, which were used as test data and thus will not be included in the paper...
+                # TODO: do the same thing for the left side
+                right_flank_start == -1 or
+                (pair[0] - last_idx >= motif_size and (pair[1] - right_coord <= motif_size * 2) and
+                 query_seq[last_idx:pair[0]].count(motif) / ((pair[0] - last_idx) / motif_size) >= 0.5)
+        ):
+            right_flank_start = pair[0]
+        elif pair[1] >= right_flank_coord:
+            right_flank_end = pair[0]
+            break
+
+    return left_flank_start, left_flank_end, right_flank_start, right_flank_end
+
+
+def decode_cigar(encoded_cigar: list[int]) -> Generator[tuple[int, int], None, None]:
+    for item in encoded_cigar:
+        yield item & 15, item >> 4
+
+
+def get_aligned_pairs_from_cigar(
+    cigar: Iterable[tuple[int, int]],
+    query_start: int = 0,
+    ref_start: int = 0,
+) -> Generator[tuple[Union[int, None], Union[int, None]], None, None]:
+    qi = itertools.count(start=query_start)
+    di = itertools.count(start=ref_start)
+
+    for c in cigar:
+        op, cnt = c
+        rc = range(cnt)
+
+        # TODO: Probably a nicer way to do this:
+
+        cq = ((next(qi), None) for _ in rc)
+        cr = ((None, next(di)) for _ in rc)
+        cb = ((next(qi), next(di)) for _ in rc)
+
+        yield from {
+            0: cb,  # M
+            1: cq,  # I
+            2: cr,  # D
+            3: cr,  # N
+            4: cq,  # S
+            5: (),  # H
+            6: (),  # P
+            7: cb,  # =
+            8: cb,  # X
+        }[op]
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -355,6 +439,7 @@ def call_locus(
     flank_size: int,
     seed: int,
     sex_chroms: Optional[str] = None,
+    realign: bool = False,
     targeted: bool = False,
     fractional: bool = False,
     respect_ref: bool = False,
@@ -424,7 +509,7 @@ def call_locus(
     if r_offset > 0:
         right_coord += max(0, r_offset)
 
-    read_dict = {}
+    read_dict: dict[str, dict] = {}
 
     overlapping_segments = [
         segment
@@ -434,58 +519,71 @@ def call_locus(
     read_lengths = np.fromiter((segment.query_alignment_length for segment in overlapping_segments), dtype=np.int)
     sorted_read_lengths = np.sort(read_lengths)
 
+    seen_reads: set[str] = set()
     kmers_by_read: dict[str, dict] = {}
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
 
+        if rn in seen_reads:
+            log_debug(f"Skipping entry for read {rn} (already seen)")
+            continue
+
+        seen_reads.add(rn)
+
         qs = segment.query_sequence
 
         if qs is None:  # No aligned segment, I guess
-            log_debug(f"Skipping read {rn} (no aligned segment)")
+            log_debug(f"Skipping entry for read {rn} (no aligned segment)")
             continue
 
-        qq = segment.query_qualities
+        c1: tuple[int, int] = segment.cigar[0]
+        c2: tuple[int, int] = segment.cigar[-1]
 
-        left_flank_start = -1
-        left_flank_end = -1
-        right_flank_start = -1
-        right_flank_end = -1
+        pairs = segment.get_aligned_pairs(matches_only=True)
 
-        last_idx = -1
+        # Soft-clipping in large insertions can result from mapping difficulties.
+        # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
+        # via realignment with parasail.
+        # 4: BAM code for soft clip
+        realigned = False
+        if realign and (
+            (c1[0] == 4 and segment.reference_start > left_flank_coord >= segment.reference_start - c1[1]) or
+            (c2[0] == 4 and segment.reference_end < right_flank_coord <= segment.reference_end + c2[1])
+        ):
+            # flipped: 'ref sequence' as query here, since it should in general be shorter
+            pr = parasail.sg_dx_trace_scan_sat(
+                # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
+                ref_left_flank_seq + ref_seq + ref.fetch(ref_contig, right_coord, right_flank_coord + 1),
+                qs, realign_indel_open_penalty, 0, dna_matrix)
 
-        for pair in segment.get_aligned_pairs(matches_only=True):
-            # Skip gaps on either side to find mapped flank indices
+            if pr.score >= min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty):
+                log_debug(f"Successfully realigned {rn} (due to soft clipping): scored {pr.score}")
+                pairs = [
+                    # reverse to get (ref, query) instead of (query, ref) due to the flip
+                    tuple(reversed(p))
+                    # query_start instead of ref_start, due to the flip
+                    for p in get_aligned_pairs_from_cigar(decode_cigar(pr.cigar.seq), query_start=left_flank_coord)
+                    if p[0] is not None and p[1] is not None
+                ]
+                realigned = True
 
-            if pair[1] <= left_flank_coord:
-                left_flank_start = pair[0]
-            elif pair[1] < left_coord:
-                # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
-                # the STR; if we include the left-most base of the STR, we will have a giant flanking region which
-                # will include part of the tandem repeat itself.
-                left_flank_end = pair[0] + 1  # Add 1 to make it exclusive
-            elif pair[1] >= right_coord and (
-                # Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
-                # in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
-                # in bc1018, which were used as test data and thus will not be included in the paper...
-                # TODO: do the same thing for the left side
-                right_flank_start == -1 or
-                (pair[0] - last_idx >= motif_size and (pair[1] - right_coord <= motif_size * 2) and
-                 qs[last_idx:pair[0]].count(motif)/((pair[0]-last_idx)/motif_size) >= 0.5)
-            ):
-                right_flank_start = pair[0]
-            elif pair[1] >= right_flank_coord:
-                right_flank_end = pair[0]
-                break
-
-            last_idx = pair[0]
+        left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
+            left_flank_coord,
+            left_coord,
+            right_coord,
+            right_flank_coord,
+            motif,
+            query_seq=qs,
+            matched_pairs=pairs
+        )
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
             log_debug(
                 f"Skipping read {rn} in locus {t_idx}: could not get sufficient flanking sequence")
             continue
 
-        qqs = np.array(qq[left_flank_end:right_flank_start])
+        qqs = np.array(segment.query_qualities[left_flank_end:right_flank_start])
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:
             log_debug(
                 f"Skipping read {rn} due to low average base quality ({m_qqs} < {min_avg_phred}")
@@ -549,6 +647,7 @@ def call_locus(
         read_dict[rn] = {
             "cn": read_cn,
             "weight": read_weight.item(),
+            **({"realigned": realigned} if realign and realigned else {}),
         }
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
@@ -556,8 +655,9 @@ def call_locus(
         return None
 
     # Dicts are ordered in Python; very nice :)
-    read_cns = np.fromiter((r["cn"] for r in read_dict.values()), dtype=np.float if fractional else np.int)
-    read_weights = np.fromiter((r["weight"] for r in read_dict.values()), dtype=np.float)
+    rdvs = tuple(read_dict.values())
+    read_cns = np.fromiter((r["cn"] for r in rdvs), dtype=np.float if fractional else np.int)
+    read_weights = np.fromiter((r["weight"] for r in rdvs), dtype=np.float)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
     call = call_alleles(
@@ -659,6 +759,7 @@ def locus_worker(
         num_bootstrap: int,
         flank_size: int,
         sex_chroms: Optional[str],
+        realign: bool,
         targeted: bool,
         fractional: bool,
         respect_ref: bool,
@@ -690,6 +791,7 @@ def locus_worker(
             flank_size=flank_size,
             seed=locus_seed,
             sex_chroms=sex_chroms,
+            realign=realign,
             targeted=targeted,
             fractional=fractional,
             respect_ref=respect_ref,
@@ -724,6 +826,7 @@ def call_sample(
     num_bootstrap: int = 100,
     flank_size: int = 70,
     sex_chroms: Optional[str] = None,
+    realign: bool = False,
     targeted: bool = False,
     fractional: bool = False,
     respect_ref: bool = False,
@@ -752,6 +855,7 @@ def call_sample(
         "num_bootstrap": num_bootstrap,
         "flank_size": flank_size,
         "sex_chroms": sex_chroms,
+        "realign": realign,
         "targeted": targeted,
         "fractional": fractional,
         "respect_ref": respect_ref,
