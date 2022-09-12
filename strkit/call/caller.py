@@ -531,6 +531,10 @@ def call_locus(
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
 
+        if segment.flag & 2048:  # Skip supplemental alignments
+            log_debug(f"Skipping entry for read {rn} (supplemental)")
+            continue
+
         if rn in seen_reads:
             log_debug(f"Skipping entry for read {rn} (already seen)")
             continue
