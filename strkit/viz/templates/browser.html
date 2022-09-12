@@ -163,6 +163,8 @@
 
         // --------------------------------------------------------------------
 
+        const regionPadding = 20;
+
         let locusSearchBox = null;
         let searchResponseList = null;
 
@@ -258,7 +260,7 @@
                 color: "#AAA",
             }));
 
-            const region = `${callData.contig}:${callData.start}-${callData.end}`;
+            const region = `${callData.contig}:${callData.start+1-regionPadding}-${callData.end+regionPadding}`;
 
             locusSearchBox.value = region;
 
@@ -325,6 +327,11 @@
             igv.createBrowser(igvContainer, {
                 genome: "{{ ref }}",
                 locus: region,
+                roi: [{
+                    name: "STR",
+                    color: "rgba(255, 200, 127, 0.15)",
+                    features: [{chr: callData.contig, start: callData.start, end: callData.end}],
+                }],
                 tracks: alignTracks,
             }).then(b => {
                 browser = b;
