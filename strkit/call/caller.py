@@ -522,6 +522,12 @@ def call_locus(
     seen_reads: set[str] = set()
     kmers_by_read: dict[str, dict] = {}
 
+    chimeric_read_status: dict[str, int] = {}
+    for segment in overlapping_segments:
+        qn = segment.query_name
+        i = (2 if segment.flag & 2048 else 1)
+        chimeric_read_status[qn] = chimeric_read_status.get(qn, 0) | i
+
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
 
@@ -647,10 +653,12 @@ def call_locus(
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
         read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
 
+        crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
         read_dict[rn] = {
             "cn": read_cn,
             "weight": read_weight.item(),
             **({"realigned": realigned} if realign and realigned else {}),
+            **({"chimeric_in_region": crs_cir} if crs_cir else {}),
         }
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
