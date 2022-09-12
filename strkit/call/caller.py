@@ -608,7 +608,9 @@ def call_locus(
 
             allele_reads[peak].append(r)
             rd["peak"] = peak
-            peak_kmers[peak] += kmers_by_read[r]
+
+            if count_kmers in ("peak", "both"):
+                peak_kmers[peak] += kmers_by_read[r]
 
         call_peak_n_reads = list(map(len, allele_reads))
 
