@@ -558,7 +558,9 @@ def call_locus(
                 qs, realign_indel_open_penalty, 0, dna_matrix)
 
             if pr.score >= min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty):
-                log_debug(f"Successfully realigned {rn} (due to soft clipping): scored {pr.score}")
+                log_debug(
+                    f"Realigned {rn} in locus {t_idx} (due to soft clipping): scored {pr.score}; "
+                    f"CIGAR: {pr.cigar.decode.decode('ascii')}")
                 pairs = [
                     # reverse to get (ref, query) instead of (query, ref) due to the flip
                     tuple(reversed(p))
@@ -580,13 +582,14 @@ def call_locus(
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
             log_debug(
-                f"Skipping read {rn} in locus {t_idx}: could not get sufficient flanking sequence")
+                f"Skipping read {rn} in locus {t_idx}: could not get sufficient flanking sequence"
+                f"{' (post-realignment)' if realigned else ''}")
             continue
 
         qqs = np.array(segment.query_qualities[left_flank_end:right_flank_start])
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:
             log_debug(
-                f"Skipping read {rn} due to low average base quality ({m_qqs} < {min_avg_phred}")
+                f"Skipping read {rn} in locus {t_idx} due to low average base quality ({m_qqs} < {min_avg_phred})")
             continue
 
         # -----
