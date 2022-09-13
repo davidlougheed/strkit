@@ -24,33 +24,12 @@ from strkit import __version__
 
 from strkit.call.allele import get_n_alleles, call_alleles
 from strkit.json import dumps_indented
+from strkit.logger import logger
 from strkit.utils import apply_or_none, sign
 
 __all__ = [
     "call_sample",
 ]
-
-
-def log(fd=sys.stderr, level: str = "ERROR"):
-    def inner(message: str):
-        fd.write(f"[strkit.call] {level}: {message}\n")
-        fd.flush()
-
-    return inner
-
-
-log_error = log(level="ERROR")
-log_warning = log(level="WARNING")
-log_info = log(level="INFO")
-log_debug_ = log(level="DEBUG")
-
-debug = False
-
-
-def log_debug(*args, **kwargs):
-    if debug:
-        log_debug_(*args, **kwargs)
-
 
 match_score = 2  # TODO: parametrize
 mismatch_penalty = 7  # TODO: parametrize
@@ -472,17 +451,17 @@ def call_locus(
         ref_right_flank_seq = ref.fetch(ref_contig, right_coord, right_flank_coord)
         ref_seq = ref.fetch(ref_contig, left_coord, right_coord)
     except IndexError:
-        log_warning(
+        logger.warning(
             f"Coordinates out of range in provided reference FASTA for region {ref_contig} with flank size "
             f"{flank_size}: [{left_flank_coord}, {right_flank_coord}] (skipping locus {t_idx})")
         raised = True
     except ValueError:
-        log_error(f"Invalid region '{ref_contig}' for provided reference FASTA (skipping locus {t_idx})")
+        logger.error(f"Invalid region '{ref_contig}' for provided reference FASTA (skipping locus {t_idx})")
         raised = True
 
     if len(ref_left_flank_seq) < flank_size or len(ref_right_flank_seq) < flank_size:
         if not raised:  # flank sequence too small for another reason
-            log_warning(f"Reference flank size too small for locus {t_idx} (skipping)")
+            logger.warning(f"Reference flank size too small for locus {t_idx} (skipping)")
             return None
 
     if raised:
@@ -532,11 +511,11 @@ def call_locus(
         rn = segment.query_name
 
         if segment.flag & 2048:  # Skip supplemental alignments
-            log_debug(f"Skipping entry for read {rn} (supplemental)")
+            logger.debug(f"Skipping entry for read {rn} (supplemental)")
             continue
 
         if rn in seen_reads:
-            log_debug(f"Skipping entry for read {rn} (already seen)")
+            logger.debug(f"Skipping entry for read {rn} (already seen)")
             continue
 
         seen_reads.add(rn)
@@ -544,7 +523,7 @@ def call_locus(
         qs = segment.query_sequence
 
         if qs is None:  # No aligned segment, I guess
-            log_debug(f"Skipping entry for read {rn} (no aligned segment)")
+            logger.debug(f"Skipping entry for read {rn} (no aligned segment)")
             continue
 
         c1: tuple[int, int] = segment.cigar[0]
@@ -568,7 +547,7 @@ def call_locus(
                 qs, realign_indel_open_penalty, 0, dna_matrix)
 
             if pr.score >= min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty):
-                log_debug(
+                logger.debug(
                     f"Realigned {rn} in locus {t_idx} (due to soft clipping): scored {pr.score}; "
                     f"CIGAR: {pr.cigar.decode.decode('ascii')}")
                 pairs = [
@@ -591,14 +570,14 @@ def call_locus(
         )
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
-            log_debug(
+            logger.debug(
                 f"Skipping read {rn} in locus {t_idx}: could not get sufficient flanking sequence"
                 f"{' (post-realignment)' if realigned else ''}")
             continue
 
         qqs = np.array(segment.query_qualities[left_flank_end:right_flank_start])
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:
-            log_debug(
+            logger.debug(
                 f"Skipping read {rn} in locus {t_idx} due to low average base quality ({m_qqs} < {min_avg_phred})")
             continue
 
@@ -639,7 +618,7 @@ def call_locus(
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
-            log_debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
+            logger.debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
             continue
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
@@ -648,7 +627,7 @@ def call_locus(
         if partition_idx == sorted_read_lengths.shape[0]:  # tr_len_w_flank is longer than the longest read... :(
             # Fatal
             # TODO: Just skip this locus
-            log_error(
+            logger.debug(
                 f"Something strange happened; could not find an encompassing read where one should be guaranteed. "
                 f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)

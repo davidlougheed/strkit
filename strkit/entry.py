@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import pathlib
 import os
 import sys
 
-from typing import Optional, Type
+from typing import Callable, Optional, Type
 
 import strkit.constants as c
 from strkit import __version__
+from strkit.exceptions import ParamError, InputError
+from strkit.logger import logger, attach_stream_handler
+
+log_levels = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+}
 
 
 def add_call_parser_args(call_parser):
@@ -354,7 +364,7 @@ def add_vs_parser_args(vs_parser):
         help="1-based index of the locus to visualize in the JSON file. Default: 0")
 
 
-def _exec_call(p_args) -> int:
+def _exec_call(p_args) -> None:
     from strkit.call import call_sample
     call_sample(
         tuple(p_args.read_files),
@@ -377,15 +387,13 @@ def _exec_call(p_args) -> int:
         seed=p_args.seed,
     )
 
-    return 0
 
-
-def _exec_re_call(p_args) -> int:
+def _exec_re_call(p_args) -> None:
     from strkit.call import re_call_all_alleles
 
     contig: Optional[str] = getattr(p_args, "contig", None)
 
-    return re_call_all_alleles(
+    re_call_all_alleles(
         contig=contig,
         sex_chr=p_args.sex_chr,
         bootstrap_iterations=p_args.num_bootstrap,
@@ -398,7 +406,7 @@ def _exec_re_call(p_args) -> int:
     )
 
 
-def _exec_mi(p_args) -> int:
+def _exec_mi(p_args) -> None:
     from strkit.mi.base import BaseCalculator
     from strkit.mi.expansionhunter import ExpansionHunterCalculator
     from strkit.mi.gangstr import GangSTRCalculator
@@ -424,18 +432,15 @@ def _exec_mi(p_args) -> int:
 
     trf_bed_file = getattr(p_args, "trf_bed") or None
     if trf_bed_file is None and caller in (c.CALLER_STRAGLR, c.CALLER_STRAGLR_RECALL):
-        sys.stderr.write(f"Error: Using mistr with Straglr requires that the --trf-bed flag is used.\n")
-        exit(1)
+        raise ParamError("Using `strkit mi` with Straglr requires that the --trf-bed flag is used.")
 
     calc_class: Optional[Type[BaseCalculator]] = calc_classes.get(caller)
     if not calc_class:
-        sys.stderr.write(f"Error: Unknown or unimplemented caller '{caller}'\n")
-        exit(1)
+        raise ParamError(f"Unknown or unimplemented caller '{caller}'")
 
     test_to_perform = p_args.test
     if caller != c.CALLER_STRKIT_JSON and test_to_perform != "none":
-        sys.stderr.write(f"Error: Caller '{caller}' does not support inheritance tests.\n")
-        exit(1)
+        raise ParamError(f"Caller '{caller}' does not support inheritance tests.")
 
     child_file = getattr(p_args, "child-calls")  # First call file is not optional
     mother_file = getattr(p_args, "mother-calls", None)
@@ -448,8 +453,7 @@ def _exec_mi(p_args) -> int:
     # TODO: Check that caller supports "combined" call files
 
     if (father_file is None or mother_file is None) and (mother_id is None or father_id is None or child_id is None):
-        print("Error: if less than 3 genotype files are specified, sample IDs must be given")
-        exit(1)
+        raise ParamError("If less than 3 genotype files are specified, sample IDs must be given")
 
     calc_inst = calc_class(
         child_call_file=child_file,
@@ -477,8 +481,7 @@ def _exec_mi(p_args) -> int:
     contig = getattr(p_args, "contig", None)
 
     if contig is not None and contig not in contigs:
-        print(f"Error: Could not find specified contig {p_args.contig} in trio contigs {contigs}")
-        return 1
+        raise InputError(f"Could not find specified contig {p_args.contig} in trio contigs {contigs}")
 
     if contig is not None:
         contigs = {contig}
@@ -486,7 +489,7 @@ def _exec_mi(p_args) -> int:
     res = calc_inst.calculate(included_contigs=contigs)
 
     if not res:
-        return 0
+        return
 
     if not p_args.no_tsv:
         print(str(res))
@@ -498,8 +501,6 @@ def _exec_mi(p_args) -> int:
 
     if p_args.json:
         res.write_report_json(json_path=p_args.json, bin_width=p_args.bin_width)
-
-    return 0
 
 
 def _exec_combine_catalogs(p_args):
@@ -525,23 +526,21 @@ def _exec_viz_server(p_args):
     align_indices = [str(pathlib.Path(aif).resolve()) for aif in (p_args.align_indices or ())]
 
     if align_indices and len(align_files) != len(align_indices):
-        print(f"Error: number of alignment indices must match number of alignment files ({len(align_indices)} vs. "
-              f"{len(align_files)})", file=sys.stderr)
-        return 1
+        raise ParamError(
+            f"Number of alignment indices must match number of alignment files ({len(align_indices)} vs. "
+            f"{len(align_files)})")
 
     align_formats = []
 
     for af in align_files:
         if (align_type := os.path.splitext(af)[-1].lstrip(".")) not in ("bam", "cram"):
-            print(f"Error: file type '{align_type}' not supported", file=sys.stderr)
-            return 1
+            raise ParamError(f"File type '{align_type}' not supported")
         align_formats.append(align_type)
 
     if not align_indices:
         for idx, af in enumerate(align_files):
             if not os.path.exists(align_index := f"{af}.{'crai' if align_formats[idx] == 'cram' else 'bai'}"):
-                print(f"Error: missing index at '{align_index}'", file=sys.stderr)
-                return 1
+                raise ParamError(f"Missing index at '{align_index}'")
             align_indices.append(align_index)
 
     # TODO: Conditionally use this code if ref looks like a path
@@ -557,16 +556,14 @@ def _exec_viz_server(p_args):
     #     return 1
 
     if not (json_file := pathlib.Path(p_args.json)).exists():
-        print(f"Error: could not find JSON call report file at '{json_file}'", file=sys.stderr)
-        return 1
+        raise ParamError(f"Could not find JSON call report file at '{json_file}'")
 
     with open(json_file, "r") as jf:
         call_report = json.loads(jf.read())
 
     idx = p_args.i
     if idx < 1 or idx > len(call_report["results"]):
-        print(f"Error: JSON offset out of bounds: '{idx}'", file=sys.stderr)
-        return 1
+        raise InputError(f"JSON offset out of bounds: '{idx}'")
 
     viz_run_server(
         call_report=call_report,
@@ -583,7 +580,7 @@ def _exec_viz_server(p_args):
     return 0
 
 
-def main(args: Optional[list[str]] = None):
+def main(args: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="A toolkit for analyzing variation in short(ish) tandem repeats.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -592,56 +589,72 @@ def main(args: Optional[list[str]] = None):
 
     subparsers = parser.add_subparsers()
 
-    call_parser = subparsers.add_parser(
+    def _make_subparser(arg: str, help_text: str, exec_func: Callable, arg_func: Callable):
+        sp = subparsers.add_parser(arg, help=help_text)
+        sp.add_argument("--log-level", type=str, default="warning", choices=("error", "warning", "info", "debug"))
+        sp.set_defaults(func=exec_func)
+        arg_func(sp)
+
+    _make_subparser(
         "call",
-        help="A tandem repeat (TR) caller designed for high-fidelity long reads.")
-    call_parser.set_defaults(func=_exec_call)
-    add_call_parser_args(call_parser)
+        help_text="A tandem repeat (TR) caller designed for high-fidelity long reads.",
+        exec_func=_exec_call,
+        arg_func=add_call_parser_args)
 
-    re_call_parser = subparsers.add_parser(
+    _make_subparser(
         "re-call",
-        help="A long-read tandem repeat (TR) re-caller, designed to build upon existing TR genotyping "
-             "methods to yield calls with confidence intervals.")
-    re_call_parser.set_defaults(func=_exec_re_call)
-    add_re_call_parser_args(re_call_parser)
+        help_text="A long-read tandem repeat (TR) re-caller, designed to build upon existing TR genotyping "
+                  "methods to yield calls with confidence intervals.",
+        exec_func=_exec_re_call,
+        arg_func=add_re_call_parser_args)
 
-    mi_parser = subparsers.add_parser(
+    _make_subparser(
         "mi",
-        help="A Mendelian inheritance calculator for different TR genotyping callers.")
-    mi_parser.set_defaults(func=_exec_mi)
-    add_mi_parser_args(mi_parser)
+        help_text="A Mendelian inheritance calculator for different TR genotyping callers.",
+        exec_func=_exec_mi,
+        arg_func=add_mi_parser_args)
 
-    cc_parser = subparsers.add_parser(
+    _make_subparser(
         "combine-catalogs",
-        help="Combine Straglr result catalogs for use in re-calling with a consistent motif set.")
-    cc_parser.set_defaults(func=_exec_combine_catalogs)
-    add_cc_parser_args(cc_parser)
+        help_text="Combine Straglr result catalogs for use in re-calling with a consistent motif set.",
+        exec_func=_exec_combine_catalogs,
+        arg_func=add_cc_parser_args)
 
-    al_parser = subparsers.add_parser(
+    _make_subparser(
         "aligned-lengths",
-        help="See aligned lengths of (repeat) regions in a file to validate calls.")
-    al_parser.set_defaults(func=_exec_aligned_lengths)
-    add_al_parser_args(al_parser)
+        help_text="See aligned lengths of (repeat) regions in a file to validate calls.",
+        exec_func=_exec_aligned_lengths,
+        arg_func=add_al_parser_args)
 
-    cv_parser = subparsers.add_parser(
+    _make_subparser(
         "convert",
-        help="Convert TRF BED file to other caller formats.")
-    cv_parser.set_defaults(func=_exec_convert)
-    add_cv_parser_args(cv_parser)
+        help_text="Convert TRF BED file to other caller formats.",
+        exec_func=_exec_convert,
+        arg_func=add_cv_parser_args)
 
-    vs_parser = subparsers.add_parser(
+    _make_subparser(
         "visualize",
-        help="Start a web server to visualize aligned lengths of (repeat) a repeat region.")
-    vs_parser.set_defaults(func=_exec_viz_server)
-    add_vs_parser_args(vs_parser)
+        help_text="Start a web server to visualize aligned lengths of (repeat) a repeat region.",
+        exec_func=_exec_viz_server,
+        arg_func=add_vs_parser_args)
 
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)
 
+    attach_stream_handler(log_levels[p_args.log_level])
+
     if not getattr(p_args, "func", None):
         p_args = parser.parse_args(("--help",))
 
-    return p_args.func(p_args)
+    try:
+        p_args.func(p_args)
+        return 0
+    except ParamError as e:
+        logger.critical(f"Paramter error: {e}")
+        return 1
+    except InputError as e:
+        logger.critical(f"Input error: {e}")
+        return 1
 
 
 if __name__ == "__main__":

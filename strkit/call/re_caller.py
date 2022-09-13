@@ -9,6 +9,8 @@ import strkit.constants as tc
 from itertools import repeat
 from typing import Optional
 
+from strkit.exceptions import ParamError
+from strkit.logger import logger
 from .repeathmm import call_repeathmm
 from .straglr import preprocess_lines_straglr, call_straglr
 from .tandem_genotypes import call_tandem_genotypes
@@ -21,7 +23,7 @@ __all__ = [
 def _bound_param(param: int, min_val: int, max_val: int, flag_name: str):
     new_param = min(max(param, min_val), max_val)
     if new_param != param:
-        sys.stderr.write(f"Warning: adjusting --{flag_name} to {new_param}")
+        logger.warning(f"Adjusting --{flag_name} to {new_param}")
     return new_param
 
 
@@ -35,10 +37,9 @@ def re_call_all_alleles(
     caller: str = tc.CALLER_TANDEM_GENOTYPES,
     processes: int = 1,
     seed: Optional[int] = None,
-) -> int:
+) -> None:
     if caller not in tc.CALL_SUPPORTED_CALLERS:
-        sys.stderr.write(f"Error: invalid caller '{caller}'")
-        return 1
+        raise ParamError(f"Invalid caller '{caller}'")
 
     n_proc = _bound_param(processes, 1, 512, "processes")
     min_reads = _bound_param(min_reads, 2, 512, "min-reads")
@@ -76,7 +77,7 @@ def re_call_all_alleles(
         lines,
     )
 
-    sys.stderr.write(f"[DEBUG] Starting caller on {len(lines)} lines with {n_proc} processes\n")
+    logger.debug(f"Starting caller on {len(lines)} lines with {n_proc} processes")
 
     with mp.Pool(n_proc) as p:
         i = 0
@@ -85,8 +86,6 @@ def re_call_all_alleles(
             sys.stdout.write(new_line)
             i += 1
             if i % 100 == 0:
-                sys.stderr.write(f"[INFO] Processed {i} loci\n")
+                logger.info(f"Processed {i} loci")
                 sys.stderr.flush()
                 sys.stdout.flush()
-
-    return 0

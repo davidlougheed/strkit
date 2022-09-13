@@ -9,6 +9,7 @@ from statsmodels.stats.multitest import multipletests
 
 from strkit.constants import CHROMOSOMES
 from strkit.json import json, dumps_indented
+from strkit.logger import logger
 from strkit.utils import cis_overlap
 
 from typing import Iterable, Optional, Union
@@ -173,7 +174,7 @@ class MILocusData:
         try:
             assert value is None or 0 <= value <= 1
         except AssertionError as e:
-            sys.stderr.write(f"Error: encountered unexpected value: {value}")
+            logger.error(f"Encountered unexpected value: {value}")
             raise e
         self._adj_p_value = value
 
@@ -263,9 +264,8 @@ class MILocusData:
                     w.append("maternal")
                 if not pat_reads:
                     w.append("paternal")
-                sys.stderr.write(
-                    f"Warning: {self.contig}:{self.start}-{self.end} - encountered empty readset for "
-                    f"{' and '.join(w)} allele\n")
+                logger.warning(
+                    f"{self.contig}:{self.start}-{self.end} - encountered empty readset for {' and '.join(w)} allele")
                 sys.stderr.flush()
                 return None
 
@@ -416,7 +416,7 @@ class MIResult:
 
     def correct_for_multiple_testing(self):
         if self._test_to_perform == "none":
-            sys.stdout.write("Warning: cannot correct for multiple testing when test is not enabled\n")
+            logger.warning("Cannot correct for multiple testing when test is not enabled")
             return
 
         loci = [locus for cr in self.contig_results for locus in cr]

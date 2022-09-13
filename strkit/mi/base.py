@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import sys
-
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Union
 
+from strkit.logger import logger
 from .result import MIContigResult, MIResult
 from ..utils import cis_overlap
 
@@ -191,7 +190,7 @@ class BaseCalculator(ABC):
             output_loci.extend(nm)
 
         if n_total == 0:
-            sys.stderr.write("Warning: no common loci found\n")
+            logger.warning("No common loci found")
             return None
 
         res /= n_total
