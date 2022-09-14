@@ -13,6 +13,7 @@ import multiprocessing as mp
 import multiprocessing.dummy as mpd
 import numpy as np
 import parasail
+import queue
 import sys
 
 from collections import Counter
@@ -35,6 +36,7 @@ match_score = 2  # TODO: parametrize
 mismatch_penalty = 7  # TODO: parametrize
 indel_penalty = 5  # TODO: parametrize
 realign_indel_open_penalty = 7  # TODO: parametrize
+realign_timeout = 5
 min_read_score = 0.9  # TODO: parametrize
 min_realign_score_ratio = 0.95  # TODO: parametrize
 local_search_range = 3  # TODO: parametrize
@@ -406,6 +408,37 @@ def get_aligned_pairs_from_cigar(
         }[op]
 
 
+def realign_read(
+    ref_seq: str,
+    query_seq: str,
+    left_flank_coord: int,
+    flank_size: int,
+    rn: str,
+    t_idx: int,
+    q: Optional[mp.Queue] = None
+) -> Optional[list[tuple[Optional[int], Optional[int]]]]:
+    # flipped: 'ref sequence' as query here, since it should in general be shorter
+    pr = parasail.sg_dx_trace_scan_sat(
+        # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
+        ref_seq, query_seq, realign_indel_open_penalty, 0, dna_matrix)
+
+    if pr.score >= min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty):
+        logger.debug(
+            f"Realigned {rn} in locus {t_idx} (due to soft clipping): scored {pr.score}; "
+            f"CIGAR: {pr.cigar.decode.decode('ascii')}")
+        # noinspection PyTypeChecker
+        res: list[tuple[Optional[int], Optional[int]]] = [
+            # reverse to get (ref, query) instead of (query, ref) due to the flip
+            tuple(reversed(p))
+            # query_start instead of ref_start, due to the flip
+            for p in get_aligned_pairs_from_cigar(decode_cigar(pr.cigar.seq), query_start=left_flank_coord)
+            if p[0] is not None and p[1] is not None
+        ]
+        if q:
+            q.put(res)
+        return res
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -531,32 +564,46 @@ def call_locus(
 
         pairs = segment.get_aligned_pairs(matches_only=True)
 
+        fqqs = segment.query_qualities
+        qs_wc = "".join(qs[i] if fqqs[i] > base_wildcard_threshold else "X" for i in np.arange(len(qs)))
+
         # Soft-clipping in large insertions can result from mapping difficulties.
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
         # via realignment with parasail.
         # 4: BAM code for soft clip
+        force_realign = False
         realigned = False
-        if realign and (
+        if realign and (force_realign or (
             (c1[0] == 4 and segment.reference_start > left_flank_coord >= segment.reference_start - c1[1]) or
             (c2[0] == 4 and segment.reference_end < right_flank_coord <= segment.reference_end + c2[1])
-        ):
-            # flipped: 'ref sequence' as query here, since it should in general be shorter
-            pr = parasail.sg_dx_trace_scan_sat(
-                # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-                ref_left_flank_seq + ref_seq + ref.fetch(ref_contig, right_coord, right_flank_coord + 1),
-                qs, realign_indel_open_penalty, 0, dna_matrix)
+        )):
+            # Run the realignment in a separate process, to give us a timeout mechanism.
+            # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
 
-            if pr.score >= min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty):
-                logger.debug(
-                    f"Realigned {rn} in locus {t_idx} (due to soft clipping): scored {pr.score}; "
-                    f"CIGAR: {pr.cigar.decode.decode('ascii')}")
-                pairs = [
-                    # reverse to get (ref, query) instead of (query, ref) due to the flip
-                    tuple(reversed(p))
-                    # query_start instead of ref_start, due to the flip
-                    for p in get_aligned_pairs_from_cigar(decode_cigar(pr.cigar.seq), query_start=left_flank_coord)
-                    if p[0] is not None and p[1] is not None
-                ]
+            q = mp.Queue()
+            proc = mp.Process(target=realign_read, kwargs=dict(
+                # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
+                ref_seq=ref_left_flank_seq + ref_seq + ref.fetch(ref_contig, right_coord, right_flank_coord + 1),
+                query_seq=qs_wc,
+                left_flank_coord=left_flank_coord,
+                flank_size=flank_size,
+                rn=rn,
+                t_idx=t_idx,
+                q=q,
+            ))
+            proc.start()
+            pairs_new = None
+            try:
+                pairs_new = q.get(timeout=realign_timeout)
+                proc.join()
+            except queue.Empty:
+                logger.warning(
+                    f"Experienced timeout while re-aligning read {rn} in locus {t_idx}. Reverting to BAM alignment.")
+            finally:
+                proc.close()
+
+            if pairs_new is not None:
+                pairs = pairs_new
                 realigned = True
 
         left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
@@ -575,10 +622,10 @@ def call_locus(
                 f"{' (post-realignment)' if realigned else ''}")
             continue
 
-        qqs = np.array(segment.query_qualities[left_flank_end:right_flank_start])
-        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:
+        qqs = np.array(fqqs[left_flank_end:right_flank_start])
+        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
             logger.debug(
-                f"Skipping read {rn} in locus {t_idx} due to low average base quality ({m_qqs} < {min_avg_phred})")
+                f"Skipping read {rn} in locus {t_idx} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
             continue
 
         # -----
@@ -590,6 +637,8 @@ def call_locus(
         # the definition coordinates.
         # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
         # contain a correctly-sized sequence.
+
+        # TODO: wildcards in flanking region too?
         flank_left_seq = qs[left_flank_start:left_flank_end][:flank_size+10]
         flank_right_seq = qs[right_flank_start:right_flank_end][-(flank_size+10):]
 
@@ -597,8 +646,7 @@ def call_locus(
         flank_len = len(flank_left_seq) + len(flank_right_seq)
         tr_len_w_flank = tr_len + flank_len
 
-        # TODO: wildcards in flanking region too?
-        tr_read_seq_wc = "".join(tr_read_seq[i] if qqs[i] > base_wildcard_threshold else "X" for i in np.arange(tr_len))
+        tr_read_seq_wc = qs_wc[left_flank_end:right_flank_start]
 
         read_kmers = Counter()
         if count_kmers != "none":
