@@ -66,6 +66,11 @@ strkit call \
   --seed 183  # Fixed random number generator seed for replicability
 ```
 
+Ideally, you should be using a read file aligned with parameters tuned for tandem repeats. 
+PacBio provides a 
+[recommended workflow](https://github.com/PacificBiosciences/apps-scripts/tree/master/RepeatAnalysisTools)
+for CCS alignment in this scenario.
+
 If you're using HiFi reads as input, **use the `--realign` option** to get a greater proportion of reads
 incorporated into the computed genotypes. This should not add much performance overhead.
 
