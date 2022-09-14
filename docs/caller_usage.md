@@ -16,7 +16,8 @@
   Currently recommended **for HiFi only**, since this step aggressively filters out realignments with many mismatches 
   or small indels.
 * `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
-  the alignment file contains targeted reads, e.g. from PacBio No-Amp Targeted Sequencing. **Default:** off
+  the alignment file contains targeted reads that do not reflect normal mapping patterns, e.g. from PacBio No-Amp 
+  Targeted Sequencing. **Default:** off
 * `--fractional` or `-f`: Turn on fractional genotyping mode, which allows for partial copy numbers in the reference and 
   in allele calls. *Experimental!* **Default:** off
 * `--respect-ref` or `-e`: Turn off reference TR region 'coordinate extension' from what is specified in the catalog.
