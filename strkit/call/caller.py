@@ -8,6 +8,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 import heapq
 import itertools
+import logging
 import math
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
@@ -43,6 +44,8 @@ local_search_range = 3  # TODO: parametrize
 base_wildcard_threshold = 3
 
 roughly_equiv_stdev_dist = 1
+
+force_realign = False
 
 # TODO: Customize matrix based on error chances
 # Create a substitution matrix for alignment.
@@ -415,28 +418,39 @@ def realign_read(
     flank_size: int,
     rn: str,
     t_idx: int,
-    q: Optional[mp.Queue] = None
+    always_realign: bool,
+    q: Optional[mp.Queue] = None,
+    log_level: int = logging.WARNING,
 ) -> Optional[list[tuple[Optional[int], Optional[int]]]]:
+    # Have to re-attach logger in separate process I guess
+
+    from strkit.logger import logger as lg, attach_stream_handler
+    attach_stream_handler(log_level)
+
     # flipped: 'ref sequence' as query here, since it should in general be shorter
     pr = parasail.sg_dx_trace_scan_sat(
         # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
         ref_seq, query_seq, realign_indel_open_penalty, 0, dna_matrix)
 
-    if pr.score >= min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty):
-        logger.debug(
-            f"Realigned {rn} in locus {t_idx} (due to soft clipping): scored {pr.score}; "
-            f"CIGAR: {pr.cigar.decode.decode('ascii')}")
-        # noinspection PyTypeChecker
-        res: list[tuple[Optional[int], Optional[int]]] = [
-            # reverse to get (ref, query) instead of (query, ref) due to the flip
-            tuple(reversed(p))
-            # query_start instead of ref_start, due to the flip
-            for p in get_aligned_pairs_from_cigar(decode_cigar(pr.cigar.seq), query_start=left_flank_coord)
-            if p[0] is not None and p[1] is not None
-        ]
-        if q:
-            q.put(res)
-        return res
+    if pr.score < (th := min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty)):
+        lg.debug(f"Realignment for {rn} scored below threshold ({pr.score} < {th:.2f})")
+        q.put(None)
+        return None
+
+    lg.debug(
+        f"Realigned {rn} in locus {t_idx}{' (due to soft clipping)' if not always_realign else ''}: scored {pr.score}; "
+        f"CIGAR: {pr.cigar.decode.decode('ascii')}")
+    # noinspection PyTypeChecker
+    res: list[tuple[Optional[int], Optional[int]]] = [
+        # reverse to get (ref, query) instead of (query, ref) due to the flip
+        tuple(reversed(p))
+        # query_start instead of ref_start, due to the flip
+        for p in get_aligned_pairs_from_cigar(decode_cigar(pr.cigar.seq), query_start=left_flank_coord)
+        if p[0] is not None and p[1] is not None
+    ]
+    if q:
+        q.put(res)
+    return res
 
 
 def call_locus(
@@ -456,6 +470,7 @@ def call_locus(
     fractional: bool = False,
     respect_ref: bool = False,
     count_kmers: str = "none",  # "none" | "peak" | "read"
+    log_level: int = logging.WARNING,
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
 ) -> Optional[dict]:
@@ -571,7 +586,8 @@ def call_locus(
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
         # via realignment with parasail.
         # 4: BAM code for soft clip
-        force_realign = False
+        # TODO: if some of the BAM alignment is present, use it to reduce realignment overhead?
+        #  - use start point + flank*3 or end point - flank*3 or something like that
         realigned = False
         if realign and (force_realign or (
             (c1[0] == 4 and segment.reference_start > left_flank_coord >= segment.reference_start - c1[1]) or
@@ -589,7 +605,9 @@ def call_locus(
                 flank_size=flank_size,
                 rn=rn,
                 t_idx=t_idx,
+                always_realign=force_realign,
                 q=q,
+                log_level=log_level,
             ))
             proc.start()
             pairs_new = None
@@ -793,20 +811,22 @@ def call_locus(
 
 
 def locus_worker(
-        read_files: tuple[str, ...],
-        reference_file: str,
-        min_reads: int,
-        min_allele_reads: int,
-        min_avg_phred: int,
-        num_bootstrap: int,
-        flank_size: int,
-        sex_chroms: Optional[str],
-        realign: bool,
-        targeted: bool,
-        fractional: bool,
-        respect_ref: bool,
-        count_kmers: str,
-        locus_queue: mp.Queue) -> list[dict]:
+    read_files: tuple[str, ...],
+    reference_file: str,
+    min_reads: int,
+    min_allele_reads: int,
+    min_avg_phred: int,
+    num_bootstrap: int,
+    flank_size: int,
+    sex_chroms: Optional[str],
+    realign: bool,
+    targeted: bool,
+    fractional: bool,
+    respect_ref: bool,
+    count_kmers: str,
+    log_level: int,
+    locus_queue: mp.Queue,
+) -> list[dict]:
 
     import pysam as p
 
@@ -838,6 +858,7 @@ def locus_worker(
             fractional=fractional,
             respect_ref=respect_ref,
             count_kmers=count_kmers,
+            log_level=log_level,
             read_file_has_chr=read_file_has_chr,
             ref_file_has_chr=ref_file_has_chr,
         )
@@ -873,6 +894,7 @@ def call_sample(
     fractional: bool = False,
     respect_ref: bool = False,
     count_kmers: str = "none",  # "none" | "peak" | "read"
+    log_level: int = logging.WARNING,
     json_path: Optional[str] = None,
     output_tsv: bool = True,
     processes: int = 1,
@@ -902,6 +924,7 @@ def call_sample(
         "fractional": fractional,
         "respect_ref": respect_ref,
         "count_kmers": count_kmers,
+        "log_level": log_level,
     }
 
     job_args = (*job_params.values(), locus_queue)

@@ -381,6 +381,7 @@ def _exec_call(p_args) -> None:
         fractional=p_args.fractional,
         respect_ref=p_args.respect_ref,
         count_kmers=p_args.count_kmers,
+        log_level=log_levels[p_args.log_level],
         json_path=p_args.json,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,
