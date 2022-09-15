@@ -42,6 +42,11 @@ def add_call_parser_args(call_parser):
              "of the loci.")
 
     call_parser.add_argument(
+        "--sample-id", "-s",
+        type=str,
+        help="Set a sample ID, or override the alignment file sample ID.")
+
+    call_parser.add_argument(
         "--realign", "-a",
         action="store_true",
         help="Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners may "
@@ -370,6 +375,7 @@ def _exec_call(p_args) -> None:
         tuple(p_args.read_files),
         p_args.ref,
         p_args.loci,
+        sample_id=p_args.sample_id,
         min_reads=p_args.min_reads,
         min_allele_reads=p_args.min_allele_reads,
         min_avg_phred=p_args.min_avg_phred,

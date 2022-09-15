@@ -3,6 +3,8 @@
 
 ## All optional flags
 
+* `--sample-id example_sample`: Set a sample ID, or override the alignment file sample ID. This will be included in JSON 
+  output, but not TSV output.
 * `--min-reads ##`: Minimum number of supporting reads needed to make a call. **Default:** 4
 * `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
   **Default:** 2

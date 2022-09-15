@@ -883,6 +883,7 @@ def call_sample(
     read_files: tuple[str, ...],
     reference_file: str,
     loci_file: str,
+    sample_id: Optional[str],
     min_reads: int = 4,
     min_allele_reads: int = 2,
     min_avg_phred: int = 13,
@@ -902,6 +903,27 @@ def call_sample(
 ) -> None:
     # Start the call timer
     start_time = datetime.now()
+
+    # Get sample ID from read file(s)
+
+    bfs = tuple(AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
+
+    # noinspection PyTypeChecker
+    bfhs = [dict(bf.header) for bf in bfs]
+
+    sns: set[str] = {e.get("SM") for bfh in bfhs for e in bfh.get("RG", ()) if e.get("SM")}
+    bam_sample_id: Optional[str] = None
+
+    if len(sns) > 1:
+        # Error or warning or what?
+        sns_str = "', '".join(sns)
+        logger.warning(f"Found more than one sample ID in BAM file(s): '{sns_str}'")
+    elif not sns:
+        logger.warning("Could not find sample ID in BAM file(s)")
+    else:
+        bam_sample_id = sns.pop()
+
+    sample_id: Optional[str] = sample_id or bam_sample_id
 
     # Seed the random number generator if a seed is provided, for replicability
     rng = np.random.default_rng(seed=seed)
@@ -982,6 +1004,7 @@ def call_sample(
 
     if json_path:
         json_report = {
+            "sample_id": sample_id,
             "caller": {
                 "name": "strkit",
                 "version": __version__,
