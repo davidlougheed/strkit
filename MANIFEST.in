@@ -1,2 +1,3 @@
 include strkit/VERSION
+include strkit/viz/static/logo.png
 include strkit/viz/templates/*.html
