@@ -11,7 +11,10 @@
 <!--    <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>-->
 
     <script>
-        let params = {};
+        let params = {
+            cmd: {},
+            report: {},
+        };
 
         // --------------------------------------------------------------------
         // Adapted from https://observablehq.com/@d3/histogram until the next set of '----'
@@ -195,6 +198,7 @@
 
         let regionDisplay = null;
         let motifDisplay = null;
+        let refGenome = null;
         let refCopies = null;
         let callDisplay = null;
         let call95Display = null;
@@ -307,6 +311,7 @@
 
             regionDisplay.innerText = region;
             motifDisplay.innerText = callData.motif;
+            refGenome.innerText = params.cmd.ref.split("/").at(-1);
             refCopies.innerText = callData.ref_cn.toFixed(params.report.fractional ? 1 : 0);
             callDisplay.innerText = callData.call.map(c => c.toFixed(params.report.fractional ? 1 : 0)).join(" | ");
             call95Display.innerText = callData.call_95_cis
@@ -441,6 +446,7 @@
 
             regionDisplay = document.getElementById("region");
             motifDisplay = document.getElementById("motif");
+            refGenome = document.getElementById("ref-genome");
             refCopies = document.getElementById("ref-copies");
             callDisplay = document.getElementById("call");
             call95Display = document.getElementById("call-95");
@@ -770,9 +776,9 @@
         </div>
     </header>
     <div id="locus-meta">
+        <label for="ref-genome">Ref. Genome:</label><span id="ref-genome"></span>
         <label for="ref-copies">Ref. # Copies:</label><span id="ref-copies"></span>
         <label for="call">Final Call:</label><span id="call"></span>
-        <label aria-hidden="true"></label><span aria-hidden="true"></span>
         <label for="call-95">Call 95%CI:</label><span id="call-95"></span>
     </div>
     <ul class="tab-links">
