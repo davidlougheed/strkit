@@ -4,6 +4,7 @@
     <title>STRkit Browser</title>
     <script src="https://cdn.jsdelivr.net/npm/igv@2.13.3/dist/igv.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
 
 <!--    <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>-->
 <!--    <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>-->
@@ -163,12 +164,32 @@
 
         // --------------------------------------------------------------------
 
+        const kmerDistribution = (data, {width, height}) => {
+            return Plot.plot({
+                width, height,
+                y: {
+                    domain: d3.sort(data, d => -d.count).map(d => d.kmer).slice(0, 15),
+                },
+                x: {
+                    grid: true,
+                },
+                marks: [
+                    Plot.barX(data, {y: "kmer", x: "count"}),
+                    // Plot.ruleY([0]),
+                ],
+            });
+        };
+
+        // --------------------------------------------------------------------
+
         const regionPadding = 20;
 
         let locusSearchBox = null;
         let searchResponseList = null;
 
         let histogramContainer = null;
+        let kmerColumn = null;
+        let kmerContainer = null;
         let scalesContainer = null;
         let igvContainer = null;
 
@@ -234,6 +255,7 @@
          *     },
          *     read_peaks_called: boolean,
          *     peaks: {
+         *         kmers: Array.<Object<string, number>>,
          *         means: number[],
          *         weights: number[],
          *         stdevs: number,
@@ -248,6 +270,8 @@
             const cns = Object.values(callData.reads).map(read => read.cn);
             const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
 
+            // Add histogram
+
             histogramContainer.innerHTML = "";
             histogramContainer.appendChild(Histogram(cns, {
                 peaks: callData.peaks,
@@ -256,9 +280,26 @@
                 label: "Copy number →",
                 yLabel: "↑ Read count",
                 width: 800,
-                height: 400,
+                height: 500,
                 color: "#AAA",
             }));
+
+            // Add k-mer plots, if available
+
+            if (callData.peaks.kmers) {
+                kmerColumn.classList.remove("hidden");
+                kmerContainer.innerHTML = "";
+
+                callData.peaks.kmers.forEach(k => {
+                    const data = Object.entries(k).map(([kmer, count]) => ({kmer, count}));
+                    kmerContainer.appendChild(kmerDistribution(data, {width: 300, height: 500}));
+                });
+
+            } else {
+                kmerColumn.classList.add("hidden");
+            }
+
+            // -----
 
             const region = `${callData.contig}:${callData.start+1-regionPadding}-${callData.end+regionPadding}`;
 
@@ -393,6 +434,8 @@
             searchResponseList = document.getElementById("search-responses");
 
             histogramContainer = document.getElementById("histogram");
+            kmerColumn = document.getElementById("col-k-mer-dist");
+            kmerContainer = document.getElementById("k-mer-plot");
             scalesContainer = document.getElementById("scales");
             igvContainer = document.getElementById("igv-browser");
 
@@ -450,12 +493,27 @@
         * { font-family: sans-serif; }
 
         body {
+            height: 100vh;
             padding: 0; margin: 0;
-            background-color: #FEFEFE;
+
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            background-position: bottom right;
+            background-size: 300px auto;
+        }
+
+        .help-text {
+            color: #666;
+            font-style: italic;
+            margin: 0;
         }
 
         #strkit {
+            height: 100vh;
+            overflow-y: auto;
             padding: 24px 36px;
+            background-color: rgba(254, 254, 254, 0.7);
+            box-sizing: border-box;
         }
 
         header {
@@ -498,7 +556,7 @@
         }
         #locus-search-box-dec {
             position: absolute;
-            right: 8px;
+            left: 340px;
             top: 5px;
             color: #999;
             pointer-events: none;
@@ -574,14 +632,43 @@
             border: 1px solid #E3E3E3;
             border-radius: 3px;
             background-color: white;
-            padding: 12px;
+            padding: 20px;
             width: 100%;
             box-sizing: border-box;
             display: none;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            overflow-y: auto;
         }
         .tab-content.active {
             display: block;
+        }
+
+        #tab-overview {
+            flex-direction: row;
+            gap: 12px;
+        }
+        #tab-overview.active {
+            display: flex;
+        }
+        #tab-overview h2 {
+            margin: 0 0 12px 0;
+            font-size: 20px;
+        }
+        #tab-overview header {
+
+        }
+        #tab-overview > div {
+            flex: 1;
+        }
+
+        #col-k-mer-dist.hidden {
+            display: none;
+        }
+
+        #k-mer-plot {
+            display: flex;
+            gap: 12px;
+            flex-direction: row;
         }
 
         #scales {
@@ -650,6 +737,23 @@
         }
         .igv-ui-1_3_0-popover > div:last-child > div.alignment-data > label { font-weight: bold; text-align: right; }
         .igv-ui-1_3_0-popover > div:last-child > div.alignment-data > span { font-weight: normal; white-space: normal; }
+
+
+        @media screen and (max-width: 1100px) {
+            h1 {
+                font-size: 20px;
+            }
+
+            #tab-overview {
+                flex-direction: column;
+            }
+        }
+
+        @media screen and (max-width: 880px) {
+            header {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
@@ -672,11 +776,21 @@
         <label for="call-95">Call 95%CI:</label><span id="call-95"></span>
     </div>
     <ul class="tab-links">
-       <li class="active"><a class="tab-link" data-for="tab-histogram">Histogram</a></li>
+       <li class="active"><a class="tab-link" data-for="tab-overview">Overview</a></li>
        <li><a class="tab-link" data-for="tab-browser">Browser</a></li>
     </ul>
-    <div class="tab-content active" id="tab-histogram">
-        <div id="histogram"></div>
+    <div class="tab-content active" id="tab-overview">
+        <div id="col-rc-hist">
+            <h2>Read count histogram</h2>
+            <div id="histogram"></div>
+        </div>
+        <div id="col-k-mer-dist" class="hidden"> <!-- TODO: Only if k-mer content exists -->
+            <div class="col-header">
+                <h2>K-mer distribution</h2>
+                <p class="help-text">Plots may be truncated after top 15 k-mers.</p>
+            </div>
+            <div id="k-mer-plot"></div>
+        </div>
     </div>
     <div class="tab-content" id="tab-browser">
         <div id="scales"></div>
