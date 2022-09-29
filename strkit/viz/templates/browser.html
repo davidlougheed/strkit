@@ -15,6 +15,7 @@
             cmd: {},
             report: {},
         };
+        let reportMetadata = {};
 
         // --------------------------------------------------------------------
         // Adapted from https://observablehq.com/@d3/histogram until the next set of '----'
@@ -195,6 +196,7 @@
         let kmerContainer = null;
         let scalesContainer = null;
         let igvContainer = null;
+        let reportMetadataTable = null;
 
         let regionDisplay = null;
         let motifDisplay = null;
@@ -204,6 +206,7 @@
         let call95Display = null;
 
         let browser = null;
+
 
         let searchResponses = [];
 
@@ -428,6 +431,12 @@
                 .then(ps => {params = ps;})
                 .catch(console.error);
 
+        const fetchReportMetadata = () =>
+            fetch("/report-metadata")
+                .then(r => r.json())
+                .then(rm => {reportMetadata = rm;})
+                .catch(console.error);
+
         const handleSearchResultClick = i => {
             fetchCallData(i);
         };
@@ -443,6 +452,7 @@
             kmerContainer = document.getElementById("k-mer-plot");
             scalesContainer = document.getElementById("scales");
             igvContainer = document.getElementById("igv-browser");
+            reportMetadataTable = document.getElementById("report-metadata");
 
             regionDisplay = document.getElementById("region");
             motifDisplay = document.getElementById("motif");
@@ -491,6 +501,41 @@
                 performSearch();
                 fetchCallData({{ initial_i }});
             });
+
+            fetchReportMetadata().then(() => {
+                const other = {};
+
+                const renderObj = (k, v) => {
+                    const header = document.createElement("tr");
+                    const th = document.createElement("th");
+                    th.setAttribute("colspan", "2");
+                    th.innerText = k;
+                    header.appendChild(th);
+                    reportMetadataTable.appendChild(header);
+
+                    Object.entries(v).forEach(([vk, vv]) => {
+                        const tr = document.createElement("tr");
+                        const th = document.createElement("th");
+                        th.style.textAlign = "left";
+                        th.innerText = vk;
+                        tr.append(th);
+                        const td = document.createElement("td");
+                        td.innerText = JSON.stringify(vv);
+                        tr.append(td);
+                        reportMetadataTable.append(tr);
+                    });
+                }
+
+                Object.entries(reportMetadata).forEach(([k, v]) => {
+                    if (v instanceof Object) {
+                        renderObj(k, v);
+                    } else {
+                        other[k] = v;
+                    }
+                });
+
+                renderObj("other", other);
+            });
         });
     </script>
 
@@ -502,6 +547,8 @@
             height: 100vh;
             padding: 0; margin: 0;
 
+            /*noinspection CssUnknownTarget*/
+            background-image: url("{{ url_for('static', filename='logo.png') }}");
             background-attachment: fixed;
             background-repeat: no-repeat;
             background-position: bottom right;
@@ -745,6 +792,20 @@
         .igv-ui-1_3_0-popover > div:last-child > div.alignment-data > span { font-weight: normal; white-space: normal; }
 
 
+        #report-metadata {
+            border-collapse: collapse;
+            color: #333;
+        }
+        #report-metadata th, td {
+            border: 1px solid #E0E0E0;
+            padding: 4px 8px;
+            font-family: monospace;
+        }
+        #report-metadata th[colspan] {
+            background-color: #EFEFEF;
+        }
+
+
         @media screen and (max-width: 1100px) {
             h1 {
                 font-size: 20px;
@@ -784,6 +845,7 @@
     <ul class="tab-links">
        <li class="active"><a class="tab-link" data-for="tab-overview">Overview</a></li>
        <li><a class="tab-link" data-for="tab-browser">Browser</a></li>
+       <li><a class="tab-link" data-for="tab-report">Report</a></li>
     </ul>
     <div class="tab-content active" id="tab-overview">
         <div id="col-rc-hist">
@@ -801,6 +863,9 @@
     <div class="tab-content" id="tab-browser">
         <div id="scales"></div>
         <div id="igv-browser"></div>
+    </div>
+    <div class="tab-content" id="tab-report">
+        <table id="report-metadata"></table>
     </div>
 </div>
 </body>

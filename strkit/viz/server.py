@@ -15,6 +15,11 @@ def browser():
         **app.config["PARAMS"])
 
 
+@app.route("/report-metadata")
+def get_report_metadata():
+    return {k: v for k, v in app.config["CALL_REPORT"].items() if k != "results"}
+
+
 @app.route("/params")
 def get_params():
     return {
