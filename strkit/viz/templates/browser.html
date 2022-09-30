@@ -344,7 +344,7 @@
                 bounds.forEach((b, i) => makeScale(i, b));
 
                 return Object.fromEntries(Object.entries(callData.reads).map(
-                    ([r, rd]) => [r, palettes[rd["peak"]](getScalePosition(bounds[rd["peak"]], rd["cn"]))]));
+                    ([r, rd]) => [r, palettes[rd["p"]](getScalePosition(bounds[rd["p"]], rd["cn"]))]));
             })();
 
             // Remove existing browser instance if present
@@ -686,17 +686,17 @@
             border-radius: 3px;
             background-color: rgba(255, 255, 255, 0.8);
             padding: 20px;
-            width: 100%;
             box-sizing: border-box;
             display: none;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             overflow-y: auto;
         }
         .tab-content.active {
-            display: block;
+            display: inline-block;
         }
 
         #tab-overview {
+            width: 100%;
             flex-direction: row;
             gap: 12px;
         }
@@ -712,6 +712,10 @@
         }
         #tab-overview > div {
             flex: 1;
+        }
+
+        #tab-browser {
+            width: 100%;
         }
 
         #col-k-mer-dist.hidden {
