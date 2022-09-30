@@ -11,5 +11,7 @@ __pycache__
 *.fa.gz.fai
 *.fa.gz.gzi
 *.bed
+/*.json
+/*.tsv
 
 *.token
