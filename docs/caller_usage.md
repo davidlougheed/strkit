@@ -35,6 +35,8 @@
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
 * `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 
   output. **Default:** *none*
+* `--indent-json` or `-i`: If passed alongside `--json [x]`, the JSON output will be indented to be more human-readable
+  but less compact. **Default:** off
 * `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json`, no output will be generated, which isn't very 
   helpful. **Default:** TSV output on
 * `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 

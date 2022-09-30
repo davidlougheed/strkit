@@ -80,7 +80,8 @@ split by chromosome.
 
 If you want to output a full call report, you can use the `--json output-file.json` argument to
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
-labels, and some other information that isn't included in the normal TSV file.
+labels, and some other information that isn't included in the normal TSV file. If you want this
+file to be indented and human-readable, use the `--indent-json` flag in addition to `--json ...`.
 
 See the '[Caller catalog format & choosing a catalog](./docs/caller_catalog.md)' page for more on
 how to format a locus catalog or choose from existing available catalogs.

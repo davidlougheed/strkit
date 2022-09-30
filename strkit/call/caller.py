@@ -25,7 +25,7 @@ from typing import Iterable, Generator, Optional, Union
 from strkit import __version__
 
 from strkit.call.allele import get_n_alleles, call_alleles
-from strkit.json import dumps_indented
+from strkit.json import dumps_indented, json
 from strkit.logger import logger
 from strkit.utils import apply_or_none, sign
 
@@ -898,6 +898,7 @@ def call_sample(
     count_kmers: str = "none",  # "none" | "peak" | "read"
     log_level: int = logging.WARNING,
     json_path: Optional[str] = None,
+    indent_json: bool = False,
     output_tsv: bool = True,
     processes: int = 1,
     seed: Optional[int] = None,
@@ -1018,10 +1019,12 @@ def call_sample(
             "results": results,
         }
 
+        dfn = dumps_indented if indent_json else json.dumps
         if json_path == "stdout":
-            sys.stdout.buffer.write(dumps_indented(json_report))
+            sys.stdout.buffer.write(dfn(json_report))
             sys.stdout.write("\n")
             sys.stdout.flush()
         else:
             with open(json_path, "wb") as jf:
-                jf.write(dumps_indented(json_report))
+                jf.write(dfn(json_report))
+                jf.write(b"\n")

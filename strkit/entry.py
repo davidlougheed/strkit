@@ -131,6 +131,12 @@ def add_call_parser_args(call_parser):
              "to 'stdout', JSON will be written to stdout, after the TSV unless TSV output is disabled.")
 
     call_parser.add_argument(
+        "--indent-json", "-i",
+        action="store_true",
+        help="If passed alongside --json [x], the JSON output will be indented to be more human readable but "
+             "less compact.")
+
+    call_parser.add_argument(
         "--no-tsv",
         action="store_true",
         help="If passed, no TSV call output will be written to stdout.")
@@ -389,6 +395,7 @@ def _exec_call(p_args) -> None:
         count_kmers=p_args.count_kmers,
         log_level=log_levels[p_args.log_level],
         json_path=p_args.json,
+        indent_json=p_args.indent_json,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,
         seed=p_args.seed,
