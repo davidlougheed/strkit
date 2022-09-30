@@ -129,7 +129,7 @@ class StrKitJSONCalculator(BaseCalculator):
         # TODO: This only works with diploids...
 
         read_cns = [r["cn"] for r in res["reads"].values()]
-        read_peaks = [r["peak"] for r in res["reads"].values()]
+        read_peaks = [r["p"] for r in res["reads"].values()]
 
         n = res["peaks"]["modal_n"]
 

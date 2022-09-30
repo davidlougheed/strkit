@@ -321,7 +321,7 @@
                 .map(ci => "(" + ci.map(c => c.toFixed(params.report.fractional ? 1 : 0)).join("-") + ")").join(" | ");
 
             const getReadsForPeak = q => Object.entries(callData.reads)
-                .filter(e => e[1]["peak"] === q)
+                .filter(e => e[1]["p"] === q)
                 .map(e => e[1]["cn"]);
 
             scalesContainer.innerHTML = "";

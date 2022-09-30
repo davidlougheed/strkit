@@ -704,9 +704,10 @@ def call_locus(
 
         crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
         read_dict[rn] = {
+            "s": "+" if segment.is_forward else "-",
             "cn": read_cn,
-            "weight": read_weight.item(),
-            **({"realigned": realigned} if realign and realigned else {}),
+            "w": read_weight.item(),
+            **({"realn": realigned} if realign and realigned else {}),
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
         }
 
@@ -717,7 +718,7 @@ def call_locus(
     # Dicts are ordered in Python; very nice :)
     rdvs = tuple(read_dict.values())
     read_cns = np.fromiter((r["cn"] for r in rdvs), dtype=np.float if fractional else np.int)
-    read_weights = np.fromiter((r["weight"] for r in rdvs), dtype=np.float)
+    read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
     call = call_alleles(
@@ -767,7 +768,7 @@ def call_locus(
             )
 
             allele_reads[peak].append(r)
-            rd["peak"] = peak
+            rd["p"] = peak
 
             if count_kmers in ("peak", "both"):
                 peak_kmers[peak] += kmers_by_read[r]
