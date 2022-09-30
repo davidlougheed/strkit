@@ -827,6 +827,7 @@ def locus_worker(
     count_kmers: str,
     log_level: int,
     locus_queue: mp.Queue,
+    is_single_processed: bool,
 ) -> list[dict]:
 
     import pysam as p
@@ -868,7 +869,7 @@ def locus_worker(
             results.append(res)
 
     # Sort worker results; we will merge them after
-    return sorted(results, key=lambda x: x["locus_index"])
+    return results if is_single_processed else sorted(results, key=lambda x: x["locus_index"])
 
 
 def parse_loci_bed(loci_file: str):
@@ -951,10 +952,11 @@ def call_sample(
         "log_level": log_level,
     }
 
-    job_args = (*job_params.values(), locus_queue)
+    is_single_processed = processes == 1
+    job_args = (*job_params.values(), locus_queue, is_single_processed)
     result_lists = []
 
-    pool_class = mp.Pool if processes > 1 else mpd.Pool
+    pool_class = mpd.Pool if is_single_processed else mp.Pool
     with pool_class(processes) as p:
         # Spin up the jobs
         jobs = [p.apply_async(locus_worker, job_args) for _ in range(processes)]
