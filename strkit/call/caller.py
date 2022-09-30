@@ -693,7 +693,7 @@ def call_locus(
         if partition_idx == sorted_read_lengths.shape[0]:  # tr_len_w_flank is longer than the longest read... :(
             # Fatal
             # TODO: Just skip this locus
-            logger.debug(
+            logger.error(
                 f"Something strange happened; could not find an encompassing read where one should be guaranteed. "
                 f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)
