@@ -453,6 +453,10 @@ def realign_read(
     return res
 
 
+def calculate_seq_with_wildcards(qs: str, quals: list[int]):
+    return "".join(qs[i] if quals[i] > base_wildcard_threshold else "X" for i in np.arange(len(qs)))
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -577,10 +581,10 @@ def call_locus(
         c1: tuple[int, int] = segment.cigar[0]
         c2: tuple[int, int] = segment.cigar[-1]
 
-        pairs = segment.get_aligned_pairs(matches_only=True)
-
         fqqs = segment.query_qualities
-        qs_wc = "".join(qs[i] if fqqs[i] > base_wildcard_threshold else "X" for i in np.arange(len(qs)))
+
+        realigned = False
+        pairs = None
 
         # Soft-clipping in large insertions can result from mapping difficulties.
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
@@ -588,7 +592,6 @@ def call_locus(
         # 4: BAM code for soft clip
         # TODO: if some of the BAM alignment is present, use it to reduce realignment overhead?
         #  - use start point + flank*3 or end point - flank*3 or something like that
-        realigned = False
         if realign and (force_realign or (
             (c1[0] == 4 and segment.reference_start > left_flank_coord >= segment.reference_start - c1[1]) or
             (c2[0] == 4 and segment.reference_end < right_flank_coord <= segment.reference_end + c2[1])
@@ -600,7 +603,7 @@ def call_locus(
             proc = mp.Process(target=realign_read, kwargs=dict(
                 # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
                 ref_seq=ref_left_flank_seq + ref_seq + ref.fetch(ref_contig, right_coord, right_flank_coord + 1),
-                query_seq=qs_wc,
+                query_seq=calculate_seq_with_wildcards(qs, fqqs),
                 left_flank_coord=left_flank_coord,
                 flank_size=flank_size,
                 rn=rn,
@@ -623,6 +626,9 @@ def call_locus(
             if pairs_new is not None:
                 pairs = pairs_new
                 realigned = True
+
+        if pairs is None:
+            pairs = segment.get_aligned_pairs(matches_only=True)
 
         left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
             left_flank_coord,
@@ -664,7 +670,7 @@ def call_locus(
         flank_len = len(flank_left_seq) + len(flank_right_seq)
         tr_len_w_flank = tr_len + flank_len
 
-        tr_read_seq_wc = qs_wc[left_flank_end:right_flank_start]
+        tr_read_seq_wc = calculate_seq_with_wildcards(qs[left_flank_end:right_flank_start], qqs)
 
         read_kmers = Counter()
         if count_kmers != "none":
