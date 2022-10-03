@@ -11,6 +11,8 @@
 <!--    <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>-->
 
     <script>
+        const palettes = [d3.interpolateBlues, d3.interpolateReds];
+
         let params = {
             cmd: {},
             report: {},
@@ -146,8 +148,8 @@
               svg.append("path")
                 .datum(xs.map(xx => [xx, pdf(xx) * (max / maxPdfMax)])) // peaks.weights[i]
                 .attr("fill", "none")
-                .attr("stroke", i === 0 ? "#33F" : "#F33")
-                .attr("stroke-width", 1.5)
+                .attr("stroke", palettes[i](0.7))
+                .attr("stroke-width", 2.5)
                 .attr("stroke-linejoin", "round")
                 .attr("d", line);
             }
@@ -225,8 +227,6 @@
                 .then(updateSearchResponses)
                 .catch(console.error);
 
-        const palettes = [d3.interpolateBlues, d3.interpolateReds];
-
         const makeScale = (j, b) => {
             const scale = document.createElement("div");
             scale.setAttribute("data-label", `Allele ${j+1}`);
@@ -234,8 +234,8 @@
             scaleGradient.setAttribute("data-lower", b.min.toFixed(params.report.fractional ? 1 : 0));
             scaleGradient.setAttribute(
                 "style",
-                `--scale-lower: ${palettes[j](b.span === 0 ? 0.5 : 0.2)};
-                 --scale-upper: ${palettes[j](b.span === 0 ? 0.5 : 0.8)}`);
+                `--scale-lower: ${palettes[j](b.span === 0 ? 0.6 : 0.3)};
+                 --scale-upper: ${palettes[j](b.span === 0 ? 0.6 : 0.9)}`);
             scaleGradient.setAttribute("data-upper", b.max.toFixed(params.report.fractional ? 1 : 0));
             scale.appendChild(scaleGradient);
             scalesContainer.appendChild(scale);
@@ -288,7 +288,7 @@
                 yLabel: "↑ Read count",
                 width: 800,
                 height: 500,
-                color: "#AAA",
+                color: "#9FA199",
             }));
 
             // Add k-mer plots, if available
