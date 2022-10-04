@@ -6,5 +6,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="d3.v7" level="application" />
     <orderEntry type="library" name="igv" level="application" />
+    <orderEntry type="library" name="@observablehq" level="application" />
   </component>
 </module>
