@@ -343,11 +343,6 @@ def add_cc_parser_args(cc_parser):
     cc_parser.add_argument("paths", type=str, nargs="+", help="Paths to the BED catalogs to combine.")
 
 
-def add_al_parser_args(al_parser):
-    al_parser.add_argument("file", type=str, help="Alignment file to query.")
-    al_parser.add_argument("region", type=str, help="Region to query aligned lengths for.")
-
-
 def add_cv_parser_args(al_parser):
     al_parser.add_argument("trf-bed", type=str, help="TRF BED file to convert from.")
     al_parser.add_argument("--caller", type=str, choices=(
@@ -522,11 +517,6 @@ def _exec_combine_catalogs(p_args):
     return combine_catalogs(p_args.caller, p_args.paths)
 
 
-def _exec_aligned_lengths(p_args):
-    from strkit.aligned.lengths import aligned_lengths_cmd
-    return aligned_lengths_cmd(p_args.file, p_args.region)
-
-
 def _exec_convert(p_args):
     from strkit.convert.converter import convert
     return convert(getattr(p_args, "trf-file"), p_args.caller)
@@ -635,12 +625,6 @@ def main(args: Optional[list[str]] = None) -> int:
         arg_func=add_cc_parser_args)
 
     _make_subparser(
-        "aligned-lengths",
-        help_text="See aligned lengths of (repeat) regions in a file to validate calls.",
-        exec_func=_exec_aligned_lengths,
-        arg_func=add_al_parser_args)
-
-    _make_subparser(
         "convert",
         help_text="Convert TRF BED file to other caller formats.",
         exec_func=_exec_convert,
@@ -648,7 +632,7 @@ def main(args: Optional[list[str]] = None) -> int:
 
     _make_subparser(
         "visualize",
-        help_text="Start a web server to visualize aligned lengths of (repeat) a repeat region.",
+        help_text="Start a web server to visualize results from an STR genotyping report.",
         exec_func=_exec_viz_server,
         arg_func=add_vs_parser_args)
 
