@@ -2,7 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/strkit.svg)](https://badge.fury.io/py/strkit)
 
-A toolkit for analyzing variation in short(ish) tandem repeats.
+A genotyping and analysis toolkit for short(ish) tandem repeats.
 
 > **Warning**
 > 
@@ -41,6 +41,8 @@ python -m pip install strkit[rustdeps]
 A Gaussian mixture model tandem repeat genotype caller for long read data.
 STRkit is tuned specifically for high-fidelity long reads, although other 
 long read data should still work.
+
+![Calling approach flow chart](./docs/images/call_method_flow.png)
 
 #### Features:
 
