@@ -208,7 +208,7 @@ class BaseCalculator(ABC):
             self.sig_level,
             self.mt_corr)
 
-        if self.test_to_perform:
+        if self.test_to_perform != "none":
             res.correct_for_multiple_testing()  # Also calculates new output loci
 
         return res
