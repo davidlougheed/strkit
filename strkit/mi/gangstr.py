@@ -34,7 +34,9 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
             # TODO: Handle sex chromosomes
 
             # Check to make sure call is present in TRF BED file, if it is specified
-            if self._loci_file and self._loci_dict and (contig, str(cv.pos), str(cv.stop)) not in self._loci_dict:
+            k1 = (contig, str(cv.pos), str(cv.stop))
+            k2 = (contig, str(cv.pos - 1), str(cv.stop))
+            if self._loci_file and self._loci_dict and k1 not in self._loci_dict and k2 not in self._loci_dict:
                 continue
 
             if mv is None or fv is None:
