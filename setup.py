@@ -43,7 +43,7 @@ setup(
     author="David Lougheed",
     author_email="david.lougheed@gmail.com",
 
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_namespace_packages(),
     include_package_data=True,
 
     entry_points={
