@@ -348,28 +348,27 @@ def get_read_coords_from_matched_pairs(
 
     last_idx = -1
 
-    for pair in matched_pairs:
+    for query_coord, ref_coord in matched_pairs:
         # Skip gaps on either side to find mapped flank indices
-
-        if pair[1] <= left_flank_coord:
-            left_flank_start = pair[0]
-        elif pair[1] < left_coord:
+        if ref_coord <= left_flank_coord:
+            left_flank_start = query_coord
+        elif ref_coord < left_coord:
             # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
             # the STR; if we include the left-most base of the STR, we will have a giant flanking region which
             # will include part of the tandem repeat itself.
-            left_flank_end = pair[0] + 1  # Add 1 to make it exclusive
-        elif pair[1] >= right_coord and (
+            left_flank_end = query_coord + 1  # Add 1 to make it exclusive
+        elif ref_coord >= right_coord and (
                 # Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
                 # in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
                 # in bc1018, which were used as test data and thus will not be included in the paper...
                 # TODO: do the same thing for the left side
                 right_flank_start == -1 or
-                (pair[0] - last_idx >= motif_size and (pair[1] - right_coord <= motif_size * 2) and
-                 query_seq[last_idx:pair[0]].count(motif) / ((pair[0] - last_idx) / motif_size) >= 0.5)
+                (query_coord - last_idx >= motif_size and (ref_coord - right_coord <= motif_size * 2) and
+                 query_seq[last_idx:query_coord].count(motif) / ((query_coord - last_idx) / motif_size) >= 0.5)
         ):
-            right_flank_start = pair[0]
-        elif pair[1] >= right_flank_coord:
-            right_flank_end = pair[0]
+            right_flank_start = query_coord
+        elif ref_coord >= right_flank_coord:
+            right_flank_end = query_coord
             break
 
     return left_flank_start, left_flank_end, right_flank_start, right_flank_end
@@ -535,10 +534,8 @@ def call_locus(
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
     # more spaces in which an indel could end up), adjust our coordinates to match.
     # Currently, contractions of the TR region are ignored.
-    if l_offset > 0:
-        left_coord -= max(0, l_offset)
-    if r_offset > 0:
-        right_coord += max(0, r_offset)
+    left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
+    right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
 
     read_dict: dict[str, dict] = {}
 
@@ -632,8 +629,8 @@ def call_locus(
 
         left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
             left_flank_coord,
-            left_coord,
-            right_coord,
+            left_coord_adj,
+            right_coord_adj,
             right_flank_coord,
             motif,
             query_seq=qs,
@@ -799,6 +796,10 @@ def call_locus(
         "contig": contig,
         "start": left_coord,
         "end": right_coord,
+        **({} if respect_ref else {
+            "start_adj": left_coord_adj,
+            "end_adj": right_coord_adj,
+        }),
         "motif": motif,
         "ref_cn": ref_cn,
         "call": apply_or_none(_ndarray_serialize, call.get("call")),
