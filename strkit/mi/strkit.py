@@ -190,7 +190,6 @@ class StrKitJSONCalculator(BaseCalculator):
 
             # Check to make sure call is present in TRF BED file, if it is specified
             if self._loci_file and self._loci_dict and loci_lookup not in self._loci_dict:
-                print(f"not in lookup: {lookup}")
                 continue
 
             if self.should_exclude_locus(loci_lookup):
