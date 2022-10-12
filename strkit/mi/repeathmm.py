@@ -50,8 +50,13 @@ class RepeatHMMCalculator(BaseCalculator):
                 if lookup[0] != contig:
                     continue
 
+                bed_k = lookup[:3]
+
                 # Check to make sure call is present in TRF BED file, if it is specified
-                if self._loci_file and self._loci_dict and lookup[:3] not in self._loci_dict:
+                if self._loci_file and self._loci_dict and bed_k not in self._loci_dict:
+                    continue
+
+                if self.should_exclude_locus(bed_k):
                     continue
 
                 # Check to make sure call is present in all trio individuals

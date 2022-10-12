@@ -26,6 +26,7 @@ class BaseCalculator(ABC):
             father_id: Optional[str] = None,
 
             loci_file: Optional[str] = None,
+            exclude_file: Optional[str] = None,
 
             widen: float = 0,
 
@@ -45,6 +46,9 @@ class BaseCalculator(ABC):
 
         self._loci_file: Optional[str] = loci_file
         self._loci_dict = self._make_loci_dict()
+
+        self._exclude_file: Optional[str] = exclude_file
+        self._exclude_set = self._make_exclude_set()
 
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
@@ -80,6 +84,23 @@ class BaseCalculator(ABC):
                     if line and not line.startswith("#")
                 )
             }
+
+    def _make_exclude_set(self) -> set:
+        if not self._exclude_file:
+            return set()
+
+        with open(self._exclude_file, "r") as lf:
+            return {
+                tuple(d[:3])
+                for d in (
+                    line.split("\t")
+                    for line in map(lambda x: x.strip(), lf)
+                    if line and not line.startswith("#")
+                )
+            }
+
+    def should_exclude_locus(self, locus: tuple[str, str, str]) -> bool:
+        return locus in self._exclude_set
 
     @abstractmethod
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:

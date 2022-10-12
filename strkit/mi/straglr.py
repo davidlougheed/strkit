@@ -122,6 +122,9 @@ class StraglrReCallCalculator(BaseCalculator):
             if not orig_motif:
                 continue
 
+            if self.should_exclude_locus(locus):
+                continue
+
             if "." in line[6:8]:
                 continue
 

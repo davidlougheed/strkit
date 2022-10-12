@@ -43,7 +43,11 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
             # TODO: Handle sex chromosomes
 
             # Check to make sure call is present in TRF BED file, if it is specified
-            if self._loci_file and self._loci_dict and (contig, str(cv.pos), str(cv.stop)) not in self._loci_dict:
+            bed_k = (contig, str(cv.pos), str(cv.stop))
+            if self._loci_file and self._loci_dict and bed_k not in self._loci_dict:
+                continue
+
+            if self.should_exclude_locus(bed_k):
                 continue
 
             if mv is None or fv is None:

@@ -233,7 +233,13 @@ def add_mi_parser_args(mi_parser):
              "respect the original motifs given to it.)")
 
     mi_parser.add_argument(
-        "--json",
+        "--exclude-loci-bed", "-e",
+        type=str,
+        help="Specifies a BED file with a list of loci to exclude calls from. Note that this does not handle regions "
+             "right now (i.e., range calculations), just specific loci coordinates.")
+
+    mi_parser.add_argument(
+        "--json", "-j",
         type=str,
         help="Path to write a JSON-formatted Mendelian inheritance/error report to. If left blank, no JSON file will "
              "be written. If the value is set to 'stdout', JSON will be written to stdout, after the TSV unless TSV "
@@ -443,6 +449,8 @@ def _exec_mi(p_args) -> None:
     if trf_bed_file is None and caller in (c.CALLER_STRAGLR, c.CALLER_STRAGLR_RECALL):
         raise ParamError("Using `strkit mi` with Straglr requires that the --trf-bed flag is used.")
 
+    exclude_bed_file = p_args.exclude_loci_bed or None
+
     calc_class: Optional[Type[BaseCalculator]] = calc_classes.get(caller)
     if not calc_class:
         raise ParamError(f"Unknown or unimplemented caller '{caller}'")
@@ -474,6 +482,7 @@ def _exec_mi(p_args) -> None:
         father_id=father_id,
 
         loci_file=trf_bed_file,
+        exclude_file=exclude_bed_file,
 
         widen=getattr(p_args, "widen", 0) or 0,
 

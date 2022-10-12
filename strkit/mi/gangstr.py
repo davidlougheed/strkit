@@ -39,6 +39,9 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
             if self._loci_file and self._loci_dict and k1 not in self._loci_dict and k2 not in self._loci_dict:
                 continue
 
+            if self.should_exclude_locus(k1) or self.should_exclude_locus(k2):
+                continue
+
             if mv is None or fv is None:
                 # Variant isn't found in at least one of the parents, so we can't do anything with it.
                 # TODO: We need to actually check calls, and check with sample ID, not just assume

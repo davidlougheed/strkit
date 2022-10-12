@@ -185,10 +185,15 @@ class StrKitJSONCalculator(BaseCalculator):
                 continue
 
             lookup = (res["contig"], res["start"], res["end"], res["motif"])
-            loci_lookup = tuple(map(str, lookup[:3]))
+            # noinspection PyTypeChecker
+            loci_lookup: tuple[str, str, str] = tuple(map(str, lookup[:3]))
 
             # Check to make sure call is present in TRF BED file, if it is specified
             if self._loci_file and self._loci_dict and loci_lookup not in self._loci_dict:
+                print(f"not in lookup: {lookup}")
+                continue
+
+            if self.should_exclude_locus(loci_lookup):
                 continue
 
             # Check to make sure call is present in all trio individuals
