@@ -33,6 +33,7 @@ simplefilter("ignore", category=ConvergenceWarning)
 # TODO: parameterize
 small_allele_min = 8
 expansion_ratio = 5
+N_GM_INIT = 3
 
 
 def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> np.array:
@@ -78,10 +79,6 @@ def call_alleles(
     force_int: bool,
     seed: Optional[int],
 ) -> Optional[dict]:
-    rng: np.random.Generator = np.random.default_rng(seed=seed)
-
-    n_gm_init = 3
-
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
 
@@ -110,6 +107,8 @@ def call_alleles(
     allele_weight_samples = np.array(_na_length_list(), dtype=np.float32)
     allele_stdev_samples = np.array(_na_length_list(), dtype=np.float32)
     sample_peaks = np.array([], dtype=np.int32)
+
+    rng: np.random.Generator = np.random.default_rng(seed=seed)
 
     # Perform a number of bootstrap iterations to get a 95% CI and more accurate estimate of repeat counts / differences
 
@@ -169,7 +168,7 @@ def call_alleles(
                     # init_params="kmeans",
                     init_params="k-means++",  # TODO: scikit-learn 1.1.0 when available on CC
                     covariance_type="spherical",
-                    n_init=n_gm_init,
+                    n_init=N_GM_INIT,
                     random_state=rng.integers(0, 4096).item(),
                 ).fit(sample_rs)
 
