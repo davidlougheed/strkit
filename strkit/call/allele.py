@@ -165,8 +165,8 @@ def call_alleles(
             while n_components > 0:
                 g = GaussianMixture(
                     n_components=n_components,
-                    # init_params="kmeans",
-                    init_params="k-means++",  # TODO: scikit-learn 1.1.0 when available on CC
+                    # init_params="kmeans",  TODO: parameterize
+                    init_params="k-means++",
                     covariance_type="spherical",
                     n_init=N_GM_INIT,
                     random_state=rng.integers(0, 4096).item(),
