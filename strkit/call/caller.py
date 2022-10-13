@@ -336,11 +336,10 @@ def get_read_coords_from_matched_pairs(
     right_coord: int,
     right_flank_coord: int,
     motif: str,
+    motif_size: int,
     query_seq: str,
     matched_pairs
 ) -> tuple[int, int, int, int]:
-    motif_size = len(motif)
-
     left_flank_start = -1
     left_flank_end = -1
     right_flank_start = -1
@@ -633,6 +632,7 @@ def call_locus(
             right_coord_adj,
             right_flank_coord,
             motif,
+            motif_size,
             query_seq=qs,
             matched_pairs=pairs
         )
