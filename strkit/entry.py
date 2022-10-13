@@ -50,7 +50,13 @@ def add_call_parser_args(call_parser):
         "--realign", "-a",
         action="store_true",
         help="Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners may "
-             "soft-clip around large insertions, e.g. with an expansion. Recommended for HiFi ONLY!")
+             "soft-clip around large insertions, e.g. with an expansion. Recommended for CCS ONLY!")
+
+    call_parser.add_argument(
+        "--hq",
+        action="store_true",
+        help="Whether to treat provided reads as 'fairly' accurate, i.e. not liable to be extremely far away from the "
+             "DNA truth. Recommended for CCS, and CCS ONLY!")
 
     call_parser.add_argument(
         "--targeted", "-t",
@@ -390,6 +396,7 @@ def _exec_call(p_args) -> None:
         flank_size=p_args.flank_size,
         sex_chroms=p_args.sex_chr,
         realign=p_args.realign,
+        hq=p_args.hq,
         targeted=p_args.targeted,
         fractional=p_args.fractional,
         respect_ref=p_args.respect_ref,

@@ -77,6 +77,7 @@ def call_repeathmm(args: tuple[Optional[str], Optional[str], int, int, int, int,
         separate_strands=False,
         read_bias_corr_min=0,  # Not relevant since we don't have separate strand data
         gm_filter_factor=gm_filter_factor,
+        hq=False,
         force_int=True,
         seed=seed,
     )

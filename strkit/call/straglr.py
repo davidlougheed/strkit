@@ -76,6 +76,7 @@ def call_straglr(args: tuple[Optional[str], Optional[str], int, int, int, int, i
         separate_strands=False,
         read_bias_corr_min=0,  # Not relevant
         gm_filter_factor=gm_filter_factor,
+        hq=False,
         force_int=False,
         seed=seed,
     )

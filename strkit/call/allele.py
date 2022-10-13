@@ -74,6 +74,7 @@ def call_alleles(
     separate_strands: bool,
     read_bias_corr_min: int,
     gm_filter_factor: int,
+    hq: bool,
     force_int: bool,
     seed: Optional[int],
 ) -> Optional[dict]:
@@ -185,9 +186,9 @@ def call_alleles(
                 # - Discard anything below a specific weight threshold and resample means based on remaining weights
                 #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
                 #   sharing in the worst case where it represents just one allele
-                if n_components > 2 or (
-                        n_components == 2 and
-                        means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0], small_allele_min)):
+                if n_components > 2 or (n_components == 2 and (not hq or (
+                        means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0],
+                                                                         small_allele_min)))):
                     mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_alleles))
                 else:
                     mw_filter_2 = means_and_weights[1, :] > np.finfo(np.float32).eps

@@ -46,6 +46,7 @@ def call_tandem_genotypes(args: tuple[Optional[str], Optional[str], int, int, in
         separate_strands=True,
         read_bias_corr_min=read_bias_corr_min,
         gm_filter_factor=gm_filter_factor,
+        hq=False,
         force_int=True,
         seed=seed,
     )
