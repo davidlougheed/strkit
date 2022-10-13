@@ -551,38 +551,10 @@ def call_locus(
         for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord)
     ]
 
-    call_dict_base = {
-        "locus_index": t_idx,
-        "contig": contig,
-        "start": left_coord,
-        "end": right_coord,
-        **({} if respect_ref else {
-            "start_adj": left_coord_adj,
-            "end_adj": right_coord_adj,
-        }),
-        "motif": motif,
-        "ref_cn": ref_cn,
-    }
-
-    # Check now if we definitely don't have enough reads to make a call
-    # We also check again later when we calculate all the flanking stuff
-    if len(overlapping_segments) < min_reads:
-        return {
-            **call_dict_base,
-            "call": None,
-            "call_95_cis": None,
-            "call_99_cis": None,
-            "peaks": None,
-            "reads": None,
-            "read_peaks_called": False,
-            "time": (datetime.now() - call_timer).total_seconds(),
-        }
-
     read_lengths = np.fromiter((segment.query_alignment_length for segment in overlapping_segments), dtype=np.int)
     sorted_read_lengths = np.sort(read_lengths)
 
     seen_reads: set[str] = set()
-    kmers_by_read: dict[str, dict] = {}
 
     chimeric_read_status: dict[str, int] = {}
     for segment in overlapping_segments:
@@ -708,7 +680,6 @@ def call_locus(
         if count_kmers != "none":
             for i in range(0, tr_len - motif_size + 1):
                 read_kmers.update((tr_read_seq_wc[i:i+motif_size],))
-            kmers_by_read[rn] = dict(read_kmers)
 
         read_cn, read_cn_score = get_repeat_count(
             start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
@@ -747,6 +718,7 @@ def call_locus(
             "w": read_weight.item(),
             **({"realn": realigned} if realign and realigned else {}),
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
+            **({"kmers": dict(read_kmers)} if count_kmers in ("read", "both") else {}),
         }
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
@@ -759,6 +731,33 @@ def call_locus(
     read_cns = np.fromiter(rcns, dtype=np.float if fractional else np.int)
     read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
+
+    call_dict_base = {
+        "locus_index": t_idx,
+        "contig": contig,
+        "start": left_coord,
+        "end": right_coord,
+        **({} if respect_ref else {
+            "start_adj": left_coord_adj,
+            "end_adj": right_coord_adj,
+        }),
+        "motif": motif,
+        "ref_cn": ref_cn,
+        "reads": read_dict,
+    }
+
+    # Check now if we definitely don't have enough reads to make a call
+    # We also check again later when we calculate all the flanking stuff
+    if len(overlapping_segments) < min_reads:
+        return {
+            **call_dict_base,
+            "call": None,
+            "call_95_cis": None,
+            "call_99_cis": None,
+            "peaks": None,
+            "read_peaks_called": False,
+            "time": (datetime.now() - call_timer).total_seconds(),
+        }
 
     # If the locus only has one value, don't bother bootstrapping
     if hq and len(set(rcns)) == 1:
@@ -816,13 +815,9 @@ def call_locus(
             rd["p"] = peak
 
             if count_kmers in ("peak", "both"):
-                peak_kmers[peak] += kmers_by_read[r]
+                peak_kmers[peak] += rd["kmers"]
 
         call_peak_n_reads = list(map(len, allele_reads))
-
-        if count_kmers in ("read", "both"):
-            for r, kd in kmers_by_read.items():
-                read_dict[r]["kmers"] = kd
 
     def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int, np.float]]:
         return [(round(y) if not fractional else round_to_base_pos(y, motif_size)) for y in x]
@@ -843,7 +838,6 @@ def call_locus(
             "n_reads": call_peak_n_reads,
             **({"kmers": [dict(c) for c in peak_kmers]} if count_kmers in ("peak", "both") else {}),
         } if call else None,
-        "reads": read_dict,
         "read_peaks_called": read_peaks_called,
         "time": (datetime.now() - call_timer).total_seconds(),
     }
