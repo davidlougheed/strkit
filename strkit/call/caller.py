@@ -455,6 +455,10 @@ def calculate_seq_with_wildcards(qs: str, quals: list[int]):
     return "".join(qs[i] if quals[i] > base_wildcard_threshold else "X" for i in np.arange(len(qs)))
 
 
+def round_to_base_pos(x, motif_size) -> float:
+    return round(float(x) * motif_size) / motif_size
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -477,6 +481,8 @@ def call_locus(
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
 ) -> Optional[dict]:
+    call_timer = datetime.now()
+
     rng = np.random.default_rng(seed=seed)
 
     contig: str = t[0]
@@ -544,6 +550,34 @@ def call_locus(
         for bf in bfs
         for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord)
     ]
+
+    call_dict_base = {
+        "locus_index": t_idx,
+        "contig": contig,
+        "start": left_coord,
+        "end": right_coord,
+        **({} if respect_ref else {
+            "start_adj": left_coord_adj,
+            "end_adj": right_coord_adj,
+        }),
+        "motif": motif,
+        "ref_cn": ref_cn,
+    }
+
+    # Check now if we definitely don't have enough reads to make a call
+    # We also check again later when we calculate all the flanking stuff
+    if len(overlapping_segments) < min_reads:
+        return {
+            **call_dict_base,
+            "call": None,
+            "call_95_cis": None,
+            "call_99_cis": None,
+            "peaks": None,
+            "reads": None,
+            "read_peaks_called": False,
+            "time": (datetime.now() - call_timer).total_seconds(),
+        }
+
     read_lengths = np.fromiter((segment.query_alignment_length for segment in overlapping_segments), dtype=np.int)
     sorted_read_lengths = np.sort(read_lengths)
 
@@ -790,26 +824,14 @@ def call_locus(
             for r, kd in kmers_by_read.items():
                 read_dict[r]["kmers"] = kd
 
-    def _round_to_base_pos(x) -> float:
-        return round(float(x) * motif_size) / motif_size
-
     def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int, np.float]]:
-        return [(round(y) if not fractional else _round_to_base_pos(y)) for y in x]
+        return [(round(y) if not fractional else round_to_base_pos(y, motif_size)) for y in x]
 
     def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, float, np.int, np.float]]]:
         return [_ndarray_serialize(y) for y in x]
 
     return {
-        "locus_index": t_idx,
-        "contig": contig,
-        "start": left_coord,
-        "end": right_coord,
-        **({} if respect_ref else {
-            "start_adj": left_coord_adj,
-            "end_adj": right_coord_adj,
-        }),
-        "motif": motif,
-        "ref_cn": ref_cn,
+        **call_dict_base,
         "call": apply_or_none(_ndarray_serialize, call.get("call")),
         "call_95_cis": apply_or_none(_nested_ndarray_serialize, call.get("call_95_cis")),
         "call_99_cis": apply_or_none(_nested_ndarray_serialize, call.get("call_99_cis")),
@@ -823,6 +845,7 @@ def call_locus(
         } if call else None,
         "reads": read_dict,
         "read_peaks_called": read_peaks_called,
+        "time": (datetime.now() - call_timer).total_seconds(),
     }
 
 
