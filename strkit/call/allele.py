@@ -199,8 +199,7 @@ def call_alleles(
                     break
                 n_components -= n_useless
 
-            if g:
-                cache[sample_t] = g
+            cache[sample_t] = g
 
         if not g:
             # Could not fit any Gaussian mixture; skip this allele
