@@ -544,28 +544,22 @@ def call_locus(
     right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
 
     read_dict: dict[str, dict] = {}
-
-    overlapping_segments = [
-        segment
-        for bf in bfs
-        for segment in bf.fetch(read_contig, left_flank_coord, right_flank_coord)
-    ]
-
-    read_lengths = np.fromiter((segment.query_alignment_length for segment in overlapping_segments), dtype=np.int)
-    sorted_read_lengths = np.sort(read_lengths)
-
-    seen_reads: set[str] = set()
-
     chimeric_read_status: dict[str, int] = {}
-    for segment in overlapping_segments:
-        qn = segment.query_name
-        i = (2 if segment.flag & 2048 else 1)
-        chimeric_read_status[qn] = chimeric_read_status.get(qn, 0) | i
 
-    for segment, read_len in zip(overlapping_segments, read_lengths):
+    overlapping_segments = []
+    seen_reads: set[str] = set()
+    read_lengths = []
+
+    for segment in (s for bf in bfs for s in bf.fetch(read_contig, left_flank_coord, right_flank_coord)):
         rn = segment.query_name
+        supp = segment.flag & 2048
 
-        if segment.flag & 2048:  # Skip supplemental alignments
+        # If we have two overlapping alignments for the same read, we have a chimeric read within the TR
+        # (so probably a large expansion...)
+        qn = segment.query_name
+        chimeric_read_status[qn] = chimeric_read_status.get(qn, 0) | (2 if supp else 1)
+
+        if supp:  # Skip supplemental alignments
             logger.debug(f"Skipping entry for read {rn} (supplemental)")
             continue
 
@@ -573,13 +567,19 @@ def call_locus(
             logger.debug(f"Skipping entry for read {rn} (already seen)")
             continue
 
-        seen_reads.add(rn)
-
-        qs = segment.query_sequence
-
-        if qs is None:  # No aligned segment, I guess
+        if segment.query_sequence is None:
             logger.debug(f"Skipping entry for read {rn} (no aligned segment)")
             continue
+
+        seen_reads.add(rn)
+        overlapping_segments.append(segment)
+        read_lengths.append(segment.query_alignment_length)
+
+    sorted_read_lengths = np.sort(read_lengths)
+
+    for segment, read_len in zip(overlapping_segments, read_lengths):
+        rn = segment.query_name
+        qs = segment.query_sequence
 
         c1: tuple[int, int] = segment.cigar[0]
         c2: tuple[int, int] = segment.cigar[-1]
@@ -718,7 +718,7 @@ def call_locus(
             "w": read_weight.item(),
             **({"realn": realigned} if realign and realigned else {}),
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
-            **({"kmers": dict(read_kmers)} if count_kmers in ("read", "both") else {}),
+            **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
         }
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
@@ -816,6 +816,10 @@ def call_locus(
 
             if count_kmers in ("peak", "both"):
                 peak_kmers[peak] += rd["kmers"]
+
+                # If we aren't reporting read-level k-mers, we have to delete them (space-saving!)
+                if count_kmers == "peak":
+                    del rd["kmers"]
 
         call_peak_n_reads = list(map(len, allele_reads))
 
