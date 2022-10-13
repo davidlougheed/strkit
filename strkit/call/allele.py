@@ -62,19 +62,21 @@ def get_n_alleles(default_n_alleles: int, sample_sex_chroms: Optional[str], cont
 
 
 # noinspection PyUnresolvedReferences
-def call_alleles(repeats_fwd: RepeatCounts,
-                 repeats_rev: RepeatCounts,
-                 read_weights_fwd: Optional[Iterable[float]],
-                 read_weights_rev: Optional[Iterable[float]],
-                 bootstrap_iterations: int,
-                 min_reads: int,
-                 min_allele_reads: int,
-                 n_alleles: int,
-                 separate_strands: bool,
-                 read_bias_corr_min: int,
-                 gm_filter_factor: int,
-                 force_int: bool,
-                 seed: Optional[int]) -> Optional[dict]:
+def call_alleles(
+    repeats_fwd: RepeatCounts,
+    repeats_rev: RepeatCounts,
+    read_weights_fwd: Optional[Iterable[float]],
+    read_weights_rev: Optional[Iterable[float]],
+    bootstrap_iterations: int,
+    min_reads: int,
+    min_allele_reads: int,
+    n_alleles: int,
+    separate_strands: bool,
+    read_bias_corr_min: int,
+    gm_filter_factor: int,
+    force_int: bool,
+    seed: Optional[int],
+) -> Optional[dict]:
     rng: np.random.Generator = np.random.default_rng(seed=seed)
 
     n_gm_init = 3
@@ -163,8 +165,8 @@ def call_alleles(repeats_fwd: RepeatCounts,
             while n_components > 0:
                 g = GaussianMixture(
                     n_components=n_components,
-                    init_params="kmeans",
-                    # init_params="k-means++",  # TODO: scikit-learn 1.1.0 when available on CC
+                    # init_params="kmeans",
+                    init_params="k-means++",  # TODO: scikit-learn 1.1.0 when available on CC
                     covariance_type="spherical",
                     n_init=n_gm_init,
                     random_state=rng.integers(0, 4096).item(),
