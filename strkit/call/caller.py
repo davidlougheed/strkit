@@ -721,9 +721,15 @@ def call_locus(
 
     # Dicts are ordered in Python; very nice :)
     rdvs = tuple(read_dict.values())
-    read_cns = np.fromiter((r["cn"] for r in rdvs), dtype=np.float if fractional else np.int)
+    rcns = tuple(r["cn"] for r in rdvs)
+    read_cns = np.fromiter(rcns, dtype=np.float if fractional else np.int)
     read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
+
+    # If the locus only has one value, don't bother bootstrapping
+    if hq and len(set(rcns)) == 1:
+        logger.debug(f"Skipping bootstrap for locus at {contig}:{left_coord}-{right_coord} (single value)")
+        num_bootstrap = 1
 
     call = call_alleles(
         read_cns, (),
