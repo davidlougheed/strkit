@@ -36,6 +36,9 @@ __all__ = [
 
 PROFILE_LOCUS_CALLS = False
 
+# TODO: Parameterize
+LOG_PROGRESS_INTERVAL = 1000
+
 match_score = 2  # TODO: parametrize
 mismatch_penalty = 7  # TODO: parametrize
 indel_penalty = 5  # TODO: parametrize
@@ -848,10 +851,6 @@ def call_locus(
         "read_peaks_called": read_peaks_called,
         "time": (datetime.now() - call_timer).total_seconds(),
     }
-
-
-# TODO: Parameterize
-LOG_PROGRESS_INTERVAL = 1000
 
 
 def locus_worker(
