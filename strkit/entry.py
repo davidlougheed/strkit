@@ -611,7 +611,7 @@ def main(args: Optional[list[str]] = None) -> int:
 
     def _make_subparser(arg: str, help_text: str, exec_func: Callable, arg_func: Callable):
         sp = subparsers.add_parser(arg, help=help_text)
-        sp.add_argument("--log-level", type=str, default="warning", choices=("error", "warning", "info", "debug"))
+        sp.add_argument("--log-level", type=str, default="info", choices=("error", "warning", "info", "debug"))
         sp.set_defaults(func=exec_func)
         arg_func(sp)
 
