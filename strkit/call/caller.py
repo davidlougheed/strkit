@@ -18,6 +18,7 @@ import queue
 import sys
 
 from collections import Counter
+from ctypes import c_uint32
 from datetime import datetime
 from pysam import AlignmentFile, FastaFile
 from typing import Iterable, Generator, Optional, Union
@@ -32,6 +33,8 @@ from strkit.utils import apply_or_none, sign
 __all__ = [
     "call_sample",
 ]
+
+PROFILE_LOCUS_CALLS = False
 
 match_score = 2  # TODO: parametrize
 mismatch_penalty = 7  # TODO: parametrize
@@ -847,6 +850,10 @@ def call_locus(
     }
 
 
+# TODO: Parameterize
+LOG_PROGRESS_INTERVAL = 1000
+
+
 def locus_worker(
     read_files: tuple[str, ...],
     reference_file: str,
@@ -863,9 +870,17 @@ def locus_worker(
     respect_ref: bool,
     count_kmers: str,
     log_level: int,
+    start_time: datetime,
     locus_queue: mp.Queue,
+    num_processed: mp.Value,
     is_single_processed: bool,
 ) -> list[dict]:
+    if PROFILE_LOCUS_CALLS:
+        import cProfile
+        pr = cProfile.Profile()
+        pr.enable()
+    else:
+        pr = None
 
     import pysam as p
 
@@ -903,8 +918,22 @@ def locus_worker(
             ref_file_has_chr=ref_file_has_chr,
         )
 
+        with num_processed.get_lock():
+            n_proc = num_processed.value + 1
+            num_processed.value = n_proc
+            # Release the lock early (before logging)
+
+        if n_proc % LOG_PROGRESS_INTERVAL == 0:
+            logger.info(
+                f"Processed {n_proc} loci in "
+                f"{(datetime.now() - start_time).total_seconds():.1f} seconds")
+
         if res is not None:
             results.append(res)
+
+    if PROFILE_LOCUS_CALLS:
+        pr.disable()
+        pr.print_stats("tottime")
 
     # Sort worker results; we will merge them after
     return results if is_single_processed else sorted(results, key=lambda x: x["locus_index"])
@@ -992,8 +1021,10 @@ def call_sample(
         "log_level": log_level,
     }
 
+    num_processed = mp.Value(c_uint32)
     is_single_processed = processes == 1
-    job_args = (*job_params.values(), locus_queue, is_single_processed)
+
+    job_args = (*job_params.values(), start_time, locus_queue, num_processed, is_single_processed)
     result_lists = []
 
     pool_class = mpd.Pool if is_single_processed else mp.Pool
