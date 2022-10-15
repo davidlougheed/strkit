@@ -347,18 +347,40 @@ def get_read_coords_from_matched_pairs(
     query_seq: str,
     matched_pairs
 ) -> tuple[int, int, int, int]:
-    left_flank_start = -1
     left_flank_end = -1
     right_flank_start = -1
     right_flank_end = -1
 
     last_idx = -1
 
-    for query_coord, ref_coord in matched_pairs:
+    # Skip gaps on either side to find mapped flank indices
+
+    # Binary search for left flank start
+    # TODO: python >= 3.10: use bisect_left
+    lhs = 0
+    rhs = len(matched_pairs) - 1
+
+    while rhs - lhs > 1:
+        midpoint = (lhs + rhs) // 2
+        rc = matched_pairs[midpoint][1]
+        if rc > left_flank_coord:
+            rhs = midpoint - 1
+        elif rc < left_flank_coord:
+            lhs = midpoint  # change from normal algorithm: inclusive, still may be closest
+        else:  # equal
+            lhs = midpoint
+            break
+
+    # lhs now contains the index for the closest starting coordinate to left_flank_coord
+    qcc, rcc = matched_pairs[lhs]
+    left_flank_start = qcc
+    if rcc > left_flank_coord:
+        # Error state from binary search
+        return -1, -1, -1, -1
+
+    for query_coord, ref_coord in matched_pairs[lhs+1:]:
         # Skip gaps on either side to find mapped flank indices
-        if ref_coord <= left_flank_coord:
-            left_flank_start = query_coord
-        elif ref_coord < left_coord:
+        if ref_coord < left_coord:
             # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
             # the STR; if we include the left-most base of the STR, we will have a giant flanking region which
             # will include part of the tandem repeat itself.
@@ -366,7 +388,7 @@ def get_read_coords_from_matched_pairs(
         elif ref_coord >= right_coord and (
                 # Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
                 # in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
-                # in bc1018, which were used as test data and thus will not be included in the paper...
+                # in bc1018
                 # TODO: do the same thing for the left side
                 right_flank_start == -1 or
                 (query_coord - last_idx >= motif_size and (ref_coord - right_coord <= motif_size * 2) and
