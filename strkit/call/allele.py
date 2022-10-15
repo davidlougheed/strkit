@@ -62,6 +62,10 @@ def get_n_alleles(default_n_alleles: int, sample_sex_chroms: Optional[str], cont
     return default_n_alleles
 
 
+def na_length_list(n_alleles: int):
+    return [list() for _ in range(n_alleles)]
+
+
 # noinspection PyUnresolvedReferences
 def call_alleles(
     repeats_fwd: RepeatCounts,
@@ -100,12 +104,10 @@ def call_alleles(
     if combined_len < min_reads:
         return None
 
-    def _na_length_list():
-        return [list() for _ in range(n_alleles)]
-
-    allele_samples = np.array(_na_length_list(), dtype=np.float32)
-    allele_weight_samples = np.array(_na_length_list(), dtype=np.float32)
-    allele_stdev_samples = np.array(_na_length_list(), dtype=np.float32)
+    nal = na_length_list(n_alleles)
+    allele_samples = np.array(nal, dtype=np.float32)
+    allele_weight_samples = np.array(nal, dtype=np.float32)
+    allele_stdev_samples = np.array(nal, dtype=np.float32)
     sample_peaks = np.array([], dtype=np.int32)
 
     rng: np.random.Generator = np.random.default_rng(seed=seed)
