@@ -453,8 +453,8 @@ def realign_read(
 ) -> Optional[list[tuple[Optional[int], Optional[int]]]]:
     # Have to re-attach logger in separate process I guess
 
-    from strkit.logger import logger as lg, attach_stream_handler
-    attach_stream_handler(log_level)
+    from strkit.logger import create_process_logger
+    lg = create_process_logger(os.getpid(), log_level)
 
     # flipped: 'ref sequence' as query here, since it should in general be shorter
     pr = parasail.sg_dx_trace_scan_sat(
@@ -919,8 +919,8 @@ def locus_worker(
     if is_single_processed:
         lg = logger
     else:
-        from strkit.logger import logger as lg, attach_stream_handler
-        attach_stream_handler(log_level)
+        from strkit.logger import create_process_logger
+        lg = create_process_logger(os.getpid(), log_level)
 
     ref = p.FastaFile(reference_file)
     bfs = tuple(p.AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
@@ -969,6 +969,7 @@ def locus_worker(
 
 
 def progress_worker(
+    sample_id: Optional[str],
     start_time: datetime,
     log_level: int,
     locus_queue: mp.Queue,
@@ -976,27 +977,32 @@ def progress_worker(
     num_workers: int,
     event: mp.Event,
 ):
+    import os
     try:
-        import os
         os.nice(20)
     except (AttributeError, OSError):
         pass
 
-    from strkit.logger import logger as lg, attach_stream_handler
-    attach_stream_handler(log_level)
+    from strkit.logger import create_process_logger
+    lg = create_process_logger(os.getpid(), log_level)
+
+    def _log():
+        try:
+            lg.info(
+                f"{sample_id}: processed {num_loci - max(locus_queue.qsize(), num_workers) + num_workers} loci in "
+                f"{round((datetime.now() - start_time).total_seconds())} seconds")
+        except NotImplementedError:
+            pass
 
     timer = 0
     while not event.is_set():
         time.sleep(1)
         timer += 1
         if timer >= LOG_PROGRESS_INTERVAL:
-            try:
-                lg.info(
-                    f"Processed {num_loci - max(locus_queue.qsize(), num_workers) + num_workers} loci in "
-                    f"{round((datetime.now() - start_time).total_seconds())} seconds")
-            except NotImplementedError:
-                pass
+            _log()
             timer = 0
+
+    _log()
 
 
 def parse_loci_bed(loci_file: str):
@@ -1106,7 +1112,7 @@ def call_sample(
         # Start the progress tracking process
         progress_job = mp.Process(
             target=progress_worker,
-            args=(start_time, log_level, locus_queue, num_loci, processes, finish_event))
+            args=(sample_id, start_time, log_level, locus_queue, num_loci, processes, finish_event))
         progress_job.start()
 
         # Spin up the jobs
