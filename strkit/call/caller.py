@@ -607,7 +607,9 @@ def call_locus(
         overlapping_segments.append(segment)
         read_lengths.append(segment.query_alignment_length)
 
+    num_reads = len(overlapping_segments)
     sorted_read_lengths = np.sort(read_lengths)
+    read_kmers = Counter()
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
@@ -708,8 +710,8 @@ def call_locus(
 
         tr_read_seq_wc = calculate_seq_with_wildcards(qs[left_flank_end:right_flank_start], qqs)
 
-        read_kmers = Counter()
         if count_kmers != "none":
+            read_kmers.clear()
             for i in range(0, tr_len - motif_size + 1):
                 read_kmers.update((tr_read_seq_wc[i:i+motif_size],))
 
@@ -731,7 +733,7 @@ def call_locus(
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
         # overlaps the region, is P(read is large enough to contain) * P(  # TODO: complete this..
         partition_idx = np.searchsorted(sorted_read_lengths, tr_len_w_flank, side="right")
-        if partition_idx == sorted_read_lengths.shape[0]:  # tr_len_w_flank is longer than the longest read... :(
+        if partition_idx == num_reads:  # tr_len_w_flank is longer than the longest read... :(
             # Fatal
             # TODO: Just skip this locus
             logger_.error(
@@ -859,8 +861,8 @@ def call_locus(
 
     if call_time > CALL_WARN_TIME:
         logger_.warning(
-            f"Locus call time exceeded {CALL_WARN_TIME} seconds: "
-            f"{contig}:{left_coord}-{right_coord} with {len(rcns)} reads")
+            f"Locus call time exceeded {CALL_WARN_TIME}s: "
+            f"{contig}:{left_coord}-{right_coord} with {num_reads} reads took {call_time}s")
 
     def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int, np.float]]:
         return [(round(y) if not fractional else round_to_base_pos(y, motif_size)) for y in x]
@@ -914,8 +916,11 @@ def locus_worker(
 
     import pysam as p
 
-    from strkit.logger import logger as lg, attach_stream_handler
-    attach_stream_handler(log_level)
+    if is_single_processed:
+        lg = logger
+    else:
+        from strkit.logger import logger as lg, attach_stream_handler
+        attach_stream_handler(log_level)
 
     ref = p.FastaFile(reference_file)
     bfs = tuple(p.AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
