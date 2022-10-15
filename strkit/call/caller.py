@@ -37,7 +37,7 @@ __all__ = [
 PROFILE_LOCUS_CALLS = False
 
 # TODO: Parameterize
-LOG_PROGRESS_INTERVAL = 60  # seconds
+LOG_PROGRESS_INTERVAL = 120  # seconds
 CALL_WARN_TIME = 3  # seconds
 
 match_score = 2  # TODO: parametrize
