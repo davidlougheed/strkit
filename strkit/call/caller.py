@@ -38,6 +38,7 @@ PROFILE_LOCUS_CALLS = False
 
 # TODO: Parameterize
 LOG_PROGRESS_INTERVAL = 1000
+CALL_WARN_TIME = 3  # seconds
 
 match_score = 2  # TODO: parametrize
 mismatch_penalty = 7  # TODO: parametrize
@@ -829,6 +830,13 @@ def call_locus(
 
         call_peak_n_reads = list(map(len, allele_reads))
 
+    call_time = (datetime.now() - call_timer).total_seconds()
+
+    if call_time > CALL_WARN_TIME:
+        logger.warning(
+            f"Locus call time exceeded {CALL_WARN_TIME} seconds: "
+            f"{contig}:{left_coord}-{right_coord} with {len(rcns)} reads")
+
     def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int, np.float]]:
         return [(round(y) if not fractional else round_to_base_pos(y, motif_size)) for y in x]
 
@@ -849,7 +857,7 @@ def call_locus(
             **({"kmers": [dict(c) for c in peak_kmers]} if count_kmers in ("peak", "both") else {}),
         } if call else None,
         "read_peaks_called": read_peaks_called,
-        "time": (datetime.now() - call_timer).total_seconds(),
+        "time": call_time,
     }
 
 
