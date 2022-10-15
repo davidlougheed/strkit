@@ -66,6 +66,59 @@ def na_length_list(n_alleles: int):
     return [list() for _ in range(n_alleles)]
 
 
+def fit_gmm(
+    rng: np.random.Generator,
+    sample: np.array,
+    n_alleles: int,
+    allele_filter: float,
+    hq: bool,
+    gm_filter_factor: int,
+) -> Optional[object]:
+    sample_rs = sample.reshape(-1, 1)
+    g = None
+
+    n_components = n_alleles
+    while n_components > 0:
+        g = GaussianMixture(
+            n_components=n_components,
+            # init_params="kmeans",  TODO: parameterize
+            init_params="k-means++",
+            covariance_type="spherical",
+            n_init=N_GM_INIT,
+            random_state=rng.integers(0, 4096).item(),
+        ).fit(sample_rs)
+
+        # noinspection PyUnresolvedReferences
+        means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
+
+        # Filter out peaks that aren't supported by ~min_allele_reads reads by probability, with some delta to
+        # allow for peaks supported by "most of a read".
+        mw_filter_1 = means_and_weights[1, :] > allele_filter
+
+        # Filter out any peaks below some threshold using this magic constant filter factor
+        # - Exception: Large expansions can have very few supporting reads due to quirks of sequencing beyond
+        #   just chance/read length distribution; if we have 2 alleles and the large one is a lot bigger than
+        #   the small one, don't apply this filter
+        # - Discard anything below a specific weight threshold and resample means based on remaining weights
+        #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
+        #   sharing in the worst case where it represents just one allele
+        if n_components > 2 or (n_components == 2 and (not hq or (
+                means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0],
+                                                                 small_allele_min)))):
+            mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_alleles))
+        else:
+            mw_filter_2 = means_and_weights[1, :] > np.finfo(np.float32).eps
+
+        mw_filter = mw_filter_1 & mw_filter_2
+        n_useless = np.size(mw_filter) - np.count_nonzero(mw_filter)
+        if not n_useless:
+            # No useless components left to remove, so escape
+            break
+        n_components -= n_useless
+
+    return g
+
+
 # noinspection PyUnresolvedReferences
 def call_alleles(
     repeats_fwd: RepeatCounts,
@@ -149,60 +202,20 @@ def call_alleles(
             ) if bootstrap_iterations > 1 else np.array([combined_reads]),
             kind="stable")
 
-    cache = {}
+    gmm_cache = {}
+
+    # Filter out peaks that aren't supported by ~min_allele_reads reads by probability, with some delta to
+    # allow for peaks supported by "most of a read".
+    allele_filter = (min_allele_reads - 0.1) / concat_samples.shape[0]
 
     for i in range(bootstrap_iterations):
-        # Fit Gaussian mixture model to the resampled data
-
         sample = concat_samples[i, :]
-        sample_t = tuple(sample)
-        sample_rs = sample.reshape(-1, 1)
 
-        g = None
+        if (sample_t := tuple(sample)) not in gmm_cache:
+            # Fit Gaussian mixture model to the resampled data
+            gmm_cache[sample_t] = fit_gmm(rng, sample, n_alleles, allele_filter, hq, gm_filter_factor)
 
-        if sample_t in cache:
-            g = cache[sample_t]
-        else:
-            n_components = n_alleles
-            while n_components > 0:
-                g = GaussianMixture(
-                    n_components=n_components,
-                    # init_params="kmeans",  TODO: parameterize
-                    init_params="k-means++",
-                    covariance_type="spherical",
-                    n_init=N_GM_INIT,
-                    random_state=rng.integers(0, 4096).item(),
-                ).fit(sample_rs)
-
-                means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
-
-                # Filter out peaks that aren't supported by ~min_allele_reads reads by probability, with some delta to
-                # allow for peaks supported by "most of a read".
-                mw_filter_1 = means_and_weights[1, :] > ((min_allele_reads - 0.1) / concat_samples.shape[0])
-
-                # Filter out any peaks below some threshold using this magic constant filter factor
-                # - Exception: Large expansions can have very few supporting reads due to quirks of sequencing beyond
-                #   just chance/read length distribution; if we have 2 alleles and the large one is a lot bigger than
-                #   the small one, don't apply this filter
-                # - Discard anything below a specific weight threshold and resample means based on remaining weights
-                #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
-                #   sharing in the worst case where it represents just one allele
-                if n_components > 2 or (n_components == 2 and (not hq or (
-                        means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0],
-                                                                         small_allele_min)))):
-                    mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_alleles))
-                else:
-                    mw_filter_2 = means_and_weights[1, :] > np.finfo(np.float32).eps
-
-                mw_filter = mw_filter_1 & mw_filter_2
-                n_useless = np.size(mw_filter) - np.count_nonzero(mw_filter)
-                if not n_useless:
-                    # No useless components left to remove, so escape
-                    break
-                n_components -= n_useless
-
-            cache[sample_t] = g
-
+        g: Optional[object] = gmm_cache[sample_t]
         if not g:
             # Could not fit any Gaussian mixture; skip this allele
             return None
