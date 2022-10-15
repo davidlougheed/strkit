@@ -188,19 +188,18 @@ def get_repeat_count(
         end_size = size_to_explore + (local_search_range if direction > -1 else 0)
 
         for i in range(start_size, end_size + 1):
-            rs = sizes_and_scores.get(i)
-            if rs is None:
+            if i not in sizes_and_scores:
                 # Generate a candidate TR tract by copying the provided motif 'i' times & score it
                 # Separate this from the .get() to postpone computation to until we need it
-                sizes_and_scores[i] = rs = score_candidate(db_seq, motif * i, flank_left_seq, flank_right_seq)
+                sizes_and_scores[i] = score_candidate(db_seq, motif * i, flank_left_seq, flank_right_seq)
 
-            szs.append((i, rs))
+            szs.append((i, sizes_and_scores[i]))
 
         mv: tuple[int, int] = max(szs, key=lambda x: x[1])
         if mv[0] > size_to_explore and (new_rc := mv[0] + 1) not in sizes_and_scores:
             if new_rc >= 0:
                 to_explore.append((new_rc, 1))
-        if mv[0] < size_to_explore and (new_rc := mv[0] - 1) not in sizes_and_scores:
+        elif mv[0] < size_to_explore and (new_rc := mv[0] - 1) not in sizes_and_scores:
             if new_rc >= 0:
                 to_explore.append((new_rc, -1))
 
