@@ -16,9 +16,9 @@ import numpy as np
 import parasail
 import queue
 import sys
+import time
 
 from collections import Counter
-from ctypes import c_uint32
 from datetime import datetime
 from pysam import AlignmentFile, FastaFile
 from typing import Iterable, Generator, Optional, Union
@@ -37,7 +37,7 @@ __all__ = [
 PROFILE_LOCUS_CALLS = False
 
 # TODO: Parameterize
-LOG_PROGRESS_INTERVAL = 1000
+LOG_PROGRESS_INTERVAL = 60  # seconds
 CALL_WARN_TIME = 3  # seconds
 
 match_score = 2  # TODO: parametrize
@@ -477,6 +477,7 @@ def call_locus(
     num_bootstrap: int,
     flank_size: int,
     seed: int,
+    logger_,
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
@@ -515,17 +516,17 @@ def call_locus(
         ref_right_flank_seq = ref.fetch(ref_contig, right_coord, right_flank_coord)
         ref_seq = ref.fetch(ref_contig, left_coord, right_coord)
     except IndexError:
-        logger.warning(
+        logger_.warning(
             f"Coordinates out of range in provided reference FASTA for region {ref_contig} with flank size "
             f"{flank_size}: [{left_flank_coord}, {right_flank_coord}] (skipping locus {t_idx})")
         raised = True
     except ValueError:
-        logger.error(f"Invalid region '{ref_contig}' for provided reference FASTA (skipping locus {t_idx})")
+        logger_.error(f"Invalid region '{ref_contig}' for provided reference FASTA (skipping locus {t_idx})")
         raised = True
 
     if len(ref_left_flank_seq) < flank_size or len(ref_right_flank_seq) < flank_size:
         if not raised:  # flank sequence too small for another reason
-            logger.warning(f"Reference flank size too small for locus {t_idx} (skipping)")
+            logger_.warning(f"Reference flank size too small for locus {t_idx} (skipping)")
             return None
 
     if raised:
@@ -567,15 +568,15 @@ def call_locus(
         chimeric_read_status[qn] = chimeric_read_status.get(qn, 0) | (2 if supp else 1)
 
         if supp:  # Skip supplemental alignments
-            logger.debug(f"Skipping entry for read {rn} (supplemental)")
+            logger_.debug(f"Skipping entry for read {rn} (supplemental)")
             continue
 
         if rn in seen_reads:
-            logger.debug(f"Skipping entry for read {rn} (already seen)")
+            logger_.debug(f"Skipping entry for read {rn} (already seen)")
             continue
 
         if segment.query_sequence is None:
-            logger.debug(f"Skipping entry for read {rn} (no aligned segment)")
+            logger_.debug(f"Skipping entry for read {rn} (no aligned segment)")
             continue
 
         seen_reads.add(rn)
@@ -628,7 +629,7 @@ def call_locus(
                 pairs_new = q.get(timeout=realign_timeout)
                 proc.join()
             except queue.Empty:
-                logger.warning(
+                logger_.warning(
                     f"Experienced timeout while re-aligning read {rn} in locus {t_idx}. Reverting to BAM alignment.")
             finally:
                 proc.close()
@@ -652,14 +653,14 @@ def call_locus(
         )
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
-            logger.debug(
+            logger_.debug(
                 f"Skipping read {rn} in locus {t_idx}: could not get sufficient flanking sequence"
                 f"{' (post-realignment)' if realigned else ''}")
             continue
 
         qqs = np.array(fqqs[left_flank_end:right_flank_start])
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
-            logger.debug(
+            logger_.debug(
                 f"Skipping read {rn} in locus {t_idx} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
             continue
 
@@ -700,7 +701,7 @@ def call_locus(
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
-            logger.debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
+            logger_.debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
             continue
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
@@ -709,7 +710,7 @@ def call_locus(
         if partition_idx == sorted_read_lengths.shape[0]:  # tr_len_w_flank is longer than the longest read... :(
             # Fatal
             # TODO: Just skip this locus
-            logger.error(
+            logger_.error(
                 f"Something strange happened; could not find an encompassing read where one should be guaranteed. "
                 f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)
@@ -768,7 +769,7 @@ def call_locus(
 
     # If the locus only has one value, don't bother bootstrapping
     if hq and len(set(rcns)) == 1:
-        logger.debug(f"Skipping bootstrap for locus at {contig}:{left_coord}-{right_coord} (single value)")
+        logger_.debug(f"Skipping bootstrap for locus at {contig}:{left_coord}-{right_coord} (single value)")
         num_bootstrap = 1
 
     call = call_alleles(
@@ -833,7 +834,7 @@ def call_locus(
     call_time = (datetime.now() - call_timer).total_seconds()
 
     if call_time > CALL_WARN_TIME:
-        logger.warning(
+        logger_.warning(
             f"Locus call time exceeded {CALL_WARN_TIME} seconds: "
             f"{contig}:{left_coord}-{right_coord} with {len(rcns)} reads")
 
@@ -877,9 +878,7 @@ def locus_worker(
     respect_ref: bool,
     count_kmers: str,
     log_level: int,
-    start_time: datetime,
     locus_queue: mp.Queue,
-    num_processed: mp.Value,
     is_single_processed: bool,
 ) -> list[dict]:
     if PROFILE_LOCUS_CALLS:
@@ -890,6 +889,9 @@ def locus_worker(
         pr = None
 
     import pysam as p
+
+    from strkit.logger import logger as lg, attach_stream_handler
+    attach_stream_handler(log_level)
 
     ref = p.FastaFile(reference_file)
     bfs = tuple(p.AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
@@ -913,6 +915,7 @@ def locus_worker(
             num_bootstrap=num_bootstrap,
             flank_size=flank_size,
             seed=locus_seed,
+            logger_=lg,
             sex_chroms=sex_chroms,
             realign=realign,
             hq=hq,
@@ -925,16 +928,6 @@ def locus_worker(
             ref_file_has_chr=ref_file_has_chr,
         )
 
-        with num_processed.get_lock():
-            n_proc = num_processed.value + 1
-            num_processed.value = n_proc
-            # Release the lock early (before logging)
-
-        if n_proc % LOG_PROGRESS_INTERVAL == 0:
-            logger.info(
-                f"Processed {n_proc} loci in "
-                f"{(datetime.now() - start_time).total_seconds():.1f} seconds")
-
         if res is not None:
             results.append(res)
 
@@ -944,6 +937,31 @@ def locus_worker(
 
     # Sort worker results; we will merge them after
     return results if is_single_processed else sorted(results, key=lambda x: x["locus_index"])
+
+
+def progress_worker(
+    start_time: datetime,
+    log_level: int,
+    locus_queue: mp.Queue,
+    num_loci: int,
+    num_workers: int,
+    event: mp.Event,
+):
+    from strkit.logger import logger as lg, attach_stream_handler
+    attach_stream_handler(log_level)
+
+    timer = 0
+    while not event.is_set():
+        time.sleep(1)
+        timer += 1
+        if timer >= LOG_PROGRESS_INTERVAL:
+            try:
+                lg.info(
+                    f"Processed {num_loci - max(locus_queue.qsize(), num_workers) + num_workers} loci in "
+                    f"{round((datetime.now() - start_time).total_seconds())} seconds")
+            except NotImplementedError:
+                pass
+            timer = 0
 
 
 def parse_loci_bed(loci_file: str):
@@ -1009,6 +1027,21 @@ def call_sample(
     manager = mp.Manager()
     locus_queue = manager.Queue()
 
+    # Add all loci from the BED file to the queue, allowing each job
+    # to pull from the queue as it becomes freed up to do so.
+    num_loci = 0
+    for t_idx, t in enumerate(parse_loci_bed(loci_file), 1):
+        # We use locus-specific random seeds for replicability, no matter which order
+        # the loci are yanked out of the queue / how many processes we have.
+        # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
+        locus_queue.put((t_idx, t, rng.integers(0, 4096).item()))
+        num_loci += 1
+
+    # At the end of the queue, add a None value (* the # of processes).
+    # When a job encounters a None value, it will terminate.
+    for _ in range(processes):
+        locus_queue.put(None)
+
     # Order matters here!!
     job_params = {
         "read_files": read_files,
@@ -1028,33 +1061,28 @@ def call_sample(
         "log_level": log_level,
     }
 
-    num_processed = mp.Value(c_uint32)
     is_single_processed = processes == 1
-
-    job_args = (*job_params.values(), start_time, locus_queue, num_processed, is_single_processed)
+    job_args = (*job_params.values(), locus_queue, is_single_processed)
     result_lists = []
 
     pool_class = mpd.Pool if is_single_processed else mp.Pool
+    finish_event = mp.Event()
     with pool_class(processes) as p:
+        # Start the progress tracking process
+        progress_job = mp.Process(
+            target=progress_worker,
+            args=(start_time, log_level, locus_queue, num_loci, processes, finish_event))
+        progress_job.start()
+
         # Spin up the jobs
         jobs = [p.apply_async(locus_worker, job_args) for _ in range(processes)]
-
-        # Add all loci from the BED file to the queue, allowing each job
-        # to pull from the queue as it becomes freed up to do so.
-        for t_idx, t in enumerate(parse_loci_bed(loci_file), 1):
-            # We use locus-specific random seeds for replicability, no matter which order
-            # the loci are yanked out of the queue / how many processes we have.
-            # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
-            locus_queue.put((t_idx, t, rng.integers(0, 4096).item()))
-
-        # At the end of the queue, add a None value (* the # of processes).
-        # When a job encounters a None value, it will terminate.
-        for _ in range(processes):
-            locus_queue.put(None)
 
         # Gather the process-specific results for combining.
         for j in jobs:
             result_lists.append(j.get())
+
+        finish_event.set()
+        progress_job.join()
 
     # Merge sorted result lists into single sorted list.
     results: tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
