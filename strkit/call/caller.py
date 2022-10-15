@@ -399,6 +399,8 @@ def get_read_coords_from_matched_pairs(
             right_flank_end = query_coord
             break
 
+        last_idx = query_coord
+
     return left_flank_start, left_flank_end, right_flank_start, right_flank_end
 
 
