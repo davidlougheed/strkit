@@ -947,6 +947,12 @@ def progress_worker(
     num_workers: int,
     event: mp.Event,
 ):
+    try:
+        import os
+        os.nice(20)
+    except (AttributeError, OSError):
+        pass
+
     from strkit.logger import logger as lg, attach_stream_handler
     attach_stream_handler(log_level)
 
