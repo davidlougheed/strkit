@@ -60,6 +60,8 @@ long read data should still work.
 ```bash
 strkit call \
   path/to/read/file.bam \  # [REQUIRED] At least one indexed read file (BAM/CRAM)
+  --hq \  # If using PacBio HiFi reads, enable this to get better genotyping & more robust expansion detection
+  --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) list of loci to genotype
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
@@ -73,8 +75,9 @@ PacBio provides a
 [recommended workflow](https://github.com/PacificBiosciences/apps-scripts/tree/master/RepeatAnalysisTools)
 for CCS alignment in this scenario.
 
-If you're using HiFi reads as input, **use the `--realign` option** to get a greater proportion of reads
-incorporated into the computed genotypes. This should not add much performance overhead.
+If you're using HiFi reads as input, **use the `--hq` and `--realign` options** to get better genotype calculation
+and a greater proportion of reads incorporated into the computed genotypes, respectively. 
+These should not add much performance overhead.
 
 If more than one read file is specified, the reads will be pooled. This can come in handy if you
 have e.g. multiple flow cells of the same sample split into different BAM files, or the reads are
