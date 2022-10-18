@@ -63,6 +63,11 @@ class RepeatHMMCalculator(BaseCalculator):
                 if lookup not in mother_calls or lookup not in father_calls:
                     continue
 
+                locus_start: int = int(lookup[1])
+                locus_end: int = int(lookup[2])
+
+                cr.seen_locus(locus_start, locus_end)
+
                 c_gt = int_tuple(call.split("/"))
                 m_gt = mother_calls[lookup]
                 f_gt = father_calls[lookup]
@@ -76,8 +81,8 @@ class RepeatHMMCalculator(BaseCalculator):
                 # TODO: Include ref copies... should be in file somewhere?
                 cr.append(MILocusData(
                     lookup[0],
-                    int(lookup[1]),
-                    int(lookup[2]),
+                    locus_start,
+                    locus_end,
                     lookup[3],
 
                     child_gt=int_tuple(call.split("/")),

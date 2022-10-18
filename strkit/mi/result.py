@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import numpy as np
 import sys
 import scipy.stats as sst
@@ -12,7 +13,7 @@ from strkit.json import json, dumps_indented
 from strkit.logger import logger
 from strkit.utils import cis_overlap
 
-from typing import Iterable, Optional, Union
+from typing import Generator, Iterable, Optional, Union
 
 __all__ = [
     "MILocusData",
@@ -346,6 +347,22 @@ class MIContigResult:
         self._loci_data: list[MILocusData] = []
         self._includes_95_ci: bool = includes_95_ci
         self._includes_99_ci: bool = includes_99_ci
+        self._n_loci_seen: int = 0  # Counter for number of loci which are in callsets, although call may have failed
+        self._seen_loci_lengths: list[int] = []
+
+    def seen_locus(self, start: int, end: int):
+        self._n_loci_seen += 1
+
+        # Prepare lengths for binned total seen.
+        self._seen_loci_lengths.append(end - start)
+
+    @property
+    def n_loci_seen(self) -> int:
+        return self._n_loci_seen
+
+    @property
+    def seen_loci_lengths(self) -> Generator[int, None, None]:
+        yield from self._seen_loci_lengths
 
     def append(self, item: MILocusData):
         self._loci_data.append(item)
@@ -402,6 +419,10 @@ class MIResult:
         self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr  # Method to use when correcting for multiple testing
 
+        self._n_loci_seen: int = sum(cr.n_loci_seen for cr in self.contig_results)
+        self._seen_loci_lengths: tuple[int, ...] = tuple(
+            itertools.chain.from_iterable(cr.seen_loci_lengths for cr in self.contig_results))
+
     @property
     def contig_results(self) -> tuple[MIContigResult]:
         return self._contig_results
@@ -413,6 +434,10 @@ class MIResult:
     @property
     def test_to_perform(self) -> str:
         return self.test_to_perform
+
+    @property
+    def n_loci_seen(self) -> int:
+        return self._n_loci_seen
 
     def correct_for_multiple_testing(self):
         if self._test_to_perform == "none":
@@ -457,7 +482,8 @@ class MIResult:
             "mi": self.mi_value,
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
-            "n_loci": sum((len(lr) for lr in self.contig_results)),
+            "n_loci_trio_called": sum((len(lr) for lr in self.contig_results)),
+            "n_loci_total": self._n_loci_seen,
             "test": self._test_to_perform,
             "hist": hist,
             "significant_loci": [dict(nm) for nm in self.sorted_output_loci],
@@ -546,6 +572,11 @@ class MIResult:
         vals_strict_by_bin = [[] for _ in bins]
         vals_95_ci_by_bin = [[] for _ in bins]
         vals_99_ci_by_bin = [[] for _ in bins]
+        bin_totals = [0] * len(bins)
+
+        for locus_len in self._seen_loci_lengths:
+            if (bin_idx := locus_len // bin_width) < len(bin_totals):
+                bin_totals[bin_idx] += 1
 
         for locus in loci:
             r = locus.respects_mi()
@@ -567,6 +598,7 @@ class MIResult:
             hist.append({
                 "bin": bins[i],
                 "bin_count": len(vsb),
+                "bin_total": bin_totals[i],
                 "mi": mean(vsb) if vsb else None,
                 "mi_95": mean(v95b) if v95b else None,
                 "mi_99": mean(v99b) if v99b else None,

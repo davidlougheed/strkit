@@ -175,6 +175,11 @@ class StraglrReCallCalculator(BaseCalculator):
             if locus_data not in mother_calls or locus_data not in father_calls:
                 continue
 
+            locus_start = int(locus_data[1])
+            locus_end = int(locus_data[2])
+
+            cr.seen_locus(locus_start, locus_end)
+
             c_gt, c_gt_95_ci, c_gt_99_ci = c_gt_and_cis
 
             m_gt, m_gt_95_ci, m_gt_99_ci = mother_calls[locus_data]
@@ -182,8 +187,8 @@ class StraglrReCallCalculator(BaseCalculator):
 
             cr.append(MILocusData(
                 contig=locus_data[0],
-                start=int(locus_data[1]),
-                end=int(locus_data[2]),
+                start=locus_start,
+                end=locus_end,
                 motif=locus_data[3],
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,

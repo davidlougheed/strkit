@@ -56,12 +56,18 @@ class TandemGenotypesCalculator(BaseCalculator):
                 if self._loci_file and self._loci_dict and bed_k not in self._loci_dict:
                     continue
 
+                # noinspection PyTypeChecker
                 if self.should_exclude_locus(bed_k):
                     continue
 
                 # Check to make sure call is present in all trio individuals
                 if lookup not in mother_calls or lookup not in father_calls:
                     continue
+
+                locus_start = int(lookup[1])
+                locus_end = int(lookup[2])
+
+                cr.seen_locus(locus_start, locus_end)
 
                 child_calls = locus_data[6:8]
 
@@ -70,8 +76,8 @@ class TandemGenotypesCalculator(BaseCalculator):
 
                 cr.append(MILocusData(
                     contig=lookup[0],
-                    start=int(lookup[1]),
-                    end=int(lookup[2]),
+                    start=locus_start,
+                    end=locus_end,
                     motif=lookup[3],
 
                     child_gt=int_tuple(child_calls),

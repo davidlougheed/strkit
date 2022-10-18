@@ -47,6 +47,8 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
                 # TODO: We need to actually check calls, and check with sample ID, not just assume
                 continue
 
+            cr.seen_locus(cv.pos, cv.stop)
+
             # TODO: Handle missing samples gracefully
             # TODO: Handle wrong formatted VCFs gracefully
 

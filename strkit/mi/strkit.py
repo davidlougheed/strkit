@@ -184,20 +184,25 @@ class StrKitJSONCalculator(BaseCalculator):
             if res["contig"] != contig:
                 continue
 
-            lookup = (res["contig"], res["start"], res["end"], res["motif"])
+            locus_start = res["start"]
+            locus_end = res["end"]
+
+            lookup = (res["contig"], locus_start, locus_end, res["motif"])
             # noinspection PyTypeChecker
-            loci_lookup: tuple[str, str, str] = tuple(map(str, lookup[:3]))
+            locus_lookup: tuple[str, str, str] = tuple(map(str, lookup[:3]))
 
             # Check to make sure call is present in TRF BED file, if it is specified
-            if self._loci_file and self._loci_dict and loci_lookup not in self._loci_dict:
+            if self._loci_file and self._loci_dict and locus_lookup not in self._loci_dict:
                 continue
 
-            if self.should_exclude_locus(loci_lookup):
+            if self.should_exclude_locus(locus_lookup):
                 continue
 
             # Check to make sure call is present in all trio individuals
             if lookup not in mother_data or lookup not in father_data:
                 continue
+
+            cr.seen_locus(locus_start, locus_end)
 
             m_gt, m_gt_95_ci, _, m_rcs = mother_data[lookup]
             f_gt, f_gt_95_ci, _, f_rcs = father_data[lookup]
@@ -210,8 +215,8 @@ class StrKitJSONCalculator(BaseCalculator):
 
             cr.append(MILocusData(
                 contig=lookup[0],
-                start=lookup[1],
-                end=lookup[2],
+                start=locus_start,
+                end=locus_end,
                 motif=lookup[3],
 
                 child_gt=tuple_conv(call),
