@@ -42,12 +42,12 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
             if self.should_exclude_locus(k1) or self.should_exclude_locus(k2):
                 continue
 
+            cr.seen_locus(cv.pos, cv.stop)
+
             if mv is None or fv is None:
                 # Variant isn't found in at least one of the parents, so we can't do anything with it.
                 # TODO: We need to actually check calls, and check with sample ID, not just assume
                 continue
-
-            cr.seen_locus(cv.pos, cv.stop)
 
             # TODO: Handle missing samples gracefully
             # TODO: Handle wrong formatted VCFs gracefully

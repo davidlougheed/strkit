@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from .base import BaseCalculator
 from .result import MILocusData, MIContigResult
 
@@ -14,7 +16,7 @@ class StraglrCalculator(BaseCalculator):
     def get_contigs_from_fh(fh) -> set:
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
 
-    def make_calls_dict(self, ph, contig):
+    def make_calls_dict(self, ph, contig, cr: Optional[MIContigResult] = None):
         # For reference, dicts are ordered in Python 3.7+ (guaranteed)
 
         calls = {}
@@ -29,10 +31,18 @@ class StraglrCalculator(BaseCalculator):
                 continue
 
             locus = tuple(line[:3])
+
             orig_motif = self._loci_dict.get(locus)
             orig_motif = orig_motif[-1] if orig_motif else None
+
             if not orig_motif:
                 continue
+
+            if self.should_exclude_locus(locus):
+                continue
+
+            if cr:
+                cr.seen_locus(int(locus[1]), int(locus[2]))
 
             # Transform the genotypes into something that is consistent across individuals,
             # using the file with the list of loci.
@@ -57,26 +67,18 @@ class StraglrCalculator(BaseCalculator):
             return mc, fc, cc
 
     def calculate_contig(self, contig: str):
-        # value = 0  # Sum of 1s for the eventual MI % calculation
-        # n_loci = 0
-
-        # non_matching = []
-
-        with open(self._mother_call_file) as mh:
-            mother_calls = self.make_calls_dict(mh, contig)
-
-        with open(self._father_call_file) as fh:
-            father_calls = self.make_calls_dict(fh, contig)
-
-        with open(self._child_call_file) as ch:
-            child_calls = self.make_calls_dict(ch, contig)
-
         cr = MIContigResult()
 
-        for locus_data, c_gt in child_calls.items():
-            if locus_data[0] != contig:
-                continue
+        with open(self._mother_call_file, "r") as mh:
+            mother_calls = self.make_calls_dict(mh, contig)
 
+        with open(self._father_call_file, "r") as fh:
+            father_calls = self.make_calls_dict(fh, contig)
+
+        with open(self._child_call_file, "r") as ch:
+            child_calls = self.make_calls_dict(ch, contig, cr)
+
+        for locus_data, c_gt in child_calls.items():
             # Check to make sure call is present in all trio individuals
             if locus_data not in mother_calls or locus_data not in father_calls:
                 continue
@@ -102,7 +104,7 @@ class StraglrReCallCalculator(BaseCalculator):
     def get_contigs_from_fh(fh) -> set:
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
 
-    def make_calls_dict(self, ph, contig):
+    def make_calls_dict(self, ph, contig, cr: Optional[MIContigResult] = None):
         # For reference, dicts are ordered in Python 3.7+ (guaranteed)
 
         calls = {}
@@ -124,6 +126,9 @@ class StraglrReCallCalculator(BaseCalculator):
 
             if self.should_exclude_locus(locus):
                 continue
+
+            if cr:
+                cr.seen_locus(int(locus[1]), int(locus[2]))
 
             if "." in line[6:8]:
                 continue
@@ -165,20 +170,15 @@ class StraglrReCallCalculator(BaseCalculator):
             father_calls = self.make_calls_dict(fh, contig)
 
         with open(self._child_call_file) as ch:
-            child_calls = self.make_calls_dict(ch, contig)
+            child_calls = self.make_calls_dict(ch, contig, cr)
 
         for locus_data, c_gt_and_cis in child_calls.items():
-            if locus_data[0] != contig:
-                continue
-
             # Check to make sure call is present in all trio individuals
             if locus_data not in mother_calls or locus_data not in father_calls:
                 continue
 
             locus_start = int(locus_data[1])
             locus_end = int(locus_data[2])
-
-            cr.seen_locus(locus_start, locus_end)
 
             c_gt, c_gt_95_ci, c_gt_99_ci = c_gt_and_cis
 

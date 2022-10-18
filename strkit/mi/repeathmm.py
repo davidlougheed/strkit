@@ -59,14 +59,14 @@ class RepeatHMMCalculator(BaseCalculator):
                 if self.should_exclude_locus(bed_k):
                     continue
 
-                # Check to make sure call is present in all trio individuals
-                if lookup not in mother_calls or lookup not in father_calls:
-                    continue
-
                 locus_start: int = int(lookup[1])
                 locus_end: int = int(lookup[2])
 
                 cr.seen_locus(locus_start, locus_end)
+
+                # Check to make sure call is present in all trio individuals
+                if lookup not in mother_calls or lookup not in father_calls:
+                    continue
 
                 c_gt = int_tuple(call.split("/"))
                 m_gt = mother_calls[lookup]
@@ -123,6 +123,21 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
 
                 if lookup[0] != contig:
                     continue
+
+                bed_k = lookup[:3]
+
+                # Check to make sure call is present in TRF BED file, if it is specified
+                if self._loci_file and self._loci_dict and bed_k not in self._loci_dict:
+                    continue
+
+                # noinspection PyTypeChecker
+                if self.should_exclude_locus(bed_k):
+                    continue
+
+                locus_start: int = int(lookup[1])
+                locus_end: int = int(lookup[2])
+
+                cr.seen_locus(locus_start, locus_end)
 
                 # Check to make sure call is present in all trio individuals
                 if lookup not in mother_calls or lookup not in father_calls:

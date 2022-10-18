@@ -388,6 +388,9 @@ class MIContigResult:
 
         return (value, value_95_ci, value_99_ci), non_matching
 
+    def __bool__(self):
+        return True  # Otherwise, it goes to len() which gives False if it's empty
+
     def __len__(self):
         return len(self._loci_data)
 

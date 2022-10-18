@@ -198,11 +198,11 @@ class StrKitJSONCalculator(BaseCalculator):
             if self.should_exclude_locus(locus_lookup):
                 continue
 
+            cr.seen_locus(locus_start, locus_end)
+
             # Check to make sure call is present in all trio individuals
             if lookup not in mother_data or lookup not in father_data:
                 continue
-
-            cr.seen_locus(locus_start, locus_end)
 
             m_gt, m_gt_95_ci, _, m_rcs = mother_data[lookup]
             f_gt, f_gt_95_ci, _, f_rcs = father_data[lookup]
