@@ -241,8 +241,8 @@
             scalesContainer.appendChild(scale);
         };
         const getScalePosition = (b, cn) => b.span === 0
-            ? 0.5
-            : 0.2 + ((cn - b.min) / b.span) * 0.6;
+            ? 0.6
+            : 0.3 + ((cn - b.min) / b.span) * 0.6;
 
         const makeBounds = (min, max) => ({min, max, span: max - min});
 
@@ -308,6 +308,22 @@
 
             // -----
 
+            const getReadsForPeak = q => Object.entries(callData.reads)
+                .filter(e => e[1]["p"] === q)
+                .map(e => e[1]["cn"]);
+
+            const bounds = (() => {
+                if (!callData.read_peaks_called || !Object.entries(callData.reads).length) return null;
+                if (callData.peaks.means.length > 1) {
+                    // 2 peaks since read peak labels are only generated for diploids
+                    return [getReadsForPeak(0), getReadsForPeak(1)].map(
+                        rs => makeBounds(Math.min(...rs), Math.max(...rs)));
+                } else {
+                    const calledReads = getReadsForPeak(0);
+                    return [makeBounds(Math.min(...calledReads), Math.max(...calledReads))];  // single peak
+                }
+            })();
+
             const region = `${callData.contig}:${callData.start+1-regionPadding}-${callData.end+regionPadding}`;
 
             locusSearchBox.value = region;
@@ -316,33 +332,26 @@
             motifDisplay.innerText = callData.motif;
             refGenome.innerText = params.cmd.ref.split("/").at(-1);
             refCopies.innerText = callData.ref_cn.toFixed(params.report.fractional ? 1 : 0);
-            callDisplay.innerText = callData.call.map(c => c.toFixed(params.report.fractional ? 1 : 0)).join(" | ");
-            call95Display.innerText = callData.call_95_cis
-                .map(ci => "(" + ci.map(c => c.toFixed(params.report.fractional ? 1 : 0)).join("-") + ")").join(" | ");
-
-            const getReadsForPeak = q => Object.entries(callData.reads)
-                .filter(e => e[1]["p"] === q)
-                .map(e => e[1]["cn"]);
+            callDisplay.innerHTML = callData.call
+                .map((c, ci) =>
+                    `<span style="color: ${palettes[ci](bounds ? getScalePosition(bounds[ci], c) : 0.6)}">${
+                      c.toFixed(params.report.fractional ? 1 : 0)}</span>`)
+                .join('<span style="color: #666;">&boxv;</span>');
+            // TODO: Proper scale for 95% CI!!!
+            call95Display.innerHTML = callData.call_95_cis
+                .map((ci, cii) => "(" +
+                    ci.map((c, cpi) =>
+                        `<span style="color: ${palettes[cii](bounds ? getScalePosition(bounds[cii], c) : 0.6)}">
+                            ${c.toFixed(params.report.fractional ? 1 : 0)}
+                        </span>`).join("-") + ")")
+                .join('<span style="color: #666;">&boxv;</span>');
 
             scalesContainer.innerHTML = "";
             igvContainer.innerHTML = "";  // TODO: properly deconstruct old browser
 
             const readColours = (() => {
-                if (!callData.read_peaks_called || !Object.entries(callData.reads).length) return {};
-
-                const bounds = (() => {
-                    if (callData.peaks.means.length > 1) {
-                        // 2 peaks since read peak labels are only generated for diploids
-                        return [getReadsForPeak(0), getReadsForPeak(1)].map(
-                            rs => makeBounds(Math.min(...rs), Math.max(...rs)));
-                    } else {
-                        const calledReads = getReadsForPeak(0);
-                        return [makeBounds(Math.min(...calledReads), Math.max(...calledReads))];  // single peak
-                    }
-                })();
-
+                if (!bounds) return {};
                 bounds.forEach((b, i) => makeScale(i, b));
-
                 return Object.fromEntries(Object.entries(callData.reads).map(
                     ([r, rd]) => [r, palettes[rd["p"]](getScalePosition(bounds[rd["p"]], rd["cn"]))]));
             })();
