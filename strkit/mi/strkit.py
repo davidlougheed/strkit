@@ -187,7 +187,7 @@ class StrKitJSONCalculator(BaseCalculator):
             locus_start = res["start"]
             locus_end = res["end"]
 
-            lookup = (res["contig"], locus_start, locus_end, res["motif"])
+            lookup = (contig, locus_start, locus_end, res["motif"])
             # noinspection PyTypeChecker
             locus_lookup: tuple[str, str, str] = tuple(map(str, lookup[:3]))
 
@@ -198,7 +198,7 @@ class StrKitJSONCalculator(BaseCalculator):
             if self.should_exclude_locus(locus_lookup):
                 continue
 
-            cr.seen_locus(locus_start, locus_end)
+            cr.seen_locus(contig, locus_start, locus_end)
 
             # Check to make sure call is present in all trio individuals
             if lookup not in mother_data or lookup not in father_data:

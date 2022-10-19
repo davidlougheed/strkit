@@ -62,7 +62,7 @@ class RepeatHMMCalculator(BaseCalculator):
                 locus_start: int = int(lookup[1])
                 locus_end: int = int(lookup[2])
 
-                cr.seen_locus(locus_start, locus_end)
+                cr.seen_locus(contig, locus_start, locus_end)
 
                 # Check to make sure call is present in all trio individuals
                 if lookup not in mother_calls or lookup not in father_calls:
@@ -137,7 +137,7 @@ class RepeatHMMReCallCalculator(RepeatHMMCalculator):
                 locus_start: int = int(lookup[1])
                 locus_end: int = int(lookup[2])
 
-                cr.seen_locus(locus_start, locus_end)
+                cr.seen_locus(contig, locus_start, locus_end)
 
                 # Check to make sure call is present in all trio individuals
                 if lookup not in mother_calls or lookup not in father_calls:

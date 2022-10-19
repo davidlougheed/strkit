@@ -42,7 +42,7 @@ class StraglrCalculator(BaseCalculator):
                 continue
 
             if cr:
-                cr.seen_locus(int(locus[1]), int(locus[2]))
+                cr.seen_locus(locus[0], int(locus[1]), int(locus[2]))
 
             # Transform the genotypes into something that is consistent across individuals,
             # using the file with the list of loci.
@@ -128,7 +128,7 @@ class StraglrReCallCalculator(BaseCalculator):
                 continue
 
             if cr:
-                cr.seen_locus(int(locus[1]), int(locus[2]))
+                cr.seen_locus(contig, int(locus[1]), int(locus[2]))
 
             if "." in line[6:8]:
                 continue

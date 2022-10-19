@@ -347,22 +347,22 @@ class MIContigResult:
         self._loci_data: list[MILocusData] = []
         self._includes_95_ci: bool = includes_95_ci
         self._includes_99_ci: bool = includes_99_ci
-        self._n_loci_seen: int = 0  # Counter for number of loci which are in callsets, although call may have failed
+
+        self._seen_loci: set[tuple[str, int, int]] = set()
         self._seen_loci_lengths: list[int] = []
 
-    def seen_locus(self, start: int, end: int):
-        self._n_loci_seen += 1
-
-        # Prepare lengths for binned total seen.
-        self._seen_loci_lengths.append(end - start)
+    def seen_locus(self, contig: str, start: int, end: int):
+        self._seen_loci.add((contig, start, end))
 
     @property
     def n_loci_seen(self) -> int:
-        return self._n_loci_seen
+        # Counter for number of loci which are in callsets, although call may have failed
+        return len(self._seen_loci)
 
     @property
     def seen_loci_lengths(self) -> Generator[int, None, None]:
-        yield from self._seen_loci_lengths
+        # Lengths for binned counts
+        yield from (t[2] - t[1] for t in self._seen_loci)
 
     def append(self, item: MILocusData):
         self._loci_data.append(item)
