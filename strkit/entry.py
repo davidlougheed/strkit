@@ -655,7 +655,8 @@ def main(args: Optional[list[str]] = None) -> int:
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)
 
-    attach_stream_handler(log_levels[p_args.log_level])
+    if hasattr(p_args, "log_level"):
+        attach_stream_handler(log_levels[p_args.log_level])
 
     if not getattr(p_args, "func", None):
         p_args = parser.parse_args(("--help",))
