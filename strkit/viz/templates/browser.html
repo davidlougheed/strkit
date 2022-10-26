@@ -13,6 +13,14 @@
     <script>
         const palettes = [d3.interpolateBlues, d3.interpolateReds];
 
+        const ui = {
+            showGaussians: true,
+        };
+
+        const state = {
+            callData: null,
+        };
+
         let params = {
             cmd: {},
             report: {},
@@ -68,7 +76,8 @@
           yRange = [height - marginBottom, marginTop], // [bottom, top]
           yLabel = "↑ Frequency", // a label for the y-axis
           yFormat = normalize ? "%" : undefined, // a format specifier string for the y-axis
-          color = "currentColor" // bar fill color
+          color = "currentColor", // bar fill color
+          showGaussians = true,
         } = {}) {
           // Compute values.
           const X = d3.map(data, x);
@@ -128,7 +137,7 @@
             .append("title")
               .text((d, i) => [`${d.x0} ≤ x < ${d.x1}`, yFormat(Y[i])].join("\n"));
 
-          if (peaks) {
+          if (peaks && showGaussians) {
             const xs = [];
             for (let i = xDomain[0]; i < xDomain[1]; i += 0.01) {
               xs.push(i);
@@ -192,6 +201,8 @@
 
         let locusSearchBox = null;
         let searchResponseList = null;
+
+        let btnToggleCurves = null;
 
         let histogramContainer = null;
         let kmerColumn = null;
@@ -270,7 +281,9 @@
          *     }
          * }} callData
          {% endraw %}*/
-        const renderCall = (callData) => {
+        const renderCall = () => {
+            const callData = state.callData;
+
             console.log("call data", callData);
 
             /** @type number[] */
@@ -289,6 +302,7 @@
                 width: 800,
                 height: 500,
                 color: "#9FA199",
+                showGaussians: ui.showGaussians,
             }));
 
             // Add k-mer plots, if available
@@ -428,11 +442,15 @@
             }).catch(console.error);
         };
 
-        const fetchCallData = i =>
+        const fetchCallData = i => {
             fetch(`/call_data/${i}`)
                 .then(r => r.json())
-                .then(renderCall)
+                .then(callData => {
+                    state.callData = callData;
+                    renderCall();
+                })
                 .catch(console.error);
+        }
 
         const fetchParams = () =>
             fetch(`/params`)
@@ -450,11 +468,18 @@
             fetchCallData(i);
         };
 
+        const handleToggleCurvesClick = () => {
+            ui.showGaussians = !ui.showGaussians;
+            renderCall();
+        };
+
         // --------------------------------------------------------------------
 
         document.addEventListener("DOMContentLoaded", () => {
             locusSearchBox = document.getElementById("locus-search-box");
             searchResponseList = document.getElementById("search-responses");
+
+            btnToggleCurves = document.getElementById("btn-toggle-curves");
 
             histogramContainer = document.getElementById("histogram");
             kmerColumn = document.getElementById("col-k-mer-dist");
@@ -492,6 +517,8 @@
                 // TODO: debounce
                 performSearch(v);
             });
+
+            btnToggleCurves.addEventListener("click", handleToggleCurvesClick);
 
             document.querySelectorAll(".tab-link").forEach(tL => {
                 tL.addEventListener("click", e => {
@@ -716,6 +743,10 @@
             margin: 0 0 12px 0;
             font-size: 20px;
         }
+        #tab-overview h2 button {
+            margin-left: 1.5rem;
+            vertical-align: top;
+        }
         #tab-overview header {
 
         }
@@ -881,7 +912,7 @@
     </ul>
     <div class="tab-content active" id="tab-overview">
         <div id="col-rc-hist">
-            <h2>Read count histogram</h2>
+            <h2>Read count histogram <button id="btn-toggle-curves">Toggle Curves</button></h2>
             <div id="histogram"></div>
         </div>
         <div id="col-k-mer-dist" class="hidden"> <!-- TODO: Only if k-mer content exists -->
