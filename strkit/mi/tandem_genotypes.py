@@ -72,10 +72,11 @@ class TandemGenotypesCalculator(BaseCalculator):
                 child_calls = locus_data[6:8]
 
                 if "." in child_calls:
+                    # Failed call
                     continue
 
                 cr.append(MILocusData(
-                    contig=lookup[0],
+                    contig=contig,
                     start=locus_start,
                     end=locus_end,
                     motif=lookup[3],
