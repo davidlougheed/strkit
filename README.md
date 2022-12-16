@@ -4,12 +4,7 @@
 
 A genotyping and analysis toolkit for short(ish) tandem repeats.
 
-> **Warning**
-> 
-> Bootstrapping performance may be hindered on systems with OpenMP without
-> additional configuration. See [below](#note-on-openmp-threading) for details
-> on how to fix this.
-
+<img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
 ## Installation
 
