@@ -15,16 +15,16 @@ setup(
     python_requires="~=3.8",
     install_requires=[
         "Flask>=2.2.2,<2.3",
-        "pysam>=0.16.0.1,<0.20",
-        "numpy>=1.23,<=1.24",
+        "pysam>=0.19,<0.21",
+        "numpy>=1.24.1,<=1.25",
         "parasail>=1.2.4,<1.4",
-        "scikit-learn>=1.1,<1.2",
-        "scipy>=1.8,<1.10",
-        "statsmodels>=0.13.2,<0.14",
+        "scikit-learn>=1.2.1,<1.3",
+        "scipy>=1.10,<1.11",
+        "statsmodels>=0.13.5,<0.14",
     ],
     extras_require={
         "rustdeps": [
-            "orjson>=3.8.0,<3.9",
+            "orjson>=3.8.5,<3.9",
         ],
     },
 
