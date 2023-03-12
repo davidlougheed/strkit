@@ -774,8 +774,8 @@ def call_locus(
     # Dicts are ordered in Python; very nice :)
     rdvs = tuple(read_dict.values())
     rcns = tuple(r["cn"] for r in rdvs)
-    read_cns = np.fromiter(rcns, dtype=np.float if fractional else np.int)
-    read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float)
+    read_cns = np.fromiter(rcns, dtype=np.float_ if fractional else np.int_)
+    read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float_)
     read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
     call_dict_base = {
