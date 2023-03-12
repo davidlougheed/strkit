@@ -759,7 +759,7 @@ def call_locus(
 
         crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
         read_dict[rn] = {
-            "s": "+" if segment.is_forward else "-",
+            "s": "-" if segment.is_reverse else "+",
             "cn": read_cn,
             "w": read_weight.item(),
             **({"realn": realigned} if realign and realigned else {}),
