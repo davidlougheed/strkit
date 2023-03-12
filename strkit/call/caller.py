@@ -753,7 +753,7 @@ def call_locus(
                 f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)
 
-        mean_containing_size = read_len if targeted else np.mean(sorted_read_lengths[partition_idx:])
+        mean_containing_size = read_len if targeted else np.mean(sorted_read_lengths[partition_idx:]).item()
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
         read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
 
