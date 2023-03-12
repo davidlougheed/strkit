@@ -14,6 +14,7 @@ import multiprocessing as mp
 import multiprocessing.dummy as mpd
 import numpy as np
 import parasail
+import pysam
 import queue
 import sys
 import time
@@ -21,6 +22,8 @@ import time
 from collections import Counter
 from datetime import datetime
 from pysam import AlignmentFile, FastaFile
+
+from numpy.typing import NDArray
 from typing import Iterable, Generator, Optional, Union
 
 from strkit import __version__
@@ -242,8 +245,8 @@ def get_ref_repeat_count(
             if size_to_explore < 0:
                 continue
 
-            fwd_scores = []  # For right-side adjustment
-            rev_scores = []  # For left-side adjustment
+            fwd_scores: list[tuple[Union[float, int], tuple[int, int], int]] = []  # For right-side adjustment
+            rev_scores: list[tuple[Union[float, int], tuple[int, int], int]] = []  # For left-side adjustment
 
             start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
             end_size = size_to_explore + (local_search_range if direction > -1 else 0)
@@ -290,7 +293,7 @@ def get_ref_repeat_count(
                     fwd_scores.append((i, fwd_rs, i))
                     rev_scores.append((i, rev_rs, i))
 
-            mv: tuple[int, int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
+            mv: tuple[Union[float, int], tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
             if mv[2] > size_to_explore and (
                     (new_rc := mv[2] + 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
                 if new_rc >= 0:
@@ -581,6 +584,8 @@ def call_locus(
     seen_reads: set[str] = set()
     read_lengths = []
 
+    segment: pysam.AlignedSegment
+
     for segment in (s for bf in bfs for s in bf.fetch(read_contig, left_flank_coord, right_flank_coord)):
         rn = segment.query_name
         supp = segment.flag & 2048
@@ -612,7 +617,10 @@ def call_locus(
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
-        qs = segment.query_sequence
+
+        # While .query_sequence is Optional[str], we know (because we skipped all segments with query_sequence is None
+        # above) that this is guaranteed to be, in fact, not None.
+        qs: str = segment.query_sequence
 
         c1: tuple[int, int] = segment.cigar[0]
         c2: tuple[int, int] = segment.cigar[-1]
@@ -724,7 +732,7 @@ def call_locus(
         )
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
-        read_adj_score = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
+        read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
             logger_.debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
             continue
@@ -822,9 +830,9 @@ def call_locus(
     # don't know how re-sampling has occurred.
     peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
     if read_peaks_called := call_modal_n and call_modal_n <= 2:
-        peaks = call_peaks[:call_modal_n]
-        stdevs = call_stdevs[:call_modal_n]
-        weights = call_weights[:call_modal_n]
+        peaks: NDArray = call_peaks[:call_modal_n]
+        stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
+        weights: NDArray[np.float_] = call_weights[:call_modal_n]
 
         allele_reads = []
         for _ in range(call_modal_n):
@@ -863,10 +871,10 @@ def call_locus(
             f"Locus call time exceeded {CALL_WARN_TIME}s: "
             f"{contig}:{left_coord}-{right_coord} with {num_reads} reads took {call_time}s")
 
-    def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int, np.float]]:
+    def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int_, np.float_]]:
         return [(round(y) if not fractional else round_to_base_pos(y, motif_size)) for y in x]
 
-    def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, float, np.int, np.float]]]:
+    def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, float, np.int_, np.float_]]]:
         return [_ndarray_serialize(y) for y in x]
 
     return {
@@ -881,7 +889,9 @@ def call_locus(
             "modal_n": call_modal_n,
             "n_reads": call_peak_n_reads,
             **({"kmers": [dict(c) for c in peak_kmers]} if count_kmers in ("peak", "both") else {}),
-        } if call else None,
+        } if call and call_peaks and call_weights and call_stdevs and call_modal_n else None,
+        # make typecheck happy above by checking all of these are not None (even though if call is false-y, all of them
+        # should be None and otherwise none of them should).
         "read_peaks_called": read_peaks_called,
         "time": call_time,
     }
@@ -1059,7 +1069,7 @@ def call_sample(
     else:
         bam_sample_id = sns.pop()
 
-    sample_id: Optional[str] = sample_id or bam_sample_id
+    sample_id_final: Optional[str] = sample_id or bam_sample_id
 
     # Seed the random number generator if a seed is provided, for replicability
     rng = np.random.default_rng(seed=seed)
@@ -1111,7 +1121,7 @@ def call_sample(
         # Start the progress tracking process
         progress_job = mp.Process(
             target=progress_worker,
-            args=(sample_id, start_time, log_level, locus_queue, num_loci, processes, finish_event))
+            args=(sample_id_final, start_time, log_level, locus_queue, num_loci, processes, finish_event))
         progress_job.start()
 
         # Spin up the jobs
@@ -1154,7 +1164,7 @@ def call_sample(
 
     if json_path:
         json_report = {
-            "sample_id": sample_id,
+            "sample_id": sample_id_final,
             "caller": {
                 "name": "strkit",
                 "version": __version__,
