@@ -761,7 +761,7 @@ def call_locus(
         read_dict[rn] = {
             "s": "-" if segment.is_reverse else "+",
             "cn": read_cn,
-            "w": read_weight.item(),
+            "w": read_weight,
             **({"realn": realigned} if realign and realigned else {}),
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
