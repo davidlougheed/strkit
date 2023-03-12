@@ -894,7 +894,7 @@ def call_locus(
             "modal_n": call_modal_n,
             "n_reads": call_peak_n_reads,
             **({"kmers": [dict(c) for c in peak_kmers]} if count_kmers in ("peak", "both") else {}),
-        } if call and call_peaks and call_weights and call_stdevs and call_modal_n else None,
+        } if call else None,
         # make typecheck happy above by checking all of these are not None (even though if call is false-y, all of them
         # should be None and otherwise none of them should).
         "read_peaks_called": read_peaks_called,
