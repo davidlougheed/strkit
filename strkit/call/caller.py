@@ -627,8 +627,8 @@ def call_locus(
         # above) that this is guaranteed to be, in fact, not None.
         qs: str = segment.query_sequence
 
-        c1: tuple[int, int] = segment.cigar[0]
-        c2: tuple[int, int] = segment.cigar[-1]
+        c1: tuple[int, int] = segment.cigartuples[0]
+        c2: tuple[int, int] = segment.cigartuples[-1]
 
         fqqs = segment.query_qualities
 
