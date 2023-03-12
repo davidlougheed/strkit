@@ -588,12 +588,17 @@ def call_locus(
 
     for segment in (s for bf in bfs for s in bf.fetch(read_contig, left_flank_coord, right_flank_coord)):
         rn = segment.query_name
+
+        if rn is None:  # Skip reads with no name
+            logger_.debug("Skipping entry for read with no name")
+            continue
+
         supp = segment.flag & 2048
 
         # If we have two overlapping alignments for the same read, we have a chimeric read within the TR
         # (so probably a large expansion...)
-        qn = segment.query_name
-        chimeric_read_status[qn] = chimeric_read_status.get(qn, 0) | (2 if supp else 1)
+
+        chimeric_read_status[rn] = chimeric_read_status.get(rn, 0) | (2 if supp else 1)
 
         if supp:  # Skip supplemental alignments
             logger_.debug(f"Skipping entry for read {rn} (supplemental)")
