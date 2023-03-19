@@ -3,9 +3,30 @@ import itertools
 from typing import Generator, Iterable, Union
 
 __all__ = [
+    "CIGAR_OP_MATCH",
+    "CIGAR_OP_INSERTION",
+    "CIGAR_OP_DELETION",
+    "CIGAR_OP_SKIPPED",
+    "CIGAR_OP_SOFT_CLIPPED",
+    "CIGAR_OP_HARD_CLIPPED",
+    "CIGAR_OP_PADDING",
+    "CIGAR_OP_SEQ_MATCH",
+    "CIGAR_OP_SEQ_MISMATCH",
+
     "get_aligned_pairs_from_cigar",
     "decode_cigar",
 ]
+
+
+CIGAR_OP_MATCH = 0  # M
+CIGAR_OP_INSERTION = 1  # I
+CIGAR_OP_DELETION = 2  # D
+CIGAR_OP_SKIPPED = 3  # N
+CIGAR_OP_SOFT_CLIPPED = 4  # S
+CIGAR_OP_HARD_CLIPPED = 5  # H
+CIGAR_OP_PADDING = 6  # P
+CIGAR_OP_SEQ_MATCH = 7  # =
+CIGAR_OP_SEQ_MISMATCH = 8  # X
 
 
 def get_aligned_pairs_from_cigar(
@@ -27,15 +48,15 @@ def get_aligned_pairs_from_cigar(
         cb = ((next(qi), next(di)) for _ in rc)
 
         yield from {
-            0: cb,  # M
-            1: cq,  # I
-            2: cr,  # D
-            3: cr,  # N
-            4: cq,  # S
-            5: (),  # H
-            6: (),  # P
-            7: cb,  # =
-            8: cb,  # X
+            CIGAR_OP_MATCH: cb,
+            CIGAR_OP_INSERTION: cq,
+            CIGAR_OP_DELETION: cr,
+            CIGAR_OP_SKIPPED: cr,
+            CIGAR_OP_SOFT_CLIPPED: cq,
+            CIGAR_OP_HARD_CLIPPED: (),
+            CIGAR_OP_PADDING: (),
+            CIGAR_OP_SEQ_MATCH: cb,
+            CIGAR_OP_SEQ_MISMATCH: cb,
         }[op]
 
 
