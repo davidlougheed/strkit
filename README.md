@@ -8,7 +8,8 @@ A genotyping and analysis toolkit for short(ish) tandem repeats.
 
 ## Installation
 
-STRkit can be installed from PyPI via `pip` with the following command:
+STRkit requires Python 3.9+ and can be installed from PyPI via `pip` 
+with the following command:
 
 ```bash
 python -m pip install strkit
