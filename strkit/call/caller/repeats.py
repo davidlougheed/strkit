@@ -90,7 +90,7 @@ def get_fractional_rc(
                 ),
             ))
 
-    res: tuple[float, int] = max(p_szs.items(), key=lambda x: x[1])
+    res: tuple[float, int] = max(p_szs.items())
     return res
 
 
