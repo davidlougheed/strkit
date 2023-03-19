@@ -241,6 +241,8 @@ def call_locus(
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
+        segment_start = segment.reference_start
+        segment_end = segment.reference_end
 
         # While .query_sequence is Optional[str], we know (because we skipped all segments with query_sequence is None
         # above) that this is guaranteed to be, in fact, not None.
@@ -261,8 +263,8 @@ def call_locus(
         # TODO: if some of the BAM alignment is present, use it to reduce realignment overhead?
         #  - use start point + flank*3 or end point - flank*3 or something like that
         if realign and (force_realign or (
-            (c1[0] == 4 and segment.reference_start > left_flank_coord >= segment.reference_start - c1[1]) or
-            (c2[0] == 4 and segment.reference_end < right_flank_coord <= segment.reference_end + c2[1])
+            (c1[0] == 4 and segment_start > left_flank_coord >= segment_start - c1[1]) or
+            (c2[0] == 4 and segment_end < right_flank_coord <= segment_end + c2[1])
         )):
             # Run the realignment in a separate process, to give us a timeout mechanism.
             # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
