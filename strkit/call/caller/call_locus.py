@@ -40,7 +40,9 @@ roughly_equiv_stdev_dist = 1
 force_realign = False
 
 
-def calculate_seq_with_wildcards(qs: str, quals: list[int]):
+def calculate_seq_with_wildcards(qs: str, quals: Optional[list[int]]) -> str:
+    if quals is None:
+        return qs  # No quality information, so don't do anything
     return "".join(qs[i] if quals[i] > base_wildcard_threshold else "X" for i in np.arange(len(qs)))
 
 
@@ -251,7 +253,7 @@ def call_locus(
         c1: tuple[int, int] = segment.cigartuples[0]
         c2: tuple[int, int] = segment.cigartuples[-1]
 
-        fqqs = segment.query_qualities
+        fqqs: Optional[list[int]] = segment.query_qualities
 
         realigned = False
         pairs = None
