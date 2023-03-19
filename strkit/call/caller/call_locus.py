@@ -392,13 +392,6 @@ def call_locus(
     if n_alleles is None:
         return None
 
-    # Dicts are ordered in Python; very nice :)
-    rdvs = tuple(read_dict.values())
-    rcns = tuple(r["cn"] for r in rdvs)
-    read_cns = np.fromiter(rcns, dtype=np.float_ if fractional else np.int_)
-    read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float_)
-    read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
-
     call_dict_base = {
         "locus_index": t_idx,
         "contig": contig,
@@ -425,6 +418,13 @@ def call_locus(
             "read_peaks_called": False,
             "time": (datetime.now() - call_timer).total_seconds(),
         }
+
+    # Dicts are ordered in Python; very nice :)
+    rdvs = tuple(read_dict.values())
+    rcns = tuple(r["cn"] for r in rdvs)
+    read_cns = np.fromiter(rcns, dtype=np.float_ if fractional else np.int_)
+    read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float_)
+    read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
     # If the locus only has one value, don't bother bootstrapping
     if hq and len(set(rcns)) == 1:
