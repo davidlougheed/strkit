@@ -19,6 +19,7 @@ from strkit.utils import apply_or_none
 from .align_matrix import match_score
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
+from .snvs import get_read_snvs
 from .utils import normalize_contig, round_to_base_pos
 
 
@@ -113,6 +114,77 @@ def get_read_coords_from_matched_pairs(
     return left_flank_start, left_flank_end, right_flank_start, right_flank_end
 
 
+def calculate_useful_snvs(overlapping_segments, read_dict, locus_snvs):
+    snv_counters: dict[int, Counter] = {}
+    sorted_snvs: list[tuple[int, str]] = sorted(locus_snvs, key=lambda s1: s1[0])
+
+    for segment in overlapping_segments:
+        rn = segment.query_name
+        if rn not in read_dict:
+            continue
+        snvs = read_dict[rn]["snv"]
+
+        # Know this to not be None since we were passed only segments with non-None strings earlier
+        qs: str = segment.query_sequence
+
+        segment_start = segment.reference_start
+        segment_end = segment.reference_end
+
+        snv_list = []
+        for s in sorted_snvs:
+            snv_pos, _ = s
+            if snv_pos not in snv_counters:
+                snv_counters[snv_pos] = Counter()
+            base = "-"
+            if snv_pos < segment_start or snv_pos > segment_end:
+                # leave as gap
+                pass
+            else:
+                if bb := snvs.get(s):
+                    base = bb
+                else:
+                    for pair in segment.get_aligned_pairs(matches_only=True):
+                        if pair[1] < snv_pos:
+                            continue  # Skip forward until we reach the matching position  TODO: Binary search
+                        if pair[1] == snv_pos:
+                            # Even if not in SNV set, it is not guaranteed to be a reference base, since
+                            # it's possible it was surrounded by too much other variation during the original
+                            # SNV getter algorithm.
+                            base = qs[pair[0]]
+                        else:  # pair[1] > snv_pos:
+                            # past it, so must have been a gap
+                            base = "_"
+                        break
+
+            snv_list.append(base)
+            snv_counters[snv_pos][base] += 1
+
+        read_dict[rn]["snv_bases"] = tuple(snv_list)
+
+    if (n_reads := len(read_dict)) > 6:  # TODO: Parametrize
+        # Enough reads to try for SNV based separation
+        good_snvs = []
+        for si, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
+            read_threshold = max(round(n_reads / 5), 2)  # TODO: parametrize
+            n_alleles_meeting_threshold = 0
+            for k in snv_counter:
+                if k == "-":
+                    continue
+                if snv_counter[k] >= read_threshold:
+                    n_alleles_meeting_threshold += 1
+            if n_alleles_meeting_threshold >= 2:
+                good_snvs.append(si)
+
+        for rn, read in read_dict.items():
+            print(
+                rn, f"\t{read['cn']:.0f}", "\t",
+                "".join([b for bi, b in enumerate(read["snv_bases"]) if bi in good_snvs]))
+
+        return [sorted_snvs[si] for si in good_snvs]
+
+    return []
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -128,6 +200,7 @@ def call_locus(
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
+    incorporate_snvs: bool = False,
     targeted: bool = False,
     fractional: bool = False,
     respect_ref: bool = False,
@@ -239,7 +312,10 @@ def call_locus(
 
     num_reads = len(overlapping_segments)
     sorted_read_lengths = np.sort(read_lengths)
+
+    # Aggregations for additional read-level data
     read_kmers = Counter()
+    locus_snvs: set[tuple[int, str]] = set()
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
@@ -389,6 +465,72 @@ def call_locus(
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
         }
+
+        if incorporate_snvs:
+            snvs = get_read_snvs(qs, pairs, contig, ref, left_coord_adj, right_coord_adj)
+            locus_snvs |= set(snvs.keys())
+            read_dict[rn]["snv"] = snvs
+
+    # TEMP
+
+    if incorporate_snvs:
+        useful_snvs = calculate_useful_snvs(overlapping_segments, read_dict, locus_snvs)
+
+        if not useful_snvs:
+            logger_.debug(f"No useful SNVs for locus {contig}:{left_coord}-{right_coord}")
+        else:
+            print(useful_snvs)
+            pass
+
+        # TODO:
+        #  - use reads with at least 1 SNPs called to separate 'training reads'
+        #  - eliminate 1-SNV reads with a unique haplotype vs any non-1-SNP reads... or something like that.
+        #    (see m64012_190920_173625/31917565/ccs)
+        #  - then, assign all reads - either based on what group they 'trained' or (for no SNP call ones)
+        #    based on the GMMs (maybe some kind of certainty of assignment???)
+
+        # TODO:
+        #  - maybe 3 approaches:
+        #    - if not enough SNV info / almost no reads have it, just do old method.
+        #    - if we have some SNV info for all reads AND it's not a single read count (perfectly homozygous)
+        #      (how to quantify?), do distance-based with read copy numbers AND SNV data - e.g. if we have just 1 SNP
+        #    - if we have LOTS of SNV data for the majority of reads, do assignment just using SNV data and assign
+        #      reads to peaks after (random assignment if equal chance of both groups)
+        #    - if we have COMPLETE SNV data (4+ for every read) we can do phasing + peak assignment just with SNVs
+        #      and just call the Gaussians from the separated reads (even just calculate stdev + mean for each bootstrap
+        #      iteration, which might save us some time...).
+        #    - keep track of which option as 'peak_calling_method' (pcm) or something
+
+        # def _calc_dist(rn1, rn2):
+        #     snv_dist = 0
+        #     overlap = 0
+        #
+        #     sb1 = read_dict[rn1]["snv_bases"]
+        #     sb2 = read_dict[rn2]["snv_bases"]
+        #
+        #     dividing_snps = []
+        #
+        #     for bi, (b1, b2) in enumerate(zip(sb1, sb2)):
+        #         if "-" in (b1, b2):
+        #             continue
+        #         overlap += 1
+        #         if b1 != b2:
+        #             snv_dist += 1
+        #
+        #     print("dist", rn1, rn2, snv_dist, overlap)
+        #
+        #     if overlap < 10:
+        #         return 9999  # Large value; we use single linkage for clustering so it doesn't matter
+        #
+        #     return snv_dist
+
+        # If no distance
+
+        # rns = tuple(read_dict.keys())
+
+        # _calc_dist(rns[0], rns[1])
+
+        # END TEMP
 
     n_alleles = get_n_alleles(2, sex_chroms, contig)
     if n_alleles is None:

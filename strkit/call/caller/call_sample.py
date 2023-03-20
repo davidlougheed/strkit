@@ -16,6 +16,7 @@ from typing import Optional, Union
 
 from strkit import __version__
 
+from strkit.exceptions import ParamError
 from strkit.json import dumps_indented, json
 from strkit.logger import logger
 
@@ -42,6 +43,7 @@ def locus_worker(
     sex_chroms: Optional[str],
     realign: bool,
     hq: bool,
+    incorporate_snvs: bool,
     targeted: bool,
     fractional: bool,
     respect_ref: bool,
@@ -91,6 +93,7 @@ def locus_worker(
             sex_chroms=sex_chroms,
             realign=realign,
             hq=hq,
+            incorporate_snvs=incorporate_snvs,
             targeted=targeted,
             fractional=fractional,
             respect_ref=respect_ref,
@@ -170,6 +173,7 @@ def call_sample(
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
+    incorporate_snvs: bool = False,
     targeted: bool = False,
     fractional: bool = False,
     respect_ref: bool = False,
@@ -181,6 +185,11 @@ def call_sample(
     processes: int = 1,
     seed: Optional[int] = None,
 ) -> None:
+    # Check parameter validity
+
+    if incorporate_snvs and not hq:
+        raise ParamError("Cannot use --incorporate-snvs without --hq.")
+
     # Start the call timer
     start_time = datetime.now()
 
@@ -238,6 +247,7 @@ def call_sample(
         "sex_chroms": sex_chroms,
         "realign": realign,
         "hq": hq,
+        "incorporate_snvs": incorporate_snvs,
         "targeted": targeted,
         "fractional": fractional,
         "respect_ref": respect_ref,

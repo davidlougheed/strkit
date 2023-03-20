@@ -59,6 +59,13 @@ def add_call_parser_args(call_parser):
              "DNA truth. Recommended for CCS, and CCS ONLY!")
 
     call_parser.add_argument(
+        "--incorporate-snvs",
+        "-v",
+        action="store_true",
+        help="Whether to use read-phased SNVs to help properly call genotypes. This option can only be used if --hq "
+             "is enabled. Use with CCS ONLY! This option is currently EXPERIMENTAL!")
+
+    call_parser.add_argument(
         "--targeted", "-t",
         action="store_true",
         help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
@@ -397,6 +404,7 @@ def _exec_call(p_args) -> None:
         sex_chroms=p_args.sex_chr,
         realign=p_args.realign,
         hq=p_args.hq,
+        incorporate_snvs=p_args.incorporate_snvs,
         targeted=p_args.targeted,
         fractional=p_args.fractional,
         respect_ref=p_args.respect_ref,
