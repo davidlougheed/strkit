@@ -6,6 +6,10 @@ A genotyping and analysis toolkit for short(ish) tandem repeats.
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
+&copy; David Lougheed 2021-2023 (versions up to and including `0.8.0a1`).
+
+&copy; David Lougheed 2021-2023 &amp; McGill University 2023 (versions beyond `0.8.0a1`).
+
 ## Installation
 
 STRkit requires Python 3.9+ and can be installed from PyPI via `pip` 
