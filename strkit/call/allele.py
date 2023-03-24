@@ -130,7 +130,6 @@ class CallDict(TypedDict):
     modal_n_peaks: int
 
 
-# noinspection PyUnresolvedReferences
 def call_alleles(
     repeats_fwd: RepeatCounts,
     repeats_rev: RepeatCounts,
@@ -146,6 +145,8 @@ def call_alleles(
     hq: bool,
     force_int: bool,
     seed: Optional[int],
+    logger_,
+    debug_str: str,
 ) -> Optional[CallDict]:
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
@@ -164,6 +165,10 @@ def call_alleles(
     combined_reads = np.concatenate((fwd_strand_reads, rev_strand_reads), axis=None)
     combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
     combined_len = combined_reads.shape[-1]
+
+    if np.unique(combined_reads).shape[0] == 1:
+        logger_.debug(f"Skipping bootstrap for allele(s) at {debug_str} (single value)")
+        bootstrap_iterations = 1
 
     if combined_len < min_reads:
         return None
@@ -232,12 +237,15 @@ def call_alleles(
             return None
 
         # Keep track of how many alleles were found for
+        # noinspection PyUnresolvedReferences
         sample_peaks = np.append(sample_peaks, g.means_.shape[0])
 
+        # noinspection PyUnresolvedReferences
         means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
 
         means = means_and_weights[0, :]
         weights = means_and_weights[1, :]
+        # noinspection PyUnresolvedReferences
         stdevs = np.sqrt(g.covariances_)
         n_to_resample = n_alleles - means.shape[0]
 
