@@ -206,7 +206,9 @@ by looking at inheritance patterns. This tool provides a few different ways to d
 [`strkit/viz/templates/browser.html`](strkit/viz/templates/browser.html) 
 and files in the `catalogs` directory.**
 
-Copyright (C) 2021-2022  David Lougheed
+&copy; David Lougheed 2021-2023 (versions up to and including `0.8.0a1`).
+
+&copy; David Lougheed 2021-2023 &amp; McGill University 2023 (versions beyond `0.8.0a1`).
 
 Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
 Used under the terms of the ISC license.
