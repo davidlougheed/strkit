@@ -767,13 +767,15 @@ def call_locus(
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
         weights: NDArray[np.float_] = call_weights[:call_modal_n]
 
-        allele_reads = []
+        allele_reads: list[list[str]] = []
         for _ in range(call_modal_n):
             allele_reads.append([])
 
         for r, rd in read_dict.items():
-            if rd.get("p") is not None:
-                continue  # Already has a peak from using SNV data
+            if (rp := rd.get("p")) is not None:
+                # Already has a peak from using SNV data; add it to the right allele_reads list and skip the rest.
+                allele_reads[rp].append(r)
+                continue
 
             cn = rd["cn"]
 
