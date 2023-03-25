@@ -194,10 +194,44 @@ def calculate_useful_snvs(
     return [(si, sorted_snvs[si]) for si in good_snvs]  # Tuples of (index in STR list, ref position)
 
 
+def calculate_read_distance(
+    n_reads: int,
+    read_dict_items: Sequence[tuple[str, dict]],
+    pure_snv_peak_assignment: bool,
+    relative_cn_distance_weight_scaling: float = 0.5,  # TODO: CLI specifyable param
+) -> NDArray[np.float_, np.float_]:
+    """
+    Calculate pairwise distance for all reads using either SNVs ONLY or a mixture of SNVs and copy number.
+    :param n_reads: Number of reads.
+    :param read_dict_items: Itemized read dictionary entries: (read name, read data)
+    :param pure_snv_peak_assignment: Whether to use just SNVs for peak assignment
+    :param relative_cn_distance_weight_scaling: How much to weight 1-difference in CN vs SNVs
+            (indels are more erroneous in CCS)
+    :return: The distance matrix.
+    """
 
+    # Initialize a distance matrix for all reads
+    distance_matrix = np.zeros((n_reads, n_reads))
 
-def calculate_read_distance():
-    pass  # TODO: implement
+    # Loop through and compare all vs. all reads. We can skip a few indices since the distance will be symmetrical.
+    for i in range(n_reads - 1):
+        for j in range(i + 1, n_reads):
+            r1 = read_dict_items[i][1]
+            r2 = read_dict_items[j][1]
+            r1_snv_u = r1["snvu"]
+            r2_snv_u = r2["snvu"]
+
+            d = 0 if pure_snv_peak_assignment else abs(r1["cn"] - r2["cn"]) * relative_cn_distance_weight_scaling
+            for b1, b2 in zip(r1_snv_u, r2_snv_u):
+                if b1 == SNV_OUT_OF_RANGE_CHAR or b2 == SNV_OUT_OF_RANGE_CHAR:
+                    continue
+                if b1 != b2:
+                    d += 1
+
+            distance_matrix[i, j] = d
+            distance_matrix[j, i] = d
+
+    return distance_matrix
 
 
 def call_locus(
@@ -584,29 +618,13 @@ def call_locus(
                     # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
                     assign_method = "snv+dist"
 
-                # Calculate pairwise distance for all reads using SNVs ONLY:
-                distance_matrix = np.zeros((n_reads, n_reads))
-                for i in range(n_reads - 1):
-                    for j in range(i + 1, n_reads):
-                        for snp_i in range(n_useful_snvs):
-                            r1 = read_dict_items[i][1]
-                            r2 = read_dict_items[j][1]
-                            r1_snv_u = r1["snvu"]
-                            r2_snv_u = r2["snvu"]
-                            d = 0 if pure_snv_phasing else abs(r1["cn"] - r2["cn"]) * 0.5  # TODO: param 0.5
-                            for b1, b2 in zip(r1_snv_u, r2_snv_u):
-                                if b1 != b2 and "-" not in (b1, b1):
-                                    d += 1
-                            distance_matrix[i][j] = d
-                            distance_matrix[j][i] = d
+                # Calculate pairwise distance for all reads using either SNVs ONLY or
+                # a mixture of SNVs and copy number:
+                dm = calculate_read_distance(n_reads, read_dict_items, pure_snv_peak_assignment)
 
-                from sklearn.cluster import AgglomerativeClustering
-
-                c = AgglomerativeClustering(
-                    n_clusters=n_alleles,
-                    metric="precomputed",
-                    linkage="average",
-                ).fit(distance_matrix)
+                # Cluster reads together using the distance matrix, which incorporates
+                # SNV and possibly copy number information.
+                c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average").fit(dm)
 
                 # noinspection PyUnresolvedReferences
                 cluster_labels = c.labels_
