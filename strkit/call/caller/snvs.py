@@ -1,8 +1,11 @@
 import pysam
+from collections import Counter
+from typing import Optional
 
 
 __all__ = [
     "get_read_snvs",
+    "call_useful_snvs",
 ]
 
 # vcf = pysam.VariantFile("./00-common_all.vcf.gz")
@@ -29,7 +32,8 @@ def get_read_snvs(
     fm_qp, fm_rp = pairs[0]
     lm_qp, lm_rp = pairs[-1]
 
-    ref_sequence = ref.fetch(contig, fm_rp, lm_rp + 1)
+    query_sequence = query_sequence.upper()
+    ref_sequence = ref.fetch(contig, fm_rp, lm_rp + 1).upper()
 
     lhs_contiguous = 0
     rhs_contiguous = 0
@@ -37,17 +41,14 @@ def get_read_snvs(
 
     snv_group = []
 
-    for qp, rp in pairs:
-        if rp is None:
-            continue  # insertion in read; skip this position
-
-        if tr_start_pos <= rp < tr_end_pos:  # base is in the tandem repeat itself; skip it
+    for read_pos, ref_pos in pairs:
+        if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
             continue
 
-        qb = query_sequence[qp] if qp else "_"  # If none, turn into a blank
-        rb = ref_sequence[rp - fm_rp].upper()
+        read_base = query_sequence[read_pos] if read_pos else "_"  # If none, turn into a blank
+        ref_base = ref_sequence[ref_pos - fm_rp]
 
-        if qb == rb and (rp - last_rp == 1 or last_rp == -1):
+        if read_base == ref_base and (ref_pos - last_rp == 1 or last_rp == -1):
             if snv_group:
                 rhs_contiguous += 1
             else:
@@ -56,23 +57,72 @@ def get_read_snvs(
             if lhs_contiguous > contiguous_threshold and rhs_contiguous > contiguous_threshold:
                 if len(snv_group) <= max_snv_group_size:
                     for snv in snv_group:
-                        snvs[snv[:2]] = snv[-1]
+                        snvs[snv[0]] = snv[1]
                 # Otherwise, it might be a little mismapped area or a longer deletion vs reference, so ignore it.
                 lhs_contiguous = 0
                 rhs_contiguous = 0
                 snv_group.clear()
 
-            last_rp = rp
+            last_rp = ref_pos
             continue
 
-        if rp - last_rp > 1:
+        if ref_pos - last_rp > 1:
             lhs_contiguous = 0
-            last_rp = rp
+            last_rp = ref_pos
             continue
 
-        if qb != rb:
-            snv_group.append((rp, rb, qb))
+        if read_base != ref_base:
+            snv_group.append((ref_pos, read_base))
             # Don't reset either contiguous variable; instead, take this as part of a SNP group
-            last_rp = rp
+            last_rp = ref_pos
 
     return snvs
+
+
+def call_useful_snvs(n_alleles: int, read_dict: dict[str, dict], useful_snvs: list[tuple[int, int]]) -> list[dict]:
+    """
+    Call useful SNVs at a locus level from read-level SNV data.
+    :param n_alleles: The number of alleles called for this locus.
+    :param read_dict: Dictionary of read data. Must already have peaks assigned.
+    :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
+    :return: List of called SNVs for the locus.
+    """
+
+    # Since these have already been classified as 'useful' earlier in the pipeline,
+    # we have some guarantees that these values should be fairly internally consistent
+    # for a given peak... most of the time.
+
+    allele_range = tuple(range(n_alleles))
+    peak_base_counts: dict[int, dict[int, Counter]] = {}
+
+    for _, u_ref in useful_snvs:
+        peak_base_counts[u_ref] = {p: Counter() for p in allele_range}
+
+    for rn, read in read_dict.items():
+        p: Optional[int] = read.get("p")
+        if p is None:
+            continue
+        for u_idx, (_, u_ref) in enumerate(useful_snvs):
+            peak_base_counts[u_ref][p].update((read["snvu"][u_idx],))
+
+    called_snvs: list[dict] = []
+
+    for u_ref, peak_counts in peak_base_counts.items():
+        call: list[str] = []
+        rs: list[int] = []
+
+        for a in allele_range:
+            mc = peak_counts[a].most_common(2)
+            mcc = mc[0]
+            if mcc[0] == "-":  # Chose most common non-uncalled value
+                mcc = mc[1]
+            call.append(mcc[0])
+            rs.append(mcc[1])
+
+        called_snvs.append({
+            "pos": u_ref,
+            "call": call,
+            "rs": rs,
+        })
+
+    return called_snvs

@@ -7,19 +7,21 @@ import pysam
 import queue
 
 from collections import Counter
+from collections.abc import Sequence
 from datetime import datetime
 from pysam import AlignmentFile, FastaFile
+from sklearn.cluster import AgglomerativeClustering
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, Optional, Union
+from typing import Iterable, Literal, Optional, TypedDict, Union
 
-from strkit.call.allele import get_n_alleles, call_alleles
+from strkit.call.allele import CallDict, get_n_alleles, call_alleles
 from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
-from .snvs import get_read_snvs
+from .snvs import get_read_snvs, call_useful_snvs
 from .utils import normalize_contig, round_to_base_pos
 
 
@@ -363,7 +365,7 @@ def call_locus(
         overlapping_segments.append(segment)
         read_lengths.append(segment.query_alignment_length)
 
-    num_reads = len(overlapping_segments)
+    n_overlapping_reads = len(overlapping_segments)
     sorted_read_lengths = np.sort(read_lengths)
 
     # Aggregations for additional read-level data
@@ -502,7 +504,7 @@ def call_locus(
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
         # overlaps the region, is P(read is large enough to contain) * P(  # TODO: complete this..
         partition_idx = np.searchsorted(sorted_read_lengths, tr_len_w_flank, side="right")
-        if partition_idx == num_reads:  # tr_len_w_flank is longer than the longest read... :(
+        if partition_idx == n_overlapping_reads:  # tr_len_w_flank is longer than the longest read... :(
             # Fatal
             # TODO: Just skip this locus
             logger_.error(
@@ -559,7 +561,7 @@ def call_locus(
     # Now, we know we have enough reads to maybe make a call -----------------------------------------------------------
 
     call_data = {}
-    n_reads: int = len(read_dict)
+    n_reads_in_dict: int = len(read_dict)
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, dict], ...] = tuple(read_dict.items())
     assign_method: Literal["dist", "snv", "snv+dist"] = "dist"  # dist | snv | snv+dist
@@ -568,8 +570,8 @@ def call_locus(
     # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
     if n_alleles <= 2 and incorporate_snvs:
         useful_snvs: list[tuple[int, int]] = (
-            calculate_useful_snvs(n_reads, overlapping_segments, read_dict, read_pairs, locus_snvs)
-            if n_reads >= min_snv_read_coverage else []
+            calculate_useful_snvs(n_reads_in_dict, overlapping_segments, read_dict, read_pairs, locus_snvs)
+            if n_reads_in_dict >= min_snv_read_coverage else []
         )
         n_useful_snvs: int = len(useful_snvs)
 
@@ -585,7 +587,7 @@ def call_locus(
             print_snvs = False
 
             for rn, read in read_dict_items:
-                read_useful_snv_bases = tuple(read["snv_bases"][bi] for bi, _pos, _b in useful_snvs)
+                read_useful_snv_bases = tuple(read["snv_bases"][bi] for bi, _pos in useful_snvs)
                 non_blank_read_useful_snv_bases = [bb for bb in read_useful_snv_bases if bb != SNV_OUT_OF_RANGE_CHAR]
 
                 if (nbr := len(non_blank_read_useful_snv_bases)) >= 2:  # TODO: parametrize
@@ -604,9 +606,9 @@ def call_locus(
             n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
             # print(f"{n_reads_with_many_snvs=} | {n_reads=}")
 
-            pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads
+            pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads_in_dict
 
-            if pure_snv_peak_assignment or len(read_dict_items_with_some_snvs) > min(n_reads * 0.6, 16):
+            if pure_snv_peak_assignment or len(read_dict_items_with_some_snvs) > min(n_reads_in_dict * 0.6, 16):
                 if pure_snv_peak_assignment:
                     # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
                     logger_.debug(f"{t_idx} | {contig}:{left_coord}-{right_coord} haplotyping purely using SNVs")
@@ -620,7 +622,7 @@ def call_locus(
 
                 # Calculate pairwise distance for all reads using either SNVs ONLY or
                 # a mixture of SNVs and copy number:
-                dm = calculate_read_distance(n_reads, read_dict_items, pure_snv_peak_assignment)
+                dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment)
 
                 # Cluster reads together using the distance matrix, which incorporates
                 # SNV and possibly copy number information.
@@ -682,6 +684,9 @@ def call_locus(
                         "modal_n_peaks": n_alleles,  # # alleles = # peaks always -- if we phased using SNVs
                     }
 
+                    # Add SNV data to final return dictionary
+                    call_dict_base["snvs"] = call_useful_snvs(n_alleles, read_dict, useful_snvs)
+
                 # TODO: Figure out peak_weights for phased
             else:
                 # TODO: How to use partial data?
@@ -735,6 +740,14 @@ def call_locus(
             logger_=logger_,
             debug_str=f"{contig}:{left_coord}-{right_coord}",
         ) or {}  # Still false-y
+
+    # Clean up read dict  TODO: nicer way to do this -------------------------------------------------------------------
+
+    for rn, rd in read_dict.items():
+        if "snv" in rd:
+            del rd["snv"]
+        if "snv_bases" in rd:
+            del rd["snv_bases"]
 
     # Extract data from call_data --------------------------------------------------------------------------------------
 
@@ -808,7 +821,7 @@ def call_locus(
     if call_time > CALL_WARN_TIME:
         logger_.warning(
             f"Locus call time exceeded {CALL_WARN_TIME}s: "
-            f"{contig}:{left_coord}-{right_coord} with {num_reads} reads took {call_time}s")
+            f"{contig}:{left_coord}-{right_coord} with {n_reads_in_dict} reads took {call_time}s")
 
     # Finally, compile the call into a dictionary with all information to return ---------------------------------------
 
