@@ -297,6 +297,7 @@ def call_sample(
                 ",".join(map(_cn_to_str, sorted(r["cn"] for r in res["reads"].values()))),
                 "|".join(map(_cn_to_str, res["call"])) if has_call else ".",
                 ("|".join("-".join(map(_cn_to_str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
+                *((res["assign_method"] if has_call else ".",) if incorporate_snvs else ()),
 
                 # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["means"][:n_peaks]))
                 #  if has_call and n_peaks <= 2 else "."),
