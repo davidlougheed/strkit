@@ -691,6 +691,11 @@ def call_locus(
 
                     # Add SNV data to final return dictionary
                     call_dict_base["snvs"] = call_useful_snvs(n_alleles, read_dict, useful_snvs, peak_order)
+                else:
+                    # One of the calls could not be made... what to do?
+                    # TODO: !!!!
+                    #  For now, revert to dist
+                    assign_method = "dist"
 
                 # TODO: Figure out peak_weights for phased
             else:
