@@ -116,9 +116,15 @@ def get_read_coords_from_matched_pairs(
     return left_flank_start, left_flank_end, right_flank_start, right_flank_end
 
 
-def calculate_useful_snvs(overlapping_segments, read_dict, locus_snvs, min_read_coverage: int = 10):
-    snv_counters: dict[int, Counter] = {}
-    sorted_snvs: list[tuple[int, str]] = sorted(locus_snvs, key=lambda s1: s1[0])
+def calculate_useful_snvs(
+    n_reads: int,
+    overlapping_segments: list[pysam.AlignedSegment],
+    read_dict: dict[str, dict],
+    read_match_pairs: dict[str, list[tuple[int, int]]],
+    locus_snvs: set[int],
+) -> list[tuple[int, int]]:
+    sorted_snvs: list[int] = sorted(locus_snvs)
+    snv_counters: dict[int, Counter] = {sp: Counter() for sp in sorted_snvs}
 
     for segment in overlapping_segments:
         rn = segment.query_name
@@ -133,53 +139,61 @@ def calculate_useful_snvs(overlapping_segments, read_dict, locus_snvs, min_read_
         segment_end = segment.reference_end
 
         snv_list = []
-        for s in sorted_snvs:
-            snv_pos, _ = s
-            if snv_pos not in snv_counters:
-                snv_counters[snv_pos] = Counter()
+        for snv_pos in sorted_snvs:
             base = SNV_OUT_OF_RANGE_CHAR
             if snv_pos < segment_start or snv_pos > segment_end:
                 # leave as gap
                 pass
             else:
-                if bb := snvs.get(s):
+                if bb := snvs.get(snv_pos):
                     base = bb
                 else:
-                    for pair in segment.get_aligned_pairs(matches_only=True):
-                        if pair[1] < snv_pos:
-                            continue  # Skip forward until we reach the matching position  TODO: Binary search
-                        if pair[1] == snv_pos:
-                            # Even if not in SNV set, it is not guaranteed to be a reference base, since
-                            # it's possible it was surrounded by too much other variation during the original
-                            # SNV getter algorithm.
-                            base = qs[pair[0]]
-                        else:  # pair[1] > snv_pos:
-                            # past it, so must have been a gap
-                            base = "_"
-                        break
+                    # Binary search for pair set
+                    pairs_for_read = read_match_pairs[rn]
+
+                    def _bin_search() -> str:
+                        lhs = 0
+                        rhs = len(pairs_for_read) - 1
+
+                        while lhs <= rhs:
+                            pivot = (lhs + rhs) // 2
+                            pair = pairs_for_read[pivot]
+                            if pair[1] < snv_pos:
+                                lhs = pivot + 1
+                            elif pair[1] > snv_pos:  # pair[1] > snv_pos
+                                rhs = pivot - 1
+                            else:
+                                # Even if not in SNV set, it is not guaranteed to be a reference base, since
+                                # it's possible it was surrounded by too much other variation during the original
+                                # SNV getter algorithm.
+                                return qs[pair[0]]
+
+                        # Nothing found, so must have been a gap
+                        return "_"
+
+                    base = _bin_search()
 
             snv_list.append(base)
             snv_counters[snv_pos][base] += 1
 
         read_dict[rn]["snv_bases"] = tuple(snv_list)
 
-    if (n_reads := len(read_dict)) >= min_read_coverage:
-        # Enough reads to try for SNV based separation
-        good_snvs = []
-        for si, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
-            read_threshold = max(round(n_reads / 5), 2)  # TODO: parametrize
-            n_alleles_meeting_threshold = 0
-            for k in snv_counter:
-                if k == SNV_OUT_OF_RANGE_CHAR:
-                    continue
-                if snv_counter[k] >= read_threshold:
-                    n_alleles_meeting_threshold += 1
-            if n_alleles_meeting_threshold >= 2:
-                good_snvs.append(si)
+    # Enough reads to try for SNV based separation
+    good_snvs: list[int] = []
+    for si, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
+        read_threshold = max(round(n_reads / 5), 2)  # TODO: parametrize
+        n_alleles_meeting_threshold = 0
+        for k in snv_counter:
+            if k == SNV_OUT_OF_RANGE_CHAR:
+                continue
+            if snv_counter[k] >= read_threshold:
+                n_alleles_meeting_threshold += 1
+        if n_alleles_meeting_threshold >= 2:
+            good_snvs.append(si)
 
-        return [(si, *sorted_snvs[si]) for si in good_snvs]
+    return [(si, sorted_snvs[si]) for si in good_snvs]  # Tuples of (index in STR list, ref position)
 
-    return []
+
 
 
 def calculate_read_distance():
@@ -320,7 +334,9 @@ def call_locus(
 
     # Aggregations for additional read-level data
     read_kmers = Counter()
-    locus_snvs: set[tuple[int, str]] = set()
+    locus_snvs: set[int] = set()
+
+    read_pairs: dict[str, list] = {}
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
@@ -382,6 +398,9 @@ def call_locus(
 
         if pairs is None:
             pairs = segment.get_aligned_pairs(matches_only=True)
+
+        # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
+        read_pairs[rn] = pairs
 
         left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
             left_flank_coord,
@@ -505,16 +524,19 @@ def call_locus(
 
     # Now, we know we have enough reads to maybe make a call -----------------------------------------------------------
 
-    useful_snvs: Optional[list] = None
     call_data = {}
     n_reads: int = len(read_dict)
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, dict], ...] = tuple(read_dict.items())
     assign_method: Literal["dist", "snv", "snv+dist"] = "dist"  # dist | snv | snv+dist
+    min_snv_read_coverage: int = 10  # TODO: parametrize
 
     # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
     if n_alleles <= 2 and incorporate_snvs:
-        useful_snvs = calculate_useful_snvs(overlapping_segments, read_dict, locus_snvs)
+        useful_snvs: list[tuple[int, int]] = (
+            calculate_useful_snvs(n_reads, overlapping_segments, read_dict, read_pairs, locus_snvs)
+            if n_reads >= min_snv_read_coverage else []
+        )
         n_useful_snvs: int = len(useful_snvs)
 
         if not n_useful_snvs:
