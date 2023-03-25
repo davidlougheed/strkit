@@ -721,7 +721,9 @@ def call_locus(
         #      iteration, which might save us some time...).
         #    - keep track of which option as 'peak_calling_method' (pcm) or something
 
-    if assign_method in ("single", "dist"):  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
+    single_or_dist_assign: bool = assign_method in ("single", "dist")
+
+    if single_or_dist_assign:  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
         # Dicts are ordered in Python; very nice :)
         rdvs = tuple(read_dict.values())
         rcns = tuple(r["cn"] for r in rdvs)
@@ -782,7 +784,8 @@ def call_locus(
             allele_reads.append([])
 
         for r, rd in read_dict.items():
-            if (rp := rd.get("p")) is not None:
+            # Need latter term for peaks that we overwrite if we revert to "dist" assignment:
+            if (rp := rd.get("p")) is not None and not single_or_dist_assign:
                 # Already has a peak from using SNV data; add it to the right allele_reads list and skip the rest.
                 allele_reads[rp].append(r)
                 continue
