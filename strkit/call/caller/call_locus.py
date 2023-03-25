@@ -719,11 +719,6 @@ def call_locus(
         read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float_)
         read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
-        # If the locus only has one value, don't bother bootstrapping
-        # if hq and len(set(rcns)) == 1:
-        #     logger_.debug(f"Skipping bootstrap for locus at {contig}:{left_coord}-{right_coord} (single value)")
-        #     num_bootstrap = 1
-
         call_data = call_alleles(
             read_cns, (),
             read_weights, (),

@@ -167,6 +167,7 @@ def call_alleles(
     combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
     combined_len = combined_reads.shape[-1]
 
+    # If the locus/allele only has one value, don't bother bootstrapping
     if np.unique(combined_reads).shape[0] == 1:
         logger_.debug(f"Skipping bootstrap for allele(s) at {debug_str} (single value)")
         bootstrap_iterations = 1
