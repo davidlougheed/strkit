@@ -59,8 +59,7 @@ def add_call_parser_args(call_parser):
              "DNA truth. Recommended for CCS, and CCS ONLY!")
 
     call_parser.add_argument(
-        "--incorporate-snvs",
-        "-v",
+        "--incorporate-snvs", "--snv", "-v",
         action="store_true",
         help="Whether to use read-phased SNVs to help properly call genotypes. This option can only be used if --hq "
              "is enabled. Use with CCS ONLY! This option is currently EXPERIMENTAL!")
