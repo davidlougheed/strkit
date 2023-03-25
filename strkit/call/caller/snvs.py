@@ -1,5 +1,8 @@
+import numpy as np
 import pysam
 from collections import Counter
+
+from numpy.typing import NDArray
 from typing import Optional
 
 
@@ -79,12 +82,18 @@ def get_read_snvs(
     return snvs
 
 
-def call_useful_snvs(n_alleles: int, read_dict: dict[str, dict], useful_snvs: list[tuple[int, int]]) -> list[dict]:
+def call_useful_snvs(
+    n_alleles: int,
+    read_dict: dict[str, dict],
+    useful_snvs: list[tuple[int, int]],
+    peak_order: NDArray[int],
+) -> list[dict]:
     """
     Call useful SNVs at a locus level from read-level SNV data.
     :param n_alleles: The number of alleles called for this locus.
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
+    :param peak_order: Indices for rearranging the call arrays into the final order, to match the sorted copy numbers.
     :return: List of called SNVs for the locus.
     """
 
@@ -121,8 +130,8 @@ def call_useful_snvs(n_alleles: int, read_dict: dict[str, dict], useful_snvs: li
 
         called_snvs.append({
             "pos": u_ref,
-            "call": call,
-            "rs": rs,
+            "call": np.array(call)[peak_order].tolist(),
+            "rs": np.array(rs)[peak_order].tolist(),
         })
 
     return called_snvs

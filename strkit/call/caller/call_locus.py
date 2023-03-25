@@ -666,26 +666,28 @@ def call_locus(
                 if not any((not cd) for cd in cdd):  # cdd is confirmed list[CallDict], no Nones
                     # TODO: Multi-allele phasing
 
-                    # TODO: SORT PROPERLY! BY COPY NUMBER, BUT RE-MAPPING SNPs
+                    # We called these as single-allele (1 peak) loci as a sort of hack, so the return "call" key
+                    # is an array of length 1.
 
-                    # cdd.sort(key=lambda x: x["call"][0])  # Order by copy number, smallest to largest
+                    cdd_calls = np.array([x["call"][0] for x in cdd])
+                    peak_order = np.argsort(cdd_calls)  # To reorder call arrays in least-to-greatest by copy number
 
-                    # All call_datas are truth-y
+                    # All call_datas are truth-y; all arrays should be ordered by peak_order
                     call_data = {
-                        "call": np.concatenate(tuple(cc["call"] for cc in cdd), axis=None),
-                        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0),
-                        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0),
-                        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd), axis=None),
+                        "call": cdd_calls[peak_order],
+                        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0)[peak_order],
+                        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0)[peak_order],
+                        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd), axis=None)[peak_order],
 
                         # TODO: Readjust peak weights when combining or don't include
-                        "peak_weights": np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0),
+                        "peak_weights": np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)[peak_order],
 
-                        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0),
+                        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0)[peak_order],
                         "modal_n_peaks": n_alleles,  # # alleles = # peaks always -- if we phased using SNVs
                     }
 
                     # Add SNV data to final return dictionary
-                    call_dict_base["snvs"] = call_useful_snvs(n_alleles, read_dict, useful_snvs)
+                    call_dict_base["snvs"] = call_useful_snvs(n_alleles, read_dict, useful_snvs, peak_order)
 
                 # TODO: Figure out peak_weights for phased
             else:
