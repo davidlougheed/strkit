@@ -21,6 +21,7 @@ import strkit.constants as cc
 
 __all__ = [
     "RepeatCounts",
+    "CallDict",
     "get_n_alleles",
     "call_alleles",
 ]

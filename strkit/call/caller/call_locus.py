@@ -293,9 +293,9 @@ def call_locus(
     read_dict: dict[str, dict] = {}
     chimeric_read_status: dict[str, int] = {}
 
-    overlapping_segments = []
+    overlapping_segments: list[pysam.AlignedSegment] = []
     seen_reads: set[str] = set()
-    read_lengths = []
+    read_lengths: list[int] = []
 
     segment: pysam.AlignedSegment
 
@@ -540,7 +540,7 @@ def call_locus(
         n_useful_snvs: int = len(useful_snvs)
 
         if not n_useful_snvs:
-            logger_.debug(f"No useful SNVs for locus {contig}:{left_coord}-{right_coord}")
+            logger_.debug(f"No useful SNVs for locus {t_idx}: {contig}:{left_coord}-{right_coord}")
         else:
             # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
 
@@ -570,10 +570,10 @@ def call_locus(
             n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
             # print(f"{n_reads_with_many_snvs=} | {n_reads=}")
 
-            pure_snv_phasing: bool = n_reads_with_many_snvs == n_reads
+            pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads
 
-            if pure_snv_phasing or len(read_dict_items_with_some_snvs) > min(n_reads * 0.6, 16):
-                if pure_snv_phasing:
+            if pure_snv_peak_assignment or len(read_dict_items_with_some_snvs) > min(n_reads * 0.6, 16):
+                if pure_snv_peak_assignment:
                     # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
                     logger_.debug(f"{t_idx} | {contig}:{left_coord}-{right_coord} haplotyping purely using SNVs")
                     assign_method = "snv"
@@ -582,7 +582,6 @@ def call_locus(
                     logger_.debug(
                         f"{t_idx} | {contig}:{left_coord}-{right_coord} haplotyping using combined STR-SNV metric")
                     # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
-                    # print(len(read_dict_items_with_few_or_no_snvs))
                     assign_method = "snv+dist"
 
                 # Calculate pairwise distance for all reads using SNVs ONLY:
@@ -613,8 +612,8 @@ def call_locus(
                 cluster_labels = c.labels_
                 cluster_indices = tuple(range(n_alleles))
 
-                cns = []
-                c_ws = []
+                cns: Union[list[list[int]], list[list[float]]] = []
+                c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
 
                 for ci in cluster_indices:
                     crs = []
@@ -622,7 +621,7 @@ def call_locus(
                     for i, (_, r) in enumerate(read_dict_items):
                         if cluster_labels[i] == ci:
                             crs.append(r)
-                            r["p"] = ci  # Assign peak index
+                            r["p"] = ci  # Mutation: assign peak index to read data dictionary
 
                     # Calculate copy number set
                     cns.append([r["cn"] for r in crs])
@@ -634,19 +633,22 @@ def call_locus(
 
                 # noinspection PyUnresolvedReferences
 
-                cdd = [
+                cdd: list[Optional[CallDict]] = [
                     call_alleles(
                         cns[ci], [], c_ws[ci], [],
-                        num_bootstrap // 2, 2, 2, 1, False, 0, 0, True, True, 23,
+                        num_bootstrap // 2, 2, 2, 1, False, 0, 0, True, True, 23,  # TODO: Final settings
                         logger_=logger_,
                         debug_str=f"{contig}:{left_coord}-{right_coord} a0"
-                    ) or {}
+                    )
                     for ci in cluster_indices
                 ]
 
-                if not any((not cd) for cd in cdd):
+                if not any((not cd) for cd in cdd):  # cdd is confirmed list[CallDict], no Nones
                     # TODO: Multi-allele phasing
-                    cdd.sort(key=lambda x: x["call"][0])  # Order by copy number, smallest to largest
+
+                    # TODO: SORT PROPERLY! BY COPY NUMBER, BUT RE-MAPPING SNPs
+
+                    # cdd.sort(key=lambda x: x["call"][0])  # Order by copy number, smallest to largest
 
                     # All call_datas are truth-y
                     call_data = {

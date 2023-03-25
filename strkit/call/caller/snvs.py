@@ -17,14 +17,14 @@ def get_read_snvs(
     tr_end_pos: int,
     contiguous_threshold: int = 5,
     max_snv_group_size: int = 5,
-):
+) -> dict[int, str]:
     """
     Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
     surrounded by a stretch of aligned bases of a specified size on either side.
-    :return:
+    :return: Dictionary of {position: base}
     """
 
-    snvs = {}
+    snvs: dict[int, str] = {}
 
     fm_qp, fm_rp = pairs[0]
     lm_qp, lm_rp = pairs[-1]
