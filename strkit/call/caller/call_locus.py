@@ -564,11 +564,14 @@ def call_locus(
     n_reads_in_dict: int = len(read_dict)
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, dict], ...] = tuple(read_dict.items())
-    assign_method: Literal["dist", "snv", "snv+dist"] = "dist"  # dist | snv | snv+dist
+
+    assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
+    if n_alleles < 2:
+        assign_method = "single"
     min_snv_read_coverage: int = 10  # TODO: parametrize
 
     # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
-    if n_alleles <= 2 and incorporate_snvs:
+    if n_alleles == 2 and incorporate_snvs:
         useful_snvs: list[tuple[int, int]] = (
             calculate_useful_snvs(n_reads_in_dict, overlapping_segments, read_dict, read_pairs, locus_snvs)
             if n_reads_in_dict >= min_snv_read_coverage else []
@@ -713,7 +716,7 @@ def call_locus(
         #      iteration, which might save us some time...).
         #    - keep track of which option as 'peak_calling_method' (pcm) or something
 
-    if assign_method == "dist":  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
+    if assign_method in ("single", "dist"):  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
         # Dicts are ordered in Python; very nice :)
         rdvs = tuple(read_dict.values())
         rcns = tuple(r["cn"] for r in rdvs)
