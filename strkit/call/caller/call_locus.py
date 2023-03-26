@@ -717,6 +717,8 @@ def call_locus(
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
         }
 
+        # Reads can show up more than once - TODO - cache this information across loci
+
         if incorporate_snvs:
             snvs = get_read_snvs(qs, pairs, contig, ref, left_coord_adj, right_coord_adj)
             locus_snvs |= set(snvs.keys())
