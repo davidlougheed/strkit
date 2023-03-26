@@ -119,6 +119,56 @@ def get_read_coords_from_matched_pairs(
     return left_flank_start, left_flank_end, right_flank_start, right_flank_end
 
 
+def get_overlapping_segments_and_related_data(
+    bfs: tuple[pysam.AlignmentFile],
+    read_contig: str,
+    left_flank_coord: int,
+    right_flank_coord: int,
+    logger_: logging.Logger,
+    locus_log_str: str,
+) -> tuple[list[pysam.AlignedSegment], list[int], dict[str, int]]:
+
+    overlapping_segments: list[pysam.AlignedSegment] = []
+    seen_reads: set[str] = set()
+    read_lengths: list[int] = []
+
+    chimeric_read_status: dict[str, int] = {}
+
+    segment: pysam.AlignedSegment
+
+    for segment in (s for bf in bfs for s in bf.fetch(read_contig, left_flank_coord, right_flank_coord)):
+        rn = segment.query_name
+
+        if rn is None:  # Skip reads with no name
+            logger_.debug(f"{locus_log_str} - skipping entry for read with no name")
+            continue
+
+        supp = segment.flag & 2048
+
+        # If we have two overlapping alignments for the same read, we have a chimeric read within the TR
+        # (so probably a large expansion...)
+
+        chimeric_read_status[rn] = chimeric_read_status.get(rn, 0) | (2 if supp else 1)
+
+        if supp:  # Skip supplemental alignments
+            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (supplemental)")
+            continue
+
+        if rn in seen_reads:
+            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (already seen)")
+            continue
+
+        if segment.query_sequence is None:
+            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (no aligned segment)")
+            continue
+
+        seen_reads.add(rn)
+        overlapping_segments.append(segment)
+        read_lengths.append(segment.query_alignment_length)
+
+    return overlapping_segments, read_lengths, chimeric_read_status
+
+
 def calculate_useful_snvs(
     n_reads: int,
     overlapping_segments: list[pysam.AlignedSegment],
@@ -410,7 +460,7 @@ def call_locus(
     num_bootstrap: int,
     flank_size: int,
     seed: int,
-    logger_,
+    logger_: logging.Logger,
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
@@ -492,46 +542,20 @@ def call_locus(
     left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
     right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
 
-    chimeric_read_status: dict[str, int] = {}
+    # Find the initial set of overlapping aligned segments with associated read lengths + whether we have in-locus
+    # chimera reads (i.e., reads which aligned twice with different soft-clipping, likely due to a large indel.) -------
 
-    overlapping_segments: list[pysam.AlignedSegment] = []
-    seen_reads: set[str] = set()
-    read_lengths: list[int] = []
+    overlapping_segments: list[pysam.AlignedSegment]
+    read_lengths: list[int]
+    chimeric_read_status: dict[str, int]
 
-    segment: pysam.AlignedSegment
-
-    for segment in (s for bf in bfs for s in bf.fetch(read_contig, left_flank_coord, right_flank_coord)):
-        rn = segment.query_name
-
-        if rn is None:  # Skip reads with no name
-            logger_.debug(f"{locus_log_str} - skipping entry for read with no name")
-            continue
-
-        supp = segment.flag & 2048
-
-        # If we have two overlapping alignments for the same read, we have a chimeric read within the TR
-        # (so probably a large expansion...)
-
-        chimeric_read_status[rn] = chimeric_read_status.get(rn, 0) | (2 if supp else 1)
-
-        if supp:  # Skip supplemental alignments
-            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (supplemental)")
-            continue
-
-        if rn in seen_reads:
-            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (already seen)")
-            continue
-
-        if segment.query_sequence is None:
-            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (no aligned segment)")
-            continue
-
-        seen_reads.add(rn)
-        overlapping_segments.append(segment)
-        read_lengths.append(segment.query_alignment_length)
+    overlapping_segments, read_lengths, chimeric_read_status = get_overlapping_segments_and_related_data(
+        bfs, read_contig, left_flank_coord, right_flank_coord, logger_, locus_log_str)
 
     n_overlapping_reads = len(overlapping_segments)
     sorted_read_lengths = np.sort(read_lengths)
+
+    # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
     read_dict: dict[str, ReadDict] = {}
 
