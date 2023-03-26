@@ -138,7 +138,7 @@ def progress_worker(
         try:
             lg.info(
                 f"{sample_id}: processed {num_loci - max(locus_queue.qsize(), num_workers) + num_workers} loci in "
-                f"{round((datetime.now() - start_time).total_seconds())} seconds")
+                f"{(datetime.now() - start_time).total_seconds():.1f} seconds")
         except NotImplementedError:
             pass
 
