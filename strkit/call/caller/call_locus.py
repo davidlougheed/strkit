@@ -310,8 +310,10 @@ def call_alleles_with_incorporated_snvs(
         ws = ws / np.sum(ws)
         c_ws.append(ws)
 
-    cdd: list[Optional[CallDict]] = [
-        call_alleles(
+    cdd: list[CallDict] = []
+
+    for ci in cluster_indices:
+        cc: Optional[CallDict] = call_alleles(
             cns[ci], (),  # Don't bother separating by strand for now...
             c_ws[ci], (),
             bootstrap_iterations=num_bootstrap // n_alleles,  # Apportion the bootstrap iters across alleles
@@ -327,16 +329,14 @@ def call_alleles_with_incorporated_snvs(
             logger_=logger_,
             debug_str=f"{locus_log_str} a{ci}"
         )
-        for ci in cluster_indices
-    ]
 
-    if any((cd is None) for cd in cdd):
-        # One of the calls could not be made... what to do?
-        # TODO: !!!!
-        #  For now, revert to dist
-        return "dist", None
+        if cc is None:  # Early escape
+            # One of the calls could not be made... what to do?
+            # TODO: !!!!
+            #  For now, revert to dist
+            return "dist", None
 
-    # Otherwise, cdd is confirmed list[CallDict] - no Nones
+        cdd.append(cc)
 
     # TODO: Multi-allele phasing across STRs
 
