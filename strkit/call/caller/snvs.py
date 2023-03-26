@@ -262,7 +262,7 @@ def call_useful_snvs(
             except IndexError:  # - is the only value, somehow
                 logger.warn(
                     f"{locus_log_str} - for SNV {u_ref}, found only '{SNV_OUT_OF_RANGE_CHAR}' with {mcc[1]} reads")
-                logger.debug(f"{locus_log_str} - for SNV {u_ref}: {mc=}")
+                logger.debug(f"{locus_log_str} - for SNV {u_ref}: {mc=}, {peak_counts[a]=}")
                 pass  # TODO: should we set mcc[1] to 0 here?
             call.append(mcc[0])
             rs.append(mcc[1])
