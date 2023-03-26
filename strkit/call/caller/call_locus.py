@@ -461,6 +461,7 @@ def call_locus(
     flank_size: int,
     seed: int,
     logger_: logging.Logger,
+    sample_id: Optional[str] = None,
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
@@ -525,7 +526,7 @@ def call_locus(
         return None
 
     # String representation of locus for logging purposes
-    locus_log_str: str = f"Locus {t_idx}: {contig}:{left_coord}-{right_coord}"
+    locus_log_str: str = f"{sample_id + ' ' if sample_id else ''}locus {t_idx}: {contig}:{left_coord}-{right_coord}"
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
