@@ -213,6 +213,8 @@ and files in the `catalogs` directory.**
 Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
 Used under the terms of the ISC license.
 
+### Notice
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
