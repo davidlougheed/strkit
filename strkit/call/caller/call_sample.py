@@ -297,7 +297,7 @@ def call_sample(
                 str(res["end"]),
                 res["motif"],
                 _cn_to_str(res["ref_cn"]),
-                ",".join(map(_cn_to_str, sorted(r["cn"] for r in res["reads"].values()))),
+                ",".join(map(_cn_to_str, sorted(r["cn"] for r in res["reads"].values()))) if "reads" in res else ".",
                 "|".join(map(_cn_to_str, res["call"])) if has_call else ".",
                 ("|".join("-".join(map(_cn_to_str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
                 *((res["assign_method"] if has_call else ".",) if incorporate_snvs else ()),
