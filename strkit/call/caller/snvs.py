@@ -89,6 +89,8 @@ def call_useful_snvs(
     read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
     peak_order: NDArray[int],
+    locus_log_str: str,
+    logger,
 ) -> list[dict]:
     """
     Call useful SNVs at a locus level from read-level SNV data.
@@ -96,6 +98,8 @@ def call_useful_snvs(
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
     :param peak_order: Indices for rearranging the call arrays into the final order, to match the sorted copy numbers.
+    :param locus_log_str: Locus string representation for logging purposes.
+    :param logger: Python logger object.
     :return: List of called SNVs for the locus.
     """
 
@@ -129,6 +133,7 @@ def call_useful_snvs(
                 if mcc[0] == "-":  # Chose most common non-uncalled value
                     mcc = mc[1]
             except IndexError:  # - is the only value, somehow
+                logger.warn(f"{locus_log_str} - for SNV {u_ref}, found only '-' with {mcc[1]} reads")
                 pass  # TODO: should we set mcc[1] to 0 here?
             call.append(mcc[0])
             rs.append(mcc[1])

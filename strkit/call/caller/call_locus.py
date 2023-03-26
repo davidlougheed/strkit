@@ -312,6 +312,9 @@ def call_locus(
     if raised:
         return None
 
+    # String representation of locus for logging purposes
+    locus_log_str: str = f"Locus {t_idx}: {contig}:{left_coord}-{right_coord}"
+
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
     (ref_cn, _), l_offset, r_offset = get_ref_repeat_count(
@@ -344,7 +347,7 @@ def call_locus(
         rn = segment.query_name
 
         if rn is None:  # Skip reads with no name
-            logger_.debug("Skipping entry for read with no name")
+            logger_.debug(f"{locus_log_str} - skipping entry for read with no name")
             continue
 
         supp = segment.flag & 2048
@@ -355,15 +358,15 @@ def call_locus(
         chimeric_read_status[rn] = chimeric_read_status.get(rn, 0) | (2 if supp else 1)
 
         if supp:  # Skip supplemental alignments
-            logger_.debug(f"Skipping entry for read {rn} (supplemental)")
+            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (supplemental)")
             continue
 
         if rn in seen_reads:
-            logger_.debug(f"Skipping entry for read {rn} (already seen)")
+            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (already seen)")
             continue
 
         if segment.query_sequence is None:
-            logger_.debug(f"Skipping entry for read {rn} (no aligned segment)")
+            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (no aligned segment)")
             continue
 
         seen_reads.add(rn)
@@ -429,7 +432,7 @@ def call_locus(
                 proc.join()
             except queue.Empty:
                 logger_.warning(
-                    f"Experienced timeout while re-aligning read {rn} in locus {t_idx}. Reverting to BAM alignment.")
+                    f"{locus_log_str} - experienced timeout while re-aligning read {rn}. Reverting to BAM alignment.")
             finally:
                 proc.close()
 
@@ -456,14 +459,14 @@ def call_locus(
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
             logger_.debug(
-                f"Skipping read {rn} in locus {t_idx}: could not get sufficient flanking sequence"
+                f"{locus_log_str} - skipping read {rn}: could not get sufficient flanking sequence"
                 f"{' (post-realignment)' if realigned else ''}")
             continue
 
         qqs = np.array(fqqs[left_flank_end:right_flank_start])
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
             logger_.debug(
-                f"Skipping read {rn} in locus {t_idx} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
+                f"{locus_log_str} - skipping read {rn} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
             continue
 
         # -----
@@ -503,7 +506,8 @@ def call_locus(
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
-            logger_.debug(f"Skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
+            logger_.debug(
+                f"{locus_log_str} - skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
             continue
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
@@ -513,8 +517,8 @@ def call_locus(
             # Fatal
             # TODO: Just skip this locus
             logger_.error(
-                f"Something strange happened; could not find an encompassing read where one should be guaranteed. "
-                f"TRF row: {t}; TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
+                f"{locus_log_str} - something strange happened; could not find an encompassing read where one should "
+                f"be guaranteed. TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)
 
         mean_containing_size = read_len if targeted else np.mean(sorted_read_lengths[partition_idx:]).item()
@@ -584,7 +588,7 @@ def call_locus(
         n_useful_snvs: int = len(useful_snvs)
 
         if not n_useful_snvs:
-            logger_.debug(f"No useful SNVs for locus {t_idx}: {contig}:{left_coord}-{right_coord}")
+            logger_.debug(f"{locus_log_str} - no useful SNVs")
         else:
             # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
 
@@ -612,8 +616,6 @@ def call_locus(
                           len(non_blank_read_useful_snv_bases))
 
             n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
-            # print(f"{n_reads_with_many_snvs=} | {n_reads=}")
-
             pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads_in_dict
 
             # TODO: parametrize: how many reads with SNV information
@@ -624,12 +626,11 @@ def call_locus(
                     min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)):
                 if pure_snv_peak_assignment:
                     # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
-                    logger_.debug(f"{t_idx} | {contig}:{left_coord}-{right_coord} haplotyping purely using SNVs")
+                    logger_.debug(f"{locus_log_str} - haplotyping purely using SNVs")
                     assign_method = "snv"
                 else:
                     # We have enough SNVs in lots of reads, so we can phase using a combined metric
-                    logger_.debug(
-                        f"{t_idx} | {contig}:{left_coord}-{right_coord} haplotyping using combined STR-SNV metric")
+                    logger_.debug(f"{locus_log_str} - haplotyping using combined STR-SNV metric")
                     # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
                     assign_method = "snv+dist"
 
@@ -710,7 +711,8 @@ def call_locus(
                     }
 
                     # Add SNV data to final return dictionary
-                    call_dict_base["snvs"] = call_useful_snvs(n_alleles, read_dict, useful_snvs, peak_order)
+                    call_dict_base["snvs"] = call_useful_snvs(
+                        n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
                 else:
                     # One of the calls could not be made... what to do?
                     # TODO: !!!!
@@ -848,8 +850,7 @@ def call_locus(
 
     if call_time > CALL_WARN_TIME:
         logger_.warning(
-            f"Locus call time exceeded {CALL_WARN_TIME}s: "
-            f"{contig}:{left_coord}-{right_coord} with {n_reads_in_dict} reads took {call_time}s")
+            f"{locus_log_str} - locus call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took {call_time}s")
 
     # Finally, compile the call into a dictionary with all information to return ---------------------------------------
 
