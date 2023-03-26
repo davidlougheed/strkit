@@ -238,6 +238,167 @@ def calculate_read_distance(
     return distance_matrix
 
 
+def _get_new_seed(rng: np.random.Generator) -> int:
+    return rng.integers(0, 4096).item()
+
+
+def call_alleles_with_incorporated_snvs(
+    n_alleles: int,
+    num_bootstrap: int,
+    min_allele_reads: int,
+    hq: bool,
+    fractional: bool,
+    read_dict: dict[str, ReadDict],
+    read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
+    n_reads_in_dict: int,  # We could derive this again, but we already have before...
+    useful_snvs: list[tuple[int, int]],
+    rng: np.random.Generator,
+    logger_: logging.Logger,
+    locus_log_str: str,
+) -> tuple[Literal["dist", "snv", "snv+dist", "single"], Optional[dict, list[dict]]]:
+    assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
+
+    # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
+
+    read_dict_items_with_many_snvs: list[tuple[str, ReadDict]] = []
+    read_dict_items_with_some_snvs: list[tuple[str, ReadDict]] = []
+    read_dict_items_with_few_or_no_snvs: list[tuple[str, ReadDict]] = []
+
+    print_snvs = False
+
+    for rn, read in read_dict_items:
+        read_useful_snv_bases = tuple(read["snv_bases"][bi] for bi, _pos in useful_snvs)
+        non_blank_read_useful_snv_bases = [bb for bb in read_useful_snv_bases if bb != SNV_OUT_OF_RANGE_CHAR]
+
+        if (nbr := len(non_blank_read_useful_snv_bases)) >= 2:  # TODO: parametrize
+            read_dict_items_with_some_snvs.append((rn, read))
+            if nbr >= 3:  # TODO: parametrize
+                read_dict_items_with_many_snvs.append((rn, read))
+        else:
+            read_dict_items_with_few_or_no_snvs.append((rn, read))
+
+        read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
+
+        if print_snvs:
+            print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), len(non_blank_read_useful_snv_bases))
+
+    n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
+    pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads_in_dict
+
+    # TODO: parametrize: how many reads with SNV information
+    min_snv_incorporation_read_portion = 0.5
+    min_snv_incorporation_read_abs = 16
+
+    can_incorporate_snvs: bool = pure_snv_peak_assignment or (
+        len(read_dict_items_with_some_snvs) >=
+        min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)
+    )
+
+    if not can_incorporate_snvs:
+        # TODO: How to use partial data?
+        return assign_method, None
+
+    # Otherwise, we can use the SNV data --------------------------------------
+
+    if pure_snv_peak_assignment:
+        # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
+        logger_.debug(f"{locus_log_str} - haplotyping purely using SNVs")
+        assign_method = "snv"
+    else:
+        # We have enough SNVs in lots of reads, so we can phase using a combined metric
+        logger_.debug(f"{locus_log_str} - haplotyping using combined STR-SNV metric")
+        # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
+        assign_method = "snv+dist"
+
+    # Calculate pairwise distance for all reads using either SNVs ONLY or
+    # a mixture of SNVs and copy number:
+    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment)
+
+    # Cluster reads together using the distance matrix, which incorporates
+    # SNV and possibly copy number information.
+    c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average").fit(dm)
+
+    # noinspection PyUnresolvedReferences
+    cluster_labels = c.labels_
+    cluster_indices = tuple(range(n_alleles))
+
+    cns: Union[list[list[int]], list[list[float]]] = []
+    c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
+
+    for ci in cluster_indices:
+        crs: list[ReadDict] = []
+
+        # Find reads and assign peaks
+        for i, (_, r) in enumerate(read_dict_items):
+            if cluster_labels[i] == ci:
+                crs.append(r)
+                r["p"] = ci  # Mutation: assign peak index to read data dictionary
+
+        # Calculate copy number set
+        cns.append([r["cn"] for r in crs])
+
+        # Calculate weights array
+        ws = np.array([r["w"] for r in crs])
+        ws = ws / np.sum(ws)
+        c_ws.append(ws)
+
+    cdd: list[Optional[CallDict]] = [
+        call_alleles(
+            cns[ci], (),  # Don't bother separating by strand for now...
+            c_ws[ci], (),
+            bootstrap_iterations=num_bootstrap // n_alleles,  # Apportion the bootstrap iters across alleles
+            min_reads=min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
+            min_allele_reads=min_allele_reads,
+            n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
+            separate_strands=False,
+            read_bias_corr_min=0,  # separate_strands is false, so this is ignored
+            gm_filter_factor=1,  # n_alleles=1, so this is ignored
+            hq=hq,
+            force_int=not fractional,
+            seed=_get_new_seed(rng),
+            logger_=logger_,
+            debug_str=f"{locus_log_str} a{ci}"
+        )
+        for ci in cluster_indices
+    ]
+
+    if any((cd is None) for cd in cdd):
+        # One of the calls could not be made... what to do?
+        # TODO: !!!!
+        #  For now, revert to dist
+        return "dist", None
+
+    # Otherwise, cdd is confirmed list[CallDict] - no Nones
+
+    # TODO: Multi-allele phasing across STRs
+
+    # We called these as single-allele (1 peak) loci as a sort of hack, so the return "call" key
+    # is an array of length 1.
+
+    cdd_calls = np.array([x["call"][0] for x in cdd])
+    peak_order = np.argsort(cdd_calls)  # To reorder call arrays in least-to-greatest by copy number
+
+    # All call_datas are truth-y; all arrays should be ordered by peak_order
+    call_data = {
+        "call": cdd_calls[peak_order],
+        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0)[peak_order],
+        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0)[peak_order],
+        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd), axis=None)[peak_order],
+
+        # TODO: Readjust peak weights when combining or don't include
+        "peak_weights": np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)[peak_order],
+
+        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0)[peak_order],
+        "modal_n_peaks": n_alleles,  # # alleles = # peaks always -- if we phased using SNVs
+    }
+
+    return assign_method, (
+        call_data,
+        # Called useful SNVs to add to the final return dictionary:
+        call_useful_snvs(n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
+    )
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -265,9 +426,6 @@ def call_locus(
     call_timer = datetime.now()
 
     rng = np.random.default_rng(seed=seed)
-
-    def _get_new_seed() -> int:
-        return rng.integers(0, 4096).item()
 
     contig: str = t[0]
     read_contig = normalize_contig(contig, read_file_has_chr)
@@ -334,7 +492,6 @@ def call_locus(
     left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
     right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
 
-    read_dict: dict[str, ReadDict] = {}
     chimeric_read_status: dict[str, int] = {}
 
     overlapping_segments: list[pysam.AlignedSegment] = []
@@ -375,6 +532,8 @@ def call_locus(
 
     n_overlapping_reads = len(overlapping_segments)
     sorted_read_lengths = np.sort(read_lengths)
+
+    read_dict: dict[str, ReadDict] = {}
 
     # Aggregations for additional read-level data
     read_kmers = Counter()
@@ -540,6 +699,8 @@ def call_locus(
             locus_snvs |= set(snvs.keys())
             read_dict[rn]["snv"] = snvs
 
+    # End of read loop ----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–--
+
     call_dict_base = {
         "locus_index": t_idx,
         "contig": contig,
@@ -590,137 +751,24 @@ def call_locus(
         if not n_useful_snvs:
             logger_.debug(f"{locus_log_str} - no useful SNVs")
         else:
-            # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
-
-            read_dict_items_with_many_snvs: list[tuple[str, ReadDict]] = []
-            read_dict_items_with_some_snvs: list[tuple[str, ReadDict]] = []
-            read_dict_items_with_few_or_no_snvs: list[tuple[str, ReadDict]] = []
-
-            print_snvs = False
-
-            for rn, read in read_dict_items:
-                read_useful_snv_bases = tuple(read["snv_bases"][bi] for bi, _pos in useful_snvs)
-                non_blank_read_useful_snv_bases = [bb for bb in read_useful_snv_bases if bb != SNV_OUT_OF_RANGE_CHAR]
-
-                if (nbr := len(non_blank_read_useful_snv_bases)) >= 2:  # TODO: parametrize
-                    read_dict_items_with_some_snvs.append((rn, read))
-                    if nbr >= 3:  # TODO: parametrize
-                        read_dict_items_with_many_snvs.append((rn, read))
-                else:
-                    read_dict_items_with_few_or_no_snvs.append((rn, read))
-
-                read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
-
-                if print_snvs:
-                    print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases),
-                          len(non_blank_read_useful_snv_bases))
-
-            n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
-            pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads_in_dict
-
-            # TODO: parametrize: how many reads with SNV information
-            min_snv_incorporation_read_portion = 0.5
-            min_snv_incorporation_read_abs = 16
-            if pure_snv_peak_assignment or (
-                    len(read_dict_items_with_some_snvs) >=
-                    min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)):
-                if pure_snv_peak_assignment:
-                    # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
-                    logger_.debug(f"{locus_log_str} - haplotyping purely using SNVs")
-                    assign_method = "snv"
-                else:
-                    # We have enough SNVs in lots of reads, so we can phase using a combined metric
-                    logger_.debug(f"{locus_log_str} - haplotyping using combined STR-SNV metric")
-                    # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
-                    assign_method = "snv+dist"
-
-                # Calculate pairwise distance for all reads using either SNVs ONLY or
-                # a mixture of SNVs and copy number:
-                dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment)
-
-                # Cluster reads together using the distance matrix, which incorporates
-                # SNV and possibly copy number information.
-                c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average").fit(dm)
-
-                # noinspection PyUnresolvedReferences
-                cluster_labels = c.labels_
-                cluster_indices = tuple(range(n_alleles))
-
-                cns: Union[list[list[int]], list[list[float]]] = []
-                c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
-
-                for ci in cluster_indices:
-                    crs = []
-                    # Find reads and assign peaks
-                    for i, (_, r) in enumerate(read_dict_items):
-                        if cluster_labels[i] == ci:
-                            crs.append(r)
-                            r["p"] = ci  # Mutation: assign peak index to read data dictionary
-
-                    # Calculate copy number set
-                    cns.append([r["cn"] for r in crs])
-
-                    # Calculate weights array
-                    ws = np.array([r["w"] for r in crs])
-                    ws = ws / np.sum(ws)
-                    c_ws.append(ws)
-
-                # noinspection PyUnresolvedReferences
-
-                cdd: list[Optional[CallDict]] = [
-                    call_alleles(
-                        cns[ci], (),  # Don't bother separating by strand for now...
-                        c_ws[ci], (),
-                        bootstrap_iterations=num_bootstrap // n_alleles,  # Apportion the bootstrap iters across alleles
-                        min_reads=min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
-                        min_allele_reads=min_allele_reads,
-                        n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
-                        separate_strands=False,
-                        read_bias_corr_min=0,  # separate_strands is false, so this is ignored
-                        gm_filter_factor=1,  # n_alleles=1, so this is ignored
-                        hq=hq,
-                        force_int=not fractional,
-                        seed=_get_new_seed(),
-                        logger_=logger_,
-                        debug_str=f"{contig}:{left_coord}-{right_coord} a0"
-                    )
-                    for ci in cluster_indices
-                ]
-
-                if not any((not cd) for cd in cdd):  # cdd is confirmed list[CallDict], no Nones
-                    # TODO: Multi-allele phasing across STRs
-
-                    # We called these as single-allele (1 peak) loci as a sort of hack, so the return "call" key
-                    # is an array of length 1.
-
-                    cdd_calls = np.array([x["call"][0] for x in cdd])
-                    peak_order = np.argsort(cdd_calls)  # To reorder call arrays in least-to-greatest by copy number
-
-                    # All call_datas are truth-y; all arrays should be ordered by peak_order
-                    call_data = {
-                        "call": cdd_calls[peak_order],
-                        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0)[peak_order],
-                        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0)[peak_order],
-                        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd), axis=None)[peak_order],
-
-                        # TODO: Readjust peak weights when combining or don't include
-                        "peak_weights": np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)[peak_order],
-
-                        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0)[peak_order],
-                        "modal_n_peaks": n_alleles,  # # alleles = # peaks always -- if we phased using SNVs
-                    }
-
-                    # Add SNV data to final return dictionary
-                    call_dict_base["snvs"] = call_useful_snvs(
-                        n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
-                else:
-                    # One of the calls could not be made... what to do?
-                    # TODO: !!!!
-                    #  For now, revert to dist
-                    assign_method = "dist"
-            else:
-                # TODO: How to use partial data?
-                pass
+            am, call_res = call_alleles_with_incorporated_snvs(
+                n_alleles=n_alleles,
+                num_bootstrap=num_bootstrap,
+                min_allele_reads=min_allele_reads,
+                hq=hq,
+                fractional=fractional,
+                read_dict=read_dict,
+                read_dict_items=read_dict_items,
+                n_reads_in_dict=n_reads_in_dict,
+                useful_snvs=useful_snvs,
+                rng=rng,
+                logger_=logger_,
+                locus_log_str=locus_log_str,
+            )
+            assign_method = am
+            if call_res is not None:
+                call_data = call_res[0]  # Call data dictionary
+                call_dict_base["snvs"] = call_res[1]  # Called useful SNVs
 
         # TODO:
         #  - use reads with at least 1 SNPs called to separate 'training reads'
@@ -763,7 +811,7 @@ def call_locus(
             gm_filter_factor=3,  # TODO: parametrize
             hq=hq,
             force_int=not fractional,
-            seed=_get_new_seed(),
+            seed=_get_new_seed(rng),
             logger_=logger_,
             debug_str=f"{contig}:{left_coord}-{right_coord}",
         ) or {}  # Still false-y
