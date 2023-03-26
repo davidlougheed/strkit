@@ -266,6 +266,9 @@ def call_locus(
 
     rng = np.random.default_rng(seed=seed)
 
+    def _get_new_seed() -> int:
+        return rng.integers(0, 4096).item()
+
     contig: str = t[0]
     read_contig = normalize_contig(contig, read_file_has_chr)
     ref_contig = normalize_contig(contig, ref_file_has_chr)
@@ -613,7 +616,12 @@ def call_locus(
 
             pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads_in_dict
 
-            if pure_snv_peak_assignment or len(read_dict_items_with_some_snvs) > min(n_reads_in_dict * 0.6, 16):
+            # TODO: parametrize: how many reads with SNV information
+            min_snv_incorporation_read_portion = 0.5
+            min_snv_incorporation_read_abs = 16
+            if pure_snv_peak_assignment or (
+                    len(read_dict_items_with_some_snvs) >=
+                    min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)):
                 if pure_snv_peak_assignment:
                     # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
                     logger_.debug(f"{t_idx} | {contig}:{left_coord}-{right_coord} haplotyping purely using SNVs")
@@ -660,8 +668,18 @@ def call_locus(
 
                 cdd: list[Optional[CallDict]] = [
                     call_alleles(
-                        cns[ci], [], c_ws[ci], [],
-                        num_bootstrap // 2, 2, 2, 1, False, 0, 0, True, True, 23,  # TODO: Final settings
+                        cns[ci], (),  # Don't bother separating by strand for now...
+                        c_ws[ci], (),
+                        bootstrap_iterations=num_bootstrap // n_alleles,  # Apportion the bootstrap iters across alleles
+                        min_reads=min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
+                        min_allele_reads=min_allele_reads,
+                        n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
+                        separate_strands=False,
+                        read_bias_corr_min=0,  # separate_strands is false, so this is ignored
+                        gm_filter_factor=1,  # n_alleles=1, so this is ignored
+                        hq=hq,
+                        force_int=not fractional,
+                        seed=_get_new_seed(),
                         logger_=logger_,
                         debug_str=f"{contig}:{left_coord}-{right_coord} a0"
                     )
@@ -669,7 +687,7 @@ def call_locus(
                 ]
 
                 if not any((not cd) for cd in cdd):  # cdd is confirmed list[CallDict], no Nones
-                    # TODO: Multi-allele phasing
+                    # TODO: Multi-allele phasing across STRs
 
                     # We called these as single-allele (1 peak) loci as a sort of hack, so the return "call" key
                     # is an array of length 1.
@@ -698,8 +716,6 @@ def call_locus(
                     # TODO: !!!!
                     #  For now, revert to dist
                     assign_method = "dist"
-
-                # TODO: Figure out peak_weights for phased
             else:
                 # TODO: How to use partial data?
                 pass
@@ -741,11 +757,11 @@ def call_locus(
             min_allele_reads=min_allele_reads,
             n_alleles=n_alleles,
             separate_strands=False,
-            read_bias_corr_min=0,
-            gm_filter_factor=3,
+            read_bias_corr_min=0,  # TODO: parametrize
+            gm_filter_factor=3,  # TODO: parametrize
             hq=hq,
             force_int=not fractional,
-            seed=rng.integers(0, 4096).item(),
+            seed=_get_new_seed(),
             logger_=logger_,
             debug_str=f"{contig}:{left_coord}-{right_coord}",
         ) or {}  # Still false-y
