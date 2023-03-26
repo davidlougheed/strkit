@@ -23,8 +23,9 @@ SNV_OUT_OF_RANGE_CHAR = "-"
 def _get_read_snvs_meticulous(
     query_sequence: str,
     pairs: list[tuple[int, int], ...],
-    contig: str,
-    ref: pysam.FastaFile,
+    ref_seq: str,
+    ref_coord_start: int,
+    ref_coord_end: int,
     tr_start_pos: int,
     tr_end_pos: int,
     contiguous_threshold: int = 5,
@@ -41,7 +42,7 @@ def _get_read_snvs_meticulous(
     fm_qp, fm_rp = pairs[0]
     lm_qp, lm_rp = pairs[-1]
 
-    ref_sequence: str = ref.fetch(contig, fm_rp, lm_rp + 1).upper()
+    read_ref_sequence: str = ref_seq[fm_rp-ref_coord_start:lm_rp-ref_coord_end+1]
 
     lhs_contiguous: int = 0
     rhs_contiguous: int = 0
@@ -54,7 +55,7 @@ def _get_read_snvs_meticulous(
             continue
 
         read_base = query_sequence[read_pos]
-        ref_base = ref_sequence[ref_pos - fm_rp]
+        ref_base = read_ref_sequence[ref_pos - fm_rp]
 
         if read_base == ref_base and (ref_pos - last_rp == 1 or last_rp == -1):
             if snv_group:
@@ -89,8 +90,9 @@ def _get_read_snvs_meticulous(
 def get_read_snvs(
     query_sequence: str,
     pairs: list[tuple[int, int], ...],
-    contig: str,
-    ref: pysam.FastaFile,
+    ref_seq: str,
+    ref_coord_start: int,
+    ref_coord_end: int,
     tr_start_pos: int,
     tr_end_pos: int,
     contiguous_threshold: int = 5,
@@ -108,21 +110,21 @@ def get_read_snvs(
     fm_qp, fm_rp = pairs[0]
     lm_qp, lm_rp = pairs[-1]
 
-    # query_sequence = query_sequence.upper()
-    ref_sequence: str = ref.fetch(contig, fm_rp, lm_rp + 1).upper()
+    read_ref_sequence: str = ref_seq[fm_rp-ref_coord_start:lm_rp-ref_coord_end]
 
     for read_pos, ref_pos in pairs:
         if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
             continue
-        if (read_base := query_sequence[read_pos]) != ref_sequence[ref_pos - fm_rp]:
+        if (read_base := query_sequence[read_pos]) != read_ref_sequence[ref_pos - fm_rp]:
             snvs[ref_pos] = read_base
 
     if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on
         return _get_read_snvs_meticulous(
             query_sequence,
             pairs,
-            contig,
-            ref,
+            ref_seq,
+            ref_coord_start,
+            ref_coord_end,
             tr_start_pos,
             tr_end_pos,
             contiguous_threshold,
@@ -134,26 +136,22 @@ def get_read_snvs(
 
 def calculate_useful_snvs(
     n_reads: int,
-    overlapping_segments: list[pysam.AlignedSegment],
     read_dict: dict[str, ReadDict],
+    read_dict_items: tuple[tuple[str, ReadDict], ...],
     read_match_pairs: dict[str, list[tuple[int, int]]],
     locus_snvs: set[int],
 ) -> list[tuple[int, int]]:
     sorted_snvs: list[int] = sorted(locus_snvs)
     snv_counters: dict[int, Counter] = {sp: Counter() for sp in sorted_snvs}
 
-    for segment in overlapping_segments:
-        rn = segment.query_name
-        if rn not in read_dict:
-            continue
-
+    for rn, read in read_dict_items:
         snvs: dict[int, str] = read_dict[rn]["snv"]
 
         # Know this to not be None since we were passed only segments with non-None strings earlier
-        qs: str = segment.query_sequence
+        qs: str = read["_qs"]
 
-        segment_start: int = segment.reference_start
-        segment_end: int = segment.reference_end
+        segment_start: int = read["_ref_start"]
+        segment_end: int = read["_ref_end"]
 
         snv_list: list[str] = []
 

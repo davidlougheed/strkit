@@ -409,10 +409,11 @@ def call_locus(
     left_flank_coord = left_coord - flank_size
     right_flank_coord = right_coord + flank_size
 
-    ref_left_flank_seq = ""
-    ref_right_flank_seq = ""
-    ref_seq = ""
-    raised = False
+    ref_left_flank_seq: str = ""
+    ref_right_flank_seq: str = ""
+    ref_right_flank_seq_plus_1: str = ""
+    ref_seq: str = ""
+    raised: bool = False
 
     n_alleles: Optional[int] = get_n_alleles(2, sex_chroms, contig)
     if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
@@ -424,7 +425,9 @@ def call_locus(
 
     try:
         ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
-        ref_right_flank_seq = ref.fetch(ref_contig, right_coord, right_flank_coord)
+        ref_right_flank_seq_plus_1 = ref.fetch(ref_contig, right_coord, right_flank_coord + 1)
+        # ref_right_flank_seq = ref.fetch(ref_contig, right_coord, right_flank_coord)
+        ref_right_flank_seq = ref_right_flank_seq_plus_1[:-1]
         ref_seq = ref.fetch(ref_contig, left_coord, right_coord)
     except IndexError:
         logger_.warning(
@@ -515,10 +518,19 @@ def call_locus(
 
     read_pairs: dict[str, list] = {}
 
+    # Keep track of left-most and right-most coordinates
+    # If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
+    # fairly significant overhead involved in reading from the reference genome for each read to identifify SNVs.
+    left_most_coord: int = 99999999999999
+    right_most_coord: int = 0
+
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn = segment.query_name
         segment_start = segment.reference_start
         segment_end = segment.reference_end
+
+        left_most_coord = min(left_most_coord, segment_start)
+        right_most_coord = max(right_most_coord, segment_end)
 
         # While .query_sequence is Optional[str], we know (because we skipped all segments with query_sequence is None
         # above) that this is guaranteed to be, in fact, not None.
@@ -529,14 +541,14 @@ def call_locus(
 
         fqqs: Optional[list[int]] = segment.query_qualities
 
-        realigned = False
+        realigned: bool = False
         pairs = None
 
         # Soft-clipping in large insertions can result from mapping difficulties.
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
         # via realignment with parasail.
         # 4: BAM code for soft clip
-        # TODO: if some of the BAM alignment is present, use it to reduce realignment overhead?
+        # TODO: if some alignment is present, use it to reduce realignment overhead?
         #  - use start point + flank*3 or end point - flank*3 or something like that
         if realign and (force_realign or (
             (c1[0] == 4 and segment_start > left_flank_coord >= segment_start - c1[1]) or
@@ -548,7 +560,7 @@ def call_locus(
             q = mp.Queue()
             proc = mp.Process(target=realign_read, kwargs=dict(
                 # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-                ref_seq=ref_left_flank_seq + ref_seq + ref.fetch(ref_contig, right_coord, right_flank_coord + 1),
+                ref_seq=ref_left_flank_seq + ref_seq + ref_right_flank_seq_plus_1,  # TODO: plus 1, really?
                 query_seq=calculate_seq_with_wildcards(qs, fqqs),
                 left_flank_coord=left_flank_coord,
                 flank_size=flank_size,
@@ -659,6 +671,8 @@ def call_locus(
 
         crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
         read_dict[rn] = {
+            "_ref_start": segment_start,
+            "_ref_end": segment_end,
             "s": "-" if segment.is_reverse else "+",
             "cn": read_cn,
             "w": read_weight,
@@ -670,11 +684,11 @@ def call_locus(
         # Reads can show up more than once - TODO - cache this information across loci
 
         if should_incorporate_snvs:
-            snvs = get_read_snvs(qs, pairs, contig, ref, left_coord_adj, right_coord_adj)
-            locus_snvs.update(snvs.keys())
-            read_dict[rn]["snv"] = snvs
+            # Store the segment sequence in the read dict for the next go-around if we've enabled SNV incorporation,
+            # in order to pass the query sequence to the get_read_snvs function with the cached ref string.
+            read_dict[rn]["_qs"] = qs
 
-    # End of read loop ----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–--
+    # End of first read loop -------------------------------------------------------------------------------------------
 
     n_reads_in_dict: int = len(read_dict)
 
@@ -706,8 +720,22 @@ def call_locus(
 
     # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
     if should_incorporate_snvs:
+        # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
+        # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
+
+        ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
+
+        for rn, read in read_dict_items:
+            snvs = get_read_snvs(
+                read["_qs"], read_pairs[rn], ref_cache, left_most_coord, right_most_coord, left_coord_adj,
+                right_coord_adj)
+            locus_snvs.update(snvs.keys())
+            read_dict[rn]["snv"] = snvs
+
+        # End of second read loop --------------------------------------------------------------------------------------
+
         useful_snvs: list[tuple[int, int]] = (
-            calculate_useful_snvs(n_reads_in_dict, overlapping_segments, read_dict, read_pairs, locus_snvs)
+            calculate_useful_snvs(n_reads_in_dict, read_dict, read_dict_items, read_pairs, locus_snvs)
             if n_reads_in_dict >= min_snv_read_coverage else []
         )
         n_useful_snvs: int = len(useful_snvs)
@@ -787,6 +815,12 @@ def call_locus(
             del rd["snv"]
         if "snv_bases" in rd:
             del rd["snv_bases"]
+        if "_ref_start" in rd:
+            del rd["_ref_start"]
+        if "_ref_end" in rd:
+            del rd["_ref_end"]
+        if "_qs" in rd:
+            del rd["_qs"]
 
     # Extract data from call_data --------------------------------------------------------------------------------------
 
