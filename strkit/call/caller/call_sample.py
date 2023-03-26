@@ -323,11 +323,13 @@ def call_sample(
         }
 
         dfn = dumps_indented if indent_json else json.dumps
+        report_data = dfn(json_report)
+
         if json_path == "stdout":
-            sys.stdout.buffer.write(dfn(json_report))
+            sys.stdout.buffer.write(report_data)
             sys.stdout.write("\n")
             sys.stdout.flush()
         else:
             with open(json_path, "wb") as jf:
-                jf.write(dfn(json_report))
+                jf.write(report_data)
                 jf.write(b"\n")
