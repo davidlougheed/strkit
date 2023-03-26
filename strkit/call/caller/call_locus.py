@@ -480,32 +480,6 @@ def call_locus(
 
     n_overlapping_reads = len(overlapping_segments)
 
-    call_dict_base = {
-        "locus_index": t_idx,
-        "contig": contig,
-        "start": left_coord,
-        "end": right_coord,
-        **({} if respect_ref else {
-            "start_adj": left_coord_adj,
-            "end_adj": right_coord_adj,
-        }),
-        "motif": motif,
-        "ref_cn": ref_cn,
-    }
-
-    # Check now if we definitely don't have enough reads to make a call
-    # We also check again later when we calculate all the flanking stuff
-    if n_overlapping_reads < min_reads:
-        return {
-            **call_dict_base,
-            "call": None,
-            "call_95_cis": None,
-            "call_99_cis": None,
-            "peaks": None,
-            "read_peaks_called": False,
-            "time": (datetime.now() - call_timer).total_seconds(),
-        }
-
     sorted_read_lengths = np.sort(read_lengths)
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
@@ -692,10 +666,21 @@ def call_locus(
 
     n_reads_in_dict: int = len(read_dict)
 
-    # Have read dict now, so add it to the base call information dictionary
-    call_dict_base["reads"] = read_dict
+    call_dict_base = {
+        "locus_index": t_idx,
+        "contig": contig,
+        "start": left_coord,
+        "end": right_coord,
+        **({} if respect_ref else {
+            "start_adj": left_coord_adj,
+            "end_adj": right_coord_adj,
+        }),
+        "motif": motif,
+        "ref_cn": ref_cn,
+        "reads": read_dict,
+    }
 
-    # Check again if we don't have enough reads to make a call, now that we've maybe filtered a few more out.
+    # Check now if we don't have enough reads to make a call. We can still return some read-level information!
     if n_reads_in_dict < min_reads:
         return {
             **call_dict_base,
