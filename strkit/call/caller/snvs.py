@@ -61,8 +61,7 @@ def get_read_snvs(
 
             if lhs_contiguous > contiguous_threshold and rhs_contiguous > contiguous_threshold:
                 if len(snv_group) <= max_snv_group_size:
-                    for snv in snv_group:
-                        snvs[snv[0]] = snv[1]
+                    snvs.update(snv_group)
                 # Otherwise, it might be a little mismapped area or a longer deletion vs reference, so ignore it.
                 lhs_contiguous = 0
                 rhs_contiguous = 0
