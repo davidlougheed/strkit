@@ -125,8 +125,11 @@ def call_useful_snvs(
         for a in allele_range:
             mc = peak_counts[a].most_common(2)
             mcc = mc[0]
-            if mcc[0] == "-":  # Chose most common non-uncalled value
-                mcc = mc[1]
+            try:
+                if mcc[0] == "-":  # Chose most common non-uncalled value
+                    mcc = mc[1]
+            except IndexError:  # - is the only value, somehow
+                pass  # TODO: should we set mcc[1] to 0 here?
             call.append(mcc[0])
             rs.append(mcc[1])
 
