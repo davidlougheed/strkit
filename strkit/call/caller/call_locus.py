@@ -689,8 +689,7 @@ def call_locus(
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
-            logger_.debug(
-                f"{locus_log_str} - skipping read {segment.query_name} (scored {read_adj_score} < {min_read_score})")
+            logger_.debug(f"{locus_log_str} - skipping read {rn} (scored {read_adj_score} < {min_read_score})")
             continue
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
@@ -842,7 +841,7 @@ def call_locus(
 
     # Clean up read dict  TODO: nicer way to do this -------------------------------------------------------------------
 
-    for rn, rd in read_dict.items():
+    for rn, rd in read_dict_items:
         if "snv" in rd:
             del rd["snv"]
         if "snv_bases" in rd:
@@ -875,7 +874,7 @@ def call_locus(
         for _ in range(call_modal_n):
             allele_reads.append([])
 
-        for r, rd in read_dict.items():
+        for r, rd in read_dict_items:
             # Need latter term for peaks that we overwrite if we revert to "dist" assignment:
             if (rp := rd.get("p")) is not None and not single_or_dist_assign:
                 # Already has a peak from using SNV data; add it to the right allele_reads list and skip the rest.
