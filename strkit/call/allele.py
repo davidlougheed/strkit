@@ -169,7 +169,7 @@ def call_alleles(
 
     # If the locus/allele only has one value, don't bother bootstrapping
     if np.unique(combined_reads).shape[0] == 1:
-        logger_.debug(f"Skipping bootstrap for allele(s) at {debug_str} (single value)")
+        logger_.debug(f"{debug_str} - skipping bootstrap for allele(s) (single value)")
         bootstrap_iterations = 1
 
     if combined_len < min_reads:
