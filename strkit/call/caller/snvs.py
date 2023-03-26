@@ -9,9 +9,13 @@ from .types import ReadDict
 
 
 __all__ = [
+    "SNV_OUT_OF_RANGE_CHAR",
     "get_read_snvs",
+    "calculate_useful_snvs",
     "call_useful_snvs",
 ]
+
+SNV_OUT_OF_RANGE_CHAR = "-"
 
 # TODO: annotate with rsID if file provided
 
@@ -128,6 +132,85 @@ def get_read_snvs(
     return snvs
 
 
+def calculate_useful_snvs(
+    n_reads: int,
+    overlapping_segments: list[pysam.AlignedSegment],
+    read_dict: dict[str, ReadDict],
+    read_match_pairs: dict[str, list[tuple[int, int]]],
+    locus_snvs: set[int],
+) -> list[tuple[int, int]]:
+    sorted_snvs: list[int] = sorted(locus_snvs)
+    snv_counters: dict[int, Counter] = {sp: Counter() for sp in sorted_snvs}
+
+    for segment in overlapping_segments:
+        rn = segment.query_name
+        if rn not in read_dict:
+            continue
+
+        snvs: dict[int, str] = read_dict[rn]["snv"]
+
+        # Know this to not be None since we were passed only segments with non-None strings earlier
+        qs: str = segment.query_sequence
+
+        segment_start: int = segment.reference_start
+        segment_end: int = segment.reference_end
+
+        snv_list: list[str] = []
+
+        for snv_pos in sorted_snvs:
+            base: str = SNV_OUT_OF_RANGE_CHAR
+            if segment_start <= snv_pos <= segment_end:
+                if bb := snvs.get(snv_pos):
+                    base = bb
+                else:
+                    # Binary search for pair set
+                    pairs_for_read = read_match_pairs[rn]
+
+                    def _bin_search() -> str:
+                        lhs: int = 0
+                        rhs: int = len(pairs_for_read) - 1
+
+                        while lhs <= rhs:
+                            pivot: int = (lhs + rhs) // 2
+                            pair: tuple[int, int] = pairs_for_read[pivot]
+                            if pair[1] < snv_pos:
+                                lhs = pivot + 1
+                            elif pair[1] > snv_pos:  # pair[1] > snv_pos
+                                rhs = pivot - 1
+                            else:
+                                # Even if not in SNV set, it is not guaranteed to be a reference base, since
+                                # it's possible it was surrounded by too much other variation during the original
+                                # SNV getter algorithm.
+                                return qs[pair[0]]
+
+                        # Nothing found, so must have been a gap
+                        return "_"
+
+                    base = _bin_search()
+
+            # Otherwise, leave as gap
+
+            snv_list.append(base)
+            snv_counters[snv_pos][base] += 1
+
+        read_dict[rn]["snv_bases"] = tuple(snv_list)
+
+    # Enough reads to try for SNV based separation
+    useful_snvs: list[int] = []
+    for si, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
+        read_threshold = max(round(n_reads / 5), 2)  # TODO: parametrize
+        n_alleles_meeting_threshold = 0
+        for k in snv_counter:
+            if k == SNV_OUT_OF_RANGE_CHAR:
+                continue
+            if snv_counter[k] >= read_threshold:
+                n_alleles_meeting_threshold += 1
+        if n_alleles_meeting_threshold >= 2:
+            useful_snvs.append(si)
+
+    return [(si, sorted_snvs[si]) for si in useful_snvs]  # Tuples of (index in STR list, ref position)
+
+
 def call_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
@@ -174,10 +257,12 @@ def call_useful_snvs(
             mc = peak_counts[a].most_common(2)
             mcc = mc[0]
             try:
-                if mcc[0] == "-":  # Chose most common non-uncalled value
+                if mcc[0] == SNV_OUT_OF_RANGE_CHAR:  # Chose most common non-uncalled value
                     mcc = mc[1]
             except IndexError:  # - is the only value, somehow
-                logger.warn(f"{locus_log_str} - for SNV {u_ref}, found only '-' with {mcc[1]} reads")
+                logger.warn(
+                    f"{locus_log_str} - for SNV {u_ref}, found only '{SNV_OUT_OF_RANGE_CHAR}' with {mcc[1]} reads")
+                logger.debug(f"{locus_log_str} - for SNV {u_ref}: {mc=}")
                 pass  # TODO: should we set mcc[1] to 0 here?
             call.append(mcc[0])
             rs.append(mcc[1])
