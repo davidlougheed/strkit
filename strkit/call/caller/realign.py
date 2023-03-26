@@ -8,8 +8,8 @@ from typing import Optional
 from .align_matrix import match_score, dna_matrix
 from .cigar import get_aligned_pairs_from_cigar, decode_cigar
 
-min_realign_score_ratio = 0.95  # TODO: parametrize
-realign_indel_open_penalty = 7  # TODO: parametrize
+min_realign_score_ratio: float = 0.95  # TODO: parametrize
+realign_indel_open_penalty: int = 7  # TODO: parametrize
 
 
 def realign_read(

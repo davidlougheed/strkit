@@ -5,13 +5,15 @@ from collections import Counter
 from numpy.typing import NDArray
 from typing import Optional
 
+from .types import ReadDict
+
 
 __all__ = [
     "get_read_snvs",
     "call_useful_snvs",
 ]
 
-# vcf = pysam.VariantFile("./00-common_all.vcf.gz")
+# TODO: annotate with rsID if file provided
 
 
 def get_read_snvs(
@@ -36,13 +38,13 @@ def get_read_snvs(
     lm_qp, lm_rp = pairs[-1]
 
     query_sequence = query_sequence.upper()
-    ref_sequence = ref.fetch(contig, fm_rp, lm_rp + 1).upper()
+    ref_sequence: str = ref.fetch(contig, fm_rp, lm_rp + 1).upper()
 
-    lhs_contiguous = 0
-    rhs_contiguous = 0
-    last_rp = -1
+    lhs_contiguous: int = 0
+    rhs_contiguous: int = 0
+    last_rp: int = -1
 
-    snv_group = []
+    snv_group: list[tuple[int, str]] = []
 
     for read_pos, ref_pos in pairs:
         if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
@@ -84,7 +86,7 @@ def get_read_snvs(
 
 def call_useful_snvs(
     n_alleles: int,
-    read_dict: dict[str, dict],
+    read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
     peak_order: NDArray[int],
 ) -> list[dict]:

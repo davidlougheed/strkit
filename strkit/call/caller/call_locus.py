@@ -13,7 +13,7 @@ from pysam import AlignmentFile, FastaFile
 from sklearn.cluster import AgglomerativeClustering
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, Optional, TypedDict, Union
+from typing import Iterable, Literal, Optional, Union
 
 from strkit.call.allele import CallDict, get_n_alleles, call_alleles
 from strkit.utils import apply_or_none
@@ -22,6 +22,7 @@ from .align_matrix import match_score
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import get_read_snvs, call_useful_snvs
+from .types import ReadDict
 from .utils import normalize_contig, round_to_base_pos
 
 
@@ -121,7 +122,7 @@ def get_read_coords_from_matched_pairs(
 def calculate_useful_snvs(
     n_reads: int,
     overlapping_segments: list[pysam.AlignedSegment],
-    read_dict: dict[str, dict],
+    read_dict: dict[str, ReadDict],
     read_match_pairs: dict[str, list[tuple[int, int]]],
     locus_snvs: set[int],
 ) -> list[tuple[int, int]]:
@@ -132,17 +133,18 @@ def calculate_useful_snvs(
         rn = segment.query_name
         if rn not in read_dict:
             continue
-        snvs = read_dict[rn]["snv"]
+        snvs: dict[int, str] = read_dict[rn]["snv"]
 
         # Know this to not be None since we were passed only segments with non-None strings earlier
         qs: str = segment.query_sequence
 
-        segment_start = segment.reference_start
-        segment_end = segment.reference_end
+        segment_start: int = segment.reference_start
+        segment_end: int = segment.reference_end
 
-        snv_list = []
+        snv_list: list[str] = []
+
         for snv_pos in sorted_snvs:
-            base = SNV_OUT_OF_RANGE_CHAR
+            base: str = SNV_OUT_OF_RANGE_CHAR
             if snv_pos < segment_start or snv_pos > segment_end:
                 # leave as gap
                 pass
@@ -158,8 +160,8 @@ def calculate_useful_snvs(
                         rhs = len(pairs_for_read) - 1
 
                         while lhs <= rhs:
-                            pivot = (lhs + rhs) // 2
-                            pair = pairs_for_read[pivot]
+                            pivot: int = (lhs + rhs) // 2
+                            pair: tuple[int, int] = pairs_for_read[pivot]
                             if pair[1] < snv_pos:
                                 lhs = pivot + 1
                             elif pair[1] > snv_pos:  # pair[1] > snv_pos
@@ -198,7 +200,7 @@ def calculate_useful_snvs(
 
 def calculate_read_distance(
     n_reads: int,
-    read_dict_items: Sequence[tuple[str, dict]],
+    read_dict_items: Sequence[tuple[str, ReadDict]],
     pure_snv_peak_assignment: bool,
     relative_cn_distance_weight_scaling: float = 0.5,  # TODO: CLI specifyable param
 ) -> NDArray[np.float_, np.float_]:
@@ -326,7 +328,7 @@ def call_locus(
     left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
     right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
 
-    read_dict: dict[str, dict] = {}
+    read_dict: dict[str, ReadDict] = {}
     chimeric_read_status: dict[str, int] = {}
 
     overlapping_segments: list[pysam.AlignedSegment] = []
@@ -563,7 +565,7 @@ def call_locus(
     call_data = {}
     n_reads_in_dict: int = len(read_dict)
     # noinspection PyTypeChecker
-    read_dict_items: tuple[tuple[str, dict], ...] = tuple(read_dict.items())
+    read_dict_items: tuple[tuple[str, ReadDict], ...] = tuple(read_dict.items())
 
     assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
     if n_alleles < 2:
@@ -583,9 +585,9 @@ def call_locus(
         else:
             # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
 
-            read_dict_items_with_many_snvs: list[tuple[str, dict]] = []
-            read_dict_items_with_some_snvs: list[tuple[str, dict]] = []
-            read_dict_items_with_few_or_no_snvs: list[tuple[str, dict]] = []
+            read_dict_items_with_many_snvs: list[tuple[str, ReadDict]] = []
+            read_dict_items_with_some_snvs: list[tuple[str, ReadDict]] = []
+            read_dict_items_with_few_or_no_snvs: list[tuple[str, ReadDict]] = []
 
             print_snvs = False
 
