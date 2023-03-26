@@ -499,6 +499,10 @@ def call_locus(
     if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
         return None
 
+    # Currently, only support diploid use of SNVs. There's not much of a point with haploid loci,
+    # and polyploidy is hard.
+    should_incorporate_snvs: bool = incorporate_snvs and n_alleles == 2
+
     try:
         ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
         ref_right_flank_seq = ref.fetch(ref_contig, right_coord, right_flank_coord)
@@ -553,6 +557,33 @@ def call_locus(
         bfs, read_contig, left_flank_coord, right_flank_coord, logger_, locus_log_str)
 
     n_overlapping_reads = len(overlapping_segments)
+
+    call_dict_base = {
+        "locus_index": t_idx,
+        "contig": contig,
+        "start": left_coord,
+        "end": right_coord,
+        **({} if respect_ref else {
+            "start_adj": left_coord_adj,
+            "end_adj": right_coord_adj,
+        }),
+        "motif": motif,
+        "ref_cn": ref_cn,
+    }
+
+    # Check now if we definitely don't have enough reads to make a call
+    # We also check again later when we calculate all the flanking stuff
+    if n_overlapping_reads < min_reads:
+        return {
+            **call_dict_base,
+            "call": None,
+            "call_95_cis": None,
+            "call_99_cis": None,
+            "peaks": None,
+            "read_peaks_called": False,
+            "time": (datetime.now() - call_timer).total_seconds(),
+        }
+
     sorted_read_lengths = np.sort(read_lengths)
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
@@ -719,30 +750,20 @@ def call_locus(
 
         # Reads can show up more than once - TODO - cache this information across loci
 
-        if incorporate_snvs:
+        if should_incorporate_snvs:
             snvs = get_read_snvs(qs, pairs, contig, ref, left_coord_adj, right_coord_adj)
-            locus_snvs |= set(snvs.keys())
+            locus_snvs.update(snvs.keys())
             read_dict[rn]["snv"] = snvs
 
     # End of read loop ----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–----–--
 
-    call_dict_base = {
-        "locus_index": t_idx,
-        "contig": contig,
-        "start": left_coord,
-        "end": right_coord,
-        **({} if respect_ref else {
-            "start_adj": left_coord_adj,
-            "end_adj": right_coord_adj,
-        }),
-        "motif": motif,
-        "ref_cn": ref_cn,
-        "reads": read_dict,
-    }
+    n_reads_in_dict: int = len(read_dict)
 
-    # Check now if we definitely don't have enough reads to make a call
-    # We also check again later when we calculate all the flanking stuff
-    if len(overlapping_segments) < min_reads:
+    # Have read dict now, so add it to the base call information dictionary
+    call_dict_base["reads"] = read_dict
+
+    # Check again if we don't have enough reads to make a call, now that we've maybe filtered a few more out.
+    if n_reads_in_dict < min_reads:
         return {
             **call_dict_base,
             "call": None,
@@ -756,7 +777,6 @@ def call_locus(
     # Now, we know we have enough reads to maybe make a call -----------------------------------------------------------
 
     call_data = {}
-    n_reads_in_dict: int = len(read_dict)
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, ReadDict], ...] = tuple(read_dict.items())
 
@@ -766,7 +786,7 @@ def call_locus(
     min_snv_read_coverage: int = 10  # TODO: parametrize
 
     # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
-    if n_alleles == 2 and incorporate_snvs:
+    if should_incorporate_snvs:
         useful_snvs: list[tuple[int, int]] = (
             calculate_useful_snvs(n_reads_in_dict, overlapping_segments, read_dict, read_pairs, locus_snvs)
             if n_reads_in_dict >= min_snv_read_coverage else []
