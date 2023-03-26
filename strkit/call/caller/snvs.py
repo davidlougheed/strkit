@@ -50,7 +50,7 @@ def get_read_snvs(
         if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
             continue
 
-        read_base = query_sequence[read_pos] if read_pos else "_"  # If none, turn into a blank
+        read_base = query_sequence[read_pos]
         ref_base = ref_sequence[ref_pos - fm_rp]
 
         if read_base == ref_base and (ref_pos - last_rp == 1 or last_rp == -1):
