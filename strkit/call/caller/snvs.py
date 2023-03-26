@@ -16,7 +16,7 @@ __all__ = [
 # TODO: annotate with rsID if file provided
 
 
-def get_read_snvs(
+def _get_read_snvs_meticulous(
     query_sequence: str,
     pairs: list[tuple[int, int], ...],
     contig: str,
@@ -25,7 +25,7 @@ def get_read_snvs(
     tr_end_pos: int,
     contiguous_threshold: int = 5,
     max_snv_group_size: int = 5,
-) -> dict[int, str]:
+):
     """
     Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
     surrounded by a stretch of aligned bases of a specified size on either side.
@@ -37,7 +37,6 @@ def get_read_snvs(
     fm_qp, fm_rp = pairs[0]
     lm_qp, lm_rp = pairs[-1]
 
-    query_sequence = query_sequence.upper()
     ref_sequence: str = ref.fetch(contig, fm_rp, lm_rp + 1).upper()
 
     lhs_contiguous: int = 0
@@ -79,6 +78,52 @@ def get_read_snvs(
             snv_group.append((ref_pos, read_base))
             # Don't reset either contiguous variable; instead, take this as part of a SNP group
             last_rp = ref_pos
+
+    return snvs
+
+
+def get_read_snvs(
+    query_sequence: str,
+    pairs: list[tuple[int, int], ...],
+    contig: str,
+    ref: pysam.FastaFile,
+    tr_start_pos: int,
+    tr_end_pos: int,
+    contiguous_threshold: int = 5,
+    max_snv_group_size: int = 5,
+    too_many_snvs_threshold: int = 150,
+) -> dict[int, str]:
+    """
+    Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
+    surrounded by a stretch of aligned bases of a specified size on either side.
+    :return: Dictionary of {position: base}
+    """
+
+    snvs: dict[int, str] = {}
+
+    fm_qp, fm_rp = pairs[0]
+    lm_qp, lm_rp = pairs[-1]
+
+    # query_sequence = query_sequence.upper()
+    ref_sequence: str = ref.fetch(contig, fm_rp, lm_rp + 1).upper()
+
+    for read_pos, ref_pos in pairs:
+        if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
+            continue
+        if (read_base := query_sequence[read_pos]) != ref_sequence[ref_pos - fm_rp]:
+            snvs[ref_pos] = read_base
+
+    if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on
+        return _get_read_snvs_meticulous(
+            query_sequence,
+            pairs,
+            contig,
+            ref,
+            tr_start_pos,
+            tr_end_pos,
+            contiguous_threshold,
+            max_snv_group_size,
+        )
 
     return snvs
 
