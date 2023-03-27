@@ -187,11 +187,6 @@ def call_sample(
     processes: int = 1,
     seed: Optional[int] = None,
 ) -> None:
-    # Check parameter validity
-
-    if incorporate_snvs and not hq:
-        raise ParamError("Cannot use --incorporate-snvs without --hq.")
-
     # Start the call timer
     start_time = datetime.now()
 
