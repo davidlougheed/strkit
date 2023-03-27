@@ -169,7 +169,6 @@ def get_overlapping_segments_and_related_data(
 def calculate_read_distance(
     n_reads: int,
     read_dict_items: Sequence[tuple[str, ReadDict]],
-    read_dict_extra: dict[str, dict],
     pure_snv_peak_assignment: bool,
     relative_cn_distance_weight_scaling: float = 0.5,  # TODO: CLI specifyable param
 ) -> NDArray[np.float_, np.float_]:
@@ -177,7 +176,6 @@ def calculate_read_distance(
     Calculate pairwise distance for all reads using either SNVs ONLY or a mixture of SNVs and copy number.
     :param n_reads: Number of reads.
     :param read_dict_items: Itemized read dictionary entries: (read name, read data)
-    :param read_dict_extra: Read dictionary for extra (intermediate-stage) read-associated data
     :param pure_snv_peak_assignment: Whether to use just SNVs for peak assignment
     :param relative_cn_distance_weight_scaling: How much to weight 1-difference in CN vs SNVs
             (indels are more erroneous in CCS)
@@ -190,10 +188,10 @@ def calculate_read_distance(
     # Loop through and compare all vs. all reads. We can skip a few indices since the distance will be symmetrical.
     for i in range(n_reads - 1):
         for j in range(i + 1, n_reads):
-            r1n, r1 = read_dict_items[i]
-            r2n, r2 = read_dict_items[j]
-            r1_snv_u = read_dict_extra[r1n]["snvu"]
-            r2_snv_u = read_dict_extra[r2n]["snvu"]
+            r1 = read_dict_items[i][1]
+            r2 = read_dict_items[j][1]
+            r1_snv_u = r1["snvu"]
+            r2_snv_u = r2["snvu"]
 
             d = 0 if pure_snv_peak_assignment else abs(r1["cn"] - r2["cn"]) * relative_cn_distance_weight_scaling
             for b1, b2 in zip(r1_snv_u, r2_snv_u):
@@ -248,7 +246,7 @@ def call_alleles_with_incorporated_snvs(
         else:
             read_dict_items_with_few_or_no_snvs.append((rn, read))
 
-        read_dict_extra[rn]["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
+        read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
 
         if print_snvs:
             print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), len(non_blank_read_useful_snv_bases))
@@ -283,7 +281,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Calculate pairwise distance for all reads using either SNVs ONLY or
     # a mixture of SNVs and copy number:
-    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, read_dict_extra, pure_snv_peak_assignment)
+    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment)
 
     # Cluster reads together using the distance matrix, which incorporates
     # SNV and possibly copy number information.
@@ -366,7 +364,7 @@ def call_alleles_with_incorporated_snvs(
     return assign_method, (
         call_data,
         # Called useful SNVs to add to the final return dictionary:
-        call_useful_snvs(n_alleles, read_dict, read_dict_extra, useful_snvs, peak_order, locus_log_str, logger_)
+        call_useful_snvs(n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
     )
 
 

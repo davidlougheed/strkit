@@ -1,5 +1,4 @@
 import numpy as np
-import pysam
 from collections import Counter
 
 from numpy.typing import NDArray
@@ -201,7 +200,6 @@ def calculate_useful_snvs(
 def call_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
-    read_dict_extra: dict[str, dict],
     useful_snvs: list[tuple[int, int]],
     peak_order: NDArray[int],
     locus_log_str: str,
@@ -211,7 +209,6 @@ def call_useful_snvs(
     Call useful SNVs at a locus level from read-level SNV data.
     :param n_alleles: The number of alleles called for this locus.
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
-    :param read_dict_extra: Dictionary of extra (intermediate) read data.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
     :param peak_order: Indices for rearranging the call arrays into the final order, to match the sorted copy numbers.
     :param locus_log_str: Locus string representation for logging purposes.
@@ -234,7 +231,7 @@ def call_useful_snvs(
         if p is None:
             continue
         for u_idx, (_, u_ref) in enumerate(useful_snvs):
-            peak_base_counts[u_ref][p].update((read_dict_extra[rn]["snvu"][u_idx],))
+            peak_base_counts[u_ref][p].update((read["snvu"][u_idx],))
 
     called_snvs: list[dict] = []
 
