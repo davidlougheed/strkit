@@ -814,7 +814,7 @@ def call_locus(
 
     # We cannot call read-level cluster labels with >2 peaks using distance alone;
     # don't know how re-sampling has occurred.
-    call_peak_n_reads = []
+    call_peak_n_reads: list[int] = []
     peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
     if read_peaks_called := call_modal_n and call_modal_n <= 2:
         peaks: NDArray = call_peaks[:call_modal_n]
