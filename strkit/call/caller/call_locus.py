@@ -795,7 +795,7 @@ def call_locus(
             force_int=not fractional,
             seed=_get_new_seed(rng),
             logger_=logger_,
-            debug_str=f"{contig}:{left_coord}-{right_coord}",
+            debug_str=locus_log_str,
         ) or {}  # Still false-y
 
     # Extract data from call_data --------------------------------------------------------------------------------------
