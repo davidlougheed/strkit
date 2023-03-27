@@ -230,26 +230,28 @@ def call_alleles_with_incorporated_snvs(
     # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
 
     read_dict_items_with_many_snvs: list[tuple[str, ReadDict]] = []
-    read_dict_items_with_some_snvs: list[tuple[str, ReadDict]] = []
-    read_dict_items_with_few_or_no_snvs: list[tuple[str, ReadDict]] = []
+    read_dict_items_with_at_least_one_snv: list[tuple[str, ReadDict]] = []
+    read_dict_items_with_no_snvs: list[tuple[str, ReadDict]] = []
 
     print_snvs = False
 
-    for rn, read in read_dict_items:
+    for read_item in read_dict_items:
+        rn, read = read_item
+
         read_useful_snv_bases = tuple(read_dict_extra[rn]["snv_bases"][bi] for bi, _pos in useful_snvs)
         non_blank_read_useful_snv_bases = [bb for bb in read_useful_snv_bases if bb != SNV_OUT_OF_RANGE_CHAR]
 
-        if (nbr := len(non_blank_read_useful_snv_bases)) >= 2:  # TODO: parametrize
-            read_dict_items_with_some_snvs.append((rn, read))
+        if nbr := len(non_blank_read_useful_snv_bases):  # TODO: parametrize
+            read_dict_items_with_at_least_one_snv.append(read_item)
             if nbr >= 3:  # TODO: parametrize
-                read_dict_items_with_many_snvs.append((rn, read))
+                read_dict_items_with_many_snvs.append(read_item)
         else:
-            read_dict_items_with_few_or_no_snvs.append((rn, read))
+            read_dict_items_with_no_snvs.append(read_item)
 
         read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
 
         if print_snvs:
-            print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), len(non_blank_read_useful_snv_bases))
+            print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), nbr)
 
     n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
     pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads_in_dict
@@ -259,7 +261,7 @@ def call_alleles_with_incorporated_snvs(
     min_snv_incorporation_read_abs = 16
 
     can_incorporate_snvs: bool = pure_snv_peak_assignment or (
-        len(read_dict_items_with_some_snvs) >=
+        len(read_dict_items_with_at_least_one_snv) >=
         min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)
     )
 
