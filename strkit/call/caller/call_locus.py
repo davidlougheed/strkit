@@ -705,7 +705,7 @@ def call_locus(
     assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
     if n_alleles < 2:
         assign_method = "single"
-    min_snv_read_coverage: int = 10  # TODO: parametrize
+    min_snv_read_coverage: int = 8  # TODO: parametrize
 
     # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
     if should_incorporate_snvs:
