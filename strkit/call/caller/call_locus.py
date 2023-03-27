@@ -712,7 +712,7 @@ def call_locus(
 
         for rn, read in read_dict_items:
             snvs = get_read_snvs(
-                read["_qs"], read_pairs[rn], ref_cache, left_most_coord, right_most_coord, left_coord_adj,
+                read["_qs"], read_pairs[rn], ref_cache, left_most_coord, left_coord_adj,
                 right_coord_adj)
             locus_snvs.update(snvs.keys())
             read_dict[rn]["snv"] = snvs

@@ -25,7 +25,6 @@ def _get_read_snvs_meticulous(
     pairs: list[tuple[int, int], ...],
     ref_seq: str,
     ref_coord_start: int,
-    ref_coord_end: int,
     tr_start_pos: int,
     tr_end_pos: int,
     contiguous_threshold: int = 5,
@@ -39,11 +38,6 @@ def _get_read_snvs_meticulous(
 
     snvs: dict[int, str] = {}
 
-    fm_qp, fm_rp = pairs[0]
-    lm_qp, lm_rp = pairs[-1]
-
-    read_ref_sequence: str = ref_seq[fm_rp-ref_coord_start:lm_rp-ref_coord_end+1]
-
     lhs_contiguous: int = 0
     rhs_contiguous: int = 0
     last_rp: int = -1
@@ -55,7 +49,7 @@ def _get_read_snvs_meticulous(
             continue
 
         read_base = query_sequence[read_pos]
-        ref_base = read_ref_sequence[ref_pos - fm_rp]
+        ref_base = ref_seq[ref_pos - ref_coord_start]
 
         if read_base == ref_base and (ref_pos - last_rp == 1 or last_rp == -1):
             if snv_group:
@@ -92,7 +86,6 @@ def get_read_snvs(
     pairs: list[tuple[int, int], ...],
     ref_seq: str,
     ref_coord_start: int,
-    ref_coord_end: int,
     tr_start_pos: int,
     tr_end_pos: int,
     contiguous_threshold: int = 5,
@@ -107,15 +100,10 @@ def get_read_snvs(
 
     snvs: dict[int, str] = {}
 
-    fm_qp, fm_rp = pairs[0]
-    lm_qp, lm_rp = pairs[-1]
-
-    read_ref_sequence: str = ref_seq[fm_rp-ref_coord_start:lm_rp-ref_coord_end]
-
     for read_pos, ref_pos in pairs:
         if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
             continue
-        if (read_base := query_sequence[read_pos]) != read_ref_sequence[ref_pos - fm_rp]:
+        if (read_base := query_sequence[read_pos]) != ref_seq[ref_pos - ref_coord_start]:
             snvs[ref_pos] = read_base
 
     if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on
@@ -124,7 +112,6 @@ def get_read_snvs(
             pairs,
             ref_seq,
             ref_coord_start,
-            ref_coord_end,
             tr_start_pos,
             tr_end_pos,
             contiguous_threshold,
