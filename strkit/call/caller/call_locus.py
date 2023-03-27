@@ -21,7 +21,7 @@ from strkit.utils import apply_or_none
 from .align_matrix import match_score
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
-from .snvs import SNV_OUT_OF_RANGE_CHAR, get_read_snvs, calculate_useful_snvs, call_useful_snvs
+from .snvs import SNV_OUT_OF_RANGE_CHAR, get_read_snvs, calculate_useful_snvs, call_and_filter_useful_snvs
 from .types import ReadDict
 from .utils import normalize_contig, round_to_base_pos
 
@@ -361,11 +361,14 @@ def call_alleles_with_incorporated_snvs(
         "modal_n_peaks": n_alleles,  # # alleles = # peaks always -- if we phased using SNVs
     }
 
-    return assign_method, (
-        call_data,
-        # Called useful SNVs to add to the final return dictionary:
-        call_useful_snvs(n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
-    )
+    # Called useful SNVs to add to the final return dictionary:
+    called_useful_snvs: list[dict] = call_and_filter_useful_snvs(
+        n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
+
+    if not called_useful_snvs:  # No useful SNVs left, so revert to "dist" assignment method
+        return "dist", None
+
+    return assign_method, (call_data, called_useful_snvs)
 
 
 def call_locus(

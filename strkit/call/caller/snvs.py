@@ -11,7 +11,7 @@ __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",
     "get_read_snvs",
     "calculate_useful_snvs",
-    "call_useful_snvs",
+    "call_and_filter_useful_snvs",
 ]
 
 SNV_OUT_OF_RANGE_CHAR = "-"
@@ -197,7 +197,7 @@ def calculate_useful_snvs(
     return [(si, sorted_snvs[si]) for si in useful_snvs]  # Tuples of (index in STR list, ref position)
 
 
-def call_useful_snvs(
+def call_and_filter_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
@@ -229,15 +229,19 @@ def call_useful_snvs(
     for rn, read in read_dict.items():
         p: Optional[int] = read.get("p")
         if p is None:
+            logger.debug(f"call_useful_snvs: no peak found for read {rn}")
             continue
         for u_idx, (_, u_ref) in enumerate(useful_snvs):
             peak_base_counts[u_ref][p].update((read["snvu"][u_idx],))
 
     called_snvs: list[dict] = []
+    skipped_snvs: set[int] = set()
 
-    for u_ref, peak_counts in peak_base_counts.items():
+    for u_idx, (u_ref, peak_counts) in enumerate(peak_base_counts.items()):
         call: list[str] = []
         rs: list[int] = []
+
+        skipped: bool = False
 
         for a in allele_range:
             mc = peak_counts[a].most_common(2)
@@ -245,18 +249,30 @@ def call_useful_snvs(
             try:
                 if mcc[0] == SNV_OUT_OF_RANGE_CHAR:  # Chose most common non-uncalled value
                     mcc = mc[1]
-            except IndexError:  # - is the only value, somehow
+            except IndexError:  # '-' is the only value, somehow
                 logger.warn(
                     f"{locus_log_str} - for SNV {u_ref}, found only '{SNV_OUT_OF_RANGE_CHAR}' with {mcc[1]} reads")
                 logger.debug(f"{locus_log_str} - for SNV {u_ref}: {mc=}, {peak_counts[a]=}")
-                pass  # TODO: should we set mcc[1] to 0 here?
+                skipped = True
+                break
+
             call.append(mcc[0])
             rs.append(mcc[1])
+
+        if skipped:
+            skipped_snvs.add(u_idx)  # Skip this useful SNV, since it isn't actually useful
+            continue
 
         called_snvs.append({
             "pos": u_ref,
             "call": np.array(call)[peak_order].tolist(),
             "rs": np.array(rs)[peak_order].tolist(),
         })
+
+    # If we've skipped any SNVs, filter them out of the read dict - MUTATION
+    if skipped_snvs:
+        for read in read_dict.values():
+            read["snvu"] = tuple(b for i, b in enumerate(read["snvu"]) if i not in skipped_snvs)
+        logger.debug(f"{locus_log_str} - filtered out {len(skipped_snvs)} not-actually-useful SNVs")
 
     return called_snvs
