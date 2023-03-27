@@ -123,8 +123,8 @@ def get_read_snvs(
 
 def calculate_useful_snvs(
     n_reads: int,
-    read_dict: dict[str, ReadDict],
     read_dict_items: tuple[tuple[str, ReadDict], ...],
+    read_dict_extra: dict[str, dict],
     read_match_pairs: dict[str, list[tuple[int, int]]],
     locus_snvs: set[int],
 ) -> list[tuple[int, int]]:
@@ -132,13 +132,15 @@ def calculate_useful_snvs(
     snv_counters: dict[int, Counter] = {sp: Counter() for sp in sorted_snvs}
 
     for rn, read in read_dict_items:
-        snvs: dict[int, str] = read_dict[rn]["snv"]
+        extra_data = read_dict_extra[rn]
+
+        snvs: dict[int, str] = extra_data["snv"]
 
         # Know this to not be None since we were passed only segments with non-None strings earlier
-        qs: str = read["_qs"]
+        qs: str = extra_data["_qs"]
 
-        segment_start: int = read["_ref_start"]
-        segment_end: int = read["_ref_end"]
+        segment_start: int = extra_data["_ref_start"]
+        segment_end: int = extra_data["_ref_end"]
 
         snv_list: list[str] = []
 
@@ -178,7 +180,7 @@ def calculate_useful_snvs(
             snv_list.append(base)
             snv_counters[snv_pos][base] += 1
 
-        read_dict[rn]["snv_bases"] = tuple(snv_list)
+        extra_data["snv_bases"] = tuple(snv_list)
 
     # Enough reads to try for SNV based separation
     useful_snvs: list[int] = []
@@ -199,6 +201,7 @@ def calculate_useful_snvs(
 def call_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
+    read_dict_extra: dict[str, dict],
     useful_snvs: list[tuple[int, int]],
     peak_order: NDArray[int],
     locus_log_str: str,
@@ -208,6 +211,7 @@ def call_useful_snvs(
     Call useful SNVs at a locus level from read-level SNV data.
     :param n_alleles: The number of alleles called for this locus.
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
+    :param read_dict_extra: Dictionary of extra (intermediate) read data.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
     :param peak_order: Indices for rearranging the call arrays into the final order, to match the sorted copy numbers.
     :param locus_log_str: Locus string representation for logging purposes.
@@ -230,7 +234,7 @@ def call_useful_snvs(
         if p is None:
             continue
         for u_idx, (_, u_ref) in enumerate(useful_snvs):
-            peak_base_counts[u_ref][p].update((read["snvu"][u_idx],))
+            peak_base_counts[u_ref][p].update((read_dict_extra[rn]["snvu"][u_idx],))
 
     called_snvs: list[dict] = []
 

@@ -169,6 +169,7 @@ def get_overlapping_segments_and_related_data(
 def calculate_read_distance(
     n_reads: int,
     read_dict_items: Sequence[tuple[str, ReadDict]],
+    read_dict_extra: dict[str, dict],
     pure_snv_peak_assignment: bool,
     relative_cn_distance_weight_scaling: float = 0.5,  # TODO: CLI specifyable param
 ) -> NDArray[np.float_, np.float_]:
@@ -176,6 +177,7 @@ def calculate_read_distance(
     Calculate pairwise distance for all reads using either SNVs ONLY or a mixture of SNVs and copy number.
     :param n_reads: Number of reads.
     :param read_dict_items: Itemized read dictionary entries: (read name, read data)
+    :param read_dict_extra: Read dictionary for extra (intermediate-stage) read-associated data
     :param pure_snv_peak_assignment: Whether to use just SNVs for peak assignment
     :param relative_cn_distance_weight_scaling: How much to weight 1-difference in CN vs SNVs
             (indels are more erroneous in CCS)
@@ -188,10 +190,10 @@ def calculate_read_distance(
     # Loop through and compare all vs. all reads. We can skip a few indices since the distance will be symmetrical.
     for i in range(n_reads - 1):
         for j in range(i + 1, n_reads):
-            r1 = read_dict_items[i][1]
-            r2 = read_dict_items[j][1]
-            r1_snv_u = r1["snvu"]
-            r2_snv_u = r2["snvu"]
+            r1n, r1 = read_dict_items[i]
+            r2n, r2 = read_dict_items[j]
+            r1_snv_u = read_dict_extra[r1n]["snvu"]
+            r2_snv_u = read_dict_extra[r2n]["snvu"]
 
             d = 0 if pure_snv_peak_assignment else abs(r1["cn"] - r2["cn"]) * relative_cn_distance_weight_scaling
             for b1, b2 in zip(r1_snv_u, r2_snv_u):
@@ -218,6 +220,7 @@ def call_alleles_with_incorporated_snvs(
     fractional: bool,
     read_dict: dict[str, ReadDict],
     read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
+    read_dict_extra: dict[str, dict],
     n_reads_in_dict: int,  # We could derive this again, but we already have before...
     useful_snvs: list[tuple[int, int]],
     rng: np.random.Generator,
@@ -235,7 +238,7 @@ def call_alleles_with_incorporated_snvs(
     print_snvs = False
 
     for rn, read in read_dict_items:
-        read_useful_snv_bases = tuple(read["snv_bases"][bi] for bi, _pos in useful_snvs)
+        read_useful_snv_bases = tuple(read_dict_extra[rn]["snv_bases"][bi] for bi, _pos in useful_snvs)
         non_blank_read_useful_snv_bases = [bb for bb in read_useful_snv_bases if bb != SNV_OUT_OF_RANGE_CHAR]
 
         if (nbr := len(non_blank_read_useful_snv_bases)) >= 2:  # TODO: parametrize
@@ -245,7 +248,7 @@ def call_alleles_with_incorporated_snvs(
         else:
             read_dict_items_with_few_or_no_snvs.append((rn, read))
 
-        read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
+        read_dict_extra[rn]["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
 
         if print_snvs:
             print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), len(non_blank_read_useful_snv_bases))
@@ -280,7 +283,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Calculate pairwise distance for all reads using either SNVs ONLY or
     # a mixture of SNVs and copy number:
-    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment)
+    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, read_dict_extra, pure_snv_peak_assignment)
 
     # Cluster reads together using the distance matrix, which incorporates
     # SNV and possibly copy number information.
@@ -363,7 +366,7 @@ def call_alleles_with_incorporated_snvs(
     return assign_method, (
         call_data,
         # Called useful SNVs to add to the final return dictionary:
-        call_useful_snvs(n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
+        call_useful_snvs(n_alleles, read_dict, read_dict_extra, useful_snvs, peak_order, locus_log_str, logger_)
     )
 
 
@@ -485,6 +488,7 @@ def call_locus(
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
     read_dict: dict[str, ReadDict] = {}
+    read_dict_extra: dict[str, dict] = {}
 
     # Aggregations for additional read-level data
     read_kmers = Counter()
@@ -645,8 +649,6 @@ def call_locus(
 
         crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
         read_dict[rn] = {
-            "_ref_start": segment_start,
-            "_ref_end": segment_end,
             "s": "-" if segment.is_reverse else "+",
             "cn": read_cn,
             "w": read_weight,
@@ -654,13 +656,17 @@ def call_locus(
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
         }
+        read_dict_extra[rn] = {
+            "_ref_start": segment_start,
+            "_ref_end": segment_end,
+        }
 
         # Reads can show up more than once - TODO - cache this information across loci
 
         if should_incorporate_snvs:
             # Store the segment sequence in the read dict for the next go-around if we've enabled SNV incorporation,
             # in order to pass the query sequence to the get_read_snvs function with the cached ref string.
-            read_dict[rn]["_qs"] = qs
+            read_dict_extra[rn]["_qs"] = qs
 
     # End of first read loop -------------------------------------------------------------------------------------------
 
@@ -712,15 +718,15 @@ def call_locus(
 
         for rn, read in read_dict_items:
             snvs = get_read_snvs(
-                read["_qs"], read_pairs[rn], ref_cache, left_most_coord, left_coord_adj,
+                read_dict_extra[rn]["_qs"], read_pairs[rn], ref_cache, left_most_coord, left_coord_adj,
                 right_coord_adj)
             locus_snvs.update(snvs.keys())
-            read_dict[rn]["snv"] = snvs
+            read_dict_extra[rn]["snv"] = snvs
 
         # End of second read loop --------------------------------------------------------------------------------------
 
         useful_snvs: list[tuple[int, int]] = (
-            calculate_useful_snvs(n_reads_in_dict, read_dict, read_dict_items, read_pairs, locus_snvs)
+            calculate_useful_snvs(n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs)
             if n_reads_in_dict >= min_snv_read_coverage else []
         )
         n_useful_snvs: int = len(useful_snvs)
@@ -736,6 +742,7 @@ def call_locus(
                 fractional=fractional,
                 read_dict=read_dict,
                 read_dict_items=read_dict_items,
+                read_dict_extra=read_dict_extra,
                 n_reads_in_dict=n_reads_in_dict,
                 useful_snvs=useful_snvs,
                 rng=rng,
@@ -792,20 +799,6 @@ def call_locus(
             logger_=logger_,
             debug_str=f"{contig}:{left_coord}-{right_coord}",
         ) or {}  # Still false-y
-
-    # Clean up read dict  TODO: nicer way to do this -------------------------------------------------------------------
-
-    for rn, rd in read_dict_items:
-        if "snv" in rd:
-            del rd["snv"]
-        if "snv_bases" in rd:
-            del rd["snv_bases"]
-        if "_ref_start" in rd:
-            del rd["_ref_start"]
-        if "_ref_end" in rd:
-            del rd["_ref_end"]
-        if "_qs" in rd:
-            del rd["_qs"]
 
     # Extract data from call_data --------------------------------------------------------------------------------------
 
