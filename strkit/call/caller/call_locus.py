@@ -170,20 +170,25 @@ def calculate_read_distance(
     n_reads: int,
     read_dict_items: Sequence[tuple[str, ReadDict]],
     pure_snv_peak_assignment: bool,
-    relative_cn_distance_weight_scaling: float = 0.5,  # TODO: CLI specifyable param
+    relative_cn_distance_weight_scaling_few: float = 0.5,
+    relative_cn_distance_weight_scaling_many: float = 0.1,
+    many_snvs_quantity: int = 3,
 ) -> NDArray[np.float_, np.float_]:
     """
     Calculate pairwise distance for all reads using either SNVs ONLY or a mixture of SNVs and copy number.
     :param n_reads: Number of reads.
     :param read_dict_items: Itemized read dictionary entries: (read name, read data)
     :param pure_snv_peak_assignment: Whether to use just SNVs for peak assignment
-    :param relative_cn_distance_weight_scaling: How much to weight 1-difference in CN vs SNVs
-            (indels are more erroneous in CCS)
+    :param relative_cn_distance_weight_scaling_few: How much to weight 1-difference in CN vs SNVs with few SNVs
+            available (indels are more erroneous in CCS)
+    :param relative_cn_distance_weight_scaling_many: How much to weight 1-difference in CN vs SNVs with many SNVs
+            available (indels are more erroneous in CCS)
+    :param many_snvs_quantity: How many SNVs constitutes "many" for the different weights.
     :return: The distance matrix.
     """
 
     # Initialize a distance matrix for all reads
-    distance_matrix = np.zeros((n_reads, n_reads))
+    distance_matrix = np.zeros((n_reads, n_reads), dtype=np.float_)
 
     # Loop through and compare all vs. all reads. We can skip a few indices since the distance will be symmetrical.
     for i in range(n_reads - 1):
@@ -193,12 +198,16 @@ def calculate_read_distance(
             r1_snv_u = r1["snvu"]
             r2_snv_u = r2["snvu"]
 
-            d = 0 if pure_snv_peak_assignment else abs(r1["cn"] - r2["cn"]) * relative_cn_distance_weight_scaling
-            for b1, b2 in zip(r1_snv_u, r2_snv_u):
-                if b1 == SNV_OUT_OF_RANGE_CHAR or b2 == SNV_OUT_OF_RANGE_CHAR:
-                    continue
-                if b1 != b2:
-                    d += 1
+            comparable_snvs = [
+                (b1, b2) for b1, b2 in zip(r1_snv_u, r2_snv_u)
+                if b1 != SNV_OUT_OF_RANGE_CHAR and b2 != SNV_OUT_OF_RANGE_CHAR
+            ]
+
+            d: float = float(sum(1 for b1, b2 in comparable_snvs if b1 != b2))
+            if not pure_snv_peak_assignment:  # Add in copy number distance
+                d += abs(r1["cn"] - r2["cn"]) * (
+                    relative_cn_distance_weight_scaling_many if len(comparable_snvs) >= many_snvs_quantity
+                    else relative_cn_distance_weight_scaling_few)
 
             distance_matrix[i, j] = d
             distance_matrix[j, i] = d
