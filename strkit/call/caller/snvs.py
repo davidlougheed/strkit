@@ -97,8 +97,9 @@ def get_read_snvs(
     :return: Dictionary of {position: base}
     """
 
-    snvs: dict[int, str] = {}
+    # Tried to vectorize this with numpy, and it ended up slower... oh well
 
+    snvs: dict[int, str] = {}
     for read_pos, ref_pos in pairs:
         if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
             continue
