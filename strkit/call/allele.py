@@ -15,7 +15,7 @@ from sklearn.preprocessing import normalize
 from warnings import simplefilter
 
 from numpy.typing import NDArray
-from typing import Iterable, Optional, TypedDict, Union
+from typing import Iterable, Literal, Optional, TypedDict, Union
 
 import strkit.constants as cc
 
@@ -75,18 +75,25 @@ def fit_gmm(
     allele_filter: float,
     hq: bool,
     gm_filter_factor: int,
+    init_params: Literal["kmeans", "k-means++"] = "k-means++",  # TODO: parameterize outside
 ) -> Optional[object]:
     sample_rs = sample.reshape(-1, 1)
-    g = None
+    g: Optional[object] = None
 
     n_components = n_alleles
     while n_components > 0:
+        if n_components == 1:  # Don't need to do the full fit for a single peak, just calculate the parameters
+            g = type("", (), {})()
+            g.means_ = np.array([[np.mean(sample_rs)]])
+            g.weights_ = np.array([[1.0]])
+            g.covariances_ = np.array([[np.var(sample_rs)]])
+            return g
+
         g = GaussianMixture(
             n_components=n_components,
-            # init_params="kmeans",  TODO: parameterize
-            init_params="k-means++",
+            init_params=init_params,
             covariance_type="spherical",
-            n_init=N_GM_INIT if n_alleles > 1 else 1,  # Don't need multiple initializations for a single peak
+            n_init=N_GM_INIT,
             random_state=rng.integers(0, 4096).item(),
         ).fit(sample_rs)
 
@@ -114,8 +121,8 @@ def fit_gmm(
         mw_filter = mw_filter_1 & mw_filter_2
         n_useless = np.size(mw_filter) - np.count_nonzero(mw_filter)
         if not n_useless:
-            # No useless components left to remove, so escape
-            break
+            # No useless components left to remove, so return the GMM
+            return g
         n_components -= n_useless
 
     return g
