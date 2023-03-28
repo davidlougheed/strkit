@@ -722,7 +722,7 @@ def call_locus(
     min_snv_read_coverage: int = 8  # TODO: parametrize
 
     # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
-    if should_incorporate_snvs:
+    if should_incorporate_snvs and n_reads_in_dict >= min_snv_read_coverage:
         # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
         # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
 
@@ -738,9 +738,7 @@ def call_locus(
         # End of second read loop --------------------------------------------------------------------------------------
 
         useful_snvs: list[tuple[int, int]] = (
-            calculate_useful_snvs(n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs)
-            if n_reads_in_dict >= min_snv_read_coverage else []
-        )
+            calculate_useful_snvs(n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs))
         n_useful_snvs: int = len(useful_snvs)
 
         if not n_useful_snvs:
@@ -784,6 +782,11 @@ def call_locus(
         #      and just call the Gaussians from the separated reads (even just calculate stdev + mean for each bootstrap
         #      iteration, which might save us some time...).
         #    - keep track of which option as 'peak_calling_method' (pcm) or something
+
+    elif n_reads_in_dict < min_snv_read_coverage:
+        logger_.debug(
+            f"{locus_log_str} - not enough coverage for SNV incorporation "
+            f"({n_reads_in_dict} < {min_snv_read_coverage})")
 
     single_or_dist_assign: bool = assign_method in ("single", "dist")
 

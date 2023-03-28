@@ -105,7 +105,7 @@ def get_read_snvs(
         if (read_base := query_sequence[read_pos]) != ref_seq[ref_pos - ref_coord_start]:
             snvs[ref_pos] = read_base
 
-    if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on
+    if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on?
         return _get_read_snvs_meticulous(
             query_sequence,
             pairs,
