@@ -57,7 +57,7 @@ def get_read_coords_from_matched_pairs(
     motif: str,
     motif_size: int,
     query_seq: str,
-    matched_pairs
+    matched_pairs: list[tuple[int, int]],
 ) -> tuple[int, int, int, int]:
     left_flank_end = -1
     right_flank_start = -1
@@ -603,8 +603,6 @@ def call_locus(
 
         # -----
 
-        tr_read_seq = qs[left_flank_end:right_flank_start]
-
         # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop any expansion sequences
         # from accidentally being included in the flanking region; e.g. if the insert gets mapped onto bases outside
         # the definition coordinates.
@@ -612,12 +610,12 @@ def call_locus(
         # contain a correctly-sized sequence.
 
         # TODO: wildcards in flanking region too?
-        flank_left_seq = qs[left_flank_start:left_flank_end][:flank_size+10]
-        flank_right_seq = qs[right_flank_start:right_flank_end][-(flank_size+10):]
+        flank_left_seq: str = qs[left_flank_start:left_flank_end][:flank_size+10]
+        flank_right_seq: str = qs[right_flank_start:right_flank_end][-(flank_size+10):]
 
-        tr_len = len(tr_read_seq)
-        flank_len = len(flank_left_seq) + len(flank_right_seq)
-        tr_len_w_flank = tr_len + flank_len
+        tr_len: int = right_flank_start - left_flank_end  # i.e., len(tr_read_seq)
+        flank_len: int = len(flank_left_seq) + len(flank_right_seq)
+        tr_len_w_flank: int = tr_len + flank_len
 
         tr_read_seq_wc = calculate_seq_with_wildcards(qs[left_flank_end:right_flank_start], qqs)
 
