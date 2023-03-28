@@ -16,7 +16,6 @@ from typing import Optional, Union
 
 from strkit import __version__
 
-from strkit.exceptions import ParamError
 from strkit.json import dumps_indented, json
 from strkit.logger import logger
 
