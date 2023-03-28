@@ -167,13 +167,22 @@ def call_alleles(
     combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
     combined_len = combined_reads.shape[-1]
 
-    # If the locus/allele only has one value, don't bother bootstrapping
-    if np.unique(combined_reads).shape[0] == 1:
-        logger_.debug(f"{debug_str} - skipping bootstrap for allele(s) (single value)")
-        bootstrap_iterations = 1
-
     if combined_len < min_reads:
         return None
+
+    # If the locus/allele only has one value, don't bother bootstrapping
+    if np.unique(combined_reads).shape[0] == 1:
+        logger_.debug(f"{debug_str} - skipping bootstrap / GMM fitting for allele(s) (single value)")
+        cn = combined_reads[0]
+        return {
+            "call": np.array([cn] * n_alleles),
+            "call_95_cis": np.array([[cn, cn] * n_alleles]),
+            "call_99_cis": np.array([[cn, cn] * n_alleles]),
+            "peaks": np.array([cn] * n_alleles, dtype=np.float_),
+            "peak_weights": np.array([1.0] * n_alleles) / n_alleles,
+            "peak_stdevs": np.array([0.0] * n_alleles),
+            "modal_n_peaks": 1,  # 1 peak, since we have 1 value
+        }
 
     nal = na_length_list(n_alleles)
     allele_samples = np.array(nal, dtype=np.float32)
