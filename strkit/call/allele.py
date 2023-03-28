@@ -86,7 +86,7 @@ def fit_gmm(
             # init_params="kmeans",  TODO: parameterize
             init_params="k-means++",
             covariance_type="spherical",
-            n_init=N_GM_INIT,
+            n_init=N_GM_INIT if n_alleles > 1 else 1,  # Don't need multiple initializations for a single peak
             random_state=rng.integers(0, 4096).item(),
         ).fit(sample_rs)
 
