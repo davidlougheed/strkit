@@ -578,9 +578,6 @@ def call_locus(
         if pairs is None:
             pairs = segment.get_aligned_pairs(matches_only=True)
 
-        # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
-        read_pairs[rn] = pairs
-
         left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
             left_flank_coord,
             left_coord_adj,
@@ -589,7 +586,7 @@ def call_locus(
             motif,
             motif_size,
             query_seq=qs,
-            matched_pairs=pairs
+            matched_pairs=pairs,
         )
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
@@ -679,6 +676,9 @@ def call_locus(
             # Store the segment sequence in the read dict for the next go-around if we've enabled SNV incorporation,
             # in order to pass the query sequence to the get_read_snvs function with the cached ref string.
             read_dict_extra[rn]["_qs"] = qs
+
+            # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
+            read_pairs[rn] = pairs
 
     # End of first read loop -------------------------------------------------------------------------------------------
 
