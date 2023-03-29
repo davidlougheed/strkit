@@ -338,7 +338,7 @@ def call_alleles_with_incorporated_snvs(
         cns.append([r["cn"] for r in crs])
 
         # Calculate weights array
-        ws = np.array([r["w"] for r in crs])
+        ws = np.fromiter((r["w"] for r in crs), dtype=np.float_)
         ws = ws / np.sum(ws)
         c_ws.append(ws)
 
@@ -616,7 +616,8 @@ def call_locus(
                 f"{' (post-realignment)' if realigned else ''}")
             continue
 
-        qqs = np.array(fqqs[left_flank_end:right_flank_start])
+        # we can fit PHRED scores in uint8
+        qqs = np.fromiter(fqqs[left_flank_end:right_flank_start], dtype=np.uint8)
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
