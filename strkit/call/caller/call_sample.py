@@ -21,6 +21,7 @@ from strkit.json import dumps_indented, json
 from strkit.logger import logger
 
 from .call_locus import call_locus
+from .non_daemonic_pool import NonDaemonicPool
 
 __all__ = [
     "call_sample",
@@ -258,12 +259,13 @@ def call_sample(
     job_args = (*job_params.values(), locus_queue, is_single_processed)
     result_lists = []
 
-    pool_class = mpd.Pool if is_single_processed else mp.Pool
+    pool_class = mpd.Pool if is_single_processed else NonDaemonicPool
     finish_event = mp.Event()
     with pool_class(processes) as p:
         # Start the progress tracking process
         progress_job = mp.Process(
             target=progress_worker,
+            daemon=True,
             args=(sample_id_final, start_time, log_level, locus_queue, num_loci, processes, finish_event))
         progress_job.start()
 

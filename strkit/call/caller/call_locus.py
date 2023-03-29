@@ -569,7 +569,7 @@ def call_locus(
             # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
 
             q: mp.Queue = mp.Queue()
-            proc = mp.Process(target=realign_read, kwargs=dict(
+            proc = mp.Process(target=realign_read, daemon=False, kwargs=dict(
                 # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
                 ref_seq=ref_left_flank_seq + ref_seq + ref_right_flank_seq_plus_1,  # TODO: plus 1, really?
                 query_seq=calculate_seq_with_wildcards(qs, fqqs),
