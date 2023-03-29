@@ -17,7 +17,7 @@ local_search_range: int = 3  # TODO: parametrize
 def score_candidate(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str, **_kwargs) -> int:
     # TODO: sub-flank again, to avoid more errors in flanking region contributing to score?
     # Always assign parasail results to variables due to funky memory allocation behaviour
-    r = parasail.sg_stats_scan_sat(
+    r = parasail.sg_striped_sat(
         flank_left_seq + tr_candidate + flank_right_seq, db_seq, indel_penalty, indel_penalty, dna_matrix)
     return r.score
 
