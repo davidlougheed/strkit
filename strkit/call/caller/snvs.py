@@ -1,3 +1,4 @@
+import bisect
 import numpy as np
 from collections import Counter
 
@@ -121,6 +122,19 @@ def get_read_snvs(
     return snvs
 
 
+def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]], n_pairs: int, t: int) -> str:
+    idx = bisect.bisect_left(pairs_for_read, t, key=lambda p: p[1])
+
+    if idx != n_pairs and (pair := pairs_for_read[idx])[1] == t:
+        # Even if not in SNV set, it is not guaranteed to be a reference base, since
+        # it's possible it was surrounded by too much other variation during the original
+        # SNV getter algorithm.
+        return query_sequence[pair[0]]
+
+    # Nothing found, so must have been a gap
+    return "_"
+
+
 def calculate_useful_snvs(
     n_reads: int,
     read_dict_items: tuple[tuple[str, ReadDict], ...],
@@ -135,26 +149,6 @@ def calculate_useful_snvs(
         pairs_for_read = read_match_pairs[rn]
         n_pairs_for_read: int = len(pairs_for_read)
         extra_data = read_dict_extra[rn]
-
-        def _bin_search(t: int) -> str:
-            lhs: int = 0
-            rhs: int = n_pairs_for_read - 1
-
-            while lhs <= rhs:
-                pivot: int = (lhs + rhs) // 2
-                pair: tuple[int, int] = pairs_for_read[pivot]
-                if pair[1] < t:
-                    lhs = pivot + 1
-                elif pair[1] > t:  # pair[1] > snv_pos
-                    rhs = pivot - 1
-                else:
-                    # Even if not in SNV set, it is not guaranteed to be a reference base, since
-                    # it's possible it was surrounded by too much other variation during the original
-                    # SNV getter algorithm.
-                    return qs[pair[0]]
-
-            # Nothing found, so must have been a gap
-            return "_"
 
         snvs: dict[int, str] = extra_data["snv"]
 
@@ -173,7 +167,7 @@ def calculate_useful_snvs(
                     base = bb
                 else:
                     # Binary search for base from correct pair
-                    base = _bin_search(snv_pos)
+                    base = _find_base_at_pos(qs, pairs_for_read, n_pairs_for_read, snv_pos)
 
             # Otherwise, leave as out-of-range
 
