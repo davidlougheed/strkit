@@ -29,7 +29,7 @@ __all__ = [
 
 # TODO: Parameterize
 LOG_PROGRESS_INTERVAL: int = 120  # seconds
-PROFILE_LOCUS_CALLS: bool = True
+PROFILE_LOCUS_CALLS: bool = False
 
 
 def locus_worker(
