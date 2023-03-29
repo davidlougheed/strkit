@@ -6,6 +6,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+import logging  # For type hinting
 import numpy as np
 import statistics
 
@@ -38,7 +39,7 @@ expansion_ratio = 5
 N_GM_INIT = 3
 
 
-def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> np.array:
+def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> Union[NDArray[np.int32], NDArray[np.float_]]:
     r = {
         "95": (2.5, 97.5),
         "99": (0.5, 99.5),
@@ -83,11 +84,11 @@ def fit_gmm(
     n_components = n_alleles
     while n_components > 0:
         if n_components == 1:  # Don't need to do the full fit for a single peak, just calculate the parameters
-            g = type("", (), {})()
-            g.means_ = np.array([[np.mean(sample_rs)]])
-            g.weights_ = np.array([[1.0]])
-            g.covariances_ = np.array([[np.var(sample_rs)]])
-            return g
+            fake_g: object = type("", (), {})()
+            fake_g.means_ = np.array([[np.mean(sample_rs)]])
+            fake_g.weights_ = np.array([[1.0]])
+            fake_g.covariances_ = np.array([[np.var(sample_rs)]])
+            return fake_g
 
         g = GaussianMixture(
             n_components=n_components,
@@ -130,11 +131,11 @@ def fit_gmm(
 
 class CallDict(TypedDict):
     call: Union[NDArray[np.int32], NDArray[np.float]]
-    call_95_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float]]]
-    call_99_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float]]]
-    peaks: NDArray[np.float]
-    peak_weights: NDArray[np.float]
-    peak_stdevs: NDArray[np.float]
+    call_95_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float_]]]
+    call_99_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float_]]]
+    peaks: NDArray[np.float_]
+    peak_weights: NDArray[np.float_]
+    peak_stdevs: NDArray[np.float_]
     modal_n_peaks: int
 
 
@@ -153,7 +154,7 @@ def call_alleles(
     hq: bool,
     force_int: bool,
     seed: Optional[int],
-    logger_,
+    logger_: logging.Logger,
     debug_str: str,
 ) -> Optional[CallDict]:
     fwd_strand_reads = np.array(repeats_fwd)
