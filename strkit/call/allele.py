@@ -117,7 +117,7 @@ def fit_gmm(
         if n_components > 2 or (n_components == 2 and (not hq or (
                 means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0],
                                                                  small_allele_min)))):
-            mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_alleles))
+            mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_components))
         else:
             mw_filter_2 = means_and_weights[1, :] > FLOAT_32_EPSILON
 
