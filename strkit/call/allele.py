@@ -38,6 +38,8 @@ small_allele_min = 8
 expansion_ratio = 5
 N_GM_INIT = 3
 
+FLOAT_32_EPSILON = np.finfo(np.float32).eps
+
 
 def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> Union[NDArray[np.int32], NDArray[np.float_]]:
     r = {
@@ -117,7 +119,7 @@ def fit_gmm(
                                                                  small_allele_min)))):
             mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_alleles))
         else:
-            mw_filter_2 = means_and_weights[1, :] > np.finfo(np.float32).eps
+            mw_filter_2 = means_and_weights[1, :] > FLOAT_32_EPSILON
 
         mw_filter = mw_filter_1 & mw_filter_2
         n_useless = np.size(mw_filter) - np.count_nonzero(mw_filter)
