@@ -132,7 +132,29 @@ def calculate_useful_snvs(
     snv_counters: dict[int, Counter] = {sp: Counter() for sp in sorted_snvs}
 
     for rn, read in read_dict_items:
+        pairs_for_read = read_match_pairs[rn]
+        n_pairs_for_read: int = len(pairs_for_read)
         extra_data = read_dict_extra[rn]
+
+        def _bin_search(t: int) -> str:
+            lhs: int = 0
+            rhs: int = n_pairs_for_read - 1
+
+            while lhs <= rhs:
+                pivot: int = (lhs + rhs) // 2
+                pair: tuple[int, int] = pairs_for_read[pivot]
+                if pair[1] < t:
+                    lhs = pivot + 1
+                elif pair[1] > t:  # pair[1] > snv_pos
+                    rhs = pivot - 1
+                else:
+                    # Even if not in SNV set, it is not guaranteed to be a reference base, since
+                    # it's possible it was surrounded by too much other variation during the original
+                    # SNV getter algorithm.
+                    return qs[pair[0]]
+
+            # Nothing found, so must have been a gap
+            return "_"
 
         snvs: dict[int, str] = extra_data["snv"]
 
@@ -150,32 +172,10 @@ def calculate_useful_snvs(
                 if bb := snvs.get(snv_pos):
                     base = bb
                 else:
-                    # Binary search for pair set
-                    pairs_for_read = read_match_pairs[rn]
+                    # Binary search for base from correct pair
+                    base = _bin_search(snv_pos)
 
-                    def _bin_search() -> str:
-                        lhs: int = 0
-                        rhs: int = len(pairs_for_read) - 1
-
-                        while lhs <= rhs:
-                            pivot: int = (lhs + rhs) // 2
-                            pair: tuple[int, int] = pairs_for_read[pivot]
-                            if pair[1] < snv_pos:
-                                lhs = pivot + 1
-                            elif pair[1] > snv_pos:  # pair[1] > snv_pos
-                                rhs = pivot - 1
-                            else:
-                                # Even if not in SNV set, it is not guaranteed to be a reference base, since
-                                # it's possible it was surrounded by too much other variation during the original
-                                # SNV getter algorithm.
-                                return qs[pair[0]]
-
-                        # Nothing found, so must have been a gap
-                        return "_"
-
-                    base = _bin_search()
-
-            # Otherwise, leave as gap
+            # Otherwise, leave as out-of-range
 
             snv_list.append(base)
             snv_counters[snv_pos][base] += 1
