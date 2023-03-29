@@ -871,6 +871,10 @@ def call_locus(
 
             cn = rd["cn"]
 
+            if 0.0 in stdevs:
+                # Hack: add small value to stdevs if we are exactly sure to make the below code work okay
+                stdevs += 0.00001
+
             sd_dist = np.abs((peaks - cn) / stdevs)
             weighted_dist = np.abs(((peaks - cn) / stdevs) * weights)
 
