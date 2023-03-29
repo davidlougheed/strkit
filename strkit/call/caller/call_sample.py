@@ -10,6 +10,7 @@ import sys
 import time
 
 from datetime import datetime
+from multiprocessing.synchronize import Event as EventClass  # For type hinting
 from pysam import AlignmentFile
 
 from typing import Optional, Union
@@ -27,8 +28,8 @@ __all__ = [
 
 
 # TODO: Parameterize
-LOG_PROGRESS_INTERVAL = 120  # seconds
-PROFILE_LOCUS_CALLS = False
+LOG_PROGRESS_INTERVAL: int = 120  # seconds
+PROFILE_LOCUS_CALLS: bool = True
 
 
 def locus_worker(
@@ -61,6 +62,7 @@ def locus_worker(
 
     import pysam as p
 
+    lg: logging.Logger
     if is_single_processed:
         lg = logger
     else:
@@ -107,7 +109,7 @@ def locus_worker(
         if res is not None:
             results.append(res)
 
-    if PROFILE_LOCUS_CALLS:
+    if pr:
         pr.disable()
         pr.print_stats("tottime")
 
@@ -122,7 +124,7 @@ def progress_worker(
     locus_queue: mp.Queue,
     num_loci: int,
     num_workers: int,
-    event: mp.Event,
+    event: EventClass,
 ):
     import os
     try:
@@ -194,7 +196,7 @@ def call_sample(
     bfs = tuple(AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
 
     # noinspection PyTypeChecker
-    bfhs = [dict(bf.header) for bf in bfs]
+    bfhs = [bf.header.to_dict() for bf in bfs]
 
     sns: set[str] = {e.get("SM") for bfh in bfhs for e in bfh.get("RG", ()) if e.get("SM")}
     bam_sample_id: Optional[str] = None
@@ -211,7 +213,7 @@ def call_sample(
     sample_id_final: Optional[str] = sample_id or bam_sample_id
 
     # Seed the random number generator if a seed is provided, for replicability
-    rng = np.random.default_rng(seed=seed)
+    rng: np.random.Generator = np.random.default_rng(seed=seed)
 
     manager = mp.Manager()
     locus_queue = manager.Queue()

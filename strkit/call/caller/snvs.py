@@ -21,14 +21,14 @@ SNV_OUT_OF_RANGE_CHAR = "-"
 
 def _get_read_snvs_meticulous(
     query_sequence: str,
-    pairs: list[tuple[int, int], ...],
+    pairs: list[tuple[int, int]],
     ref_seq: str,
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
     contiguous_threshold: int = 5,
     max_snv_group_size: int = 5,
-):
+) -> dict[int, str]:
     """
     Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
     surrounded by a stretch of aligned bases of a specified size on either side.
@@ -82,7 +82,7 @@ def _get_read_snvs_meticulous(
 
 def get_read_snvs(
     query_sequence: str,
-    pairs: list[tuple[int, int], ...],
+    pairs: list[tuple[int, int]],
     ref_seq: str,
     ref_coord_start: int,
     tr_start_pos: int,
@@ -202,7 +202,7 @@ def call_and_filter_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
-    peak_order: NDArray[int],
+    peak_order: NDArray[np.int_],
     locus_log_str: str,
     logger,
 ) -> list[dict]:

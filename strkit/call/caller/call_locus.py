@@ -159,6 +159,10 @@ def get_overlapping_segments_and_related_data(
             logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (no aligned segment)")
             continue
 
+        if segment.reference_end is None:
+            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (reference_end is None, unmapped?)")
+            continue
+
         seen_reads.add(rn)
         overlapping_segments.append(segment)
         read_lengths.append(segment.query_alignment_length)
@@ -249,7 +253,7 @@ def call_alleles_with_incorporated_snvs(
     rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
-) -> tuple[Literal["dist", "snv", "snv+dist", "single"], Optional[dict, list[dict]]]:
+) -> tuple[Literal["dist", "snv", "snv+dist", "single"], Optional[tuple[dict, list[dict]]]]:
     assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
 
     # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
@@ -371,6 +375,7 @@ def call_alleles_with_incorporated_snvs(
     # We called these as single-allele (1 peak) loci as a sort of hack, so the return "call" key
     # is an array of length 1.
 
+    # Leaving this as an np.array(...) for type detect since #calls is low:
     cdd_calls = np.array([x["call"][0] for x in cdd])
     peak_order = np.argsort(cdd_calls)  # To reorder call arrays in least-to-greatest by copy number
 
@@ -519,7 +524,7 @@ def call_locus(
     read_dict_extra: dict[str, dict] = {}
 
     # Aggregations for additional read-level data
-    read_kmers = Counter()
+    read_kmers: Counter[str] = Counter()
     locus_snvs: set[int] = set()
 
     read_pairs: dict[str, list] = {}
@@ -531,9 +536,9 @@ def call_locus(
     right_most_coord: int = 0
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
-        rn = segment.query_name
-        segment_start = segment.reference_start
-        segment_end = segment.reference_end
+        rn: str = segment.query_name  # Know this is not None from overlapping_segments calculation
+        segment_start: int = segment.reference_start
+        segment_end: int = segment.reference_end  # Optional[int], but if it's here we know it isn't None
 
         left_most_coord = min(left_most_coord, segment_start)
         right_most_coord = max(right_most_coord, segment_end)
@@ -563,7 +568,7 @@ def call_locus(
             # Run the realignment in a separate process, to give us a timeout mechanism.
             # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
 
-            q = mp.Queue()
+            q: mp.Queue = mp.Queue()
             proc = mp.Process(target=realign_read, kwargs=dict(
                 # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
                 ref_seq=ref_left_flank_seq + ref_seq + ref_right_flank_seq_plus_1,  # TODO: plus 1, really?
@@ -848,7 +853,7 @@ def call_locus(
     call_peak_n_reads: list[int] = []
     peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
     if read_peaks_called := call_modal_n and call_modal_n <= 2:
-        peaks: NDArray = call_peaks[:call_modal_n]
+        peaks: NDArray[np.float_] = call_peaks[:call_modal_n]
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
         weights: NDArray[np.float_] = call_weights[:call_modal_n]
 
@@ -880,7 +885,7 @@ def call_locus(
             rd["p"] = peak
 
             if count_kmers in ("peak", "both"):
-                peak_kmers[peak] += rd["kmers"]
+                peak_kmers[peak] += Counter(rd["kmers"])
 
                 # If we aren't reporting read-level k-mers, we have to delete them (space-saving!)
                 if count_kmers == "peak":

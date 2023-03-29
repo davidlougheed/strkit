@@ -20,7 +20,7 @@ def realign_read(
     rn: str,
     t_idx: int,
     always_realign: bool,
-    q: Optional[mp.Queue] = None,
+    q: Optional[mp.Queue] = None,  # TODO: why was this optional, again...
     log_level: int = logging.WARNING,
 ) -> Optional[list[tuple[Optional[int], Optional[int]]]]:
     # Have to re-attach logger in separate process I guess
@@ -35,7 +35,8 @@ def realign_read(
 
     if pr.score < (th := min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty)):
         lg.debug(f"Realignment for {rn} scored below threshold ({pr.score} < {th:.2f})")
-        q.put(None)
+        if q:
+            q.put(None)
         return None
 
     lg.debug(
