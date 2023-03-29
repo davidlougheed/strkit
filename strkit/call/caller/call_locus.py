@@ -170,15 +170,17 @@ def calculate_read_distance(
     n_reads: int,
     read_dict_items: Sequence[tuple[str, ReadDict]],
     pure_snv_peak_assignment: bool,
+    n_useful_snvs: int,
     relative_cn_distance_weight_scaling_few: float = 0.5,
     relative_cn_distance_weight_scaling_many: float = 0.1,
     many_snvs_quantity: int = 3,
-) -> NDArray[np.float_, np.float_]:
+) -> NDArray[np.float_]:
     """
     Calculate pairwise distance for all reads using either SNVs ONLY or a mixture of SNVs and copy number.
     :param n_reads: Number of reads.
     :param read_dict_items: Itemized read dictionary entries: (read name, read data)
     :param pure_snv_peak_assignment: Whether to use just SNVs for peak assignment
+    :param n_useful_snvs: Number of useful SNVs; length of snvu lists.
     :param relative_cn_distance_weight_scaling_few: How much to weight 1-difference in CN vs SNVs with few SNVs
             available (indels are more erroneous in CCS)
     :param relative_cn_distance_weight_scaling_many: How much to weight 1-difference in CN vs SNVs with many SNVs
@@ -187,26 +189,40 @@ def calculate_read_distance(
     :return: The distance matrix.
     """
 
+    useful_snvs_range: tuple[int, ...] = tuple(range(n_useful_snvs))
+
     # Initialize a distance matrix for all reads
     distance_matrix = np.zeros((n_reads, n_reads), dtype=np.float_)
 
     # Loop through and compare all vs. all reads. We can skip a few indices since the distance will be symmetrical.
     for i in range(n_reads - 1):
+        r1 = read_dict_items[i][1]
+        r1_snv_u = r1["snvu"]
+
+        r1_out_of_range: set[int] = {y for y in useful_snvs_range if r1_snv_u[y] == SNV_OUT_OF_RANGE_CHAR}
+
         for j in range(i + 1, n_reads):
-            r1 = read_dict_items[i][1]
             r2 = read_dict_items[j][1]
-            r1_snv_u = r1["snvu"]
             r2_snv_u = r2["snvu"]
 
-            comparable_snvs = [
-                (b1, b2) for b1, b2 in zip(r1_snv_u, r2_snv_u)
-                if b1 != SNV_OUT_OF_RANGE_CHAR and b2 != SNV_OUT_OF_RANGE_CHAR
-            ]
+            n_not_equal: int = 0
+            n_comparable: int = 0
 
-            d: float = float(sum(1 for b1, b2 in comparable_snvs if b1 != b2))
+            for z in useful_snvs_range:
+                if z in r1_out_of_range:
+                    continue
+                r2_b = r2_snv_u[z]
+                if r2_b == SNV_OUT_OF_RANGE_CHAR:
+                    continue
+                r1_b = r1_snv_u[z]
+                if r1_b != r2_b:
+                    n_not_equal += 1
+                n_comparable += 1
+
+            d: float = float(n_not_equal)
             if not pure_snv_peak_assignment:  # Add in copy number distance
                 d += abs(r1["cn"] - r2["cn"]) * (
-                    relative_cn_distance_weight_scaling_many if len(comparable_snvs) >= many_snvs_quantity
+                    relative_cn_distance_weight_scaling_many if n_comparable >= many_snvs_quantity
                     else relative_cn_distance_weight_scaling_few)
 
             distance_matrix[i, j] = d
@@ -292,7 +308,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Calculate pairwise distance for all reads using either SNVs ONLY or
     # a mixture of SNVs and copy number:
-    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment)
+    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment, len(useful_snvs))
 
     # Cluster reads together using the distance matrix, which incorporates
     # SNV and possibly copy number information.
