@@ -41,6 +41,10 @@ N_GM_INIT = 3
 FLOAT_32_EPSILON = np.finfo(np.float32).eps
 
 
+def _array_as_int(n: Union[NDArray[np.int_], NDArray[np.float_]]) -> NDArray[np.int32]:
+    return np.rint(n).astype(np.int32)
+
+
 def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> Union[NDArray[np.int32], NDArray[np.float_]]:
     r = {
         "95": (2.5, 97.5),
@@ -49,7 +53,7 @@ def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> Union[ND
     # TODO: enable for numpy >=1.22
     # percentiles = np.percentile(samples, r, axis=1, method="interpolated_inverted_cdf").transpose()
     percentiles = np.percentile(samples, r, axis=1, interpolation="nearest").transpose()
-    return np.rint(percentiles).astype(np.int32) if force_int else percentiles
+    return _array_as_int(percentiles) if force_int else percentiles
 
 
 def get_n_alleles(default_n_alleles: int, sample_sex_chroms: Optional[str], contig: str) -> Optional[int]:
@@ -159,6 +163,8 @@ def call_alleles(
     logger_: logging.Logger,
     debug_str: str,
 ) -> Optional[CallDict]:
+    call_dtype = np.int32 if force_int else np.float32
+
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
 
@@ -184,10 +190,14 @@ def call_alleles(
     if np.unique(combined_reads).shape[0] == 1:
         logger_.debug(f"{debug_str} - skipping bootstrap / GMM fitting for allele(s) (single value)")
         cn = combined_reads[0]
+
+        call = np.array([cn] * n_alleles)
+        call_cis = np.array([[cn, cn] * n_alleles])
+
         return {
-            "call": np.array([cn] * n_alleles),
-            "call_95_cis": np.array([[cn, cn] * n_alleles]),
-            "call_99_cis": np.array([[cn, cn] * n_alleles]),
+            "call": _array_as_int(call) if force_int else call,
+            "call_95_cis": _array_as_int(call_cis) if force_int else call,
+            "call_99_cis": _array_as_int(call_cis) if force_int else call,
             "peaks": np.array([cn] * n_alleles, dtype=np.float_),
             "peak_weights": np.array([1.0] * n_alleles) / n_alleles,
             "peak_stdevs": np.array([0.0] * n_alleles),
