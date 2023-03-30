@@ -3,7 +3,9 @@ import numpy as np
 from collections import Counter
 
 from numpy.typing import NDArray
-from typing import Optional
+from typing import Callable, Optional
+
+from strkit.logger import logger
 
 from .types import ReadDict
 
@@ -81,6 +83,31 @@ def _get_read_snvs_meticulous(
     return snvs
 
 
+def _get_read_snvs_simple_py(
+    query_sequence: str,
+    pairs: list[tuple[int, int]],
+    ref_seq: str,
+    ref_coord_start: int,
+    tr_start_pos: int,
+    tr_end_pos: int,
+) -> dict[int, str]:
+    snvs: dict[int, str] = {}
+    for read_pos, ref_pos in pairs:
+        if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
+            continue
+        if (read_base := query_sequence[read_pos]) != ref_seq[ref_pos - ref_coord_start]:
+            snvs[ref_pos] = read_base
+    return snvs
+
+
+get_read_snvs_simple: Callable[[str, list[tuple[int, int]], str, int, int, int], dict[int, str]]
+try:
+    from strkit_rust_comp import mk_snvs_dict as get_read_snvs_simple
+    logger.debug("Found STRkit Rust component, importing get_read_snvs_simple")
+except ImportError:
+    get_read_snvs_simple = _get_read_snvs_simple_py
+
+
 def get_read_snvs(
     query_sequence: str,
     pairs: list[tuple[int, int]],
@@ -100,12 +127,8 @@ def get_read_snvs(
 
     # Tried to vectorize this with numpy, and it ended up slower... oh well
 
-    snvs: dict[int, str] = {}
-    for read_pos, ref_pos in pairs:
-        if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
-            continue
-        if (read_base := query_sequence[read_pos]) != ref_seq[ref_pos - ref_coord_start]:
-            snvs[ref_pos] = read_base
+    snvs: dict[int, str] = get_read_snvs_simple(
+        query_sequence, pairs, ref_seq, ref_coord_start, tr_start_pos, tr_end_pos)
 
     if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on?
         return _get_read_snvs_meticulous(
