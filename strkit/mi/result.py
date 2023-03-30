@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import itertools
+import logging
+
 import numpy as np
 import sys
 import scipy.stats as sst
@@ -10,7 +12,7 @@ from statsmodels.stats.multitest import multipletests
 
 from strkit.constants import CHROMOSOMES
 from strkit.json import json, dumps_indented
-from strkit.logger import logger
+from strkit.logger import logger as logger_
 from strkit.utils import cis_overlap
 
 from typing import Generator, Iterable, Optional, Union
@@ -39,25 +41,28 @@ INHERITANCE_CONFIGS = (
 
 class MILocusData:
     def __init__(
-            self,
-            contig: str,
-            start: int,
-            end: int,
-            motif: str,
+        self,
+        contig: str,
+        start: int,
+        end: int,
+        motif: str,
 
-            child_gt, mother_gt, father_gt,
-            child_gt_95_ci=None, mother_gt_95_ci=None, father_gt_95_ci=None,
-            child_gt_99_ci=None, mother_gt_99_ci=None, father_gt_99_ci=None,
+        child_gt, mother_gt, father_gt,
+        child_gt_95_ci=None, mother_gt_95_ci=None, father_gt_95_ci=None,
+        child_gt_99_ci=None, mother_gt_99_ci=None, father_gt_99_ci=None,
 
-            child_read_counts: OptionalReadCounts = None,
-            mother_read_counts: OptionalReadCounts = None,
-            father_read_counts: OptionalReadCounts = None,
+        child_read_counts: OptionalReadCounts = None,
+        mother_read_counts: OptionalReadCounts = None,
+        father_read_counts: OptionalReadCounts = None,
 
-            reference_copies=None,
-            decimal: bool = False,
-            widen: float = 0,
+        reference_copies=None,
+        decimal: bool = False,
+        widen: float = 0,
 
-            test_to_perform: str = "none"):
+        test_to_perform: str = "none",
+
+        logger: logging.Logger = logger_,
+    ):
         self._contig = contig
         self._start = start
         self._end = end
@@ -89,6 +94,8 @@ class MILocusData:
         self._adj_p_value = None
         if test_to_perform != "none":
             self._p_value = self.de_novo_test(test_to_perform)
+
+        self._logger = logger
 
     @property
     def contig(self) -> str:
@@ -175,7 +182,7 @@ class MILocusData:
         try:
             assert value is None or 0 <= value <= 1
         except AssertionError as e:
-            logger.error(f"Encountered unexpected value: {value}")
+            self._logger.error(f"Encountered unexpected value: {value}")
             raise e
         self._adj_p_value = value
 
@@ -204,15 +211,23 @@ class MILocusData:
             abs(c_gt[1] - m_gt[1]) < t and abs(c_gt[0] - f_gt[1]) < t,
         ))
 
-    @staticmethod
-    def _respects_mi_ci(c_gt_ci, m_gt_ci, f_gt_ci, widen) -> Optional[bool]:
+    def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen) -> Optional[bool]:
         if any(x is None for x in (c_gt_ci, m_gt_ci, f_gt_ci)):
             return None
 
-        m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * widen))
-        m_gt_ci_1 = (m_gt_ci[1][0] - (m_gt_ci[1][0] * widen), m_gt_ci[1][1] + (m_gt_ci[1][1] * widen))
-        f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * widen))
-        f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * widen))
+        try:
+            m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * widen))
+            m_gt_ci_1 = (m_gt_ci[1][0] - (m_gt_ci[1][0] * widen), m_gt_ci[1][1] + (m_gt_ci[1][1] * widen))
+        except IndexError:
+            self._logger.error(f"Encountered invalid maternal confidence intervals: {m_gt_ci}")
+            return None
+
+        try:
+            f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * widen))
+            f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * widen))
+        except IndexError:
+            self._logger.error(f"Encountered invalid maternal confidence intervals: {m_gt_ci}")
+            return None
 
         return any((
             # First hypothesis: first allele from mother, second from father
@@ -232,11 +247,11 @@ class MILocusData:
         fn = self._respects_decimal_ci if self._decimal else MILocusData._respects_strict_ci
         respects_mi_strict = fn(self._child_gt, self._mother_gt, self._father_gt)
 
-        respects_mi_95_ci = MILocusData._respects_mi_ci(
+        respects_mi_95_ci = self._respects_mi_ci(
             self._child_gt_95_ci, self._mother_gt_95_ci, self._father_gt_95_ci,
             widen=self._widen if widen is None else widen)
 
-        respects_mi_99_ci = MILocusData._respects_mi_ci(
+        respects_mi_99_ci = self._respects_mi_ci(
             self._child_gt_99_ci, self._mother_gt_99_ci, self._father_gt_99_ci,
             widen=self._widen if widen is None else widen)
 
@@ -265,7 +280,7 @@ class MILocusData:
                     w.append("maternal")
                 if not pat_reads:
                     w.append("paternal")
-                logger.warning(
+                self._logger.warning(
                     f"{self.contig}:{self.start}-{self.end} - encountered empty readset for {' and '.join(w)} allele")
                 sys.stderr.flush()
                 return None
@@ -402,16 +417,19 @@ class MIContigResult:
 
 
 class MIResult:
-    def __init__(self,
-                 mi_value: float,
-                 mi_value_95_ci: Optional[float],
-                 mi_value_99_ci: Optional[float],
-                 contig_results: Iterable[MIContigResult],
-                 output_loci: list[MILocusData],
-                 widen: float = 0,
-                 test_to_perform: str = "none",
-                 sig_level: float = 0.05,
-                 mt_corr: str = "none"):
+    def __init__(
+        self,
+        mi_value: float,
+        mi_value_95_ci: Optional[float],
+        mi_value_99_ci: Optional[float],
+        contig_results: Iterable[MIContigResult],
+        output_loci: list[MILocusData],
+        widen: float = 0,
+        test_to_perform: str = "none",
+        sig_level: float = 0.05,
+        mt_corr: str = "none",
+        logger: logging.Logger = logger_,
+    ):
         self.mi_value: float = mi_value
         self.mi_value_95_ci: Optional[float] = mi_value_95_ci
         self.mi_value_99_ci: Optional[float] = mi_value_99_ci
@@ -425,6 +443,8 @@ class MIResult:
         self._n_loci_seen: int = sum(cr.n_loci_seen for cr in self.contig_results)
         self._seen_loci_lengths: tuple[int, ...] = tuple(
             itertools.chain.from_iterable(cr.seen_loci_lengths for cr in self.contig_results))
+
+        self._logger: logging.Logger = logger
 
     @property
     def contig_results(self) -> tuple[MIContigResult]:
@@ -444,7 +464,7 @@ class MIResult:
 
     def correct_for_multiple_testing(self):
         if self._test_to_perform == "none":
-            logger.warning("Cannot correct for multiple testing when test is not enabled")
+            self._logger.warning("Cannot correct for multiple testing when test is not enabled")
             return
 
         loci = [locus for cr in self.contig_results for locus in cr]

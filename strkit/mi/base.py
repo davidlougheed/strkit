@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Union
 
-from strkit.logger import logger
+from strkit.logger import logger as logger_
 from .result import MIContigResult, MIResult
 from ..utils import cis_overlap
 
@@ -35,6 +36,7 @@ class BaseCalculator(ABC):
             mt_corr: str = "none",
 
             debug: bool = False,
+            logger: logging.Logger = logger_,
     ):
         self._child_call_file: Path = child_call_file
         self._mother_call_file: Path = mother_call_file
@@ -58,6 +60,7 @@ class BaseCalculator(ABC):
         self._mt_corr: str = mt_corr
 
         self._debug: bool = debug
+        self._logger: logging.Logger = logger
 
     @property
     def test_to_perform(self) -> str:
