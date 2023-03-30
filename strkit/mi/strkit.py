@@ -14,6 +14,10 @@ __all__ = [
 ]
 
 
+STRKIT_TSV_CALL_INDEX = 6
+STRKIT_TSV_CALL_95_CI_INDEX = 7
+
+
 class StrKitCalculator(BaseCalculator):
     fractional = False
 
@@ -37,12 +41,12 @@ class StrKitCalculator(BaseCalculator):
 
         return {
             tuple(line[:4]): (
-                tuple_conv(line[-2].split("|")),
-                parse_cis(line[-1].split("|"), dtype=dtype),
+                tuple_conv(line[STRKIT_TSV_CALL_INDEX].split("|")),
+                parse_cis(line[STRKIT_TSV_CALL_95_CI_INDEX].split("|"), dtype=dtype),
                 None  # parse_cis(line[-1:].split("|")),
             )
             for line in (pv.strip().split("\t") for pv in ph)
-            if line[0] == contig and "." not in line[-2].split("|")
+            if line[0] == contig and "." not in line[STRKIT_TSV_CALL_INDEX]
         }
 
     def calculate_contig(self, contig: str) -> MIContigResult:
@@ -77,7 +81,7 @@ class StrKitCalculator(BaseCalculator):
                 m_gt, m_gt_95_ci, _ = mother_calls[lookup]
                 f_gt, f_gt_95_ci, _ = father_calls[lookup]
 
-                calls = locus_data[-2].split("|")
+                calls = locus_data[STRKIT_TSV_CALL_INDEX].split("|")
 
                 if "." in calls:
                     # Failed call
@@ -93,7 +97,7 @@ class StrKitCalculator(BaseCalculator):
                     mother_gt=m_gt,
                     father_gt=f_gt,
 
-                    child_gt_95_ci=parse_cis(locus_data[-1].split("|"), dtype=dtype),
+                    child_gt_95_ci=parse_cis(locus_data[STRKIT_TSV_CALL_95_CI_INDEX].split("|"), dtype=dtype),
                     mother_gt_95_ci=m_gt_95_ci,
                     father_gt_95_ci=f_gt_95_ci,
 
