@@ -194,6 +194,7 @@ def call_sample(
 
     # Get sample ID from read file(s)
 
+    logger.debug(f"Using read file(s): {'; '.join(read_files)}")
     bfs = tuple(AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
 
     # noinspection PyTypeChecker
