@@ -102,7 +102,7 @@ def _get_read_snvs_simple_py(
 
 get_read_snvs_simple: Callable[[str, list[tuple[int, int]], str, int, int, int], dict[int, str]]
 try:
-    from strkit_rust_comp import mk_snvs_dict as get_read_snvs_simple
+    from strkit_rust_ext import mk_snvs_dict as get_read_snvs_simple
     logger.debug("Found STRkit Rust component, importing get_read_snvs_simple")
 except ImportError:
     get_read_snvs_simple = _get_read_snvs_simple_py
