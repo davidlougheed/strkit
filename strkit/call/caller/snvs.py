@@ -1,4 +1,3 @@
-import bisect
 import numpy as np
 from collections import Counter
 
@@ -8,6 +7,7 @@ from typing import Callable, Optional
 from strkit.logger import logger
 
 from .types import ReadDict
+from .utils import find_pair_by_ref_pos
 
 
 __all__ = [
@@ -102,7 +102,7 @@ def _get_read_snvs_simple_py(
 
 get_read_snvs_simple: Callable[[str, list[tuple[int, int]], str, int, int, int], dict[int, str]]
 try:
-    from strkit_rust_ext import mk_snvs_dict as get_read_snvs_simple
+    from strkit_rust_ext import get_snvs_simple as get_read_snvs_simple
     logger.debug("Found STRkit Rust component, importing get_read_snvs_simple")
 except ImportError:
     get_read_snvs_simple = _get_read_snvs_simple_py
@@ -145,14 +145,14 @@ def get_read_snvs(
     return snvs
 
 
-def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]], n_pairs: int, t: int) -> str:
-    idx = bisect.bisect_left(pairs_for_read, t, key=lambda p: p[1])
+def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]], t: int) -> str:
+    idx, found = find_pair_by_ref_pos(pairs_for_read, t)
 
-    if idx != n_pairs and (pair := pairs_for_read[idx])[1] == t:
+    if found:
         # Even if not in SNV set, it is not guaranteed to be a reference base, since
         # it's possible it was surrounded by too much other variation during the original
         # SNV getter algorithm.
-        return query_sequence[pair[0]]
+        return query_sequence[pairs_for_read[idx][0]]
 
     # Nothing found, so must have been a gap
     return "_"
@@ -170,7 +170,6 @@ def calculate_useful_snvs(
 
     for rn, read in read_dict_items:
         pairs_for_read = read_match_pairs[rn]
-        n_pairs_for_read: int = len(pairs_for_read)
         extra_data = read_dict_extra[rn]
 
         snvs: dict[int, str] = extra_data["snv"]
@@ -190,7 +189,7 @@ def calculate_useful_snvs(
                     base = bb
                 else:
                     # Binary search for base from correct pair
-                    base = _find_base_at_pos(qs, pairs_for_read, n_pairs_for_read, snv_pos)
+                    base = _find_base_at_pos(qs, pairs_for_read, snv_pos)
 
             # Otherwise, leave as out-of-range
 

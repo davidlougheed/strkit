@@ -23,7 +23,7 @@ from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import SNV_OUT_OF_RANGE_CHAR, get_read_snvs, calculate_useful_snvs, call_and_filter_useful_snvs
 from .types import ReadDict
-from .utils import normalize_contig, round_to_base_pos
+from .utils import find_pair_by_ref_pos, normalize_contig, round_to_base_pos
 
 
 __all__ = [
@@ -68,27 +68,20 @@ def get_read_coords_from_matched_pairs(
     # Skip gaps on either side to find mapped flank indices
 
     # Binary search for left flank start
-    # TODO: python >= 3.10: use bisect_left
-    lhs = 0
-    rhs = len(matched_pairs) - 1
-
-    while rhs - lhs > 1:
-        midpoint = (lhs + rhs) // 2
-        rc = matched_pairs[midpoint][1]
-        if rc > left_flank_coord:
-            rhs = midpoint - 1
-        elif rc < left_flank_coord:
-            lhs = midpoint  # change from normal algorithm: inclusive, still may be closest
-        else:  # equal
-            lhs = midpoint
-            break
+    lhs, found = find_pair_by_ref_pos(matched_pairs, left_flank_coord)
 
     # lhs now contains the index for the closest starting coordinate to left_flank_coord
-    qcc, rcc = matched_pairs[lhs]
-    left_flank_start = qcc
-    if rcc > left_flank_coord:
-        # Error state from binary search
+
+    if not found and (lhs == 0 or lhs == len(matched_pairs)):
+        # Completely out of bounds; either right at the start or inserting after the end
         return -1, -1, -1, -1
+
+    if not found:
+        # Choose pair to the left of where we'd insert the pair to maintain sorted order, since we want the closest
+        # starting coordinate to left_flank_coord which gives us enough flanking material.
+        lhs -= 1
+
+    left_flank_start, _ = matched_pairs[lhs]
 
     for query_coord, ref_coord in matched_pairs[lhs+1:]:
         # Skip gaps on either side to find mapped flank indices
