@@ -36,7 +36,7 @@ if sys.version_info[0] >= 3 and (sys.version_info[0] > 3 or sys.version_info[1] 
 
     def find_pair_by_ref_pos_bisect(pairs: list[tuple[int, int]], target: int) -> tuple[int, bool]:
         n_pairs: int = len(pairs)
-        idx = bisect.bisect(pairs, target, 0, n_pairs, key=lambda x: x[1])
+        idx = bisect.bisect_left(pairs, target, 0, n_pairs, key=lambda x: x[1])
         return idx, idx < n_pairs and pairs[idx][1] == target
 
     find_pair_by_ref_pos = find_pair_by_ref_pos_bisect
