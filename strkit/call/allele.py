@@ -163,8 +163,6 @@ def call_alleles(
     logger_: logging.Logger,
     debug_str: str,
 ) -> Optional[CallDict]:
-    call_dtype = np.int32 if force_int else np.float32
-
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
 
