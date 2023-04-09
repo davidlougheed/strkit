@@ -19,17 +19,17 @@ with the following command:
 python -m pip install strkit
 ```
 
-For the faster `orjson` library for JSON parsing and serialization, specify
-the `rustdeps` extra:
+For **faster genotyping** (via some optimized utility functions) and the faster `orjson` library 
+for JSON parsing and serialization, specify the `rustdeps` extra:
 
 ```bash
 python -m pip install strkit[rustdeps]
 ```
 
-On some Alliance (DRAC/CC) clusters, this will require loading Rust first:
+On some Alliance (DRAC/CC) clusters, this may require loading Rust first, to compile the wheels:
 
 ```bash
-module load rust
+module load rust/1.65.0
 python -m pip install strkit[rustdeps]
 ```
 
