@@ -520,7 +520,7 @@ def call_locus(
     read_kmers: Counter[str] = Counter()
     locus_snvs: set[int] = set()
 
-    read_pairs: dict[str, list] = {}
+    read_pairs: dict[str, list[tuple[int, int]]] = {}
 
     # Keep track of left-most and right-most coordinates
     # If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
