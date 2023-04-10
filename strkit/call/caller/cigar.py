@@ -34,6 +34,14 @@ def get_aligned_pairs_from_cigar(
     query_start: int = 0,
     ref_start: int = 0,
 ) -> Generator[tuple[Union[int, None], Union[int, None]], None, None]:
+    """
+    Given an iterable of CIGAR operations (op, count), yield aligned pairs of (query, ref).
+    :param cigar: Iterable of CIGAR operations
+    :param query_start: The starting query coordinate for the alignment.
+    :param ref_start: The starting reference coordinate for the alignment.
+    :return: Generator of aligned pairs of (query_coord, ref_coord) (None if a gap is aligned.)
+    """
+
     qi = itertools.count(start=query_start)
     di = itertools.count(start=ref_start)
 
