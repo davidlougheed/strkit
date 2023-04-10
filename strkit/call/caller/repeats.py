@@ -1,7 +1,7 @@
 import math
 import parasail
 
-from typing import Union
+from typing import Literal, Union
 
 from strkit.utils import sign
 from .align_matrix import dna_matrix, indel_penalty
@@ -101,17 +101,17 @@ def get_repeat_count(
     motif: str,
     fractional: bool = False,
 ) -> tuple[Union[int, float], int]:
-    to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
+    to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores: dict[int, int] = {}
 
-    db_seq = flank_left_seq + tr_seq + flank_right_seq
+    db_seq: str = flank_left_seq + tr_seq + flank_right_seq
 
     while to_explore:
         size_to_explore, direction = to_explore.pop()
         if size_to_explore < 0:
             continue
 
-        szs = []
+        szs: list[tuple[int, int]] = []
 
         start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
         end_size = size_to_explore + (local_search_range if direction > -1 else 0)
@@ -159,7 +159,8 @@ def get_ref_repeat_count(
     motif_size = len(motif)
 
     if not respect_coords:  # Extend out coordinates from initial definition
-        to_explore = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
+        to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [
+            (start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
 
         fwd_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
         rev_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
