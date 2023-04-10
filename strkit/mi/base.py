@@ -17,26 +17,26 @@ __all__ = [
 # noinspection PyUnusedLocal
 class BaseCalculator(ABC):
     def __init__(
-            self,
-            child_call_file: Path,
-            mother_call_file: Path,
-            father_call_file: Path,
+        self,
+        child_call_file: Path,
+        mother_call_file: Path,
+        father_call_file: Path,
 
-            child_id: Optional[str] = None,
-            mother_id: Optional[str] = None,
-            father_id: Optional[str] = None,
+        child_id: Optional[str] = None,
+        mother_id: Optional[str] = None,
+        father_id: Optional[str] = None,
 
-            loci_file: Optional[str] = None,
-            exclude_file: Optional[str] = None,
+        loci_file: Optional[str] = None,
+        exclude_file: Optional[str] = None,
 
-            widen: float = 0,
+        widen: float = 0,
 
-            test_to_perform: str = "none",
-            sig_level: float = 0.05,
-            mt_corr: str = "none",
+        test_to_perform: str = "none",
+        sig_level: float = 0.05,
+        mt_corr: str = "none",
 
-            debug: bool = False,
-            logger: logging.Logger = logger_,
+        debug: bool = False,
+        logger: logging.Logger = logger_,
     ):
         self._child_call_file: Path = child_call_file
         self._mother_call_file: Path = mother_call_file
@@ -214,7 +214,7 @@ class BaseCalculator(ABC):
             output_loci.extend(nm)
 
         if n_total == 0:
-            logger.warning("No common loci found")
+            self._logger.warning("No common loci found")
             return None
 
         res /= n_total
