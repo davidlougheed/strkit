@@ -190,7 +190,7 @@ def call_alleles(
         cn = combined_reads[0]
 
         call = np.array([cn] * n_alleles)
-        call_cis = np.array([[cn, cn] * n_alleles])
+        call_cis = np.array([[cn, cn] for _ in range(n_alleles)])
 
         return {
             "call": _array_as_int(call) if force_int else call,
