@@ -226,7 +226,7 @@ class MILocusData:
             f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * widen))
             f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * widen))
         except IndexError:
-            self._logger.error(f"Encountered invalid maternal confidence intervals: {m_gt_ci}")
+            self._logger.error(f"Encountered invalid paternal confidence intervals: {f_gt_ci}")
             return None
 
         try:
