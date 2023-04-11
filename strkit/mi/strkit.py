@@ -151,7 +151,7 @@ class StrKitJSONCalculator(BaseCalculator):
         return tuple(map(tuple, rc))
 
     @staticmethod
-    def make_calls_dict(report: dict, contig):
+    def make_calls_dict(report: dict, contig: str):
         fractional = report["parameters"]["fractional"]
         tuple_conv = float_tuple if fractional else int_tuple
         dtype = float if fractional else int
