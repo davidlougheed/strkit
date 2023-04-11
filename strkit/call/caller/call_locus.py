@@ -251,6 +251,7 @@ def call_alleles_with_incorporated_snvs(
 
     # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
 
+    n_useful_snvs: int = len(useful_snvs)
     read_dict_items_with_many_snvs: list[tuple[str, ReadDict]] = []
     read_dict_items_with_at_least_one_snv: list[tuple[str, ReadDict]] = []
     read_dict_items_with_no_snvs: list[tuple[str, ReadDict]] = []
@@ -299,13 +300,15 @@ def call_alleles_with_incorporated_snvs(
         assign_method = "snv"
     else:
         # We have enough SNVs in lots of reads, so we can phase using a combined metric
-        logger_.debug(f"{locus_log_str} - haplotyping using combined STR-SNV metric")
+        logger_.debug(
+            f"{locus_log_str} - haplotyping using combined STR-SNV metric ("
+            f"{n_useful_snvs=}, {n_reads_with_many_snvs=}, {n_reads_in_dict=})")
         # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
         assign_method = "snv+dist"
 
     # Calculate pairwise distance for all reads using either SNVs ONLY or
     # a mixture of SNVs and copy number:
-    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment, len(useful_snvs))
+    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment, n_useful_snvs)
 
     # Cluster reads together using the distance matrix, which incorporates
     # SNV and possibly copy number information.
