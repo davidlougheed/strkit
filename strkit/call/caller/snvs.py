@@ -245,8 +245,7 @@ def call_and_filter_useful_snvs(
 
     for rn, read in read_dict.items():
         p: Optional[int] = read.get("p")
-        if p is None:
-            logger.debug(f"call_useful_snvs: no peak found for read {rn}")
+        if p is None:  # No peak; read wasn't used to call peaks
             continue
         for u_idx, (_, u_ref) in enumerate(useful_snvs):
             peak_base_counts[u_ref][p].update((read["snvu"][u_idx],))
