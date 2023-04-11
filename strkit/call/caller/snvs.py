@@ -117,7 +117,7 @@ def get_read_snvs(
     tr_end_pos: int,
     contiguous_threshold: int = 5,
     max_snv_group_size: int = 5,
-    too_many_snvs_threshold: int = 150,
+    too_many_snvs_threshold: int = 20,
 ) -> dict[int, str]:
     """
     Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
