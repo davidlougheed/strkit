@@ -168,7 +168,7 @@ def calculate_read_distance(
     read_dict_items: Sequence[tuple[str, ReadDict]],
     pure_snv_peak_assignment: bool,
     n_useful_snvs: int,
-    relative_cn_distance_weight_scaling_few: float = 0.5,
+    relative_cn_distance_weight_scaling_few: float = 0.2,
     relative_cn_distance_weight_scaling_many: float = 0.1,
     many_snvs_quantity: int = 3,
 ) -> NDArray[np.float_]:
