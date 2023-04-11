@@ -321,7 +321,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Cluster reads together using the distance matrix, which incorporates
     # SNV and possibly copy number information.
-    c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="complete").fit(dm)
+    c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average").fit(dm)
 
     # noinspection PyUnresolvedReferences
     cluster_labels = c.labels_
