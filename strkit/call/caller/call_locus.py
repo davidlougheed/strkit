@@ -338,6 +338,8 @@ def call_alleles_with_incorporated_snvs(
         ws = ws / np.sum(ws)
         c_ws.append(ws)
 
+    logger_.debug(f"{locus_log_str} - using {assign_method=}, got {cns=}")
+
     cdd: list[CallDict] = []
 
     for ci in cluster_indices:
@@ -746,8 +748,13 @@ def call_locus(
 
         for rn, read in read_dict_items:
             snvs = get_read_snvs(
-                read_dict_extra[rn]["_qs"], read_pairs[rn], ref_cache, left_most_coord, left_coord_adj,
-                right_coord_adj)
+                read_dict_extra[rn]["_qs"],
+                read_pairs[rn],
+                ref_cache,
+                left_most_coord,
+                left_coord_adj,
+                right_coord_adj,
+            )
             locus_snvs.update(snvs.keys())
             read_dict_extra[rn]["snv"] = snvs
 
@@ -919,11 +926,16 @@ def call_locus(
     def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, float, np.int_, np.float_]]]:
         return [_ndarray_serialize(y) for y in x]
 
+    call_val = apply_or_none(_ndarray_serialize, call)
+    call_95_cis_val = apply_or_none(_nested_ndarray_serialize, call_95_cis)
+
+    logger_.debug(f"{locus_log_str} - got call: {call_val} (95% CIs: {call_95_cis_val})")
+
     return {
         **call_dict_base,
         "assign_method": assign_method,
-        "call": apply_or_none(_ndarray_serialize, call),
-        "call_95_cis": apply_or_none(_nested_ndarray_serialize, call_95_cis),
+        "call": call_val,
+        "call_95_cis": call_95_cis_val,
         "call_99_cis": apply_or_none(_nested_ndarray_serialize, call_99_cis),
         "peaks": peak_data,
         # make typecheck happy above by checking all of these are not None (even though if call is false-y, all of them
