@@ -277,14 +277,18 @@ def call_alleles_with_incorporated_snvs(
             print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), nbr)
 
     n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
-    pure_snv_peak_assignment: bool = n_reads_with_many_snvs == n_reads_in_dict
+    n_reads_with_at_least_one_snv: int = len(read_dict_items_with_at_least_one_snv)
+    n_reads_with_no_snvs: int = len(read_dict_items_with_no_snvs)
+
+    # Use purely SNVs if all reads which won't get discarded have many SNVs
+    pure_snv_peak_assignment: bool = n_reads_with_many_snvs + n_reads_with_no_snvs == n_reads_in_dict
 
     # TODO: parametrize: how many reads with SNV information
     min_snv_incorporation_read_portion = 0.8  # At least 80% with 1+ SNV called
     min_snv_incorporation_read_abs = 16  # Or at least 16 reads with 1+ SNV called
 
     can_incorporate_snvs: bool = pure_snv_peak_assignment or (
-        len(read_dict_items_with_at_least_one_snv) >=
+        n_reads_with_at_least_one_snv >=
         min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)
     )
 
@@ -292,23 +296,28 @@ def call_alleles_with_incorporated_snvs(
         # TODO: How to use partial data?
         return assign_method, None
 
+    if n_reads_with_no_snvs:
+        logger_.debug(f"{locus_log_str} - will discard {n_reads_with_no_snvs} reads with no SNV data")
+
     # Otherwise, we can use the SNV data --------------------------------------
 
     if pure_snv_peak_assignment:
         # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
-        logger_.debug(f"{locus_log_str} - haplotyping purely using SNVs")
+        logger_.debug(f"{locus_log_str} - haplotyping purely using SNVs ({n_useful_snvs=}, {n_reads_with_many_snvs=})")
         assign_method = "snv"
     else:
         # We have enough SNVs in lots of reads, so we can phase using a combined metric
         logger_.debug(
             f"{locus_log_str} - haplotyping using combined STR-SNV metric ("
-            f"{n_useful_snvs=}, {n_reads_with_many_snvs=}, {n_reads_in_dict=})")
+            f"{n_useful_snvs=}, {n_reads_with_at_least_one_snv=}, {n_reads_in_dict=})")
         # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
         assign_method = "snv+dist"
 
     # Calculate pairwise distance for all reads using either SNVs ONLY or
     # a mixture of SNVs and copy number:
-    dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment, n_useful_snvs)
+    # dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment, n_useful_snvs)
+    dm = calculate_read_distance(
+        n_reads_with_at_least_one_snv, read_dict_items_with_at_least_one_snv, pure_snv_peak_assignment, n_useful_snvs)
 
     # Cluster reads together using the distance matrix, which incorporates
     # SNV and possibly copy number information.
@@ -325,7 +334,8 @@ def call_alleles_with_incorporated_snvs(
         crs: list[ReadDict] = []
 
         # Find reads and assign peaks
-        for i, (_, r) in enumerate(read_dict_items):
+        # for i, (_, r) in enumerate(read_dict_items):
+        for i, (_, r) in enumerate(read_dict_items_with_at_least_one_snv):
             if cluster_labels[i] == ci:
                 crs.append(r)
                 r["p"] = ci  # Mutation: assign peak index to read data dictionary
