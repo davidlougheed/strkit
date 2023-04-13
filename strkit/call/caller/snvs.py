@@ -23,6 +23,14 @@ SNV_OUT_OF_RANGE_CHAR = "-"
 # TODO: annotate with rsID if file provided
 
 
+# We check entropy in order to make sure the SNVs we find are somewhat useful, i.e.,
+# surrounded by a nice mixture of different bases rather than some possibly mis-mappable
+# base inside a homopolymer (I used to get results like AAAAAAAAAACAAAAAAAA where one of
+# those As could be a gap instead... really useless stuff that made it through the filters.)
+#
+# Below is a Python implementation of https://en.wikipedia.org/wiki/Entropy_(information_theory)
+# but a Rust one exists too in strkit_rust_ext.
+
 def shannon_entropy(seq: str) -> float:
     seq_len = len(seq)
     return -1.0 * sum(p * math.log2(p) for p in (c / seq_len for c in Counter(seq).values()))
