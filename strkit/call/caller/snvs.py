@@ -1,3 +1,4 @@
+import logging
 import math
 import numpy as np
 from collections import Counter
@@ -47,7 +48,7 @@ def _get_read_snvs_meticulous_py(
     contiguous_threshold: int = 5,
     max_snv_group_size: int = 5,
     entropy_flank_size: int = 10,
-    entropy_threshold: float = 1.7,
+    entropy_threshold: float = 1.8,
 ) -> dict[int, str]:
     """
     Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
@@ -118,7 +119,7 @@ def _get_read_snvs_simple_py(
     tr_start_pos: int,
     tr_end_pos: int,
     entropy_flank_size: int = 10,
-    entropy_threshold: float = 1.7,
+    entropy_threshold: float = 1.8,
 ) -> dict[int, str]:
     query_sequence_len = len(query_sequence)
     snvs: dict[int, str] = {}
