@@ -59,13 +59,13 @@ def _get_read_snvs_meticulous(
         read_base = query_sequence[read_pos]
         ref_base = ref_seq[ref_pos - ref_coord_start]
 
-        if read_base == ref_base and (ref_pos - last_rp == 1 or last_rp == -1):
+        if read_base == ref_base and (contiguous_threshold == 0 or ref_pos - last_rp == 1 or last_rp == -1):
             if snv_group:
                 rhs_contiguous += 1
             else:
                 lhs_contiguous += 1
 
-            if lhs_contiguous > contiguous_threshold and rhs_contiguous > contiguous_threshold:
+            if lhs_contiguous >= contiguous_threshold and rhs_contiguous >= contiguous_threshold:
                 if len(snv_group) <= max_snv_group_size:
                     snvs.update(snv_group)
                 # Otherwise, it might be a little mismapped area or a longer deletion vs reference, so ignore it.
@@ -76,7 +76,7 @@ def _get_read_snvs_meticulous(
             last_rp = ref_pos
             continue
 
-        if ref_pos - last_rp > 1:
+        if ref_pos - last_rp > 1:  # Non-contiguous jump; insertion in query
             lhs_contiguous = 0
             last_rp = ref_pos
             continue
@@ -85,6 +85,11 @@ def _get_read_snvs_meticulous(
             snv_group.append((ref_pos, read_base))
             # Don't reset either contiguous variable; instead, take this as part of a SNP group
             last_rp = ref_pos
+
+    # Special case: if we have stuff in the SNV group with no contiguous requirements,
+    # add it to the SNV dict.
+    if contiguous_threshold == 0 and (0 < len(snv_group) <= max_snv_group_size):
+        snvs.update(snv_group)
 
     return snvs
 
