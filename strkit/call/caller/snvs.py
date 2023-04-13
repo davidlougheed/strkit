@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from collections import Counter
 
@@ -20,6 +21,11 @@ __all__ = [
 SNV_OUT_OF_RANGE_CHAR = "-"
 
 # TODO: annotate with rsID if file provided
+
+
+def shannon_entropy(seq: str) -> float:
+    seq_len = len(seq)
+    return -1.0 * sum(p * math.log2(p) for p in (c / seq_len for c in Counter(seq).values()))
 
 
 def _get_read_snvs_meticulous(
