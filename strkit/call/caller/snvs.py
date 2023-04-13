@@ -162,7 +162,7 @@ def get_read_snvs(
     max_snv_group_size: int = 5,
     too_many_snvs_threshold: int = 20,
     entropy_flank_size: int = 10,
-    entropy_threshold: float = 1.7,
+    entropy_threshold: float = 1.8,
 ) -> dict[int, str]:
     """
     Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
