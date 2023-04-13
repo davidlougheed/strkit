@@ -274,7 +274,7 @@ def call_and_filter_useful_snvs(
     useful_snvs: list[tuple[int, int]],
     peak_order: NDArray[np.int_],
     locus_log_str: str,
-    logger,
+    logger_: logging.Logger,
 ) -> list[dict]:
     """
     Call useful SNVs at a locus level from read-level SNV data.
@@ -283,7 +283,7 @@ def call_and_filter_useful_snvs(
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
     :param peak_order: Indices for rearranging the call arrays into the final order, to match the sorted copy numbers.
     :param locus_log_str: Locus string representation for logging purposes.
-    :param logger: Python logger object.
+    :param logger_: Python logger object.
     :return: List of called SNVs for the locus.
     """
 
@@ -320,9 +320,9 @@ def call_and_filter_useful_snvs(
                 if mcc[0] == SNV_OUT_OF_RANGE_CHAR:  # Chose most common non-uncalled value
                     mcc = mc[1]
             except IndexError:  # '-' is the only value, somehow
-                logger.warn(
+                logger_.warning(
                     f"{locus_log_str} - for SNV {u_ref}, found only '{SNV_OUT_OF_RANGE_CHAR}' with {mcc[1]} reads")
-                logger.debug(f"{locus_log_str} - for SNV {u_ref}: {mc=}, {peak_counts[a]=}")
+                logger_.debug(f"{locus_log_str} - for SNV {u_ref}: {mc=}, {peak_counts[a]=}")
                 skipped = True
                 break
 
