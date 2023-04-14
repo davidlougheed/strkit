@@ -4,6 +4,7 @@ from typing import Literal, TypedDict, Union
 
 __all__ = [
     "ReadDict",
+    "ReadDictExtra",
 ]
 
 # TODO: py3.10: new Required[] TypedDict structuring
@@ -28,12 +29,19 @@ class ReadDict(_ReadDictBase, total=False):
     kmers: dict[str, int]  # Dictionary of {kmer: count}
 
     # Below are only added if SNVs are being incorporated:
-
-    snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
-    snv_bases: tuple[str, ...]  # Intermediate result: tuple of bases for the set of SNVs across all reads
     snvu: tuple[str, ...]  # After including only useful SNVs, this contains a tuple of bases for just those
+
+
+class ReadDictExtra(TypedDict, total=False):
+    # Below are only added if SNVs are being incorporated:
 
     _ref_start: int  # Read start in ref coordinates
     _ref_end: int  # Read end in ref coordinates
 
     _qs: str  # Query (read) sequence... only added if SNVs are being incorporated
+
+    sig_clip_left: bool  # Significant amounts of clipping (5' of read)
+    sig_clip_right: bool  # Significant amounts of clipping (3' of read)
+
+    snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
+    snv_bases: tuple[str, ...]  # Intermediate result: tuple of bases for the set of SNVs across all reads

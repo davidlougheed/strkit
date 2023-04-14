@@ -227,6 +227,9 @@ def calculate_useful_snvs(
         pairs_for_read = read_match_pairs[rn]
         extra_data = read_dict_extra[rn]
 
+        if "snv" not in extra_data:
+            continue
+
         snvs: dict[int, str] = extra_data["snv"]
 
         # Know this to not be None since we were passed only segments with non-None strings earlier

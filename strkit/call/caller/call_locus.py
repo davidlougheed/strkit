@@ -22,7 +22,7 @@ from .align_matrix import match_score
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import SNV_OUT_OF_RANGE_CHAR, get_read_snvs, calculate_useful_snvs, call_and_filter_useful_snvs
-from .types import ReadDict
+from .types import ReadDict, ReadDictExtra
 from .utils import find_pair_by_ref_pos, normalize_contig, round_to_base_pos
 
 
@@ -41,6 +41,10 @@ base_wildcard_threshold = 3
 roughly_equiv_stdev_dist = 1
 
 force_realign = False
+many_realigns_threshold = 2
+
+significant_clip_threshold = 100
+significant_clip_snv_take_in = 250
 
 
 def calculate_seq_with_wildcards(qs: str, quals: Optional[list[int]]) -> str:
@@ -257,6 +261,9 @@ def call_alleles_with_incorporated_snvs(
     read_dict_items_with_no_snvs: list[tuple[str, ReadDict]] = []
 
     print_snvs = False
+
+    # TODO: Check that we don't have disjoint groups - how would we actually ascertain this?
+    #  - each read as a set; merge sets when there is overlap, make sure we have 1 set at the end
 
     for read_item in read_dict_items:
         rn, read = read_item
@@ -529,7 +536,8 @@ def call_locus(
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
     read_dict: dict[str, ReadDict] = {}
-    read_dict_extra: dict[str, dict] = {}
+    read_dict_extra: dict[str, ReadDictExtra] = {}
+    realign_count: int = 0  # Number of realigned reads
 
     # Aggregations for additional read-level data
     read_kmers: Counter[str] = Counter()
@@ -603,6 +611,7 @@ def call_locus(
             if pairs_new is not None:
                 pairs = pairs_new
                 realigned = True
+                realign_count += 1
 
         if pairs is None:
             pairs = segment.get_aligned_pairs(matches_only=True)
@@ -705,6 +714,16 @@ def call_locus(
             # in order to pass the query sequence to the get_read_snvs function with the cached ref string.
             read_dict_extra[rn]["_qs"] = qs
 
+            # Observed significant increase in annoying, probably false SNVs near the edges of significantly
+            # clipped reads in CCS data. Figure out if we have large clipping for later use here in the SNV finder.
+            cigar_first_op = segment.cigartuples[0]
+            cigar_last_op = segment.cigartuples[-1]
+
+            read_dict_extra[rn]["sig_clip_left"] = (
+                cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
+            read_dict_extra[rn]["sig_clip_right"] = (
+                    cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
+
             # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
             read_pairs[rn] = pairs
 
@@ -747,19 +766,53 @@ def call_locus(
     assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
     if n_alleles < 2:
         assign_method = "single"
+
     min_snv_read_coverage: int = 8  # TODO: parametrize
 
-    # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
-    if should_incorporate_snvs and n_reads_in_dict >= min_snv_read_coverage:
+    # Realigns are missing significant amounts of flanking information since the realignment only uses a portion of the
+    # reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
+    have_rare_realigns: bool = False
+    for rn, read in read_dict_items:
+        n_same_cn_no_realign = sum(1 for _, r2 in read_dict_items if not r2.get("realn") and r2["cn"] == read["cn"])
+        if read.get("realn") and n_same_cn_no_realign == 0:
+            have_rare_realigns = True
+            break
+
+    if realign_count >= many_realigns_threshold or have_rare_realigns:
+        logger_.warning(
+            f"{locus_log_str} - cannot use SNVs; one of {realign_count=} >= {many_realigns_threshold} or "
+            f"{have_rare_realigns=}")
+
+    elif should_incorporate_snvs and n_reads_in_dict >= min_snv_read_coverage and not have_rare_realigns:
+        # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
+
         # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
         # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
 
         ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
 
         for rn, read in read_dict_items:
+            scl = read_dict_extra[rn]["sig_clip_left"]
+            scr = read_dict_extra[rn]["sig_clip_right"]
+            if scl or scr:
+                logger_.debug(
+                    f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
+                    f"{significant_clip_snv_take_in} bp per side")
+
+            snv_pairs = read_pairs[rn]
+
+            if len(snv_pairs) < (twox_takein := significant_clip_snv_take_in * 2):
+                logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
+                continue
+
+            if read_dict_extra[rn]["sig_clip_left"]:
+                snv_pairs = snv_pairs[significant_clip_snv_take_in:]
+            if read_dict_extra[rn]["sig_clip_right"]:
+                snv_pairs = snv_pairs[:-1*significant_clip_snv_take_in]
+
             snvs = get_read_snvs(
                 read_dict_extra[rn]["_qs"],
-                read_pairs[rn],
+                snv_pairs,
                 ref_cache,
                 left_most_coord,
                 left_coord_adj,
