@@ -267,8 +267,13 @@ def call_alleles_with_incorporated_snvs(
 
     for read_item in read_dict_items:
         rn, read = read_item
+        snv_bases = read_dict_extra[rn].get("snv_bases")
 
-        read_useful_snv_bases = tuple(read_dict_extra[rn]["snv_bases"][bi] for bi, _pos in useful_snvs)
+        if snv_bases is None:
+            read_dict_items_with_no_snvs.append(read_item)
+            continue
+
+        read_useful_snv_bases = tuple(snv_bases[bi] for bi, _pos in useful_snvs)
         non_blank_read_useful_snv_bases = [bb for bb in read_useful_snv_bases if bb != SNV_OUT_OF_RANGE_CHAR]
 
         if nbr := len(non_blank_read_useful_snv_bases):  # TODO: parametrize
@@ -797,7 +802,7 @@ def call_locus(
             if scl or scr:
                 logger_.debug(
                     f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
-                    f"{significant_clip_snv_take_in} bp per side")
+                    f"{significant_clip_snv_take_in} bp per side for SNV-finding")
 
             snv_pairs = read_pairs[rn]
 
