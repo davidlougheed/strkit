@@ -258,15 +258,22 @@ def calculate_useful_snvs(
 
     # Enough reads to try for SNV based separation
     useful_snvs: list[int] = []
+    allele_read_threshold: int = max(round(n_reads / 5), 2)  # TODO: parametrize
+    total_read_threshold: int = max(round(n_reads * 0.55), 2)
     for si, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
-        read_threshold = max(round(n_reads / 5), 2)  # TODO: parametrize
-        n_alleles_meeting_threshold = 0
+        n_alleles_meeting_threshold: int = 0
+        n_reads_with_this_snv_called: int = 0
         for k in snv_counter:
             if k == SNV_OUT_OF_RANGE_CHAR:
                 continue
-            if snv_counter[k] >= read_threshold:
+            n_reads_for_allele = snv_counter[k]
+            n_reads_with_this_snv_called += n_reads_for_allele
+            if n_reads_for_allele >= allele_read_threshold:
                 n_alleles_meeting_threshold += 1
-        if n_alleles_meeting_threshold >= 2:
+        # require 2 alleles for the SNV, both with at least 1/5 of the reads, in order to differentiate alleles.
+        # require over ~55% of the reads to have the SNV; otherwise it becomes too easy to occasionally get cases with
+        # disjoint sets of SNVs.
+        if n_alleles_meeting_threshold >= 2 and n_reads_with_this_snv_called >= total_read_threshold:
             useful_snvs.append(si)
 
     return [(si, sorted_snvs[si]) for si in useful_snvs]  # Tuples of (index in STR list, ref position)
