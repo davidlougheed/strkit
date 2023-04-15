@@ -259,7 +259,7 @@ def calculate_useful_snvs(
     # Enough reads to try for SNV based separation
     useful_snvs: list[int] = []
     allele_read_threshold: int = max(round(n_reads / 5), 2)  # TODO: parametrize
-    total_read_threshold: int = max(round(n_reads * 0.55), 2)
+    total_read_threshold: int = max(round(n_reads * 0.55), 5)
     for si, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
         n_alleles_meeting_threshold: int = 0
         n_reads_with_this_snv_called: int = 0
