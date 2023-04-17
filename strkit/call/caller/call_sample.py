@@ -222,12 +222,15 @@ def call_sample(
 
     # Add all loci from the BED file to the queue, allowing each job
     # to pull from the queue as it becomes freed up to do so.
-    num_loci = 0
+    num_loci: int = 0
+    # Keep track of all contigs we are processing to speed up downstream Mendelian inheritance analysis.
+    contig_set: set[str] = set()
     for t_idx, t in enumerate(parse_loci_bed(loci_file), 1):
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
         locus_queue.put((t_idx, t, rng.integers(0, 4096).item()))
+        contig_set.add(t[0])
         num_loci += 1
 
     # At the end of the queue, add a None value (* the # of processes).
@@ -321,6 +324,7 @@ def call_sample(
                 "processes": processes,
             },
             "runtime": time_taken.total_seconds(),
+            "contigs": tuple(contig_set),
             "results": results,
         }
 
