@@ -76,7 +76,7 @@ def locus_worker(
     ref = p.FastaFile(reference_file)
     bfs = tuple(p.AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
 
-    snv_vcf_file = p.VariantFile(str(snv_vcf)) if snv_vcf else None
+    snv_vcf_file = p.VariantFile(snv_vcf) if snv_vcf else None
 
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
     read_file_has_chr = any(r.startswith("chr") for bf in bfs for r in bf.references)
@@ -259,7 +259,7 @@ def call_sample(
         "realign": realign,
         "hq": hq,
         # "incorporate_snvs": incorporate_snvs,
-        "snv_vcf": snv_vcf,
+        "snv_vcf": str(snv_vcf),
         "targeted": targeted,
         "fractional": fractional,
         "respect_ref": respect_ref,
