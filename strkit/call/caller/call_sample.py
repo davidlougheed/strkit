@@ -48,7 +48,7 @@ def locus_worker(
     realign: bool,
     hq: bool,
     # incorporate_snvs: bool,
-    snv_vcf: Optional[pathlib.Path],
+    snv_vcf: Optional[str],
     targeted: bool,
     fractional: bool,
     respect_ref: bool,
