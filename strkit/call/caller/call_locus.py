@@ -369,7 +369,7 @@ def call_alleles_with_incorporated_snvs(
         cc: Optional[CallDict] = call_alleles(
             cns[ci], (),  # Don't bother separating by strand for now...
             c_ws[ci], (),
-            bootstrap_iterations=num_bootstrap // n_alleles,  # Apportion the bootstrap iters across alleles
+            bootstrap_iterations=num_bootstrap,
             min_reads=min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
             min_allele_reads=min_allele_reads,
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
