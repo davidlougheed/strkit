@@ -339,18 +339,17 @@ def call_alleles_with_incorporated_snvs(
     cluster_labels = c.labels_
     cluster_indices = tuple(range(n_alleles))
 
+    cluster_reads: list[list[ReadDict]] = []
     cns: Union[list[list[int]], list[list[float]]] = []
     c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
 
     for ci in cluster_indices:
         crs: list[ReadDict] = []
 
-        # Find reads and assign peaks
-        # for i, (_, r) in enumerate(read_dict_items):
+        # Find reads for cluster
         for i, (_, r) in enumerate(read_dict_items_with_at_least_one_snv):
             if cluster_labels[i] == ci:
                 crs.append(r)
-                r["p"] = ci  # Mutation: assign peak index to read data dictionary
 
         # Calculate copy number set
         cns.append([r["cn"] for r in crs])
@@ -359,6 +358,8 @@ def call_alleles_with_incorporated_snvs(
         ws = np.fromiter((r["w"] for r in crs), dtype=np.float_)
         ws = ws / np.sum(ws)
         c_ws.append(ws)
+
+        cluster_reads.append(crs)
 
     logger_.debug(f"{locus_log_str} - using {assign_method=}, got {cns=}")
 
@@ -397,20 +398,35 @@ def call_alleles_with_incorporated_snvs(
 
     # Leaving this as an np.array(...) for type detect since #calls is low:
     cdd_calls = np.array([x["call"][0] for x in cdd])
-    peak_order = np.argsort(cdd_calls)  # To reorder call arrays in least-to-greatest by copy number
+    peak_order: NDArray[np.int_] = np.argsort(cdd_calls)  # To reorder call arrays in least-to-greatest by copy number
+
+    # Re-order the call data dictionary, now that we've established an ordering
+    # noinspection PyTypeChecker
+    cdd_ordered = [cdd[i] for i in peak_order]
+    # noinspection PyTypeChecker
+    cluster_reads_ordered = [cluster_reads[i] for i in peak_order]
+
+    # Assign peak labels now that we've reordered
+    for i in cluster_indices:  # Cluster indices now referring to ordered ones
+        for rd in cluster_reads_ordered[i]:
+            rd["p"] = i
+
+    # Make peak weights sum to 1
+    peak_weights = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
+    peak_weights /= np.sum(peak_weights)
 
     # All call_datas are truth-y; all arrays should be ordered by peak_order
     call_data = {
         "call": cdd_calls[peak_order],
-        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0)[peak_order],
-        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0)[peak_order],
-        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd), axis=None)[peak_order],
+        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd_ordered), axis=0),
+        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd_ordered), axis=0),
+        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd_ordered), axis=None),
 
         # TODO: Readjust peak weights when combining or don't include
-        "peak_weights": np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)[peak_order],
+        "peak_weights": peak_weights,
 
-        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0)[peak_order],
-        "modal_n_peaks": n_alleles,  # # alleles = # peaks always -- if we phased using SNVs
+        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0),
+        "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
     }
 
     # Called useful SNVs to add to the final return dictionary:
@@ -935,9 +951,11 @@ def call_locus(
 
         for r, rd in read_dict_items:
             # Need latter term for peaks that we overwrite if we revert to "dist" assignment:
-            if (rp := rd.get("p")) is not None and not single_or_dist_assign:
-                # Already has a peak from using SNV data; add it to the right allele_reads list and skip the rest.
-                allele_reads[rp].append(r)
+            if not single_or_dist_assign:
+                if (rp := rd.get("p")) is not None:
+                    # Already has a peak from using SNV data; add it to the right allele_reads list.
+                    allele_reads[rp].append(r)
+                # Skip the rest; no peak assigned.
                 continue
 
             cn = rd["cn"]

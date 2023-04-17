@@ -292,7 +292,6 @@ def call_and_filter_useful_snvs(
     :param n_alleles: The number of alleles called for this locus.
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
-    :param peak_order: Indices for rearranging the call arrays into the final order, to match the sorted copy numbers.
     :param locus_log_str: Locus string representation for logging purposes.
     :param logger_: Python logger object.
     :return: List of called SNVs for the locus.
@@ -346,8 +345,8 @@ def call_and_filter_useful_snvs(
 
         called_snvs.append({
             "pos": u_ref,
-            "call": np.array(call)[peak_order].tolist(),
-            "rs": np.array(rs)[peak_order].tolist(),
+            "call": np.array(call).tolist(),
+            "rs": np.array(rs).tolist(),
         })
 
     # If we've skipped any SNVs, filter them out of the read dict - MUTATION
