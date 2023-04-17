@@ -122,6 +122,8 @@ class StrKitJSONCalculator(BaseCalculator):
     @staticmethod
     def get_contigs_from_fh(fh) -> set:
         report = json.loads(fh.read())
+        if (report_contigs := report.get("contigs")) is not None:
+            return set(report_contigs)
         return {res["contig"] for res in report["results"]}
 
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
@@ -137,12 +139,19 @@ class StrKitJSONCalculator(BaseCalculator):
     def get_read_counts(res: dict, dtype=int):
         # TODO: This only works with diploids...
 
-        read_cns = [r["cn"] for r in res["reads"].values()]
-        read_peaks = [r["p"] for r in res["reads"].values()]
+        read_cns = []
+        read_peaks = []
+
+        for r in res["reads"].values():
+            if (peak := r.get("p")) is None:
+                continue
+            read_cns.append(r["cn"])
+            read_peaks.append(peak)
 
         n = res["peaks"]["modal_n"]
 
-        if n < 2 or len(set(res["call"])) == 1:
+        if (n < 2 or len(set(res["call"]))) == 1 and res.get("assign_method", "dist") == "dist":
+            # Split copy numbers evenly in two if we have a homozygous locus called only via distance.
             rcs = np.array(read_cns, dtype=dtype)
             np.random.shuffle(rcs)  # TODO: seed shuffle
             part = rcs.shape[0] // 2
@@ -151,8 +160,8 @@ class StrKitJSONCalculator(BaseCalculator):
         rc = []
         for _ in range(n):
             rc.append([])
-        for r, cn in enumerate(read_cns):
-            rc[read_peaks[r]].append(cn)
+        for cn, pk in zip(read_cns, read_peaks):
+            rc[pk].append(cn)
         return tuple(map(tuple, rc))
 
     @staticmethod
