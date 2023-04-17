@@ -124,6 +124,10 @@ class BaseCalculator(ABC):
             elif "chrX" in cc:
                 contig_set = contig_set.union({"chrX"})
 
+        if self._loci_dict:
+            # Limit contig set to only contigs which are in the locus dictionary if one is specified.
+            contig_set = contig_set.intersection({k[0] for k in self._loci_dict})
+
         return contig_set
 
     def gts_respect_mi(
