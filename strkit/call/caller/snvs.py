@@ -162,7 +162,7 @@ def get_read_snvs_dbsnp(snv_vcf_file: VariantFile, contig: str, query_sequence: 
     for var in snv_vcf_file.fetch(contig.removeprefix("chr"), pairs_l, pairs_r):
         ref = var.ref
         alts = var.alts or ()
-        if ref is not None and len(ref) == 1 and all(len(a) == 1 for a in alts):
+        if ref is not None and len(ref) == 1 and alts and all(len(a) == 1 for a in alts):
             read_base = _find_base_at_pos(query_sequence, pairs, var.pos)
             if read_base in var.alts:
                 snvs[var.pos] = read_base
