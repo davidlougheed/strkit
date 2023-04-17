@@ -431,7 +431,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Called useful SNVs to add to the final return dictionary:
     called_useful_snvs: list[dict] = call_and_filter_useful_snvs(
-        n_alleles, read_dict, useful_snvs, peak_order, locus_log_str, logger_)
+        n_alleles, read_dict, useful_snvs, locus_log_str, logger_)
 
     if not called_useful_snvs:  # No useful SNVs left, so revert to "dist" assignment method
         return "dist", None

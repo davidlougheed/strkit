@@ -3,7 +3,6 @@ import math
 import numpy as np
 from collections import Counter
 
-from numpy.typing import NDArray
 from typing import Callable, Optional
 
 from strkit.logger import logger
@@ -283,7 +282,6 @@ def call_and_filter_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
-    peak_order: NDArray[np.int_],
     locus_log_str: str,
     logger_: logging.Logger,
 ) -> list[dict]:
