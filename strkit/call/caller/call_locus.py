@@ -425,7 +425,7 @@ def call_alleles_with_incorporated_snvs(
         # TODO: Readjust peak weights when combining or don't include
         "peak_weights": peak_weights,
 
-        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0),
+        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd_ordered), axis=0),
         "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
     }
 
