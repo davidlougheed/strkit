@@ -21,7 +21,13 @@ from strkit.utils import apply_or_none
 from .align_matrix import match_score
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
-from .snvs import SNV_OUT_OF_RANGE_CHAR, get_read_snvs, calculate_useful_snvs, call_and_filter_useful_snvs
+from .snvs import (
+    SNV_OUT_OF_RANGE_CHAR,
+    # get_read_snvs,
+    get_read_snvs_dbsnp,
+    calculate_useful_snvs,
+    call_and_filter_useful_snvs,
+)
 from .types import ReadDict, ReadDictExtra
 from .utils import find_pair_by_ref_pos, normalize_contig, round_to_base_pos
 
@@ -278,7 +284,7 @@ def call_alleles_with_incorporated_snvs(
 
         if nbr := len(non_blank_read_useful_snv_bases):  # TODO: parametrize
             read_dict_items_with_at_least_one_snv.append(read_item)
-            if nbr >= 3:  # TODO: parametrize
+            if nbr >= 2:  # TODO: parametrize
                 read_dict_items_with_many_snvs.append(read_item)
         else:
             read_dict_items_with_no_snvs.append(read_item)
@@ -455,7 +461,8 @@ def call_locus(
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
-    incorporate_snvs: bool = False,
+    # incorporate_snvs: bool = False,
+    snv_vcf_file: Optional[pysam.VariantFile] = None,
     targeted: bool = False,
     fractional: bool = False,
     respect_ref: bool = False,
@@ -493,7 +500,8 @@ def call_locus(
 
     # Currently, only support diploid use of SNVs. There's not much of a point with haploid loci,
     # and polyploidy is hard.
-    should_incorporate_snvs: bool = incorporate_snvs and n_alleles == 2
+    # should_incorporate_snvs: bool = incorporate_snvs and n_alleles == 2
+    should_incorporate_snvs: bool = snv_vcf_file is not None and n_alleles == 2
 
     try:
         ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
@@ -810,7 +818,7 @@ def call_locus(
         # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
         # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
 
-        ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
+        # ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
 
         for rn, read in read_dict_items:
             scl = read_dict_extra[rn]["sig_clip_left"]
@@ -831,14 +839,16 @@ def call_locus(
             if read_dict_extra[rn]["sig_clip_right"]:
                 snv_pairs = snv_pairs[:-1*significant_clip_snv_take_in]
 
-            snvs = get_read_snvs(
-                read_dict_extra[rn]["_qs"],
-                snv_pairs,
-                ref_cache,
-                left_most_coord,
-                left_coord_adj,
-                right_coord_adj,
-            )
+            # snvs = get_read_snvs(
+            #     contig,
+            #     read_dict_extra[rn]["_qs"],
+            #     snv_pairs,
+            #     ref_cache,
+            #     left_most_coord,
+            #     left_coord_adj,
+            #     right_coord_adj,
+            # )
+            snvs = get_read_snvs_dbsnp(snv_vcf_file, contig, read_dict_extra[rn]["_qs"], snv_pairs)
             locus_snvs.update(snvs.keys())
             read_dict_extra[rn]["snv"] = snvs
 

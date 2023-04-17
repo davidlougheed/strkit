@@ -10,9 +10,12 @@ from strkit.logger import logger
 from .types import ReadDict
 from .utils import find_pair_by_ref_pos
 
+from pysam import VariantFile
+
 
 __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",
+    "get_read_snvs_dbsnp",
     "get_read_snvs",
     "calculate_useful_snvs",
     "call_and_filter_useful_snvs",
@@ -148,6 +151,21 @@ try:
     logger.debug("Found STRkit Rust component, importing get_read_snvs_simple")
 except ImportError:
     get_read_snvs_simple = _get_read_snvs_simple_py
+
+
+def get_read_snvs_dbsnp(snv_vcf_file: VariantFile, contig: str, query_sequence: str, pairs: list[tuple[int, int]]):
+    pairs_l = pairs[0][1]
+    pairs_r = pairs[-1][1]
+
+    snvs: dict[int, str] = {}
+
+    for var in snv_vcf_file.fetch(contig.removeprefix("chr"), pairs_l, pairs_r):
+        if len(var.ref) == 1 and all(len(a) == 1 for a in var.alts):
+            read_base = _find_base_at_pos(query_sequence, pairs, var.pos)
+            if read_base in var.alts:
+                snvs[var.pos] = read_base
+
+    return snvs
 
 
 def get_read_snvs(

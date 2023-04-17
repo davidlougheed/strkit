@@ -60,8 +60,9 @@ def add_call_parser_args(call_parser):
 
     call_parser.add_argument(
         "--incorporate-snvs", "--snv", "-v",
-        action="store_true",
-        help="Whether to use read-phased SNVs to help properly call genotypes. This option can only be used if --hq "
+        type=pathlib.Path,
+        help="A path to a dbSNP VCF file with a list of validated SNVs to help phase with. Specifying this enables the "
+             "use of read-phased SNVs to help properly call genotypes. This option can only be used if --hq "
              "is enabled. Use with CCS ONLY! This option is currently EXPERIMENTAL!")
 
     call_parser.add_argument(
@@ -403,7 +404,8 @@ def _exec_call(p_args) -> None:
         sex_chroms=p_args.sex_chr,
         realign=p_args.realign,
         hq=p_args.hq,
-        incorporate_snvs=p_args.incorporate_snvs,
+        # incorporate_snvs=p_args.incorporate_snvs,
+        snv_vcf=p_args.incorporate_snvs,
         targeted=p_args.targeted,
         fractional=p_args.fractional,
         respect_ref=p_args.respect_ref,

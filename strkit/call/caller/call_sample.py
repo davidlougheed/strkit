@@ -4,6 +4,8 @@ import heapq
 import logging
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
+import pathlib
+
 import numpy as np
 import os
 import sys
@@ -45,7 +47,8 @@ def locus_worker(
     sex_chroms: Optional[str],
     realign: bool,
     hq: bool,
-    incorporate_snvs: bool,
+    # incorporate_snvs: bool,
+    snv_vcf: Optional[pathlib.Path],
     targeted: bool,
     fractional: bool,
     respect_ref: bool,
@@ -73,6 +76,8 @@ def locus_worker(
     ref = p.FastaFile(reference_file)
     bfs = tuple(p.AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
 
+    snv_vcf_file = p.VariantFile(str(snv_vcf)) if snv_vcf else None
+
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
     read_file_has_chr = any(r.startswith("chr") for bf in bfs for r in bf.references)
 
@@ -97,7 +102,8 @@ def locus_worker(
             sex_chroms=sex_chroms,
             realign=realign,
             hq=hq,
-            incorporate_snvs=incorporate_snvs,
+            # incorporate_snvs=incorporate_snvs,
+            snv_vcf_file=snv_vcf_file,
             targeted=targeted,
             fractional=fractional,
             respect_ref=respect_ref,
@@ -177,7 +183,8 @@ def call_sample(
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
-    incorporate_snvs: bool = False,
+    # incorporate_snvs: bool = False,
+    snv_vcf: Optional[pathlib.Path] = None,
     targeted: bool = False,
     fractional: bool = False,
     respect_ref: bool = False,
@@ -251,7 +258,8 @@ def call_sample(
         "sex_chroms": sex_chroms,
         "realign": realign,
         "hq": hq,
-        "incorporate_snvs": incorporate_snvs,
+        # "incorporate_snvs": incorporate_snvs,
+        "snv_vcf": snv_vcf,
         "targeted": targeted,
         "fractional": fractional,
         "respect_ref": respect_ref,
@@ -302,7 +310,8 @@ def call_sample(
                 ",".join(map(_cn_to_str, sorted(r["cn"] for r in res["reads"].values()))) if res["reads"] else ".",
                 "|".join(map(_cn_to_str, res["call"])) if has_call else ".",
                 ("|".join("-".join(map(_cn_to_str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
-                *((res["assign_method"] if has_call else ".",) if incorporate_snvs else ()),
+                # *((res["assign_method"] if has_call else ".",) if incorporate_snvs else ()),
+                *((res["assign_method"] if has_call else ".",) if snv_vcf is not None else ()),
 
                 # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["means"][:n_peaks]))
                 #  if has_call and n_peaks <= 2 else "."),
