@@ -608,8 +608,7 @@ def call_locus(
         for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
             candidate_snvs_dict[snv.pos] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv.alts or ())
 
-    # noinspection PyTypeChecker
-    candidate_snvs_dict_items: tuple[tuple[int, CandidateSNV], ...] = tuple(candidate_snvs_dict.items())
+    candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
