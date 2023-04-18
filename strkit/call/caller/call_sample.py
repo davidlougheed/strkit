@@ -8,6 +8,7 @@ import pathlib
 
 import numpy as np
 import os
+import re
 import sys
 import time
 
@@ -15,7 +16,7 @@ from datetime import datetime
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
 from pysam import AlignmentFile
 
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 from strkit import __version__
 
@@ -33,6 +34,8 @@ __all__ = [
 # TODO: Parameterize
 LOG_PROGRESS_INTERVAL: int = 120  # seconds
 PROFILE_LOCUS_CALLS: bool = False
+
+NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
 
 
 def locus_worker(
@@ -77,6 +80,16 @@ def locus_worker(
     bfs = tuple(p.AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
 
     snv_vcf_file = p.VariantFile(snv_vcf) if snv_vcf else None
+    snv_vcf_contigs: list[str] = []
+    vcf_file_format: Literal["chr", "num", "acc", ""] = ""
+    if snv_vcf_file is not None:
+        snv_vcf_contigs = [c.name for c in snv_vcf_file.header.contigs.values()]
+        if not snv_vcf_contigs or snv_vcf_contigs[0].startswith("chr"):
+            vcf_file_format = "chr"
+        elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
+            vcf_file_format = "num"
+        else:  # assume stupid accession format
+            vcf_file_format = "acc"
 
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
     read_file_has_chr = any(r.startswith("chr") for bf in bfs for r in bf.references)
@@ -104,6 +117,8 @@ def locus_worker(
             hq=hq,
             # incorporate_snvs=incorporate_snvs,
             snv_vcf_file=snv_vcf_file,
+            snv_vcf_contigs=tuple(snv_vcf_contigs),
+            snv_vcf_file_format=vcf_file_format,
             targeted=targeted,
             fractional=fractional,
             respect_ref=respect_ref,

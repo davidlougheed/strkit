@@ -454,6 +454,23 @@ def call_alleles_with_incorporated_snvs(
     return assign_method, (call_data, called_useful_snvs)
 
 
+def _human_chrom_to_refseq_accession(contig: str, snv_vcf_contigs: tuple[str, ...]) -> Optional[str]:
+    contig = contig.removeprefix("chr")
+    if contig == "X":
+        contig = "23"
+    if contig == "Y":
+        contig = "24"
+    if contig == "M":
+        contig = "12920"
+    contig = f"NC_{contig.zfill(6)}"
+
+    for vcf_contig in snv_vcf_contigs:
+        if vcf_contig.startswith(contig):
+            return vcf_contig
+
+    return None
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -472,6 +489,8 @@ def call_locus(
     hq: bool = False,
     # incorporate_snvs: bool = False,
     snv_vcf_file: Optional[pysam.VariantFile] = None,
+    snv_vcf_contigs: tuple[str, ...] = (),
+    snv_vcf_file_format: Literal["chr", "num", "acc", ""] = "",
     targeted: bool = False,
     fractional: bool = False,
     respect_ref: bool = False,
@@ -576,7 +595,15 @@ def call_locus(
 
     candidate_snvs: list[tuple[str, int, Optional[str], tuple[str, ...]]] = []
     if should_incorporate_snvs and snv_vcf_file:
-        for snv in snv_vcf_file.fetch(contig.removeprefix("chr"), left_most_coord, right_most_coord + 1):
+        snv_contig: str = contig
+        if snv_contig not in snv_vcf_contigs:
+            if snv_vcf_file_format == "num":
+                snv_contig = snv_contig.removeprefix("chr")
+            elif snv_vcf_file_format == "acc":
+                snv_contig = _human_chrom_to_refseq_accession(snv_contig, snv_vcf_contigs)
+            # Otherwise, leave as-is
+
+        for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
             candidate_snvs.append((snv.id, snv.pos, snv.ref, snv.alts or ()))
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
