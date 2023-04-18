@@ -50,5 +50,5 @@ class ReadDictExtra(TypedDict, total=False):
 
 class CandidateSNV(TypedDict):
     id: str
-    ref: Optional[str]
+    ref: str
     alts: tuple[str, ...]

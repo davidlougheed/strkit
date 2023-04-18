@@ -175,13 +175,9 @@ def get_read_snvs_dbsnp(
             break
         if tr_start_pos <= pos <= tr_end_pos:
             continue
-        ref = c_snv["ref"]
-        alts = c_snv["alts"]
-        if ref is not None and len(ref) == 1 and alts:
-            # read_base, pair_idx = _find_base_at_pos(query_sequence, pairs, pos, start_left=last_pair_idx)
-            read_base = query_sequence[query_by_ref[pos]] if pos in query_by_ref else SNV_GAP_CHAR
-            if read_base == ref or read_base in alts:
-                snvs[pos] = read_base
+        read_base = query_sequence[query_by_ref[pos]] if pos in query_by_ref else SNV_GAP_CHAR
+        if read_base == c_snv["ref"] or read_base in c_snv["alts"]:
+            snvs[pos] = read_base
 
     return snvs
 

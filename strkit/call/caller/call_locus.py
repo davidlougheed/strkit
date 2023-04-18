@@ -606,7 +606,10 @@ def call_locus(
             # Otherwise, leave as-is
 
         for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
-            candidate_snvs_dict[snv.pos] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv.alts or ())
+            ref = snv.ref
+            alts = snv.alts
+            if ref is not None and len(ref) == 1 and alts and any(len(a) == 1 for a in alts):  # check actually is SNV
+                candidate_snvs_dict[snv.pos] = CandidateSNV(id=snv.id, ref=snv.ref, alts=alts)
 
     candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
 
