@@ -159,13 +159,15 @@ def get_read_snvs_dbsnp(
     tr_start_pos: int,
     tr_end_pos: int,
 ):
+    query_by_ref = dict(pair[::-1] for pair in pairs)
+
     # L and R mapped reference coordinates for the read
     mapped_l = pairs[0][1]
     mapped_r = pairs[-1][1]
 
     # To minimize search time, keep track of the last pair index we found.
     # We move L to R, and so we never need to search left of this.
-    last_pair_idx: int = 0
+    # last_pair_idx: int = 0
 
     snvs: dict[int, str] = {}
 
@@ -179,10 +181,12 @@ def get_read_snvs_dbsnp(
         ref = c_snv["ref"]
         alts = c_snv["alts"]
         if ref is not None and len(ref) == 1 and alts and all(len(a) == 1 for a in alts):
-            read_base, pair_idx = _find_base_at_pos(query_sequence, pairs, pos, start_left=last_pair_idx)
+            # read_base, pair_idx = _find_base_at_pos(query_sequence, pairs, pos, start_left=last_pair_idx)
+            query_pos = query_by_ref.get(pos, None)
+            read_base = query_sequence[query_pos] if query_pos is not None else SNV_GAP_CHAR
             if read_base == ref or read_base in alts:
                 snvs[pos] = read_base
-            last_pair_idx = pair_idx
+            # last_pair_idx = pair_idx
 
     return snvs
 
