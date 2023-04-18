@@ -848,7 +848,8 @@ def call_locus(
             #     left_coord_adj,
             #     right_coord_adj,
             # )
-            snvs = get_read_snvs_dbsnp(snv_vcf_file, contig, read_dict_extra[rn]["_qs"], snv_pairs)
+            snvs = get_read_snvs_dbsnp(
+                candidate_snvs, read_dict_extra[rn]["_qs"], read_pairs[rn], left_coord_adj, right_coord_adj)
             locus_snvs.update(snvs.keys())
             read_dict_extra[rn]["snv"] = snvs
 

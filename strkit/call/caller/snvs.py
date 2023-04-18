@@ -153,19 +153,29 @@ except ImportError:
     get_read_snvs_simple = _get_read_snvs_simple_py
 
 
-def get_read_snvs_dbsnp(snv_vcf_file: VariantFile, contig: str, query_sequence: str, pairs: list[tuple[int, int]]):
+def get_read_snvs_dbsnp(
+    candidate_snvs,
+    query_sequence: str,
+    pairs: list[tuple[int, int]],
+    tr_start_pos: int,
+    tr_end_pos: int,
+):
     pairs_l = pairs[0][1]
     pairs_r = pairs[-1][1]
 
     snvs: dict[int, str] = {}
 
-    for var in snv_vcf_file.fetch(contig.removeprefix("chr"), pairs_l, pairs_r):
-        ref = var.ref
-        alts = var.alts or ()
+    for id_, pos, ref, alts in candidate_snvs:
+        if pos < pairs_l:
+            continue
+        if pos > pairs_r:
+            break
+        if tr_start_pos <= pos <= tr_end_pos:
+            continue
         if ref is not None and len(ref) == 1 and alts and all(len(a) == 1 for a in alts):
-            read_base = _find_base_at_pos(query_sequence, pairs, var.pos)
-            if read_base in var.alts:
-                snvs[var.pos] = read_base
+            read_base = _find_base_at_pos(query_sequence, pairs, pos)
+            if read_base in alts:
+                snvs[pos] = read_base
 
     return snvs
 
