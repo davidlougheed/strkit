@@ -10,8 +10,6 @@ from strkit.logger import logger
 from .types import ReadDict
 from .utils import find_pair_by_ref_pos
 
-from pysam import VariantFile
-
 
 __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",
@@ -22,6 +20,7 @@ __all__ = [
 ]
 
 SNV_OUT_OF_RANGE_CHAR = "-"
+SNV_GAP_CHAR = "_"
 
 # TODO: annotate with rsID if file provided
 
@@ -239,7 +238,7 @@ def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]]
         return query_sequence[pairs_for_read[idx][0]]
 
     # Nothing found, so must have been a gap
-    return "_"
+    return SNV_GAP_CHAR
 
 
 def calculate_useful_snvs(
@@ -293,7 +292,7 @@ def calculate_useful_snvs(
         n_alleles_meeting_threshold: int = 0
         n_reads_with_this_snv_called: int = 0
         for k in snv_counter:
-            if k == SNV_OUT_OF_RANGE_CHAR:
+            if k in (SNV_OUT_OF_RANGE_CHAR, SNV_GAP_CHAR):
                 continue
             n_reads_for_allele = snv_counter[k]
             n_reads_with_this_snv_called += n_reads_for_allele
