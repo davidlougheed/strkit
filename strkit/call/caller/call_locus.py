@@ -595,7 +595,8 @@ def call_locus(
     # Find candidate SNVs, if we're using SNV data
 
     candidate_snvs_dict: dict[int, CandidateSNV] = {}  # Lookup dictionary for candidate SNVs by position
-    if should_incorporate_snvs and snv_vcf_file:
+    if n_overlapping_reads and should_incorporate_snvs and snv_vcf_file:
+        # ^^ n_overlapping_reads check since otherwise we will have invalid left/right_most_coord
         snv_contig: str = contig
         if snv_contig not in snv_vcf_contigs:
             if snv_vcf_file_format == "num":
