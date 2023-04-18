@@ -28,7 +28,7 @@ from .snvs import (
     calculate_useful_snvs,
     call_and_filter_useful_snvs,
 )
-from .types import ReadDict, ReadDictExtra
+from .types import ReadDict, ReadDictExtra, CandidateSNV
 from .utils import find_pair_by_ref_pos, normalize_contig, round_to_base_pos
 
 
@@ -259,6 +259,7 @@ def call_alleles_with_incorporated_snvs(
     read_dict_extra: dict[str, dict],
     n_reads_in_dict: int,  # We could derive this again, but we already have before...
     useful_snvs: list[tuple[int, int]],
+    candidate_snvs_dict: dict[int, CandidateSNV],
     rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
@@ -446,7 +447,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Called useful SNVs to add to the final return dictionary:
     called_useful_snvs: list[dict] = call_and_filter_useful_snvs(
-        n_alleles, read_dict, useful_snvs, locus_log_str, logger_)
+        n_alleles, read_dict, useful_snvs, candidate_snvs_dict, locus_log_str, logger_)
 
     if not called_useful_snvs:  # No useful SNVs left, so revert to "dist" assignment method
         return "dist", None
@@ -593,7 +594,7 @@ def call_locus(
 
     # Find candidate SNVs, if we're using SNV data
 
-    candidate_snvs: list[tuple[str, int, Optional[str], tuple[str, ...]]] = []
+    candidate_snvs_dict: dict[int, CandidateSNV] = {}  # Lookup dictionary for candidate SNVs by position
     if should_incorporate_snvs and snv_vcf_file:
         snv_contig: str = contig
         if snv_contig not in snv_vcf_contigs:
@@ -604,7 +605,7 @@ def call_locus(
             # Otherwise, leave as-is
 
         for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
-            candidate_snvs.append((snv.id, snv.pos, snv.ref, snv.alts or ()))
+            candidate_snvs_dict[snv.pos] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv.alts or ())
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
@@ -896,7 +897,7 @@ def call_locus(
             #     right_coord_adj,
             # )
             snvs = get_read_snvs_dbsnp(
-                candidate_snvs, read_dict_extra[rn]["_qs"], read_pairs[rn], left_coord_adj, right_coord_adj)
+                candidate_snvs_dict, read_dict_extra[rn]["_qs"], read_pairs[rn], left_coord_adj, right_coord_adj)
             locus_snvs.update(snvs.keys())
             read_dict_extra[rn]["snv"] = snvs
 
@@ -920,6 +921,7 @@ def call_locus(
                 read_dict_extra=read_dict_extra,
                 n_reads_in_dict=n_reads_in_dict,
                 useful_snvs=useful_snvs,
+                candidate_snvs_dict=candidate_snvs_dict,
                 rng=rng,
                 logger_=logger_,
                 locus_log_str=locus_log_str,

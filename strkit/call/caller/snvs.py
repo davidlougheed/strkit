@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 from strkit.logger import logger
 
-from .types import ReadDict
+from .types import ReadDict, CandidateSNV
 from .utils import find_pair_by_ref_pos
 
 
@@ -153,7 +153,7 @@ except ImportError:
 
 
 def get_read_snvs_dbsnp(
-    candidate_snvs,
+    candidate_snvs_dict: dict[int, CandidateSNV],
     query_sequence: str,
     pairs: list[tuple[int, int]],
     tr_start_pos: int,
@@ -164,13 +164,15 @@ def get_read_snvs_dbsnp(
 
     snvs: dict[int, str] = {}
 
-    for id_, pos, ref, alts in candidate_snvs:
+    for pos, c_snv in candidate_snvs_dict.items():
         if pos < pairs_l:
             continue
         if pos > pairs_r:
             break
         if tr_start_pos <= pos <= tr_end_pos:
             continue
+        ref = c_snv["ref"]
+        alts = c_snv["alts"]
         if ref is not None and len(ref) == 1 and alts and all(len(a) == 1 for a in alts):
             read_base = _find_base_at_pos(query_sequence, pairs, pos)
             if read_base == ref or read_base in alts:
@@ -311,6 +313,7 @@ def call_and_filter_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
+    candidate_snvs_dict: dict[int, CandidateSNV],
     locus_log_str: str,
     logger_: logging.Logger,
 ) -> list[dict]:
@@ -319,6 +322,7 @@ def call_and_filter_useful_snvs(
     :param n_alleles: The number of alleles called for this locus.
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
+    :param candidate_snvs_dict: A dictionary of useful SNVs, indexed by reference position. Used to look up IDs.
     :param locus_log_str: Locus string representation for logging purposes.
     :param logger_: Python logger object.
     :return: List of called SNVs for the locus.
@@ -370,10 +374,12 @@ def call_and_filter_useful_snvs(
             skipped_snvs.add(u_idx)  # Skip this useful SNV, since it isn't actually useful
             continue
 
+        snv_rec = candidate_snvs_dict.get(u_ref)
         called_snvs.append({
+            **({"id": snv_rec["id"], "ref": snv_rec["ref"]} if snv_rec is not None else {}),
             "pos": u_ref,
             "call": np.array(call).tolist(),
-            "rs": np.array(rs).tolist(),
+            "rcs": np.array(rs).tolist(),
         })
 
     # If we've skipped any SNVs, filter them out of the read dict - MUTATION

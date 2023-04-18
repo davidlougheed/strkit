@@ -1,10 +1,11 @@
-import pysam
-from typing import Literal, TypedDict, Union
+# import pysam
+from typing import Literal, Optional, TypedDict, Union
 
 
 __all__ = [
     "ReadDict",
     "ReadDictExtra",
+    "CandidateSNV",
 ]
 
 # TODO: py3.10: new Required[] TypedDict structuring
@@ -45,3 +46,9 @@ class ReadDictExtra(TypedDict, total=False):
 
     snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
     snv_bases: tuple[str, ...]  # Intermediate result: tuple of bases for the set of SNVs across all reads
+
+
+class CandidateSNV(TypedDict):
+    id: str
+    ref: Optional[str]
+    alts: tuple[str, ...]
