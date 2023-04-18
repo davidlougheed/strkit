@@ -126,7 +126,10 @@ def get_overlapping_segments_and_related_data(
     right_flank_coord: int,
     logger_: logging.Logger,
     locus_log_str: str,
-) -> tuple[list[pysam.AlignedSegment], list[int], dict[str, int]]:
+) -> tuple[list[pysam.AlignedSegment], list[int], dict[str, int], int, int]:
+
+    left_most_coord: int = 999999999999999
+    right_most_coord: int = 0
 
     overlapping_segments: list[pysam.AlignedSegment] = []
     seen_reads: set[str] = set()
@@ -170,7 +173,10 @@ def get_overlapping_segments_and_related_data(
         overlapping_segments.append(segment)
         read_lengths.append(segment.query_alignment_length)
 
-    return overlapping_segments, read_lengths, chimeric_read_status
+        left_most_coord = min(left_most_coord, segment.reference_start)
+        right_most_coord = max(right_most_coord, segment.reference_end)
+
+    return overlapping_segments, read_lengths, chimeric_read_status, left_most_coord, right_most_coord
 
 
 def calculate_read_distance(
@@ -395,6 +401,9 @@ def call_alleles_with_incorporated_snvs(
             #  For now, revert to dist
             return "dist", None
 
+        # TODO: set peak weight [0] to the sum of read weights - we normalize this later, but this way
+        #  call dicts with more reads will GET MORE WEIGHT! as it should be, instead of 50/50 for the peak.
+
         cdd.append(cc)
 
     # TODO: Multi-allele phasing across STRs
@@ -555,12 +564,20 @@ def call_locus(
     read_lengths: list[int]
     chimeric_read_status: dict[str, int]
 
-    overlapping_segments, read_lengths, chimeric_read_status = get_overlapping_segments_and_related_data(
-        bfs, read_contig, left_flank_coord, right_flank_coord, logger_, locus_log_str)
+    overlapping_segments, read_lengths, chimeric_read_status, left_most_coord, right_most_coord = \
+        get_overlapping_segments_and_related_data(
+            bfs, read_contig, left_flank_coord, right_flank_coord, logger_, locus_log_str)
 
     n_overlapping_reads = len(overlapping_segments)
 
     sorted_read_lengths = np.sort(read_lengths)
+
+    # Find candidate SNVs, if we're using SNV data
+
+    candidate_snvs: list[tuple[str, int, Optional[str], tuple[str, ...]]] = []
+    if should_incorporate_snvs and snv_vcf_file:
+        for snv in snv_vcf_file.fetch(contig.removeprefix("chr"), left_most_coord, right_most_coord + 1):
+            candidate_snvs.append((snv.id, snv.pos, snv.ref, snv.alts or ()))
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
@@ -577,16 +594,16 @@ def call_locus(
     # Keep track of left-most and right-most coordinates
     # If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
     # fairly significant overhead involved in reading from the reference genome for each read to identifify SNVs.
-    left_most_coord: int = 99999999999999
-    right_most_coord: int = 0
+    # left_most_coord: int = 99999999999999
+    # right_most_coord: int = 0
 
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn: str = segment.query_name  # Know this is not None from overlapping_segments calculation
         segment_start: int = segment.reference_start
         segment_end: int = segment.reference_end  # Optional[int], but if it's here we know it isn't None
 
-        left_most_coord = min(left_most_coord, segment_start)
-        right_most_coord = max(right_most_coord, segment_end)
+        # left_most_coord = min(left_most_coord, segment_start)
+        # right_most_coord = max(right_most_coord, segment_end)
 
         # While .query_sequence is Optional[str], we know (because we skipped all segments with query_sequence is None
         # above) that this is guaranteed to be, in fact, not None.
@@ -745,13 +762,14 @@ def call_locus(
 
             # Observed significant increase in annoying, probably false SNVs near the edges of significantly
             # clipped reads in CCS data. Figure out if we have large clipping for later use here in the SNV finder.
-            cigar_first_op = segment.cigartuples[0]
-            cigar_last_op = segment.cigartuples[-1]
-
-            read_dict_extra[rn]["sig_clip_left"] = (
-                cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
-            read_dict_extra[rn]["sig_clip_right"] = (
-                    cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
+            #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
+            # cigar_first_op = segment.cigartuples[0]
+            # cigar_last_op = segment.cigartuples[-1]
+            #
+            # read_dict_extra[rn]["sig_clip_left"] = (
+            #     cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
+            # read_dict_extra[rn]["sig_clip_right"] = (
+            #         cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
 
             # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
             read_pairs[rn] = pairs
@@ -821,24 +839,26 @@ def call_locus(
         # ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
 
         for rn, read in read_dict_items:
-            scl = read_dict_extra[rn]["sig_clip_left"]
-            scr = read_dict_extra[rn]["sig_clip_right"]
-            if scl or scr:
-                logger_.debug(
-                    f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
-                    f"{significant_clip_snv_take_in} bp per side for SNV-finding")
+            #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
+            # scl = read_dict_extra[rn]["sig_clip_left"]
+            # scr = read_dict_extra[rn]["sig_clip_right"]
+            # if scl or scr:
+            #     logger_.debug(
+            #         f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
+            #         f"{significant_clip_snv_take_in} bp per side for SNV-finding")
+            #
+            # snv_pairs = read_pairs[rn]
+            #
+            # if len(snv_pairs) < (twox_takein := significant_clip_snv_take_in * 2):
+            #     logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
+            #     continue
+            #
+            # if read_dict_extra[rn]["sig_clip_left"]:
+            #     snv_pairs = snv_pairs[significant_clip_snv_take_in:]
+            # if read_dict_extra[rn]["sig_clip_right"]:
+            #     snv_pairs = snv_pairs[:-1*significant_clip_snv_take_in]
 
-            snv_pairs = read_pairs[rn]
-
-            if len(snv_pairs) < (twox_takein := significant_clip_snv_take_in * 2):
-                logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
-                continue
-
-            if read_dict_extra[rn]["sig_clip_left"]:
-                snv_pairs = snv_pairs[significant_clip_snv_take_in:]
-            if read_dict_extra[rn]["sig_clip_right"]:
-                snv_pairs = snv_pairs[:-1*significant_clip_snv_take_in]
-
+            #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
             # snvs = get_read_snvs(
             #     contig,
             #     read_dict_extra[rn]["_qs"],
