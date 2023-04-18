@@ -173,7 +173,7 @@ def get_read_snvs_dbsnp(
             continue
         if ref is not None and len(ref) == 1 and alts and all(len(a) == 1 for a in alts):
             read_base = _find_base_at_pos(query_sequence, pairs, pos)
-            if read_base in alts:
+            if read_base == ref or read_base in alts:
                 snvs[pos] = read_base
 
     return snvs
