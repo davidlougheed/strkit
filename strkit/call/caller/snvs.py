@@ -159,24 +159,30 @@ def get_read_snvs_dbsnp(
     tr_start_pos: int,
     tr_end_pos: int,
 ):
-    pairs_l = pairs[0][1]
-    pairs_r = pairs[-1][1]
+    # L and R mapped reference coordinates for the read
+    mapped_l = pairs[0][1]
+    mapped_r = pairs[-1][1]
+
+    # To minimize search time, keep track of the last pair index we found.
+    # We move L to R, and so we never need to search left of this.
+    last_pair_idx: int = 0
 
     snvs: dict[int, str] = {}
 
     for pos, c_snv in candidate_snvs_dict.items():
-        if pos < pairs_l:
+        if pos < mapped_l:
             continue
-        if pos > pairs_r:
+        if pos > mapped_r:
             break
         if tr_start_pos <= pos <= tr_end_pos:
             continue
         ref = c_snv["ref"]
         alts = c_snv["alts"]
         if ref is not None and len(ref) == 1 and alts and all(len(a) == 1 for a in alts):
-            read_base = _find_base_at_pos(query_sequence, pairs, pos)
+            read_base, pair_idx = _find_base_at_pos(query_sequence, pairs, pos, start_left=last_pair_idx)
             if read_base == ref or read_base in alts:
                 snvs[pos] = read_base
+            last_pair_idx = pair_idx
 
     return snvs
 
@@ -230,17 +236,18 @@ def get_read_snvs(
     return snvs
 
 
-def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]], t: int) -> str:
-    idx, found = find_pair_by_ref_pos(pairs_for_read, t)
+def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]], t: int,
+                      start_left: int = 0) -> tuple[str, int]:
+    idx, found = find_pair_by_ref_pos(pairs_for_read, t, start_left=start_left)
 
     if found:
         # Even if not in SNV set, it is not guaranteed to be a reference base, since
         # it's possible it was surrounded by too much other variation during the original
         # SNV getter algorithm.
-        return query_sequence[pairs_for_read[idx][0]]
+        return query_sequence[pairs_for_read[idx][0]], idx
 
     # Nothing found, so must have been a gap
-    return SNV_GAP_CHAR
+    return SNV_GAP_CHAR, idx
 
 
 def calculate_useful_snvs(
@@ -269,6 +276,7 @@ def calculate_useful_snvs(
         segment_end: int = extra_data["_ref_end"]
 
         snv_list: list[str] = []
+        last_pair_idx: int = 0
 
         for snv_pos in sorted_snvs:
             base: str = SNV_OUT_OF_RANGE_CHAR
@@ -277,7 +285,9 @@ def calculate_useful_snvs(
                     base = bb
                 else:
                     # Binary search for base from correct pair
-                    base = _find_base_at_pos(qs, pairs_for_read, snv_pos)
+                    # - We go in order, so we don't have to search left of the last pair index we tried.
+                    base, pair_idx = _find_base_at_pos(qs, pairs_for_read, snv_pos, start_left=last_pair_idx)
+                    last_pair_idx = pair_idx
 
             # Otherwise, leave as out-of-range
 

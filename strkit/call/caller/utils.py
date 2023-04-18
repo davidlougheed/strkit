@@ -9,8 +9,8 @@ __all__ = [
 ]
 
 
-def find_pair_by_ref_pos_py(pairs: list[tuple[int, int]], target: int) -> tuple[int, bool]:
-    lhs: int = 0
+def find_pair_by_ref_pos_py(pairs: list[tuple[int, int]], target: int, start_left: int = 0) -> tuple[int, bool]:
+    lhs: int = start_left
     rhs: int = len(pairs) - 1
 
     while lhs <= rhs:
@@ -34,9 +34,9 @@ find_pair_by_ref_pos: Callable[[list[tuple[int, int]], int], tuple[int, bool]]
 if sys.version_info[0] >= 3 and (sys.version_info[0] > 3 or sys.version_info[1] >= 10):
     import bisect
 
-    def find_pair_by_ref_pos_bisect(pairs: list[tuple[int, int]], target: int) -> tuple[int, bool]:
+    def find_pair_by_ref_pos_bisect(pairs: list[tuple[int, int]], target: int, start_left: int = 0) -> tuple[int, bool]:
         n_pairs: int = len(pairs)
-        idx = bisect.bisect_left(pairs, target, 0, n_pairs, key=lambda x: x[1])
+        idx = bisect.bisect_left(pairs, target, start_left, n_pairs, key=lambda x: x[1])
         return idx, idx < n_pairs and pairs[idx][1] == target
 
     find_pair_by_ref_pos = find_pair_by_ref_pos_bisect
