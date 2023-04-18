@@ -608,6 +608,9 @@ def call_locus(
         for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
             candidate_snvs_dict[snv.pos] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv.alts or ())
 
+    # noinspection PyTypeChecker
+    candidate_snvs_dict_items: tuple[tuple[int, CandidateSNV], ...] = tuple(candidate_snvs_dict.items())
+
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
     read_dict: dict[str, ReadDict] = {}
@@ -898,7 +901,7 @@ def call_locus(
             #     right_coord_adj,
             # )
             snvs = get_read_snvs_dbsnp(
-                candidate_snvs_dict, read_dict_extra[rn]["_qs"], read_pairs[rn], left_coord_adj, right_coord_adj)
+                candidate_snvs_dict_items, read_dict_extra[rn]["_qs"], read_pairs[rn], left_coord_adj, right_coord_adj)
             locus_snvs.update(snvs.keys())
             read_dict_extra[rn]["snv"] = snvs
 

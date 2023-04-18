@@ -153,7 +153,7 @@ except ImportError:
 
 
 def get_read_snvs_dbsnp(
-    candidate_snvs_dict: dict[int, CandidateSNV],
+    candidate_snvs_dict_items: tuple[tuple[int, CandidateSNV]],
     query_sequence: str,
     pairs: list[tuple[int, int]],
     tr_start_pos: int,
@@ -171,7 +171,7 @@ def get_read_snvs_dbsnp(
 
     snvs: dict[int, str] = {}
 
-    for pos, c_snv in candidate_snvs_dict.items():
+    for pos, c_snv in candidate_snvs_dict_items:
         if pos < mapped_l:
             continue
         if pos > mapped_r:
