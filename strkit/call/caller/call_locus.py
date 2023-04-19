@@ -990,25 +990,6 @@ def call_locus(
                 call_data = call_res[0]  # Call data dictionary
                 call_dict_base["snvs"] = call_res[1]  # Called useful SNVs
 
-        # TODO:
-        #  - use reads with at least 1 SNPs called to separate 'training reads'
-        #  - eliminate 1-SNV reads with a unique haplotype vs any non-1-SNP reads... or something like that.
-        #    (see m64012_190920_173625/31917565/ccs)
-        #  - then, assign all reads - either based on what group they 'trained' or (for no SNP call ones)
-        #    based on the GMMs (maybe some kind of certainty of assignment???)
-
-        # TODO:
-        #  - maybe 3 approaches:
-        #    - if not enough SNV info / almost no reads have it, just do old method.
-        #    - if we have some SNV info for all reads AND it's not a single read count (perfectly homozygous)
-        #      (how to quantify?), do distance-based with read copy numbers AND SNV data - e.g. if we have just 1 SNP
-        #    - if we have LOTS of SNV data for the majority of reads, do assignment just using SNV data and assign
-        #      reads to peaks after (random assignment if equal chance of both groups)
-        #    - if we have COMPLETE SNV data (4+ for every read) we can do phasing + peak assignment just with SNVs
-        #      and just call the Gaussians from the separated reads (even just calculate stdev + mean for each bootstrap
-        #      iteration, which might save us some time...).
-        #    - keep track of which option as 'peak_calling_method' (pcm) or something
-
     elif n_reads_in_dict < min_snv_read_coverage:
         logger_.debug(
             f"{locus_log_str} - not enough coverage for SNV incorporation "
