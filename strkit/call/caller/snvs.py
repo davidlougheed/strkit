@@ -1,9 +1,10 @@
 import logging
 import math
 import numpy as np
+import pysam
 from collections import Counter
 
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 from strkit.logger import logger
 
@@ -13,6 +14,8 @@ from .utils import find_pair_by_ref_pos
 
 __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",
+    "SNV_GAP_CHAR",
+    "get_candidate_snvs",
     "get_read_snvs_dbsnp",
     "get_read_snvs",
     "calculate_useful_snvs",
@@ -22,7 +25,57 @@ __all__ = [
 SNV_OUT_OF_RANGE_CHAR = "-"
 SNV_GAP_CHAR = "_"
 
-# TODO: annotate with rsID if file provided
+
+def _human_chrom_to_refseq_accession(contig: str, snv_vcf_contigs: tuple[str, ...]) -> Optional[str]:
+    contig = contig.removeprefix("chr")
+    if contig == "X":
+        contig = "23"
+    if contig == "Y":
+        contig = "24"
+    if contig == "M":
+        contig = "12920"
+    contig = f"NC_{contig.zfill(6)}"
+
+    for vcf_contig in snv_vcf_contigs:
+        if vcf_contig.startswith(contig):
+            return vcf_contig
+
+    return None
+
+
+def get_candidate_snvs(
+    snv_vcf_file: pysam.VariantFile,
+    snv_vcf_contigs: tuple[str, ...],
+    snv_vcf_file_format: Literal["chr", "num", "acc", ""],
+    contig: str,
+    left_most_coord: int,
+    right_most_coord: int,
+) -> dict[int, CandidateSNV]:
+    candidate_snvs_dict: dict[int, CandidateSNV] = {}  # Lookup dictionary for candidate SNVs by position
+
+    snv_contig: str = contig
+    if snv_contig not in snv_vcf_contigs:
+        if snv_vcf_file_format == "num":
+            snv_contig = snv_contig.removeprefix("chr")
+        elif snv_vcf_file_format == "acc":
+            snv_contig = _human_chrom_to_refseq_accession(snv_contig, snv_vcf_contigs)
+        # Otherwise, leave as-is
+
+    for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
+        snv_ref = snv.ref
+        snv_alts = snv.alts
+        # check actually is SNV
+        if snv_ref is not None and len(snv_ref) == 1 and snv_alts and any(len(a) == 1 for a in snv_alts):
+            # Convert from 1-based indexing to 0-based indexing!!!
+            # See https://pysam.readthedocs.io/en/latest/api.html#pysam.VariantRecord.pos
+            candidate_snvs_dict[snv.pos - 1] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv_alts)
+
+    # candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
+    # This flattened version is useful for passing to the Rust extension
+    # candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]] = [
+    #     (k, v["id"], v["ref"], list(v["alts"])) for k, v in candidate_snvs_dict_items]
+
+    return candidate_snvs_dict
 
 
 # We check entropy against a threshold in order to make sure the SNVs we find are somewhat
