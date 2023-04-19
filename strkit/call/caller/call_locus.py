@@ -612,6 +612,9 @@ def call_locus(
                 candidate_snvs_dict[snv.pos] = CandidateSNV(id=snv.id, ref=snv.ref, alts=alts)
 
     candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
+    # This flattened version is useful for passing to the Rust extension
+    candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]] = [
+        (k, v["id"], v["ref"], list(v["alts"])) for k, v in candidate_snvs_dict_items]
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
@@ -903,7 +906,12 @@ def call_locus(
             #     right_coord_adj,
             # )
             snvs = get_read_snvs_dbsnp(
-                candidate_snvs_dict_items, read_dict_extra[rn]["_qs"], read_pairs[rn], left_coord_adj, right_coord_adj)
+                candidate_snvs_dict_items_flat,
+                read_dict_extra[rn]["_qs"],
+                read_pairs[rn],
+                left_coord_adj,
+                right_coord_adj,
+            )
             locus_snvs.update(snvs.keys())
             read_dict_extra[rn]["snv"] = snvs
 

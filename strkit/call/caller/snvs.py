@@ -152,13 +152,13 @@ except ImportError:
     get_read_snvs_simple = _get_read_snvs_simple_py
 
 
-def get_read_snvs_dbsnp(
-    candidate_snvs_dict_items: list[tuple[int, CandidateSNV]],
+def _get_read_snvs_dbsnp_py(
+    candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]],
     query_sequence: str,
     pairs: list[tuple[int, int]],
     tr_start_pos: int,
     tr_end_pos: int,
-):
+) -> dict[int, str]:
     # noinspection PyTypeChecker
     query_by_ref: dict[int, int] = dict(map(reversed, pairs))
 
@@ -168,7 +168,7 @@ def get_read_snvs_dbsnp(
 
     snvs: dict[int, str] = {}
 
-    for pos, c_snv in candidate_snvs_dict_items:
+    for pos, _, snv_ref, snv_alts in candidate_snvs_dict_items_flat:
         if pos < mapped_l:
             continue
         if pos > mapped_r:
@@ -176,10 +176,25 @@ def get_read_snvs_dbsnp(
         if tr_start_pos <= pos <= tr_end_pos:
             continue
         read_base = query_sequence[query_by_ref[pos]] if pos in query_by_ref else SNV_GAP_CHAR
-        if read_base == c_snv["ref"] or read_base in c_snv["alts"]:
+        if read_base == snv_ref or read_base in snv_alts:
             snvs[pos] = read_base
 
     return snvs
+
+
+get_read_snvs_dbsnp: Callable[[
+    list[tuple[int, str, str, list[str]]],
+    str,
+    list[tuple[int, int]],
+    int,
+    int,
+], dict[int, str]]
+
+try:
+    from strkit_rust_ext import get_snvs_dbsnp as get_read_snvs_dbsnp
+    logger.debug("Found STRkit Rust component, importing get_read_snvs_dbsnp")
+except ImportError:
+    get_read_snvs_dbsnp = _get_read_snvs_dbsnp_py
 
 
 def get_read_snvs(
