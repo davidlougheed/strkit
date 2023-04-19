@@ -912,7 +912,7 @@ def call_locus(
             read_dict_extra, read_pairs, candidate_snvs_dict, only_known_snvs, logger_, locus_log_str)
 
         useful_snvs: list[tuple[int, int]] = calculate_useful_snvs(
-            n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs)
+            n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs, min_allele_reads)
         n_useful_snvs: int = len(useful_snvs)
 
         if not n_useful_snvs:

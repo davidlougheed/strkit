@@ -319,6 +319,7 @@ def calculate_useful_snvs(
     read_dict_extra: dict[str, dict],
     read_match_pairs: dict[str, list[tuple[int, int]]],
     locus_snvs: set[int],
+    min_allele_reads: int,
 ) -> list[tuple[int, int]]:
     sorted_snvs: list[int] = sorted(locus_snvs)
     snv_counters: dict[int, Counter] = {sp: Counter() for sp in sorted_snvs}
@@ -369,8 +370,8 @@ def calculate_useful_snvs(
     # disjoint sets of SNVs.
 
     useful_snvs: list[int] = []
-    allele_read_threshold: int = max(round(n_reads / 5), 2)  # TODO: parametrize
-    total_read_threshold: int = max(round(n_reads * 0.55), 5)
+    allele_read_threshold: int = max(round(n_reads / 5), min_allele_reads)  # TODO: parametrize proportion
+    total_read_threshold: int = max(round(n_reads * 0.55), 5)  # TODO: parametrize
 
     # snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
 
