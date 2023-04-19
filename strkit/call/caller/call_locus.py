@@ -53,6 +53,41 @@ significant_clip_threshold = 100
 significant_clip_snv_take_in = 250
 
 
+def get_candidate_snvs(
+    snv_vcf_file: pysam.VariantFile,
+    snv_vcf_contigs: tuple[str, ...],
+    snv_vcf_file_format: Literal["chr", "num", "acc", ""],
+    contig: str,
+    left_most_coord: int,
+    right_most_coord: int,
+) -> dict[int, CandidateSNV]:
+    candidate_snvs_dict: dict[int, CandidateSNV] = {}  # Lookup dictionary for candidate SNVs by position
+
+    snv_contig: str = contig
+    if snv_contig not in snv_vcf_contigs:
+        if snv_vcf_file_format == "num":
+            snv_contig = snv_contig.removeprefix("chr")
+        elif snv_vcf_file_format == "acc":
+            snv_contig = _human_chrom_to_refseq_accession(snv_contig, snv_vcf_contigs)
+        # Otherwise, leave as-is
+
+    for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
+        snv_ref = snv.ref
+        snv_alts = snv.alts
+        # check actually is SNV
+        if snv_ref is not None and len(snv_ref) == 1 and snv_alts and any(len(a) == 1 for a in snv_alts):
+            # Convert from 1-based indexing to 0-based indexing!!!
+            # See https://pysam.readthedocs.io/en/latest/api.html#pysam.VariantRecord.pos
+            candidate_snvs_dict[snv.pos - 1] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv_alts)
+
+    # candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
+    # This flattened version is useful for passing to the Rust extension
+    # candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]] = [
+    #     (k, v["id"], v["ref"], list(v["alts"])) for k, v in candidate_snvs_dict_items]
+
+    return candidate_snvs_dict
+
+
 def calculate_seq_with_wildcards(qs: str, quals: Optional[list[int]]) -> str:
     if quals is None:
         return qs  # No quality information, so don't do anything
@@ -667,27 +702,8 @@ def call_locus(
     candidate_snvs_dict: dict[int, CandidateSNV] = {}  # Lookup dictionary for candidate SNVs by position
     if n_overlapping_reads and should_incorporate_snvs and snv_vcf_file:
         # ^^ n_overlapping_reads check since otherwise we will have invalid left/right_most_coord
-        snv_contig: str = contig
-        if snv_contig not in snv_vcf_contigs:
-            if snv_vcf_file_format == "num":
-                snv_contig = snv_contig.removeprefix("chr")
-            elif snv_vcf_file_format == "acc":
-                snv_contig = _human_chrom_to_refseq_accession(snv_contig, snv_vcf_contigs)
-            # Otherwise, leave as-is
-
-        for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
-            snv_ref = snv.ref
-            snv_alts = snv.alts
-            # check actually is SNV
-            if snv_ref is not None and len(snv_ref) == 1 and snv_alts and any(len(a) == 1 for a in snv_alts):
-                # Convert from 1-based indexing to 0-based indexing!!!
-                # See https://pysam.readthedocs.io/en/latest/api.html#pysam.VariantRecord.pos
-                candidate_snvs_dict[snv.pos - 1] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv_alts)
-
-    # candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
-    # This flattened version is useful for passing to the Rust extension
-    # candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]] = [
-    #     (k, v["id"], v["ref"], list(v["alts"])) for k, v in candidate_snvs_dict_items]
+        candidate_snvs_dict = get_candidate_snvs(
+            snv_vcf_file, snv_vcf_contigs, snv_vcf_file_format, contig, left_most_coord, right_most_coord)
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
