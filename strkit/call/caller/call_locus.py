@@ -413,8 +413,11 @@ def call_alleles_with_incorporated_snvs(
     # is an array of length 1.
 
     # Leaving this as an np.array(...) for type detect since #calls is low:
-    cdd_calls = np.array([x["call"][0] for x in cdd])
-    peak_order: NDArray[np.int_] = np.argsort(cdd_calls)  # To reorder call arrays in least-to-greatest by copy number
+    cdd_sort_order_determiner = np.array(
+        [(x["peaks"][0], x["call_95_cis"][0][0]) for x in cdd],
+        dtype=[("p", np.float_), ("i", np.float_ if fractional else np.int_)])
+    # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
+    peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
 
     # Re-order the call data dictionary, now that we've established an ordering
     # noinspection PyTypeChecker
@@ -433,7 +436,7 @@ def call_alleles_with_incorporated_snvs(
 
     # All call_datas are truth-y; all arrays should be ordered by peak_order
     call_data = {
-        "call": cdd_calls[peak_order],
+        "call": np.concatenate(tuple(cc["call"] for cc in cdd_ordered), axis=0),
         "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd_ordered), axis=0),
         "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd_ordered), axis=0),
         "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd_ordered), axis=None),
