@@ -302,27 +302,29 @@ def calculate_useful_snvs(
             # Otherwise, leave as out-of-range
 
             snv_list.append(base)
-            snv_counters[snv_pos][base] += 1
+
+            if base != SNV_OUT_OF_RANGE_CHAR and base != SNV_GAP_CHAR:
+                # Only count SNV bases where we've actually found the base for the read.
+                snv_counters[snv_pos][base] += 1
 
         extra_data["snv_bases"] = tuple(snv_list)
 
     # Enough reads to try for SNV based separation
+
+    # require 2 alleles for the SNV, both with at least 1/5 of the reads, in order to differentiate alleles.
+    # require over ~55% of the reads to have the SNV; otherwise it becomes too easy to occasionally get cases with
+    # disjoint sets of SNVs.
+
     useful_snvs: list[int] = []
     allele_read_threshold: int = max(round(n_reads / 5), 2)  # TODO: parametrize
     total_read_threshold: int = max(round(n_reads * 0.55), 5)
+
+    # snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
+
     for si, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
-        n_alleles_meeting_threshold: int = 0
-        n_reads_with_this_snv_called: int = 0
-        for k in snv_counter:
-            if k in (SNV_OUT_OF_RANGE_CHAR, SNV_GAP_CHAR):
-                continue
-            n_reads_for_allele = snv_counter[k]
-            n_reads_with_this_snv_called += n_reads_for_allele
-            if n_reads_for_allele >= allele_read_threshold:
-                n_alleles_meeting_threshold += 1
-        # require 2 alleles for the SNV, both with at least 1/5 of the reads, in order to differentiate alleles.
-        # require over ~55% of the reads to have the SNV; otherwise it becomes too easy to occasionally get cases with
-        # disjoint sets of SNVs.
+        n_alleles_meeting_threshold: int = sum(
+            1 for n_reads_for_allele in snv_counter.values() if n_reads_for_allele >= allele_read_threshold)
+        n_reads_with_this_snv_called: int = snv_counter.total()
         if n_alleles_meeting_threshold >= 2 and n_reads_with_this_snv_called >= total_read_threshold:
             useful_snvs.append(si)
 
