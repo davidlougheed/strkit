@@ -23,8 +23,8 @@ from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import (
     SNV_OUT_OF_RANGE_CHAR,
-    # get_read_snvs,
-    get_read_snvs_dbsnp,
+    get_read_snvs,
+    # get_read_snvs_dbsnp,
     calculate_useful_snvs,
     call_and_filter_useful_snvs,
 )
@@ -246,6 +246,72 @@ def calculate_read_distance(
 
 def _get_new_seed(rng: np.random.Generator) -> int:
     return rng.integers(0, 4096).item()
+
+
+def process_read_snvs_for_locus(
+    contig: str,
+    left_coord_adj: int,
+    right_coord_adj: int,
+    left_most_coord: int,
+    right_most_coord: int,
+    ref: FastaFile,
+    read_dict_items: tuple[tuple[str, ReadDict], ...],
+    read_dict_extra: dict[str, ReadDictExtra],
+    read_pairs: dict[str, list[tuple[int, int]]],
+    candidate_snvs_dict: dict[int, CandidateSNV],
+    only_known_snvs: bool,
+    logger_: logging.Logger,
+    locus_log_str: str,
+):
+    # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
+    # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
+
+    locus_snvs: set[int] = set()
+
+    ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
+
+    for rn, read in read_dict_items:
+        #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
+        scl = read_dict_extra[rn]["sig_clip_left"]
+        scr = read_dict_extra[rn]["sig_clip_right"]
+        if scl or scr:
+            logger_.debug(
+                f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
+                f"{significant_clip_snv_take_in} bp per side for SNV-finding")
+
+        snv_pairs = read_pairs[rn]
+
+        if len(snv_pairs) < (twox_takein := significant_clip_snv_take_in * 2):
+            logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
+            continue
+
+        if read_dict_extra[rn]["sig_clip_left"]:
+            snv_pairs = snv_pairs[significant_clip_snv_take_in:]
+        if read_dict_extra[rn]["sig_clip_right"]:
+            snv_pairs = snv_pairs[:-1 * significant_clip_snv_take_in]
+
+        # snv_pairs = list(filter(lambda p: p[1] in candidate_snvs_dict, snv_pairs))
+
+        #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
+        snvs = get_read_snvs(
+            read_dict_extra[rn]["_qs"],
+            snv_pairs,
+            ref_cache,
+            left_most_coord,
+            left_coord_adj,
+            right_coord_adj,
+        )
+        # snvs = get_read_snvs_dbsnp(
+        #     candidate_snvs_dict_items_flat,
+        #     read_dict_extra[rn]["_qs"],
+        #     read_pairs[rn],
+        #     left_coord_adj,
+        #     right_coord_adj,
+        # )
+        locus_snvs.update(filter(lambda p: (not only_known_snvs) or p in candidate_snvs_dict, snvs.keys()))
+        read_dict_extra[rn]["snv"] = snvs
+
+    return locus_snvs
 
 
 def call_alleles_with_incorporated_snvs(
@@ -534,6 +600,7 @@ def call_locus(
     # and polyploidy is hard.
     # should_incorporate_snvs: bool = incorporate_snvs and n_alleles == 2
     should_incorporate_snvs: bool = snv_vcf_file is not None and n_alleles == 2
+    only_known_snvs: bool = True  # TODO: parametrize
 
     try:
         ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
@@ -609,15 +676,18 @@ def call_locus(
             # Otherwise, leave as-is
 
         for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
-            ref = snv.ref
-            alts = snv.alts
-            if ref is not None and len(ref) == 1 and alts and any(len(a) == 1 for a in alts):  # check actually is SNV
-                candidate_snvs_dict[snv.pos] = CandidateSNV(id=snv.id, ref=snv.ref, alts=alts)
+            snv_ref = snv.ref
+            snv_alts = snv.alts
+            # check actually is SNV
+            if snv_ref is not None and len(snv_ref) == 1 and snv_alts and any(len(a) == 1 for a in snv_alts):
+                # Convert from 1-based indexing to 0-based indexing!!!
+                # See https://pysam.readthedocs.io/en/latest/api.html#pysam.VariantRecord.pos
+                candidate_snvs_dict[snv.pos - 1] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv_alts)
 
-    candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
+    # candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
     # This flattened version is useful for passing to the Rust extension
-    candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]] = [
-        (k, v["id"], v["ref"], list(v["alts"])) for k, v in candidate_snvs_dict_items]
+    # candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]] = [
+    #     (k, v["id"], v["ref"], list(v["alts"])) for k, v in candidate_snvs_dict_items]
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
@@ -627,8 +697,6 @@ def call_locus(
 
     # Aggregations for additional read-level data
     read_kmers: Counter[str] = Counter()
-    locus_snvs: set[int] = set()
-
     read_pairs: dict[str, list[tuple[int, int]]] = {}
 
     # Keep track of left-most and right-most coordinates
@@ -803,13 +871,13 @@ def call_locus(
             # Observed significant increase in annoying, probably false SNVs near the edges of significantly
             # clipped reads in CCS data. Figure out if we have large clipping for later use here in the SNV finder.
             #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
-            # cigar_first_op = segment.cigartuples[0]
-            # cigar_last_op = segment.cigartuples[-1]
-            #
-            # read_dict_extra[rn]["sig_clip_left"] = (
-            #     cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
-            # read_dict_extra[rn]["sig_clip_right"] = (
-            #         cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
+            cigar_first_op = segment.cigartuples[0]
+            cigar_last_op = segment.cigartuples[-1]
+
+            read_dict_extra[rn]["sig_clip_left"] = (
+                cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
+            read_dict_extra[rn]["sig_clip_right"] = (
+                    cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
 
             # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
             read_pairs[rn] = pairs
@@ -873,55 +941,13 @@ def call_locus(
     elif should_incorporate_snvs and n_reads_in_dict >= min_snv_read_coverage and not have_rare_realigns:
         # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
 
-        # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
-        # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
+        # Second read loop occurs in this function
+        locus_snvs: set[int] = process_read_snvs_for_locus(
+            contig, left_coord_adj, right_coord_adj, left_most_coord, right_most_coord, ref, read_dict_items,
+            read_dict_extra, read_pairs, candidate_snvs_dict, only_known_snvs, logger_, locus_log_str)
 
-        # ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
-
-        for rn, read in read_dict_items:
-            #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
-            # scl = read_dict_extra[rn]["sig_clip_left"]
-            # scr = read_dict_extra[rn]["sig_clip_right"]
-            # if scl or scr:
-            #     logger_.debug(
-            #         f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
-            #         f"{significant_clip_snv_take_in} bp per side for SNV-finding")
-            #
-            # snv_pairs = read_pairs[rn]
-            #
-            # if len(snv_pairs) < (twox_takein := significant_clip_snv_take_in * 2):
-            #     logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
-            #     continue
-            #
-            # if read_dict_extra[rn]["sig_clip_left"]:
-            #     snv_pairs = snv_pairs[significant_clip_snv_take_in:]
-            # if read_dict_extra[rn]["sig_clip_right"]:
-            #     snv_pairs = snv_pairs[:-1*significant_clip_snv_take_in]
-
-            #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
-            # snvs = get_read_snvs(
-            #     contig,
-            #     read_dict_extra[rn]["_qs"],
-            #     snv_pairs,
-            #     ref_cache,
-            #     left_most_coord,
-            #     left_coord_adj,
-            #     right_coord_adj,
-            # )
-            snvs = get_read_snvs_dbsnp(
-                candidate_snvs_dict_items_flat,
-                read_dict_extra[rn]["_qs"],
-                read_pairs[rn],
-                left_coord_adj,
-                right_coord_adj,
-            )
-            locus_snvs.update(snvs.keys())
-            read_dict_extra[rn]["snv"] = snvs
-
-        # End of second read loop --------------------------------------------------------------------------------------
-
-        useful_snvs: list[tuple[int, int]] = (
-            calculate_useful_snvs(n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs))
+        useful_snvs: list[tuple[int, int]] = calculate_useful_snvs(
+            n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs)
         n_useful_snvs: int = len(useful_snvs)
 
         if not n_useful_snvs:
