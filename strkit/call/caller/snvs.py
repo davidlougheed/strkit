@@ -375,14 +375,14 @@ def calculate_useful_snvs(
 
     # snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
 
-    for s_pos, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
+    for s_idx, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
         n_alleles_meeting_threshold: int = sum(
             1 for n_reads_for_allele in snv_counter.values() if n_reads_for_allele >= allele_read_threshold)
         n_reads_with_this_snv_called: int = snv_counter.total()
         if n_alleles_meeting_threshold >= 2 and n_reads_with_this_snv_called >= total_read_threshold:
-            useful_snvs.append(s_pos)
+            useful_snvs.append(s_idx)
 
-    return [(s_pos, sorted_snvs[s_pos]) for s_pos in useful_snvs]  # Tuples of (index in STR list, ref position)
+    return [(s_idx, sorted_snvs[s_idx]) for s_idx in useful_snvs]  # Tuples of (index in STR list, ref position)
 
 
 def call_and_filter_useful_snvs(
