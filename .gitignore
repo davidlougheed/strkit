@@ -14,5 +14,6 @@ __pycache__
 *.bed
 /*.json
 /*.tsv
+*.vcf.gz*
 
 *.token
