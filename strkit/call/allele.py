@@ -90,6 +90,7 @@ def fit_gmm(
     n_components = n_alleles
     while n_components > 0:
         if n_components == 1:  # Don't need to do the full fit for a single peak, just calculate the parameters
+            # I've confirmed this gives an ~identical result to fitting a GMM with one parameter.
             fake_g: object = type("", (), {})()
             fake_g.means_ = np.array([[np.mean(sample_rs)]])
             fake_g.weights_ = np.array([[1.0]])
