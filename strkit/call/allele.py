@@ -27,7 +27,7 @@ __all__ = [
     "call_alleles",
 ]
 
-RepeatCounts = Union[list[int], tuple[int, ...], list[float], tuple[float, ...]]
+RepeatCounts = Union[list[int], tuple[int, ...], list[float], tuple[float, ...], NDArray[np.int_], NDArray[np.float_]]
 
 
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles
