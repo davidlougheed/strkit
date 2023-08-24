@@ -1,4 +1,4 @@
-from strkit.call.caller.utils import find_pair_by_ref_pos_py, find_pair_by_ref_pos, normalize_contig, round_to_base_pos
+from strkit.call.utils import find_pair_by_ref_pos_py, find_pair_by_ref_pos, normalize_contig, round_to_base_pos
 
 #         A  A       T  T       C  G       C  C       C  C       A  A       A  A       A  C
 PAIRS = [(0, 1000), (1, 1001), (2, 1003), (3, 1004), (4, 1005), (5, 1006), (6, 1008), (7, 1009)]
