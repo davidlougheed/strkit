@@ -146,6 +146,11 @@ class CallDict(TypedDict):
     modal_n_peaks: int
 
 
+def make_read_weights(read_weights: Optional[Iterable[float]], num_reads: int) -> NDArray[np.float_]:
+    return np.array(
+        read_weights if read_weights is not None else np.array(([1/num_reads] * num_reads) if num_reads else []))
+
+
 def call_alleles(
     repeats_fwd: RepeatCounts,
     repeats_rev: RepeatCounts,
@@ -170,10 +175,8 @@ def call_alleles(
     fwd_len = fwd_strand_reads.shape[0]
     rev_len = rev_strand_reads.shape[0]
 
-    fwd_strand_weights = np.array(
-        read_weights_fwd if read_weights_fwd is not None else np.array(([1/fwd_len] * fwd_len) if fwd_len else []))
-    rev_strand_weights = np.array(
-        read_weights_rev if read_weights_rev is not None else np.array(([1/rev_len] * rev_len) if rev_len else []))
+    fwd_strand_weights = make_read_weights(read_weights_fwd, fwd_len)
+    rev_strand_weights = make_read_weights(read_weights_rev, rev_len)
 
     assert fwd_strand_reads.shape == fwd_strand_weights.shape
     assert rev_strand_reads.shape == rev_strand_weights.shape
