@@ -5,6 +5,8 @@ __pycache__
 /build
 /dist
 /strkit.egg-info
+# ignore WIP cohort code for now
+/strkit/cohort
 
 *.bam
 *.bai
