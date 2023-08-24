@@ -366,8 +366,9 @@
             const readColours = (() => {
                 if (!bounds) return {};
                 bounds.forEach((b, i) => makeScale(i, b));
-                return Object.fromEntries(Object.entries(callData.reads).map(
-                    ([r, rd]) => [r, palettes[rd["p"]](getScalePosition(bounds[rd["p"]], rd["cn"]))]));
+                return Object.fromEntries(Object.entries(callData.reads)
+                    .filter(([_r, rd]) => rd["p"] !== undefined)
+                    .map(([r, rd]) => [r, palettes[rd["p"]](getScalePosition(bounds[rd["p"]], rd["cn"]))]));
             })();
 
             // Remove existing browser instance if present
