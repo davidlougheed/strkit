@@ -101,7 +101,7 @@ samtools faidx my-reference.fa.gz  # Generates a .fai index file
 
 ##### Note on OpenMP Threading
 
-Slow performance can result from running `strkit call` or `strkit re-call` on a system with OpenMP, 
+Slow performance can result from running `strkit call` on a system with OpenMP, 
 due to a misguided  attempt at multithreading under the hood somewhere in Numpy/Scipy (which doesn't work 
 here due to  repeated initializations of the Gaussian mixture model.) To fix this, the following
 environment variable is auto-set (hardcoded) before running:
@@ -160,26 +160,6 @@ the left-hand side in most reads, and the heterozygous copy number pattern.*
 
 To exit the tool, press `Ctrl-C` in your command line window as mentioned in 
 the start-up instructions.
-
-
-### `strkit re-call`: Genotype re-caller
-
-This command has a similar feature-set as `strkit call`, but is designed to
-be used with the output of other long-read STR genotyping methods to refine
-the genotype estimates when calling from HiFi reads.\
-
-#### Features:
-
-* Support for re-calling output from `tandem-genotypes`, `RepeatHMM`, and `Straglr`
-* Strand resampling / bias correction (for use with the `tandem-genotypes` program)
-* 95% confidence intervals on calls via user-configurable bootstrapping
-
-#### Notes:
-
-* `--min-allele-reads` will affect the confidence intervals given by the bootstrap process,
-  especially in low-coverage loci. This should be set depending on the read technology being used;
-  something like a single PacBio HiFi read generally contains higher-quality information than a single
-  PacBio CLR read, for example.
 
 
 
