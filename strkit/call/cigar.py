@@ -28,6 +28,8 @@ CIGAR_OP_PADDING = 6  # P
 CIGAR_OP_SEQ_MATCH = 7  # =
 CIGAR_OP_SEQ_MISMATCH = 8  # X
 
+NONE_GENERATOR = itertools.repeat(None)
+
 
 def get_aligned_pairs_from_cigar(
     cigar: Iterable[tuple[int, int]],
@@ -47,13 +49,10 @@ def get_aligned_pairs_from_cigar(
 
     for c in cigar:
         op, cnt = c
-        rc = range(cnt)
 
-        # TODO: Probably a nicer way to do this:
-
-        cq = ((next(qi), None) for _ in rc)
-        cr = ((None, next(di)) for _ in rc)
-        cb = ((next(qi), next(di)) for _ in rc)
+        cq = zip(itertools.islice(qi, cnt), NONE_GENERATOR)
+        cr = zip(NONE_GENERATOR, itertools.islice(di, cnt))
+        cb = zip(itertools.islice(qi, cnt), itertools.islice(di, cnt))
 
         yield from {
             CIGAR_OP_MATCH: cb,
