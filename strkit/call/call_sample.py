@@ -274,7 +274,7 @@ def call_sample(
         "realign": realign,
         "hq": hq,
         # "incorporate_snvs": incorporate_snvs,
-        "snv_vcf": str(snv_vcf),
+        "snv_vcf": str(snv_vcf) if snv_vcf else None,
         "targeted": targeted,
         "fractional": fractional,
         "respect_ref": respect_ref,
