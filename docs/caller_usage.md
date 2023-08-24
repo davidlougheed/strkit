@@ -20,6 +20,9 @@
 * `--hq`: Whether to treat provided reads as "high quality", i.e., fairly close to the actual true sequence. Used when 
   detecting expansions, to skip a smoothing filter that may ignore disparate, rare expansion-like read counts.
   Use for CCS reads or similar ONLY! **Default:** off
+* `--incorporate-snvs [path]` or `--snv [path]`: A path to a VCF with SNVs to incorporate into the calling process and 
+  final output. This file is just used as an SNV loci catalog; STRkit itself will perform the SNV calling. Empirically 
+  improves calling quality a small amount, speeds up runtime, and gives nearby SNV calls for downstream analysis.
 * `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads that do not reflect normal mapping patterns, e.g. from PacBio No-Amp 
   Targeted Sequencing. **Default:** off

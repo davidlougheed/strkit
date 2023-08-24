@@ -64,6 +64,7 @@ strkit call \
   --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) list of loci to genotype
+  --incorporate-snvs path/to/dbsnp.vcf.gz \   # If you want SNV calls to help phase STRs & speed up STRkit, include this
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
