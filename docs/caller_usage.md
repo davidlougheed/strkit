@@ -63,7 +63,7 @@ with the `strkit` package installed, and ran a SLURM batch job which looks somet
 #SBATCH --account=rrg-xxxxx
 
 
-module load python/3.8
+module load python/3.9
 
 cd /home/xxxxx || exit
 source env/bin/activate
