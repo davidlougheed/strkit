@@ -160,65 +160,6 @@ def add_call_parser_args(call_parser):
         help="Random seed to pass to random number generators for result replicability.")
 
 
-def add_re_call_parser_args(re_call_parser):
-    re_call_parser.add_argument(
-        "--caller",
-        type=str,
-        choices=c.CALL_SUPPORTED_CALLERS,
-        required=True,
-        default=argparse.SUPPRESS,
-        help="The program which called the TR genotypes.")
-
-    re_call_parser.add_argument(
-        "--num-bootstrap", "-b",
-        type=int,
-        default=100,
-        help="Specifies the number of bootstrap samples to use to calculate confidence intervals and median genotype "
-             "estimate.")
-
-    re_call_parser.add_argument(
-        "--min-reads",
-        type=int,
-        default=4,
-        help="Minimum number of supporting reads needed to call a locus.")
-
-    re_call_parser.add_argument(
-        "--min-allele-reads",
-        type=int,
-        default=2,
-        help="Minimum number of supporting reads needed to call a specific allele peak.")
-
-    re_call_parser.add_argument(
-        "--read-bias-corr-min",
-        type=int,
-        default=4,
-        help="Minimum strand coverage (required on both strands) needed to attempt strand bias correction via "
-             "resampling. If this is set too low, may lead to calling bias or dropout.")
-
-    re_call_parser.add_argument(
-        "--processes", "-p",
-        type=int,
-        default=1,
-        help="Number of processes to use when calling.")
-
-    re_call_parser.add_argument(
-        "--contig", "--chr",
-        type=str,
-        default=argparse.SUPPRESS,
-        help="Specifies a specific contig to process (optional).")
-
-    re_call_parser.add_argument(
-        "--sex-chr", "-x",
-        type=str,
-        help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
-             "be genotyped.")
-
-    re_call_parser.add_argument(
-        "--seed",
-        type=int,
-        help="Random seed to pass to random number generators for result replicability.")
-
-
 def add_mi_parser_args(mi_parser):
     mi_parser.add_argument(
         "--debug",
