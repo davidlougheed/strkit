@@ -419,24 +419,6 @@ def _exec_call(p_args) -> None:
     )
 
 
-def _exec_re_call(p_args) -> None:
-    from strkit.call import re_call_all_alleles
-
-    contig: Optional[str] = getattr(p_args, "contig", None)
-
-    re_call_all_alleles(
-        contig=contig,
-        sex_chr=p_args.sex_chr,
-        bootstrap_iterations=p_args.num_bootstrap,
-        min_reads=p_args.min_reads,
-        min_allele_reads=p_args.min_allele_reads,
-        read_bias_corr_min=p_args.read_bias_corr_min,
-        caller=p_args.caller,
-        processes=p_args.processes,
-        seed=p_args.seed,
-    )
-
-
 def _exec_mi(p_args) -> None:
     from strkit.mi.base import BaseCalculator
     from strkit.mi.expansionhunter import ExpansionHunterCalculator
@@ -631,13 +613,6 @@ def main(args: Optional[list[str]] = None) -> int:
         arg_func=add_call_parser_args)
 
     _make_subparser(
-        "re-call",
-        help_text="A long-read tandem repeat (TR) re-caller, designed to build upon existing TR genotyping "
-                  "methods to yield calls with confidence intervals.",
-        exec_func=_exec_re_call,
-        arg_func=add_re_call_parser_args)
-
-    _make_subparser(
         "mi",
         help_text="A Mendelian inheritance calculator for different TR genotyping callers.",
         exec_func=_exec_mi,
@@ -645,7 +620,7 @@ def main(args: Optional[list[str]] = None) -> int:
 
     _make_subparser(
         "combine-catalogs",
-        help_text="Combine Straglr result catalogs for use in re-calling with a consistent motif set.",
+        help_text="Combine Straglr result catalogs for use in calling with a consistent motif set.",
         exec_func=_exec_combine_catalogs,
         arg_func=add_cc_parser_args)
 
