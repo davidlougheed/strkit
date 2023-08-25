@@ -1,3 +1,4 @@
+import numpy as np
 import sys
 from typing import Callable
 
@@ -6,6 +7,7 @@ __all__ = [
     "find_pair_by_ref_pos",
     "normalize_contig",
     "round_to_base_pos",
+    "get_new_seed",
 ]
 
 
@@ -51,3 +53,7 @@ def normalize_contig(contig: str, has_chr: bool) -> str:
 
 def round_to_base_pos(x, motif_size: int) -> float:
     return round(float(x) * motif_size) / motif_size
+
+
+def get_new_seed(rng: np.random.Generator) -> int:
+    return rng.integers(0, 4096, dtype=int)

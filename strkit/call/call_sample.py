@@ -25,6 +25,7 @@ from strkit.logger import logger
 
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
+from .utils import get_new_seed
 
 __all__ = [
     "call_sample",
@@ -251,7 +252,7 @@ def call_sample(
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
-        locus_queue.put((t_idx, t, rng.integers(0, 4096).item()))
+        locus_queue.put((t_idx, t, get_new_seed(rng)))
         contig_set.add(t[0])
         num_loci += 1
 

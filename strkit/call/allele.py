@@ -20,6 +20,8 @@ from typing import Iterable, Literal, Optional, TypedDict, Union
 
 import strkit.constants as cc
 
+from .utils import get_new_seed
+
 __all__ = [
     "RepeatCounts",
     "CallDict",
@@ -102,7 +104,7 @@ def fit_gmm(
             init_params=init_params,
             covariance_type="spherical",
             n_init=N_GM_INIT,
-            random_state=rng.integers(0, 4096).item(),
+            random_state=get_new_seed(rng),
         ).fit(sample_rs)
 
         # noinspection PyUnresolvedReferences

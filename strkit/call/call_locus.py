@@ -30,7 +30,7 @@ from .snvs import (
     call_and_filter_useful_snvs,
 )
 from .types import ReadDict, ReadDictExtra, CandidateSNV
-from .utils import find_pair_by_ref_pos, normalize_contig, round_to_base_pos
+from .utils import find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
 
 
 __all__ = [
@@ -245,10 +245,6 @@ def calculate_read_distance(
     return distance_matrix
 
 
-def _get_new_seed(rng: np.random.Generator) -> int:
-    return rng.integers(0, 4096, dtype=int)
-
-
 def process_read_snvs_for_locus(
     contig: str,
     left_coord_adj: int,
@@ -458,7 +454,7 @@ def call_alleles_with_incorporated_snvs(
             gm_filter_factor=1,  # n_alleles=1, so this is ignored
             hq=hq,
             force_int=not fractional,
-            seed=_get_new_seed(rng),
+            seed=get_new_seed(rng),
             logger_=logger_,
             debug_str=f"{locus_log_str} a{ci}"
         )
@@ -966,7 +962,7 @@ def call_locus(
             gm_filter_factor=3,  # TODO: parametrize
             hq=hq,
             force_int=not fractional,
-            seed=_get_new_seed(rng),
+            seed=get_new_seed(rng),
             logger_=logger_,
             debug_str=locus_log_str,
         ) or {}  # Still false-y
