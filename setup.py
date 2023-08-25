@@ -16,7 +16,7 @@ setup(
     install_requires=[
         "Flask>=2.2.5,<2.3",
         "pysam>=0.19,<0.22",
-        "numpy>=1.23.4,<1.25",
+        "numpy>=1.23.4,<1.26",
         "parasail>=1.2.4,<1.4",
         "scikit-learn>=1.2.1,<1.4",
         "scipy>=1.10,<1.11",
