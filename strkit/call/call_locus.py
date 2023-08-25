@@ -246,7 +246,7 @@ def calculate_read_distance(
 
 
 def _get_new_seed(rng: np.random.Generator) -> int:
-    return rng.integers(0, 4096).item()
+    return rng.integers(0, 4096, dtype=int)
 
 
 def process_read_snvs_for_locus(
