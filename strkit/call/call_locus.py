@@ -606,7 +606,7 @@ def call_locus(
         return None
 
     # String representation of locus for logging purposes
-    locus_log_str: str = f"{sample_id + ' ' if sample_id else ''}locus {t_idx}: {contig}:{left_coord}-{right_coord}"
+    locus_log_str: str = f"{sample_id}{' ' if sample_id else ''}locus {t_idx}: {contig}:{left_coord}-{right_coord}"
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
@@ -702,7 +702,7 @@ def call_locus(
             q: mp.Queue = mp.Queue()
             proc = mp.Process(target=realign_read, daemon=False, kwargs=dict(
                 # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-                ref_seq=ref_left_flank_seq + ref_seq + ref_right_flank_seq_plus_1,  # TODO: plus 1, really?
+                ref_seq=f"{ref_left_flank_seq}{ref_seq}{ref_right_flank_seq_plus_1}",  # TODO: plus 1, really?
                 query_seq=calculate_seq_with_wildcards(qs, fqqs),
                 left_flank_coord=left_flank_coord,
                 flank_size=flank_size,

@@ -104,7 +104,7 @@ def get_repeat_count(
     to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores: dict[int, int] = {}
 
-    db_seq: str = flank_left_seq + tr_seq + flank_right_seq
+    db_seq: str = f"{flank_left_seq}{tr_seq}{flank_right_seq}"
 
     while to_explore:
         size_to_explore, direction = to_explore.pop()
