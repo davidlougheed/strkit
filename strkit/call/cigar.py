@@ -3,30 +3,10 @@ import itertools
 from typing import Generator, Iterable, Union
 
 __all__ = [
-    "CIGAR_OP_MATCH",
-    "CIGAR_OP_INSERTION",
-    "CIGAR_OP_DELETION",
-    "CIGAR_OP_SKIPPED",
-    "CIGAR_OP_SOFT_CLIPPED",
-    "CIGAR_OP_HARD_CLIPPED",
-    "CIGAR_OP_PADDING",
-    "CIGAR_OP_SEQ_MATCH",
-    "CIGAR_OP_SEQ_MISMATCH",
-
     "get_aligned_pairs_from_cigar",
     "decode_cigar",
 ]
 
-
-CIGAR_OP_MATCH = 0  # M
-CIGAR_OP_INSERTION = 1  # I
-CIGAR_OP_DELETION = 2  # D
-CIGAR_OP_SKIPPED = 3  # N
-CIGAR_OP_SOFT_CLIPPED = 4  # S
-CIGAR_OP_HARD_CLIPPED = 5  # H
-CIGAR_OP_PADDING = 6  # P
-CIGAR_OP_SEQ_MATCH = 7  # =
-CIGAR_OP_SEQ_MISMATCH = 8  # X
 
 NONE_GENERATOR = itertools.repeat(None)
 
