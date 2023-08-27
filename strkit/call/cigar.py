@@ -31,6 +31,35 @@ CIGAR_OP_SEQ_MISMATCH = 8  # X
 NONE_GENERATOR = itertools.repeat(None)
 
 
+def _cq(count: int, qi: Iterable, _di: Iterable):
+    return zip(itertools.islice(qi, count), NONE_GENERATOR)
+
+
+def _cr(count: int, _qi: Iterable, di: Iterable):
+    return zip(NONE_GENERATOR, itertools.islice(di, count))
+
+
+def _cb(count: int, qi: Iterable, di: Iterable):
+    return zip(itertools.islice(qi, count), itertools.islice(di, count))
+
+
+def _no(_count: int, _qi: Iterable, _di: Iterable):
+    return ()
+
+
+CIGAR_OPS = (
+    _cb,  # MATCH        | 0 | M
+    _cq,  # INSERTION    | 1 | I
+    _cr,  # DELETION     | 2 | D
+    _cr,  # SKIPPED      | 3 | N
+    _cq,  # SOFT_CLIPPED | 4 | S
+    _no,  # HARD_CLIPPED | 5 | H
+    _no,  # PADDING      | 6 | P
+    _cb,  # SEQ_MATCH    | 7 | =
+    _cb,  # SEQ_MISMATCH | 8 | X
+)
+
+
 def get_aligned_pairs_from_cigar(
     cigar: Iterable[tuple[int, int]],
     query_start: int = 0,
@@ -47,24 +76,8 @@ def get_aligned_pairs_from_cigar(
     qi = itertools.count(start=query_start)
     di = itertools.count(start=ref_start)
 
-    for c in cigar:
-        op, cnt = c
-
-        cq = zip(itertools.islice(qi, cnt), NONE_GENERATOR)
-        cr = zip(NONE_GENERATOR, itertools.islice(di, cnt))
-        cb = zip(itertools.islice(qi, cnt), itertools.islice(di, cnt))
-
-        yield from {
-            CIGAR_OP_MATCH: cb,
-            CIGAR_OP_INSERTION: cq,
-            CIGAR_OP_DELETION: cr,
-            CIGAR_OP_SKIPPED: cr,
-            CIGAR_OP_SOFT_CLIPPED: cq,
-            CIGAR_OP_HARD_CLIPPED: (),
-            CIGAR_OP_PADDING: (),
-            CIGAR_OP_SEQ_MATCH: cb,
-            CIGAR_OP_SEQ_MISMATCH: cb,
-        }[op]
+    for op, cnt in cigar:
+        yield from CIGAR_OPS[op](cnt, qi, di)
 
 
 def decode_cigar(encoded_cigar: list[int]) -> Generator[tuple[int, int], None, None]:
