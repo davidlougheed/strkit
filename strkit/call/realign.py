@@ -47,8 +47,8 @@ def realign_read(
         # reverse to get (query, ref) instead of (ref, query), due to the flip (!)
         tuple(reversed(p))
         # query_start instead of ref_start, due to the flip (!)
-        for p in get_aligned_pairs_from_cigar(decode_cigar(pr.cigar.seq), query_start=left_flank_coord)
-        if p[0] is not None and p[1] is not None
+        for p in get_aligned_pairs_from_cigar(
+            decode_cigar(pr.cigar.seq), query_start=left_flank_coord, matches_only=True)
     ]
     if q:
         q.put(res)
