@@ -11,7 +11,8 @@ __all__ = [
     "get_ref_repeat_count",
 ]
 
-local_search_range: int = 3  # TODO: parametrize
+
+DEFAULT_LOCAL_SEARCH_RANGE = 3
 
 
 def score_candidate(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str, **_kwargs) -> int:
@@ -100,6 +101,7 @@ def get_repeat_count(
     flank_right_seq: str,
     motif: str,
     fractional: bool = False,
+    local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
 ) -> tuple[Union[int, float], int]:
     to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores: dict[int, int] = {}
@@ -151,6 +153,7 @@ def get_ref_repeat_count(
     ref_size: int,
     fractional: bool = False,
     respect_coords: bool = False,
+    local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
 ) -> tuple[tuple[Union[int, float], int], int, int]:
     l_offset: int = 0
     r_offset: int = 0
