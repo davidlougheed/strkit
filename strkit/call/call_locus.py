@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 import multiprocessing as mp
 import numpy as np
@@ -57,7 +58,7 @@ significant_clip_snv_take_in = 250
 def calculate_seq_with_wildcards(qs: str, quals: Optional[list[int]]) -> str:
     if quals is None:
         return qs  # No quality information, so don't do anything
-    return "".join(qs[i] if quals[i] > base_wildcard_threshold else "X" for i in np.arange(len(qs)))
+    return "".join(map(lambda x: x[0] if x[1] > base_wildcard_threshold else "X", zip(qs, quals)))
 
 
 def get_read_coords_from_matched_pairs(
@@ -140,7 +141,9 @@ def get_overlapping_segments_and_related_data(
 
     segment: pysam.AlignedSegment
 
-    for segment in (s for bf in bfs for s in bf.fetch(read_contig, left_flank_coord, right_flank_coord)):
+    for segment in itertools.chain.from_iterable(
+        map(lambda bf: bf.fetch(read_contig, left_flank_coord, right_flank_coord), bfs)
+    ):
         rn = segment.query_name
 
         if rn is None:  # Skip reads with no name
@@ -475,9 +478,8 @@ def call_alleles_with_incorporated_snvs(
     # We called these as single-allele (1 peak) loci as a sort of hack, so the return "call" key
     # is an array of length 1.
 
-    # Leaving this as an np.array(...) for type detect since #calls is low:
-    cdd_sort_order_determiner = np.array(
-        [(x["peaks"][0], x["call_95_cis"][0][0]) for x in cdd],
+    cdd_sort_order_determiner = np.fromiter(
+        map(lambda x: (x["peaks"][0], x["call_95_cis"][0][0]), cdd),
         dtype=[("p", np.float_), ("i", np.float_ if fractional else np.int_)])
     # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
     peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
@@ -945,9 +947,9 @@ def call_locus(
     if single_or_dist_assign:  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
         # Dicts are ordered in Python; very nice :)
         rdvs = tuple(read_dict.values())
-        rcns = tuple(r["cn"] for r in rdvs)
+        rcns = tuple(map(lambda rr: rr["cn"], rdvs))
         read_cns = np.fromiter(rcns, dtype=np.float_ if fractional else np.int_)
-        read_weights = np.fromiter((r["w"] for r in rdvs), dtype=np.float_)
+        read_weights = np.fromiter(map(lambda rr: rr["w"], rdvs), dtype=np.float_)
         read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
         call_data = call_alleles(

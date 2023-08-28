@@ -19,7 +19,6 @@ def _cq(count: int, qi: Iterable, _di: Iterable):
 def _cqc(count: int, qi: Iterable, _di: Iterable):
     tuple(itertools.islice(qi, count))  # consume w/o returning
     return ()
-    # return zip(itertools.islice(qi, count), NONE_GENERATOR)
 
 
 def _cr(count: int, _qi: Iterable, di: Iterable):
@@ -27,7 +26,7 @@ def _cr(count: int, _qi: Iterable, di: Iterable):
 
 
 def _crc(count: int, _qi: Iterable, di: Iterable):
-    tuple(itertools.islice(di, count))
+    tuple(itertools.islice(di, count))  # consume w/o returning
     return ()
 
 
@@ -87,7 +86,7 @@ def get_aligned_pairs_from_cigar(
     di = itertools.count(start=ref_start)
     ops = CIGAR_OPS_MATCHES_ONLY if matches_only else CIGAR_OPS
 
-    return itertools.chain.from_iterable(ops[op](cnt, qi, di) for op, cnt in cigar)
+    return itertools.chain.from_iterable(map(lambda c: ops[c[0]](c[1], qi, di), cigar))
 
 def decode_cigar(encoded_cigar: list[int]) -> Generator[tuple[int, int], None, None]:
     for item in encoded_cigar:
