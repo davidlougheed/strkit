@@ -3,6 +3,7 @@ import itertools
 from typing import Generator, Iterable, Union
 
 __all__ = [
+    "CoordPair",
     "get_aligned_pairs_from_cigar",
     "decode_cigar",
 ]
@@ -31,7 +32,8 @@ def _crc(count: int, _qi: Iterable, di: Iterable):
 
 
 def _cb(count: int, qi: Iterable, di: Iterable):
-    return zip(itertools.islice(qi, count), itertools.islice(di, count))
+    # only need to .islice(...) one, since zip will auto-terminate when the shortest one is consumed:
+    return zip(itertools.islice(qi, count), di)
 
 
 def _no(_count: int, _qi: Iterable, _di: Iterable):
@@ -63,12 +65,15 @@ CIGAR_OPS_MATCHES_ONLY = (
 )
 
 
+CoordPair = tuple[Union[int, None], Union[int, None]]
+
+
 def get_aligned_pairs_from_cigar(
     cigar: Iterable[tuple[int, int]],
     query_start: int = 0,
     ref_start: int = 0,
     matches_only: bool = False,
-) -> Generator[tuple[Union[int, None], Union[int, None]], None, None]:
+) -> Generator[CoordPair, None, None]:
     """
     Given an iterable of CIGAR operations (op, count), yield aligned pairs of (query, ref).
     :param cigar: Iterable of CIGAR operations
@@ -82,9 +87,7 @@ def get_aligned_pairs_from_cigar(
     di = itertools.count(start=ref_start)
     ops = CIGAR_OPS_MATCHES_ONLY if matches_only else CIGAR_OPS
 
-    for op, cnt in cigar:
-        yield from ops[op](cnt, qi, di)
-
+    return itertools.chain.from_iterable(ops[op](cnt, qi, di) for op, cnt in cigar)
 
 def decode_cigar(encoded_cigar: list[int]) -> Generator[tuple[int, int], None, None]:
     for item in encoded_cigar:
