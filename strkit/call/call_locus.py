@@ -686,9 +686,6 @@ def call_locus(
         # above) that this is guaranteed to be, in fact, not None.
         qs: str = segment.query_sequence
 
-        c1: tuple[int, int] = segment.cigartuples[0]
-        c2: tuple[int, int] = segment.cigartuples[-1]
-
         fqqs: Optional[list[int]] = segment.query_qualities
 
         realigned: bool = False
@@ -701,8 +698,8 @@ def call_locus(
         # TODO: if some alignment is present, use it to reduce realignment overhead?
         #  - use start point + flank*3 or end point - flank*3 or something like that
         if realign and (force_realign or (
-            (c1[0] == 4 and segment_start > left_flank_coord >= segment_start - c1[1]) or
-            (c2[0] == 4 and segment_end < right_flank_coord <= segment_end + c2[1])
+            ((c1 := segment.cigartuples[0])[0] == 4 and segment_start > left_flank_coord >= segment_start - c1[1]) or
+            ((c2 := segment.cigartuples[-1])[0] == 4 and segment_end < right_flank_coord <= segment_end + c2[1])
         )):
             # Run the realignment in a separate process, to give us a timeout mechanism.
             # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
