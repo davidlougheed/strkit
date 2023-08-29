@@ -1,6 +1,7 @@
 import math
 import parasail
 
+from functools import lru_cache
 from typing import Literal, Union
 
 from strkit.utils import sign
@@ -15,12 +16,35 @@ __all__ = [
 DEFAULT_LOCAL_SEARCH_RANGE = 3
 
 
-def score_candidate(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str, **_kwargs) -> int:
+from collections import Counter
+seen = Counter()
+
+
+def score_candidate_with_string(
+    db_seq: str,
+    tr_candidate: str,
+    flank_left_seq: str,
+    flank_right_seq: str,
+    **_kwargs,
+) -> int:
     # TODO: sub-flank again, to avoid more errors in flanking region contributing to score?
     # Always assign parasail results to variables due to funky memory allocation behaviour
     r = parasail.sg_striped_sat(
         f"{flank_left_seq}{tr_candidate}{flank_right_seq}", db_seq, indel_penalty, indel_penalty, dna_matrix)
     return r.score
+
+
+# TODO: instead of lru_cache, some more custom mechanism for sharing?
+@lru_cache(maxsize=512)  # especially with HiFi reads, these candidates could be the same between reads!
+def score_candidate(
+    db_seq: str,
+    motif: str,
+    motif_count: int,
+    flank_left_seq: str,
+    flank_right_seq: str,
+    **_kwargs,
+) -> int:
+    return score_candidate_with_string(db_seq, motif * motif_count, flank_left_seq, flank_right_seq)
 
 
 def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str,
@@ -74,14 +98,14 @@ def get_fractional_rc(
 
             tr_s, tr_e = gen_frac_repeats(motif, i_mm, j)
             p_szs[frac_cn] = max((
-                score_candidate(
+                score_candidate_with_string(
                     db_seq=db_seq,
                     # Add or subtract partial copies at start
                     tr_candidate=tr_s,
                     flank_left_seq=flank_left_seq,
                     flank_right_seq=flank_right_seq,
                 ),
-                score_candidate(
+                score_candidate_with_string(
                     db_seq=db_seq,
                     # Add or subtract partial copies at end
                     tr_candidate=tr_e,
@@ -122,7 +146,7 @@ def get_repeat_count(
             if i not in sizes_and_scores:
                 # Generate a candidate TR tract by copying the provided motif 'i' times & score it
                 # Separate this from the .get() to postpone computation to until we need it
-                sizes_and_scores[i] = score_candidate(db_seq, motif * i, flank_left_seq, flank_right_seq)
+                sizes_and_scores[i] = score_candidate(db_seq, motif, i, flank_left_seq, flank_right_seq)
 
             szs.append((i, sizes_and_scores[i]))
 
