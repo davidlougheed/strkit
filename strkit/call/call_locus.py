@@ -287,9 +287,9 @@ def process_read_snvs_for_locus(
             logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
             continue
 
-        if read_dict_extra[rn]["sig_clip_left"]:
+        if scl:
             snv_pairs = snv_pairs[significant_clip_snv_take_in:]
-        if read_dict_extra[rn]["sig_clip_right"]:
+        if scr:
             snv_pairs = snv_pairs[:-1 * significant_clip_snv_take_in]
 
         snvs = get_read_snvs(
