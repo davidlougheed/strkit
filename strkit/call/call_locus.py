@@ -741,7 +741,8 @@ def call_locus(
 
         if pairs is None:
             if left_flank_coord < segment_start or right_flank_coord > segment_end:
-                # Cannot find pair for LHS flank start; early-continue before we load pairs since that step is slow
+                # Cannot find pair for LHS flank start or RHS flank end;
+                # early-continue before we load pairs since that step is slow
                 debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
                 continue
 
