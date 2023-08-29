@@ -250,18 +250,19 @@ except ImportError:
     get_read_snvs_dbsnp = _get_read_snvs_dbsnp_py
 
 
-def get_read_snvs(
+def _get_read_snvs_py(
     query_sequence: str,
     pairs: list[tuple[int, int]],
     ref_seq: str,
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
-    contiguous_threshold: int = 5,
-    max_snv_group_size: int = 5,
-    too_many_snvs_threshold: int = 20,
-    entropy_flank_size: int = 10,
-    entropy_threshold: float = 1.8,
+    # below: special parameters for the get_read_snvs_meticulous function to skip STRs which don't look useful
+    contiguous_threshold: int,
+    max_snv_group_size: int,
+    too_many_snvs_threshold: int,
+    entropy_flank_size: int,
+    entropy_threshold: float,
 ) -> dict[int, str]:
     """
     Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
@@ -297,6 +298,13 @@ def get_read_snvs(
         )
 
     return snvs
+
+
+try:
+    from strkit_rust_ext import get_read_snvs
+    logger.debug("Found STRkit Rust component, importing get_read_snvs")
+except ImportError:
+    get_read_snvs = _get_read_snvs_py
 
 
 def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]], t: int,

@@ -266,6 +266,8 @@ def process_read_snvs_for_locus(
     # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
     # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
 
+    # Mutates: read_dict_extra
+
     locus_snvs: set[int] = set()
 
     ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
@@ -290,9 +292,6 @@ def process_read_snvs_for_locus(
         if read_dict_extra[rn]["sig_clip_right"]:
             snv_pairs = snv_pairs[:-1 * significant_clip_snv_take_in]
 
-        # snv_pairs = list(filter(lambda p: p[1] in candidate_snvs_dict, snv_pairs))
-
-        #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
         snvs = get_read_snvs(
             read_dict_extra[rn]["_qs"],
             snv_pairs,
@@ -300,7 +299,14 @@ def process_read_snvs_for_locus(
             left_most_coord,
             left_coord_adj,
             right_coord_adj,
+            # below: magic values for skipping false positives / weird 'SNVs' that aren't helpful
+            contiguous_threshold=5,
+            max_snv_group_size=5,
+            too_many_snvs_threshold=20,
+            entropy_flank_size=10,
+            entropy_threshold=1.8,
         )
+        #   --> RE-ENABLE FOR dbSNP-BASED SNV FINDER <--
         # snvs = get_read_snvs_dbsnp(
         #     candidate_snvs_dict_items_flat,
         #     read_dict_extra[rn]["_qs"],
