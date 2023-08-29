@@ -529,6 +529,12 @@ def call_alleles_with_incorporated_snvs(
     return assign_method, (call_data, called_useful_snvs)
 
 
+def debug_log_flanking_seq(logger_: logging.Logger, locus_log_str: str, rn: str, realigned: bool):
+    logger_.debug(
+        f"{locus_log_str} - skipping read {rn}: could not get sufficient flanking sequence"
+        f"{' (post-realignment)' if realigned else ''}")
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -734,6 +740,11 @@ def call_locus(
                 realign_count += 1
 
         if pairs is None:
+            if left_flank_coord < segment_start or right_flank_coord > segment_end:
+                # Cannot find pair for LHS flank start; early-continue before we load pairs since that step is slow
+                debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
+                continue
+
             pairs = segment.get_aligned_pairs(matches_only=True)
 
         left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
@@ -748,9 +759,7 @@ def call_locus(
         )
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
-            logger_.debug(
-                f"{locus_log_str} - skipping read {rn}: could not get sufficient flanking sequence"
-                f"{' (post-realignment)' if realigned else ''}")
+            debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
             continue
 
         # we can fit PHRED scores in uint8
