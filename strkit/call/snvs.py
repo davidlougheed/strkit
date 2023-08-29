@@ -89,7 +89,7 @@ def get_candidate_snvs(
 
 def shannon_entropy(seq: str) -> float:
     seq_len = len(seq)
-    return -1.0 * sum(p * math.log2(p) for p in (c / seq_len for c in Counter(seq).values()))
+    return -1.0 * sum(map(lambda p: p * math.log2(p), map(lambda c: c / seq_len, Counter(seq).values())))
 
 
 def _get_read_snvs_meticulous_py(
