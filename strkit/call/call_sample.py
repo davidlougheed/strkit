@@ -84,7 +84,7 @@ def locus_worker(
     snv_vcf_contigs: list[str] = []
     vcf_file_format: Literal["chr", "num", "acc", ""] = ""
     if snv_vcf_file is not None:
-        snv_vcf_contigs = [c.name for c in snv_vcf_file.header.contigs.values()]
+        snv_vcf_contigs = list(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
         if not snv_vcf_contigs or snv_vcf_contigs[0].startswith("chr"):
             vcf_file_format = "chr"
         elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
