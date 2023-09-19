@@ -6,9 +6,10 @@ A genotyping and analysis toolkit for short(ish) tandem repeats.
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
-&copy; David Lougheed 2021-2023 (versions up to and including `0.8.0a1`).
+&copy; David Lougheed and McGill University 2021-2023 (versions up to and including `0.8.0a1`).
 
-&copy; David Lougheed 2021-2023 with portions &copy; McGill University 2023 (versions beyond `0.8.0a1`).
+&copy; David Lougheed and McGill University 2021-2023, with portions &copy; McGill University 2023 
+(versions beyond `0.8.0a1`).
 
 ## Installation
 
