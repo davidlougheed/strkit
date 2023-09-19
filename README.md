@@ -11,6 +11,9 @@ A genotyping and analysis toolkit for short(ish) tandem repeats.
 &copy; David Lougheed and McGill University 2021-2023, with portions &copy; McGill University 2023 
 (versions beyond `0.8.0a1`).
 
+The STRkit logo is &copy; David Lougheed 2022, and was designed by Evelyn Lougheed. It is not licensed
+under the terms of the GPL 3.0; all rights are reserved.
+
 ## Installation
 
 STRkit requires Python 3.9+ and can be installed from PyPI via `pip` 
