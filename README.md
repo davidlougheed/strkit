@@ -55,6 +55,8 @@ long read data should still work.
   catalog of TR loci and motifs.
 * Re-weighting of longer reads, to compensate for their lower likelihood of observation.
   * Whole-genome and targeted genotyping modes to adjust this re-weighting.
+* Incorporation of single-nucleotide variation (SNVs) for better and faster calling plus 
+  additional downstream analysis possibilities.
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
