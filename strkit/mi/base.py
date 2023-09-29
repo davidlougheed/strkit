@@ -3,11 +3,10 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from strkit.logger import logger as logger_
 from .result import MIContigResult, MIResult
-from ..utils import cis_overlap
 
 __all__ = [
     "BaseCalculator",
@@ -130,79 +129,16 @@ class BaseCalculator(ABC):
 
         return contig_set
 
-    def gts_respect_mi(
-            self,
-
-            c_gt: Union[tuple[int, ...], tuple[float, ...]],
-            m_gt: Union[tuple[int, ...], tuple[float, ...]],
-            f_gt: Union[tuple[int, ...], tuple[float, ...]],
-
-            c_gt_ci: Optional[tuple] = None,
-            m_gt_ci: Optional[tuple] = None,
-            f_gt_ci: Optional[tuple] = None,
-
-            decimal: bool = False,
-
-            widen: Optional[float] = None,
-    ) -> tuple[bool, Optional[bool]]:
-        # First hypothesis: first allele from mother, second from father
-        # Second hypothesis: first allele from father, first from mother
-        respects_mi_strict = any((
-            (c_gt[0] in m_gt and c_gt[1] in f_gt),
-            (c_gt[0] in f_gt and c_gt[1] in m_gt),
-        ))
-
-        if decimal:
-            t = self._decimal_threshold
-
-            respects_mi_strict = any((
-                # First hypothesis: first allele from mother, second from father
-                abs(c_gt[0] - m_gt[0]) < t and abs(c_gt[1] - f_gt[0]) < t,
-                abs(c_gt[0] - m_gt[0]) < t and abs(c_gt[1] - f_gt[1]) < t,
-                abs(c_gt[0] - m_gt[1]) < t and abs(c_gt[1] - f_gt[0]) < t,
-                abs(c_gt[0] - m_gt[1]) < t and abs(c_gt[1] - f_gt[1]) < t,
-
-                abs(c_gt[1] - m_gt[0]) < t and abs(c_gt[0] - f_gt[0]) < t,
-                abs(c_gt[1] - m_gt[0]) < t and abs(c_gt[0] - f_gt[1]) < t,
-                abs(c_gt[1] - m_gt[1]) < t and abs(c_gt[0] - f_gt[0]) < t,
-                abs(c_gt[1] - m_gt[1]) < t and abs(c_gt[0] - f_gt[1]) < t,
-            ))
-
-        respects_mi_ci = None
-
-        if c_gt_ci is not None and m_gt_ci is not None and f_gt_ci is not None:
-            _widen = self._widen if widen is None else widen
-
-            m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * _widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * _widen))
-            m_gt_ci_1 = (m_gt_ci[1][0] - (m_gt_ci[1][0] * _widen), m_gt_ci[1][1] + (m_gt_ci[1][1] * _widen))
-            f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * _widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * _widen))
-            f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * _widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * _widen))
-
-            respects_mi_ci = any((
-                # First hypothesis: first allele from mother, second from father
-                (cis_overlap(c_gt_ci[0], m_gt_ci_0) and cis_overlap(c_gt_ci[1], f_gt_ci_0)),
-                (cis_overlap(c_gt_ci[0], m_gt_ci_0) and cis_overlap(c_gt_ci[1], f_gt_ci_1)),
-                (cis_overlap(c_gt_ci[0], m_gt_ci_1) and cis_overlap(c_gt_ci[1], f_gt_ci_0)),
-                (cis_overlap(c_gt_ci[0], m_gt_ci_1) and cis_overlap(c_gt_ci[1], f_gt_ci_1)),
-
-                # Second hypothesis: first allele from father, first from mother
-                (cis_overlap(c_gt_ci[1], m_gt_ci_0) and cis_overlap(c_gt_ci[0], f_gt_ci_0)),
-                (cis_overlap(c_gt_ci[1], m_gt_ci_0) and cis_overlap(c_gt_ci[0], f_gt_ci_1)),
-                (cis_overlap(c_gt_ci[1], m_gt_ci_1) and cis_overlap(c_gt_ci[0], f_gt_ci_0)),
-                (cis_overlap(c_gt_ci[1], m_gt_ci_1) and cis_overlap(c_gt_ci[0], f_gt_ci_1)),
-            ))
-
-        return respects_mi_strict, respects_mi_ci
-
     @abstractmethod
     def calculate_contig(self, contig: str) -> MIContigResult:
         return MIContigResult()
 
     def calculate(self, included_contigs: set) -> Optional[MIResult]:
-        res = 0
-        res_95_ci = 0
-        res_99_ci = 0
-        n_total = 0
+        res: float = 0
+        res_pm1: float = 0
+        res_95_ci: float = 0
+        res_99_ci: float = 0
+        n_total: int = 0
 
         contig_results = []
         output_loci = []
