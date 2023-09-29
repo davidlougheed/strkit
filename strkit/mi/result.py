@@ -211,7 +211,7 @@ class MILocusData:
             abs(c_gt[1] - m_gt[1]) < t and abs(c_gt[0] - f_gt[1]) < t,
         ))
 
-    def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen) -> Optional[bool]:
+    def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen: float) -> Optional[bool]:
         if any(x is None for x in (c_gt_ci, m_gt_ci, f_gt_ci)):
             return None
 
@@ -247,9 +247,16 @@ class MILocusData:
             self._logger.error(f"Encountered invalid child confidence intervals: {c_gt_ci}")
             return None
 
-    def respects_mi(self, widen: Optional[float] = None) -> tuple[bool, Optional[bool], Optional[bool]]:
+    def respects_mi(self, widen: Optional[float] = None) -> tuple[bool, bool, Optional[bool], Optional[bool]]:
         fn = self._respects_decimal_ci if self._decimal else MILocusData._respects_strict_ci
         respects_mi_strict = fn(self._child_gt, self._mother_gt, self._father_gt)
+
+        respects_mi_pm1 = self._respects_mi_ci(
+            ((self._child_gt[0] - 1, self._child_gt[0] + 1), (self._child_gt[1] - 1, self._child_gt[1] + 1)),
+            ((self._mother_gt[0], self._mother_gt[0]), (self._mother_gt[1], self._mother_gt[1])),
+            ((self._father_gt[0], self._father_gt[0]), (self._father_gt[1], self._father_gt[1])),
+            widen=0.0,
+        )
 
         respects_mi_95_ci = self._respects_mi_ci(
             self._child_gt_95_ci, self._mother_gt_95_ci, self._father_gt_95_ci,
@@ -259,7 +266,7 @@ class MILocusData:
             self._child_gt_99_ci, self._mother_gt_99_ci, self._father_gt_99_ci,
             widen=self._widen if widen is None else widen)
 
-        return respects_mi_strict, respects_mi_95_ci, respects_mi_99_ci
+        return respects_mi_strict, respects_mi_pm1, respects_mi_95_ci, respects_mi_99_ci
 
     def de_novo_test(self, test: str) -> Optional[float]:
         test_res = []
@@ -387,25 +394,31 @@ class MIContigResult:
         self._loci_data.append(item)
 
     def process_loci(
-            self,
-            calculate_non_matching: bool = True) -> tuple[tuple[int, Optional[int], Optional[int]], list[MILocusData]]:
+        self,
+        calculate_non_matching: bool = True,
+    ) -> tuple[tuple[int, int, Optional[int], Optional[int]], list[MILocusData]]:
         value = 0
+        value_pm1 = 0
         value_95_ci = 0 if self._includes_95_ci else None
         value_99_ci = 0 if self._includes_99_ci else None
         non_matching = []
 
         for locus in self._loci_data:
             r = locus.respects_mi()
+
             if calculate_non_matching and not any(r[:2]):
                 # TODO: Custom ability to choose level...
                 non_matching.append(locus)
-            value += r[0]
-            if self._includes_95_ci and r[1] is not None:
-                value_95_ci += r[1]
-            if self._includes_99_ci and r[2] is not None:
-                value_99_ci += r[2]
 
-        return (value, value_95_ci, value_99_ci), non_matching
+            r_strict, r_pm1, r_95ci, r_99ci = r
+            value += r_strict
+            value_pm1 += r_pm1
+            if self._includes_95_ci and r_95ci is not None:
+                value_95_ci += r_95ci
+            if self._includes_99_ci and r_99ci is not None:
+                value_99_ci += r_99ci
+
+        return (value, value_pm1, value_95_ci, value_99_ci), non_matching
 
     def __bool__(self):
         return True  # Otherwise, it goes to len() which gives False if it's empty
@@ -424,6 +437,7 @@ class MIResult:
     def __init__(
         self,
         mi_value: float,
+        mi_value_pm1: float,
         mi_value_95_ci: Optional[float],
         mi_value_99_ci: Optional[float],
         contig_results: Iterable[MIContigResult],
@@ -435,6 +449,7 @@ class MIResult:
         logger: logging.Logger = logger_,
     ):
         self.mi_value: float = mi_value
+        self.mi_value_pm1: float = mi_value_pm1
         self.mi_value_95_ci: Optional[float] = mi_value_95_ci
         self.mi_value_99_ci: Optional[float] = mi_value_99_ci
         self._contig_results: tuple[MIContigResult] = tuple(contig_results)
@@ -507,6 +522,7 @@ class MIResult:
 
         obj = {
             "mi": self.mi_value,
+            "mi_pm1": self.mi_value_pm1,
             "mi_95": self.mi_value_95_ci,
             "mi_99": self.mi_value_99_ci,
             "n_loci_trio_called": sum((len(lr) for lr in self.contig_results)),
@@ -570,19 +586,19 @@ class MIResult:
 
     def __str__(self):
         widen_str = "" if self.widen < 0.00001 else f"; widened {self.widen * 100:.1f}%"
-        header = ["MI %"]
-        mi_vals = [self.mi_value]
+        header = ["MI%", "MI% (±1)"]
+        mi_vals = [self.mi_value, self.mi_value_pm1]
 
         if self.mi_value_95_ci:
-            header.append(f"MI % (95% CI{widen_str})")
+            header.append(f"MI% (95% CI{widen_str})")
             mi_vals.append(self.mi_value_95_ci)
 
         if self.mi_value_99_ci:
-            header.append(f"MI % (99% CI{widen_str})")
+            header.append(f"MI% (99% CI{widen_str})")
             mi_vals.append(self.mi_value_99_ci)
 
-        header_str = "\t".join(header)
-        mi_vals_str = "\t".join(map(lambda m: f"{m*100:.2f}", mi_vals))
+        header_str = "".join(h.ljust(14) for h in header)
+        mi_vals_str = "".join(map(lambda m: f"{m*100:.2f}".ljust(14), mi_vals))
 
         return f"{header_str}\n{mi_vals_str}"
 
@@ -597,6 +613,7 @@ class MIResult:
         hist = []
 
         vals_strict_by_bin = [[] for _ in bins]
+        vals_pm1_by_bin = [[] for _ in bins]
         vals_95_ci_by_bin = [[] for _ in bins]
         vals_99_ci_by_bin = [[] for _ in bins]
         bin_totals = [0] * len(bins)
@@ -606,19 +623,21 @@ class MIResult:
                 bin_totals[bin_idx] += 1
 
         for locus in loci:
-            r = locus.respects_mi()
+            r_strict, r_pm1, r_95ci, r_99ci = locus.respects_mi()
 
             locus_len = locus.end - locus.start
             locus_bin_idx = locus_len // bin_width
 
-            vals_strict_by_bin[locus_bin_idx].append(int(r[0]))
-            if r[1] is not None:
-                vals_95_ci_by_bin[locus_bin_idx].append(int(r[1]))
-            if r[2] is not None:
-                vals_99_ci_by_bin[locus_bin_idx].append(int(r[2]))
+            vals_strict_by_bin[locus_bin_idx].append(int(r_strict))
+            vals_pm1_by_bin[locus_bin_idx].append(int(r_pm1))
+            if r_95ci is not None:
+                vals_95_ci_by_bin[locus_bin_idx].append(int(r_95ci))
+            if r_99ci is not None:
+                vals_99_ci_by_bin[locus_bin_idx].append(int(r_99ci))
 
         for i in range(len(bins)):
             vsb = vals_strict_by_bin[i]
+            vpm1b = vals_strict_by_bin[i]
             v95b = vals_95_ci_by_bin[i] if vals_95_ci_by_bin else None
             v99b = vals_99_ci_by_bin[i] if vals_95_ci_by_bin else None
 
@@ -627,6 +646,7 @@ class MIResult:
                 "bin_count": len(vsb),
                 "bin_total": bin_totals[i],
                 "mi": mean(vsb) if vsb else None,
+                "mi_pm1": mean(vpm1b) if vpm1b else None,
                 "mi_95": mean(v95b) if v95b else None,
                 "mi_99": mean(v99b) if v99b else None,
             })
@@ -646,8 +666,10 @@ class MIResult:
         vals_99_ci_by_bin = [b["mi_99"] for b in hist]
 
         mi_strict_by_bin_vals_str = _format_means([b["mi"] for b in hist])
+        mi_pm1_by_bin_vals_str = "\n" + _format_means([b["mi_pm1"] for b in hist])
         mi_95_by_bin_vals_str = (("\n" + _format_means(vals_95_ci_by_bin)) if any(vals_95_ci_by_bin) else "")
         mi_99_by_bin_vals_str = (("\n" + _format_means(vals_99_ci_by_bin)) if any(vals_99_ci_by_bin) else "")
 
         return (
-            f"{bins_str}\n{bin_count_str}\n{mi_strict_by_bin_vals_str}{mi_95_by_bin_vals_str}{mi_99_by_bin_vals_str}")
+            f"{bins_str}\n{bin_count_str}\n{mi_strict_by_bin_vals_str}{mi_pm1_by_bin_vals_str}{mi_95_by_bin_vals_str}"
+            f"{mi_99_by_bin_vals_str}")

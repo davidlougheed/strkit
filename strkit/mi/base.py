@@ -146,8 +146,9 @@ class BaseCalculator(ABC):
         for contig_result in map(self.calculate_contig, included_contigs):
             contig_results.append(contig_result)
             r, nm = contig_result.process_loci(calculate_non_matching=self.test_to_perform == "none")
-            value, value_95_ci, value_99_ci = r
+            value, value_pm1, value_95_ci, value_99_ci = r
             res += value
+            res_pm1 += value_pm1
             res_95_ci = None if value_95_ci is None else (res_95_ci + value_95_ci)
             res_99_ci = None if value_99_ci is None else (res_99_ci + value_99_ci)
             n_total += len(contig_result)
@@ -158,11 +159,13 @@ class BaseCalculator(ABC):
             return None
 
         res /= n_total
+        res_pm1 /= n_total
         res_95_ci = None if res_95_ci is None else (res_95_ci / n_total)
         res_99_ci = None if res_99_ci is None else (res_99_ci / n_total)
 
-        res = MIResult(
+        mi_res = MIResult(
             res,
+            res_pm1,
             res_95_ci,
             res_99_ci,
             contig_results,
@@ -173,6 +176,6 @@ class BaseCalculator(ABC):
             self.mt_corr)
 
         if self.test_to_perform != "none":
-            res.correct_for_multiple_testing()  # Also calculates new output loci
+            mi_res.correct_for_multiple_testing()  # Also calculates new output loci
 
-        return res
+        return mi_res
