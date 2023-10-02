@@ -211,6 +211,7 @@
         let igvContainer = null;
         let reportMetadataTable = null;
 
+        let sampleDisplay = null;
         let regionDisplay = null;
         let motifDisplay = null;
         let refGenome = null;
@@ -284,7 +285,7 @@
         const renderCall = () => {
             const callData = state.callData;
 
-            console.log("call data", callData);
+            console.debug("call data", callData);
 
             /** @type number[] */
             const cns = Object.values(callData.reads).map(read => read.cn);
@@ -456,13 +457,19 @@
         const fetchParams = () =>
             fetch(`/params`)
                 .then(r => r.json())
-                .then(ps => {params = ps;})
+                .then(ps => {
+                  params = ps;
+                  console.debug("params", ps);
+                })
                 .catch(console.error);
 
         const fetchReportMetadata = () =>
             fetch("/report-metadata")
                 .then(r => r.json())
-                .then(rm => {reportMetadata = rm;})
+                .then(rm => {
+                  reportMetadata = rm;
+                  console.debug("report metadata", rm);
+                })
                 .catch(console.error);
 
         const handleSearchResultClick = i => {
@@ -489,6 +496,7 @@
             igvContainer = document.getElementById("igv-browser");
             reportMetadataTable = document.getElementById("report-metadata");
 
+            sampleDisplay = document.getElementById("sample");
             regionDisplay = document.getElementById("region");
             motifDisplay = document.getElementById("motif");
             refGenome = document.getElementById("ref-genome");
@@ -540,6 +548,10 @@
             });
 
             fetchReportMetadata().then(() => {
+                if (reportMetadata.sample_id) {
+                    sampleDisplay.innerText = reportMetadata.sample_id;
+                }
+
                 const other = {};
 
                 const renderObj = (k, v) => {
@@ -624,6 +636,11 @@
         }
         h1 span {
             font-weight: normal;
+        }
+
+        #sample {
+            font-style: italic;
+            color: #666;
         }
 
         #locus-search {
@@ -851,9 +868,15 @@
         }
 
 
-        @media screen and (max-width: 1100px) {
+        @media screen and (max-width: 1320px) {
             h1 {
                 font-size: 20px;
+            }
+        }
+
+        @media screen and (max-width: 1100px) {
+            h1 {
+                font-size: 18px;
             }
 
             #tab-overview {
@@ -861,11 +884,7 @@
             }
         }
 
-        @media screen and (max-width: 880px) {
-            h1 {
-                font-size: 18px;
-            }
-
+        @media screen and (max-width: 980px) {
             header {
                 flex-direction: column;
             }
@@ -891,7 +910,7 @@
 <div id="strkit">
     <header>
         <h1>
-            STRkit Browser: <span id="region"></span> &mdash; <span id="motif"></span>
+            STRkit Browser: <span id="sample"></span> <span id="region"></span> &mdash; <span id="motif"></span>
         </h1>
         <div id="locus-search">
             <label for="locus-search-box">Select locus:</label>
