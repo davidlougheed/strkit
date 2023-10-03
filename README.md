@@ -6,13 +6,20 @@ A genotyping and analysis toolkit for short(ish) tandem repeats.
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
-&copy; David Lougheed and McGill University 2021-2023 (versions up to and including `0.8.0a1`).
 
-&copy; David Lougheed and McGill University 2021-2023, with portions &copy; McGill University 2023 
-(versions beyond `0.8.0a1`).
+## Copyright
+
+* 2021-2023: &copy; David Lougheed (DL) and McGill University 2021-2023 (versions up to and including `0.8.0a1`), 
+  created during graduate research by DL.
+* 2023+: (versions beyond `0.8.0a1`):
+  * Portions &copy; DL and McGill University 2021-2023
+  * Portions &copy; McGill University 2023
+  * Portions &copy; DL 2023
 
 The STRkit logo is &copy; David Lougheed 2022, and was designed by Evelyn Lougheed. It is not licensed
-under the terms of the GPL 3.0; all rights are reserved.
+under the terms of the GPL 3.0; it is instead licensed under the terms of the 
+[CC BY-ND 4.0](https://creativecommons.org/licenses/by-nd/4.0/).
+
 
 ## Installation
 
