@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 import logging
-
+import math
 import numpy as np
 import sys
 import scipy.stats as sst
@@ -517,16 +517,44 @@ class MIResult:
     def _res_str(res: Union[float, int]) -> str:
         return f"{res:.1f}" if isinstance(res, float) else str(res)
 
+    def _std_err_for_bernoulli(self, val: float) -> float:
+        return math.sqrt((val * (1 - val)) / self._n_loci_seen)
+
+    def _estimate_ci_for_bernoulli(self, val: float) -> tuple[float, float]:
+        std_err = self._std_err_for_bernoulli(val)
+        # 1.96 standard deviations for 95% CI, by CLM
+        return val - 1.96*std_err, val + 1.96*std_err
+
     def write_report_json(self, json_path: str, bin_width: int = 10):
         hist, _bins = self.calculate_histogram(bin_width=bin_width)
 
+        # get 95% CI from standard error, which we estimate from Bernoulli distribution of resulting percentage
+
         obj = {
-            "mi": self.mi_value,
-            "mi_pm1": self.mi_value_pm1,
-            "mi_95": self.mi_value_95_ci,
-            "mi_99": self.mi_value_99_ci,
+            "mi": {
+                "val": self.mi_value,
+                "est_std_err": self._std_err_for_bernoulli(self.mi_value),
+                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value),
+            },
+            "mi_pm1": {
+                "val": self.mi_value_pm1,
+                "est_std_err": self._std_err_for_bernoulli(self.mi_value_pm1),
+                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value_pm1),
+            },
+            "mi_95": {
+                "val": self.mi_value_95_ci,
+                "est_std_err": self._std_err_for_bernoulli(self.mi_value_95_ci),
+                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value_95_ci),
+            } if self.mi_value_95_ci else None,
+            "mi_99": {
+                "val": self.mi_value_99_ci,
+                "est_std_err": self._std_err_for_bernoulli(self.mi_value_99_ci),
+                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value_99_ci),
+            } if self.mi_value_99_ci else None,
+
             "n_loci_trio_called": sum((len(lr) for lr in self.contig_results)),
             "n_loci_total": self._n_loci_seen,
+
             "test": self._test_to_perform,
             "hist": hist,
             "significant_loci": [dict(nm) for nm in self.sorted_output_loci],
