@@ -7,7 +7,7 @@ A genotyping and analysis toolkit for short(ish) tandem repeats.
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
 
-## Copyright
+## Copyright and License
 
 * 2021-2023: &copy; David Lougheed (DL) and McGill University 2021-2023 (versions up to and including `0.8.0a1`), 
   created during graduate research by DL.
@@ -16,9 +16,35 @@ A genotyping and analysis toolkit for short(ish) tandem repeats.
   * Portions &copy; McGill University 2023
   * Portions &copy; DL 2023
 
+
+### Notice
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+### Exceptions
+
+**Some exclusions to this license apply; specifically portions of 
+[`strkit/viz/templates/browser.html`](strkit/viz/templates/browser.html) and
+the STRkit logo files ([./docs/images/strkit_logo_small.png](./docs/images/strkit_logo_small.png)
+and [./strkit/viz/static/logo.png](./strkit/viz/static/logo.png).)**
+
 The STRkit logo is &copy; David Lougheed 2022, and was designed by Evelyn Lougheed. It is not licensed
 under the terms of the GPL 3.0; it is instead licensed under the terms of the 
 [CC BY-ND 4.0](https://creativecommons.org/licenses/by-nd/4.0/).
+
+Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
+Used under the terms of the ISC license.
 
 
 ## Installation
@@ -197,33 +223,3 @@ by looking at inheritance patterns. This tool provides a few different ways to d
 
 **For more information on what kind of analyses can be done with this data**, see the
 [Trio analyses with STRkit](./docs/trio_analyses.md) page.
-
-
-
-## Copyright and License
-
-**Some exclusions to this license apply; specifically portions of 
-[`strkit/viz/templates/browser.html`](strkit/viz/templates/browser.html) 
-and files in the `catalogs` directory.**
-
-&copy; David Lougheed 2021-2023 (versions up to and including `0.8.0a1`).
-
-&copy; David Lougheed 2021-2023 with portions &copy; McGill University 2023 (versions beyond `0.8.0a1`).
-
-Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
-Used under the terms of the ISC license.
-
-### Notice
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
