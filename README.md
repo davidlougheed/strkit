@@ -107,7 +107,8 @@ strkit call \
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
-  --seed 183  # Fixed random number generator seed for replicability
+  --seed 183 \  # Fixed random number generator seed for replicability
+  --processes 10  # Number of parallel processes to use; DEFAULT: 1
 ```
 
 Ideally, you should be using a read file aligned with parameters tuned for tandem repeats. 
