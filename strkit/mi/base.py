@@ -82,7 +82,7 @@ class BaseCalculator(ABC):
     def mt_corr(self) -> str:
         return self._mt_corr
 
-    def _make_loci_dict(self) -> dict:
+    def _make_loci_dict(self) -> dict[tuple[str, str, str], list[str, ...]]:
         if not self._loci_file:
             return {}
 
@@ -134,8 +134,8 @@ class BaseCalculator(ABC):
     def calculate(self, included_contigs: set) -> Optional[MIResult]:
         res: float = 0
         res_pm1: float = 0
-        res_95_ci: float = 0
-        res_99_ci: float = 0
+        res_95_ci: Optional[float] = None
+        res_99_ci: Optional[float] = None
         n_total: int = 0
 
         contig_results = []
