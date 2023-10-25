@@ -42,19 +42,24 @@ N_GM_INIT = 3
 
 FLOAT_32_EPSILON = np.finfo(np.float32).eps
 
+CI_PERCENTILE_RANGES = {
+    "95": (2.5, 97.5),
+    "99": (0.5, 99.5),
+}
+
 
 def _array_as_int(n: Union[NDArray[np.int_], NDArray[np.float_]]) -> NDArray[np.int32]:
     return np.rint(n).astype(np.int32)
 
 
-def _calculate_cis(samples, force_int: bool = False, ci: str = "95") -> Union[NDArray[np.int32], NDArray[np.float_]]:
-    r = {
-        "95": (2.5, 97.5),
-        "99": (0.5, 99.5),
-    }[ci]
-    # TODO: enable for numpy >=1.22
-    # percentiles = np.percentile(samples, r, axis=1, method="interpolated_inverted_cdf").transpose()
-    percentiles = np.percentile(samples, r, axis=1, interpolation="nearest").transpose()
+def _calculate_cis(
+    samples,
+    force_int: bool = False,
+    ci: str = Literal["95", "99"],
+) -> Union[NDArray[np.int32], NDArray[np.float_]]:
+    percentiles = np.percentile(
+        samples, CI_PERCENTILE_RANGES[ci], axis=1, method="interpolated_inverted_cdf"
+    ).transpose()
     return _array_as_int(percentiles) if force_int else percentiles
 
 
@@ -139,7 +144,7 @@ def fit_gmm(
 
 
 class CallDict(TypedDict):
-    call: Union[NDArray[np.int32], NDArray[np.float]]
+    call: Union[NDArray[np.int32], NDArray[np.float_]]
     call_95_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float_]]]
     call_99_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float_]]]
     peaks: NDArray[np.float_]

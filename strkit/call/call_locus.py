@@ -5,6 +5,7 @@ import logging
 import multiprocessing as mp
 import numpy as np
 import pysam
+import operator
 import queue
 
 from collections import Counter
@@ -55,6 +56,11 @@ significant_clip_threshold = 100
 significant_clip_snv_take_in = 250
 
 
+# property getters
+cn_getter = operator.itemgetter("cn")
+weight_getter = operator.itemgetter("w")
+
+
 def calculate_seq_with_wildcards(qs: str, quals: Optional[list[int]]) -> str:
     if quals is None:
         return qs  # No quality information, so don't do anything
@@ -79,7 +85,7 @@ def get_read_coords_from_matched_pairs(
 
     # Skip gaps on either side to find mapped flank indices
 
-    # Binary search for left flank start
+    # Binary search for left flank start -------------------------------------------------------------------------------
     lhs, found = find_pair_by_ref_pos(matched_pairs, left_flank_coord)
 
     # lhs now contains the index for the closest starting coordinate to left_flank_coord
@@ -94,6 +100,7 @@ def get_read_coords_from_matched_pairs(
         lhs -= 1
 
     left_flank_start, _ = matched_pairs[lhs]
+    # ------------------------------------------------------------------------------------------------------------------
 
     for query_coord, ref_coord in matched_pairs[lhs+1:]:
         # Skip gaps on either side to find mapped flank indices
@@ -216,7 +223,7 @@ def calculate_read_distance(
         r1 = read_dict_items[i][1]
         r1_snv_u = r1["snvu"]
 
-        r1_out_of_range: set[int] = {y for y in useful_snvs_range if r1_snv_u[y] == SNV_OUT_OF_RANGE_CHAR}
+        r1_out_of_range: set[int] = set(filter(lambda y: r1_snv_u[y] == SNV_OUT_OF_RANGE_CHAR, useful_snvs_range))
 
         for j in range(i + 1, n_reads):
             r2 = read_dict_items[j][1]
@@ -359,11 +366,13 @@ def call_alleles_with_incorporated_snvs(
             continue
 
         read_useful_snv_bases = tuple(snv_bases[bi] for bi, _pos in useful_snvs)
-        non_blank_read_useful_snv_bases = [bb for bb in read_useful_snv_bases if bb != SNV_OUT_OF_RANGE_CHAR]
+        n_non_blank_read_useful_snv_bases = len(
+            tuple(filter(lambda bb: bb != SNV_OUT_OF_RANGE_CHAR, read_useful_snv_bases))
+        )
 
-        if nbr := len(non_blank_read_useful_snv_bases):  # TODO: parametrize
+        if n_non_blank_read_useful_snv_bases:  # TODO: parametrize
             read_dict_items_with_at_least_one_snv.append(read_item)
-            if nbr >= 2:  # TODO: parametrize
+            if n_non_blank_read_useful_snv_bases >= 2:  # TODO: parametrize
                 read_dict_items_with_many_snvs.append(read_item)
         else:
             read_dict_items_with_no_snvs.append(read_item)
@@ -371,7 +380,7 @@ def call_alleles_with_incorporated_snvs(
         read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
 
         if print_snvs:
-            print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), nbr)
+            print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), n_non_blank_read_useful_snv_bases)
 
     n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
     n_reads_with_at_least_one_snv: int = len(read_dict_items_with_at_least_one_snv)
@@ -424,25 +433,23 @@ def call_alleles_with_incorporated_snvs(
     cluster_labels = c.labels_
     cluster_indices = tuple(range(n_alleles))
 
-    cluster_reads: list[list[ReadDict]] = []
+    cluster_reads: list[tuple[ReadDict, ...]] = []
     cns: Union[list[list[int]], list[list[float]]] = []
     c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
 
     for ci in cluster_indices:
-        crs: list[ReadDict] = []
-
         # Find reads for cluster
-        for i, (_, r) in enumerate(read_dict_items_with_at_least_one_snv):
-            if cluster_labels[i] == ci:
-                crs.append(r)
+        crs: tuple[ReadDict, ...] = tuple(
+            r for i, (_, r) in enumerate(read_dict_items_with_at_least_one_snv)
+            if cluster_labels[i] == ci
+        )
 
         # Calculate copy number set
-        cns.append([r["cn"] for r in crs])
+        cns.append(list(map(cn_getter, crs)))
 
         # Calculate weights array
-        ws = np.fromiter((r["w"] for r in crs), dtype=np.float_)
-        ws = ws / np.sum(ws)
-        c_ws.append(ws)
+        ws = np.fromiter(map(weight_getter, crs), dtype=np.float_)
+        c_ws.append(ws / np.sum(ws))
 
         cluster_reads.append(crs)
 
@@ -501,9 +508,7 @@ def call_alleles_with_incorporated_snvs(
         for rd in cluster_reads_ordered[i]:
             rd["p"] = i
 
-    # Make peak weights sum to 1
-    peak_weights = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
-    peak_weights /= np.sum(peak_weights)
+    peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
 
     # All call_datas are truth-y; all arrays should be ordered by peak_order
     call_data = {
@@ -513,7 +518,8 @@ def call_alleles_with_incorporated_snvs(
         "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd_ordered), axis=None),
 
         # TODO: Readjust peak weights when combining or don't include
-        "peak_weights": peak_weights,
+        # Make peak weights sum to 1
+        "peak_weights": peak_weights_pre_adj / np.sum(peak_weights_pre_adj),
 
         "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd_ordered), axis=0),
         "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
@@ -960,9 +966,9 @@ def call_locus(
     if single_or_dist_assign:  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
         # Dicts are ordered in Python; very nice :)
         rdvs = tuple(read_dict.values())
-        rcns = tuple(map(lambda rr: rr["cn"], rdvs))
+        rcns = tuple(map(cn_getter, rdvs))
         read_cns = np.fromiter(rcns, dtype=np.float_ if fractional else np.int_)
-        read_weights = np.fromiter(map(lambda rr: rr["w"], rdvs), dtype=np.float_)
+        read_weights = np.fromiter(map(weight_getter, rdvs), dtype=np.float_)
         read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
         call_data = call_alleles(
@@ -1005,9 +1011,7 @@ def call_locus(
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
         weights: NDArray[np.float_] = call_weights[:call_modal_n]
 
-        allele_reads: list[list[str]] = []
-        for _ in range(call_modal_n):
-            allele_reads.append([])
+        allele_reads: list[list[str]] = [list() for _ in range(call_modal_n)]
 
         for r, rd in read_dict_items:
             # Need latter term for peaks that we overwrite if we revert to "dist" assignment:
@@ -1053,7 +1057,7 @@ def call_locus(
         "stdevs": call_stdevs.tolist(),  # from np.ndarray
         "modal_n": call_modal_n,
         "n_reads": call_peak_n_reads,
-        **({"kmers": [dict(c) for c in peak_kmers]} if count_kmers in ("peak", "both") else {}),
+        **({"kmers": list(map(dict, peak_kmers))} if count_kmers in ("peak", "both") else {}),
     } if call_data else None
 
     # Calculate call time ----------------------------------------------------------------------------------------------
@@ -1066,11 +1070,15 @@ def call_locus(
 
     # Finally, compile the call into a dictionary with all information to return ---------------------------------------
 
-    def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int_, np.float_]]:
-        return [(round(y) if not fractional else round_to_base_pos(y, motif_size)) for y in x]
+    if fractional:
+        def _ndarray_serialize(x: Iterable) -> list[Union[float, np.float_]]:
+            return [round_to_base_pos(y, motif_size) for y in x]
+    else:
+        def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int_, np.float_]]:
+            return list(map(round, x))
 
     def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, float, np.int_, np.float_]]]:
-        return [_ndarray_serialize(y) for y in x]
+        return list(map(_ndarray_serialize, x))
 
     call_val = apply_or_none(_ndarray_serialize, call)
     call_95_cis_val = apply_or_none(_nested_ndarray_serialize, call_95_cis)
