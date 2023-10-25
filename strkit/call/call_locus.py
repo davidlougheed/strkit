@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import itertools
 import logging
 import multiprocessing as mp
@@ -56,15 +57,21 @@ significant_clip_threshold = 100
 significant_clip_snv_take_in = 250
 
 
-# property getters
+# property getters & other partials
 cn_getter = operator.itemgetter("cn")
 weight_getter = operator.itemgetter("w")
+cat_strs = "".join
+
+
+@functools.cache
+def _mask_low_q_base(base_and_qual: tuple[str, int]) -> str:
+    return base_and_qual[0] if base_and_qual[1] > base_wildcard_threshold else "X"
 
 
 def calculate_seq_with_wildcards(qs: str, quals: Optional[list[int]]) -> str:
     if quals is None:
         return qs  # No quality information, so don't do anything
-    return "".join(map(lambda x: x[0] if x[1] > base_wildcard_threshold else "X", zip(qs, quals)))
+    return cat_strs(map(_mask_low_q_base, zip(qs, quals)))
 
 
 def get_read_coords_from_matched_pairs(
