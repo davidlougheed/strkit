@@ -486,11 +486,13 @@ class MIResult:
             self._logger.warning("Cannot correct for multiple testing when test is not enabled")
             return
 
-        loci = [locus for cr in self.contig_results for locus in cr]
         p_values = [locus.p_value for cr in self.contig_results for locus in cr]
         not_tested = {i for i, p in enumerate(p_values) if p is None}
 
-        loci_filt = [locus for i, locus in enumerate(loci) if i not in not_tested]
+        loci_filt = [
+            locus for i, locus in enumerate(locus for cr in self.contig_results for locus in cr)
+            if i not in not_tested
+        ]
         p_values_filt = np.fromiter((p for i, p in enumerate(p_values) if i not in not_tested), dtype=np.float64)
 
         if (mtm := self._mt_corr) != "none":

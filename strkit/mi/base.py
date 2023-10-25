@@ -13,6 +13,15 @@ __all__ = [
 ]
 
 
+def _line_filter_fn(s: str) -> bool:
+    """
+    Filter function to skip blank lines and comments
+    :param s: line of a file
+    :return: whether the line is not blank and is not a comment
+    """
+    return s and not s.startswith("#")
+
+
 # noinspection PyUnusedLocal
 class BaseCalculator(ABC):
     def __init__(
@@ -80,26 +89,15 @@ class BaseCalculator(ABC):
         with open(self._loci_file, "r") as lf:
             return {
                 tuple(d[:3]): d[3:]
-                for d in (
-                    line.split("\t")
-                    for line in map(lambda x: x.strip(), lf)
-                    if line and not line.startswith("#")
-                )
+                for d in map(lambda line: line.split("\t"), filter(_line_filter_fn, map(str.strip, lf)))
             }
 
-    def _make_exclude_set(self) -> set:
+    def _make_exclude_set(self) -> set[tuple[str, str, str]]:
         if not self._exclude_file:
             return set()
 
         with open(self._exclude_file, "r") as lf:
-            return {
-                tuple(d[:3])
-                for d in (
-                    line.split("\t")
-                    for line in map(lambda x: x.strip(), lf)
-                    if line and not line.startswith("#")
-                )
-            }
+            return set(map(lambda line: tuple(line.split("\t")[:3]), filter(_line_filter_fn, map(str.strip, lf))))
 
     def should_exclude_locus(self, locus: tuple[str, str, str]) -> bool:
         return locus in self._exclude_set
