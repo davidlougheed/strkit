@@ -387,7 +387,7 @@ def call_alleles_with_incorporated_snvs(
         read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
 
         if print_snvs:
-            print(rn, f"\t{read['cn']:.0f}", "\t", "".join(read_useful_snv_bases), n_non_blank_read_useful_snv_bases)
+            print(rn, f"\t{read['cn']:.0f}", "\t", cat_strs(read_useful_snv_bases), n_non_blank_read_useful_snv_bases)
 
     n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
     n_reads_with_at_least_one_snv: int = len(read_dict_items_with_at_least_one_snv)
@@ -917,7 +917,8 @@ def call_locus(
     # reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
     have_rare_realigns: bool = False
     for rn, read in read_dict_items:
-        n_same_cn_no_realign = sum(1 for _, r2 in read_dict_items if not r2.get("realn") and r2["cn"] == read["cn"])
+        read_cn = read["cn"]
+        n_same_cn_no_realign = sum(1 for _, r2 in read_dict_items if not r2.get("realn") and r2["cn"] == read_cn)
         if read.get("realn") and n_same_cn_no_realign == 0:
             have_rare_realigns = True
             break
