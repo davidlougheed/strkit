@@ -147,8 +147,8 @@ class BaseCalculator(ABC):
             value, value_pm1, value_95_ci, value_99_ci = r
             res += value
             res_pm1 += value_pm1
-            res_95_ci = None if value_95_ci is None else (res_95_ci + value_95_ci)
-            res_99_ci = None if value_99_ci is None else (res_99_ci + value_99_ci)
+            res_95_ci = None if value_95_ci is None else ((res_95_ci or 0) + value_95_ci)
+            res_99_ci = None if value_99_ci is None else ((res_99_ci or 0) + value_99_ci)
             n_total += len(contig_result)
             output_loci.extend(nm)
 
