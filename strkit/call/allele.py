@@ -260,6 +260,13 @@ def call_alleles(
 
     gmm_cache = {}
 
+    def _get_fitted_gmm(s: NDArray[np.int_] | NDArray[np.float_]) -> Optional[object]:
+        if (s_t := tuple(s)) not in gmm_cache:
+            # Fit Gaussian mixture model to the resampled data
+            gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, hq, gm_filter_factor)
+
+        return gmm_cache[s_t]
+
     # Filter out peaks that aren't supported by ~min_allele_reads reads by probability, with some delta to
     # allow for peaks supported by "most of a read".
     allele_filter = (min_allele_reads - 0.1) / concat_samples.shape[0]
@@ -267,11 +274,7 @@ def call_alleles(
     for i in range(bootstrap_iterations):
         sample = concat_samples[i, :]
 
-        if (sample_t := tuple(sample)) not in gmm_cache:
-            # Fit Gaussian mixture model to the resampled data
-            gmm_cache[sample_t] = fit_gmm(rng, sample, n_alleles, allele_filter, hq, gm_filter_factor)
-
-        g: Optional[object] = gmm_cache[sample_t]
+        g: Optional[object] = _get_fitted_gmm(sample)
         if not g:
             # Could not fit any Gaussian mixture; skip this allele
             return None
