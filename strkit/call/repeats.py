@@ -25,7 +25,6 @@ def score_candidate_with_string(
     tr_candidate: str,
     flank_left_seq: str,
     flank_right_seq: str,
-    **_kwargs,
 ) -> int:
     # TODO: sub-flank again, to avoid more errors in flanking region contributing to score?
     # Always assign parasail results to variables due to funky memory allocation behaviour
