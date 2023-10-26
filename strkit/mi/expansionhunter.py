@@ -12,19 +12,19 @@ from ..utils import parse_cis
 __all__ = ["ExpansionHunterCalculator"]
 
 
-def _unzip_gt(vals) -> tuple[tuple[Union[int, float, None], ...], tuple[Union[int, float, None], ...]]:
-    try:
-        return (vals[0][0], vals[1][0]), parse_cis((vals[0][1], vals[1][1]))
-    except ValueError:
-        return (None, None), (None, None)
-
-
 def _parse_allele(a: int | str | None) -> int | None:
     if isinstance(a, str):
         if a == ".":
             return None
         return int(a)
     return a
+
+
+def _unzip_gt(vals) -> tuple[tuple[Union[int, float, None], ...], tuple[Union[int, float, None], ...]]:
+    try:
+        return (_parse_allele(vals[0][0]), _parse_allele(vals[1][0])), parse_cis((vals[0][1], vals[1][1]))
+    except ValueError:
+        return (None, None), (None, None)
 
 
 class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
@@ -72,12 +72,9 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
             ms = mv.samples[self._mother_id or 0]
             fs = fv.samples[self._father_id or 0]
 
-            cs_reps = tuple(
-                sorted(zip(map(_parse_allele, cs["REPCN"].split("/")), cs["REPCI"].split("/")), key=lambda x: x[0]))
-            ms_reps = tuple(
-                sorted(zip(map(_parse_allele, ms["REPCN"].split("/")), ms["REPCI"].split("/")), key=lambda x: x[0]))
-            fs_reps = tuple(
-                sorted(zip(map(_parse_allele, fs["REPCN"].split("/")), fs["REPCI"].split("/")), key=lambda x: x[0]))
+            cs_reps = tuple(sorted(zip(cs["REPCN"].split("/"), cs["REPCI"].split("/")), key=lambda x: x[0]))
+            ms_reps = tuple(sorted(zip(ms["REPCN"].split("/"), ms["REPCI"].split("/")), key=lambda x: x[0]))
+            fs_reps = tuple(sorted(zip(fs["REPCN"].split("/"), fs["REPCI"].split("/")), key=lambda x: x[0]))
 
             c_gt, c_gt_95_ci = _unzip_gt(cs_reps)
             m_gt, m_gt_95_ci = _unzip_gt(ms_reps)
