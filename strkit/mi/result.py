@@ -667,7 +667,7 @@ class MIResult:
 
         for i in range(len(bins)):
             vsb = vals_strict_by_bin[i]
-            vpm1b = vals_strict_by_bin[i]
+            vpm1b = vals_pm1_by_bin[i]
             v95b = vals_95_ci_by_bin[i] if vals_95_ci_by_bin else None
             v99b = vals_99_ci_by_bin[i] if vals_95_ci_by_bin else None
 
