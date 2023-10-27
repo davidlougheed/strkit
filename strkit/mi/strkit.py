@@ -119,20 +119,26 @@ class StrKitCalculator(BaseCalculator):
 
 
 class StrKitJSONCalculator(BaseCalculator):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        with open(self._mother_call_file, "r") as mvf:
+            self._cache["mother_data"] = json.loads(mvf.read())
+        with open(self._father_call_file, "r") as fvf:
+            self._cache["father_data"] = json.loads(fvf.read())
+        with open(self._child_call_file, "r") as cvf:
+            self._cache["child_data"] = json.loads(cvf.read())
+
     @staticmethod
-    def get_contigs_from_fh(fh) -> set:
-        report = json.loads(fh.read())
+    def get_contigs_from_data(report) -> set:
         if (report_contigs := report.get("contigs")) is not None:
             return set(report_contigs)
         return {res["contig"] for res in report["results"]}
 
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
-        with open(self._mother_call_file, "r") as mvf:
-            mc = self.get_contigs_from_fh(mvf)
-        with open(self._father_call_file, "r") as fvf:
-            fc = self.get_contigs_from_fh(fvf)
-        with open(self._child_call_file, "r") as cvf:
-            cc = self.get_contigs_from_fh(cvf)
+        mc = self.get_contigs_from_data(self._cache["mother_data"])
+        fc = self.get_contigs_from_data(self._cache["father_data"])
+        cc = self.get_contigs_from_data(self._cache["child_data"])
         return mc, fc, cc
 
     @staticmethod
@@ -182,8 +188,7 @@ class StrKitJSONCalculator(BaseCalculator):
         }
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        with open(self._child_call_file, "r") as ch:
-            c_report = json.loads(ch.read())
+        c_report = self._cache["child_data"]
 
         fractional = c_report["parameters"]["fractional"]
 
@@ -192,14 +197,10 @@ class StrKitJSONCalculator(BaseCalculator):
 
         cr = MIContigResult(includes_95_ci=True)
 
-        with open(self._mother_call_file) as mh:
-            mother_data = self.make_calls_dict(json.loads(mh.read()), contig)
-
+        mother_data = self.make_calls_dict(self._cache["mother_data"], contig)
         logger.debug(f"loaded materal calls for {contig}")
 
-        with open(self._father_call_file) as fh:
-            father_data = self.make_calls_dict(json.loads(fh.read()), contig)
-
+        father_data = self.make_calls_dict(self._cache["father_data"], contig)
         logger.debug(f"loaded paternal calls for {contig}")
 
         for res in c_report["results"]:

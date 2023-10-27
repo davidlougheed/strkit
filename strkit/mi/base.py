@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from strkit.logger import logger as logger_
 from .result import MIContigResult, MIResult
@@ -69,6 +69,8 @@ class BaseCalculator(ABC):
 
         self._debug: bool = debug
         self._logger: logging.Logger = logger
+
+        self._cache: dict[str, Any] = {}
 
     @property
     def test_to_perform(self) -> str:
