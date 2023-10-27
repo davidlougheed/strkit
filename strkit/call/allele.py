@@ -145,8 +145,8 @@ def fit_gmm(
 
 class CallDict(TypedDict):
     call: Union[NDArray[np.int32], NDArray[np.float_]]
-    call_95_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float_]]]
-    call_99_cis: Union[NDArray[NDArray[np.int32]], NDArray[NDArray[np.float_]]]
+    call_95_cis: Union[NDArray[np.int32], NDArray[np.float_]]  # 2D arrays
+    call_99_cis: Union[NDArray[np.int32], NDArray[np.float_]]  # 2D arrays
     peaks: NDArray[np.float_]
     peak_weights: NDArray[np.float_]
     peak_stdevs: NDArray[np.float_]
@@ -203,11 +203,13 @@ def call_alleles(
         call = np.array([cn] * n_alleles)
         call_cis = np.array([[cn, cn] for _ in range(n_alleles)])
 
+        peaks: NDArray[np.float_] = np.array([cn] * n_alleles, dtype=np.float_)
+
         return {
             "call": _array_as_int(call) if force_int else call,
             "call_95_cis": _array_as_int(call_cis) if force_int else call,
             "call_99_cis": _array_as_int(call_cis) if force_int else call,
-            "peaks": np.array([cn] * n_alleles, dtype=np.float_),
+            "peaks": peaks,
             "peak_weights": np.array([1.0] * n_alleles) / n_alleles,
             "peak_stdevs": np.array([0.0] * n_alleles),
             "modal_n_peaks": 1,  # 1 peak, since we have 1 value
