@@ -237,6 +237,10 @@ def call_sample(
 
     sample_id_final: Optional[str] = sample_id or bam_sample_id
 
+    logger.info(
+        f"Starting STR genotyping; sample={sample_id_final}, hq={hq}, targeted={targeted}, SNVs={snv_vcf is not None}; "
+        f"seed={seed}")
+
     # Seed the random number generator if a seed is provided, for replicability
     rng: np.random.Generator = np.random.default_rng(seed=seed)
 
