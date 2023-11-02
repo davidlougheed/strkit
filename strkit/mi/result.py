@@ -212,8 +212,12 @@ class MILocusData:
         ))
 
     def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen: float) -> Optional[bool]:
-        if any(x is None for x in (c_gt_ci, m_gt_ci, f_gt_ci)):
-            return None
+        for x in (c_gt_ci, m_gt_ci, f_gt_ci):
+            if x is None:
+                return None
+            for y in x:
+                if y is None:
+                    return None
 
         try:
             m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * widen))
