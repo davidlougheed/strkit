@@ -90,6 +90,8 @@ long read data should still work.
   * Whole-genome and targeted genotyping modes to adjust this re-weighting.
 * Incorporation of single-nucleotide variation (SNVs) for better and faster calling plus 
   additional downstream analysis possibilities.
+  * Recommended for **HiFi data only**. In my testing, this worsens runtime and call quality for 
+    ONT-UL data, but speeds up the tool and improves call quality for HiFi data. 
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
@@ -103,7 +105,7 @@ strkit call \
   --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) list of loci to genotype
-  --incorporate-snvs path/to/dbsnp.vcf.gz \   # If you want SNV calls to help phase STRs & speed up STRkit, include this
+  --incorporate-snvs path/to/dbsnp.vcf.gz \   # [RECOMMENDED FOR HIFI ONLY] If you want SNV calls to help phase STRs & speed up calling
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
