@@ -18,9 +18,9 @@ class TandemGenotypesCalculator(BaseCalculator):
     @staticmethod
     def make_calls_dict(ph, contig):
         return {
-            tuple(line[:4]): int_tuple(line[6:8]) if "." not in line[6:8] else (None, None)
+            tuple(line[:4]): int_tuple(line[6:8])
             for line in (pv.strip().split("\t") for pv in ph if not pv.startswith("#"))
-            if line[0] == contig
+            if line[0] == contig and "." not in line[6:8]
         }
 
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
