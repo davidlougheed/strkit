@@ -222,15 +222,15 @@ class MILocusData:
         try:
             m_gt_ci_0 = (m_gt_ci[0][0] - (m_gt_ci[0][0] * widen), m_gt_ci[0][1] + (m_gt_ci[0][1] * widen))
             m_gt_ci_1 = (m_gt_ci[1][0] - (m_gt_ci[1][0] * widen), m_gt_ci[1][1] + (m_gt_ci[1][1] * widen))
-        except IndexError:
-            self._logger.error(f"Encountered invalid maternal confidence intervals: {m_gt_ci}")
+        except (IndexError, TypeError) as e:
+            self._logger.error(f"Encountered invalid maternal confidence intervals: {m_gt_ci} ({e})")
             return None
 
         try:
             f_gt_ci_0 = (f_gt_ci[0][0] - (f_gt_ci[0][0] * widen), f_gt_ci[0][1] + (f_gt_ci[0][1] * widen))
             f_gt_ci_1 = (f_gt_ci[1][0] - (f_gt_ci[1][0] * widen), f_gt_ci[1][1] + (f_gt_ci[1][1] * widen))
-        except IndexError:
-            self._logger.error(f"Encountered invalid paternal confidence intervals: {f_gt_ci}")
+        except (IndexError, TypeError) as e:
+            self._logger.error(f"Encountered invalid paternal confidence intervals: {f_gt_ci} ({e})")
             return None
 
         try:
@@ -247,8 +247,8 @@ class MILocusData:
                 (cis_overlap(c_gt_ci[1], m_gt_ci_1) and cis_overlap(c_gt_ci[0], f_gt_ci_0)),
                 (cis_overlap(c_gt_ci[1], m_gt_ci_1) and cis_overlap(c_gt_ci[0], f_gt_ci_1)),
             ))
-        except IndexError:
-            self._logger.error(f"Encountered invalid child confidence intervals: {c_gt_ci}")
+        except (IndexError, TypeError) as e:
+            self._logger.error(f"Encountered invalid child confidence intervals: {c_gt_ci} ({e})")
             return None
 
     def respects_mi(self, widen: Optional[float] = None) -> tuple[bool, bool, Optional[bool], Optional[bool]]:
