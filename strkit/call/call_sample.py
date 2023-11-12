@@ -20,7 +20,7 @@ from strkit.logger import logger
 
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
-from .output import output_json_report, output_tsv as output_tsv_fn
+from .output import output_json_report, output_tsv as output_tsv_fn, output_vcf
 from .utils import get_new_seed
 
 __all__ = [
@@ -199,6 +199,7 @@ def call_sample(
     count_kmers: str = "none",  # "none" | "peak" | "read"
     log_level: int = logging.WARNING,
     json_path: Optional[str] = None,
+    vcf_path: Optional[str] = None,
     indent_json: bool = False,
     output_tsv: bool = True,
     processes: int = 1,
@@ -322,3 +323,6 @@ def call_sample(
             json_path,
             indent_json,
         )
+
+    if vcf_path:
+        output_vcf(sample_id_final, reference_file, results, vcf_path)

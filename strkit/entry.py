@@ -153,6 +153,14 @@ def add_call_parser_args(call_parser):
              "less compact.")
     # End JSON output arguments ----------------------------------------------------------------------------------------
 
+    # Begin VCF output arguments ---------------------------------------------------------------------------------------
+    call_parser.add_argument(
+        "--vcf",
+        type=str,
+        help="Path to write VCF-formatted calls to. STR alleles are currently formatted symbolically rather than as "
+             "consensus sequences.")
+    # End VCF output arguments -----------------------------------------------------------------------------------------
+
     call_parser.add_argument(
         "--no-tsv",
         action="store_true",
@@ -360,6 +368,7 @@ def _exec_call(p_args) -> None:
         log_level=log_levels[p_args.log_level],
         json_path=p_args.json,
         indent_json=p_args.indent_json,
+        vcf_path=p_args.vcf,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,
         seed=p_args.seed,
