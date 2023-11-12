@@ -137,6 +137,9 @@ def add_call_parser_args(call_parser):
         help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
              "be genotyped.")
 
+    # BEGIN FILE OUTPUT ARGUMENTS ======================================================================================
+
+    # Begin JSON output arguments --------------------------------------------------------------------------------------
     call_parser.add_argument(
         "--json", "-j",
         type=str,
@@ -148,11 +151,14 @@ def add_call_parser_args(call_parser):
         action="store_true",
         help="If passed alongside --json [x], the JSON output will be indented to be more human readable but "
              "less compact.")
+    # End JSON output arguments ----------------------------------------------------------------------------------------
 
     call_parser.add_argument(
         "--no-tsv",
         action="store_true",
         help="If passed, no TSV call output will be written to stdout.")
+
+    # END FILE OUTPUT ARGUMENTS ========================================================================================
 
     call_parser.add_argument(
         "--seed",
