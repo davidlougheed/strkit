@@ -1,5 +1,6 @@
 import sys
 from datetime import timedelta
+from typing import Optional
 
 from strkit import __version__
 from strkit.json import dumps_indented, json
@@ -8,7 +9,7 @@ __all__ = ["output_json_report"]
 
 
 def output_json_report(
-    sample_id: str,
+    sample_id: Optional[str],
     job_params: dict,
     processes: int,
     time_taken: timedelta,
