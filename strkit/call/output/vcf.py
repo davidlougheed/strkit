@@ -96,7 +96,7 @@ def output_vcf(
             end = result["end_adj"]
             call = result["call"]
 
-            ref_cn = result["ref_cn"]
+            # ref_cn = result["ref_cn"]
             ref_seq = result["ref_seq"].lower()
 
             seqs = tuple(map(str.lower, (result["peaks"] or {}).get("seqs", ())))
@@ -105,7 +105,7 @@ def output_vcf(
             seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
 
             # cn_alleles = (ref_cn, *cn_alts) if call is not None else (".",)
-            seq_alleles = (ref_seq, *seq_alts) if call is not None else (".",)
+            seq_alleles = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
 
             vr: pysam.VariantRecord = vf.new_record(
                 contig=contig,

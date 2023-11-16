@@ -9,7 +9,7 @@ __all__ = [
 
 GAP_ORD = ord("-")
 
-aligner = pyfamsa.Aligner(guide_tree="upgma")
+aligner = pyfamsa.Aligner(threads=1, guide_tree="upgma", keep_duplicates=True)
 join_str = "".join
 
 
