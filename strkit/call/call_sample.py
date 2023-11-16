@@ -53,6 +53,7 @@ def locus_worker(
     fractional: bool,
     respect_ref: bool,
     count_kmers: str,
+    consensus: bool,
     log_level: int,
     locus_queue: mp.Queue,
     is_single_processed: bool,
@@ -120,6 +121,7 @@ def locus_worker(
             fractional=fractional,
             respect_ref=respect_ref,
             count_kmers=count_kmers,
+            consensus=consensus,
             log_level=log_level,
             read_file_has_chr=read_file_has_chr,
             ref_file_has_chr=ref_file_has_chr,
@@ -197,6 +199,7 @@ def call_sample(
     fractional: bool = False,
     respect_ref: bool = False,
     count_kmers: str = "none",  # "none" | "peak" | "read"
+    consensus: bool = False,
     log_level: int = logging.WARNING,
     json_path: Optional[str] = None,
     vcf_path: Optional[str] = None,
@@ -277,6 +280,7 @@ def call_sample(
         "fractional": fractional,
         "respect_ref": respect_ref,
         "count_kmers": count_kmers,
+        "consensus": consensus,
         "log_level": log_level,
     }
 

@@ -91,21 +91,41 @@ def output_vcf(
                 # we moved on from the last contig, so write the last batch of variant records to the VCF
                 _write_contig_vrs()
 
+            # TODO: fix-up coordinates / note positioning
+            start = result["start_adj"]
+            end = result["end_adj"]
             call = result["call"]
+
             ref_cn = result["ref_cn"]
-            alleles = (ref_cn, *sorted(set(c for c in call if c != ref_cn)))
+            ref_seq = result["ref_seq"].lower()
+
+            seqs = tuple(map(str.lower, (result["peaks"] or {}).get("seqs", ())))
+
+            # cn_alts = sorted(set(c for c in call if c != ref_cn)) if call is not None else ()
+            seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
+
+            # cn_alleles = (ref_cn, *cn_alts) if call is not None else (".",)
+            seq_alleles = (ref_seq, *seq_alts) if call is not None else (".",)
 
             vr: pysam.VariantRecord = vf.new_record(
                 contig=contig,
-                # TODO: fix-up coordinates / note positioning
-                start=result["start_adj"],
-                stop=result["end_adj"],
-                alleles=tuple([VCF_ALLELE_CNV_TR] * len(alleles)) if call is not None else (".",),
+                start=start,
+                stop=end,
+                alleles=seq_alleles,
             )
+
+            # TODO: right now we only call one repeat in one allele and use the canonical motif sequence, even though
+            #  there may be multiple motifs present.
+            # motif = result["motif"]
+            # vr.info["SVLEN"] = math.ceil(end - start)
+            # vr.info["CN"] = tuple(a / ref_cn for a in alts) if ref_cn else tuple([1] * len(alts))
+            # vr.info["RN"] = tuple([1] * len(alts))
+            # vr.info["RUS"] = tuple([motif] * len(alts))
+            # vr.info["RUL"] = tuple([len(motif)] * len(alts))
 
             # TODO: set up tandem repeat info fields
 
-            vr.samples[sample_id_str]["GT"] = tuple(map(alleles.index, call)) if call is not None else (".",)
+            vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles.index, seqs)) if seqs else (".",)
 
             if snvs := result.get("snvs"):  # If we have >= 1 SNV for the STR, set the genotype to be phased
                 vr.samples[sample_id_str]["GT"].phased = True
