@@ -18,6 +18,9 @@ def _not_gap(x: int) -> bool:
 
 
 def consensus_seq(seqs: Iterable[str]) -> str:
+    # Align all the allele tandem repeat sequences together into a multiple sequence alignment
     msa = aligner.align(pyfamsa.Sequence(f"s{i}".encode("ascii"), seq.encode("ascii")) for i, seq in enumerate(seqs))
+    # Turn the MSA into a numpy matrix as setup for calculating the modal value at each position
     msa_grid = np.array(list(map(lambda aseq: list(map(int, aseq.sequence)), msa)))
+    # Return a stringified, gapless version of the column-wise mode for the MSA
     return join_str(map(chr, filter(_not_gap, getattr(mode(msa_grid), "mode", ()))))
