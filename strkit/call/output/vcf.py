@@ -84,7 +84,9 @@ def output_vcf(
     try:
         last_contig = results[0]["contig"] if results else ""
 
-        for result_idx, result in enumerate(results):
+        has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
+
+        for result_idx, result in enumerate(results, 1):
             contig = result["contig"]
 
             if contig != last_contig:
@@ -127,32 +129,35 @@ def output_vcf(
 
             vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles.index, seqs)) if seqs else (".",)
 
-            if snvs := result.get("snvs"):  # If we have >= 1 SNV for the STR, set the genotype to be phased
-                vr.samples[sample_id_str]["GT"].phased = True
-                vr.samples[sample_id_str]["PS"] = result_idx
+            if has_at_least_one_snv_set:
+                vr.samples[sample_id_str].phased = True
+                vr.samples[sample_id_str]["PS"] = str(result_idx)
 
-                for snv in snvs:
-                    ref = snv["ref"]
-                    snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
-                    snv_gt_lookup = (ref, *snv_alts)
+            for snv in result.get("snvs", ()):
+                print(snv)
 
-                    snv_vr = vf.new_record(
-                        contig=contig,
-                        id=snv["id"],
-                        # TODO: fix-up coordinates
-                        start=snv["pos"],
-                        stop=snv["pos"] + 1,
-                        ref="G",
-                        alts=snv_alts,
-                    )
+                ref = snv["ref"]
+                snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
+                snv_alleles = (ref, *snv_alts)
 
-                    # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
+                snv_vr = vf.new_record(
+                    contig=contig,
+                    id=snv["id"],
+                    # TODO: fix-up coordinates
+                    start=snv["pos"],
+                    stop=snv["pos"] + 1,
+                    alleles=snv_alleles,
+                )
 
-                    snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_gt_lookup.index, snv["call"]))
-                    snv_vr.samples[sample_id_str]["GT"].phased = True
-                    snv_vr.samples[sample_id_str]["PS"] = result_idx
+                # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
 
-                    contig_vrs.append(snv_vr)
+                snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
+                # snv_vr.samples[sample_id_str].phased = True
+                snv_vr.samples[sample_id_str]["PS"] = str(result_idx)
+
+                contig_vrs.append(snv_vr)
+
+                # TODO: now is the time to figure out phasing SNVs across different TRs
 
             contig_vrs.append(vr)
 
