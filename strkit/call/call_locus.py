@@ -851,7 +851,7 @@ def call_locus(
         read_dict_extra[rn] = {
             "_ref_start": segment_start,
             "_ref_end": segment_end,
-            "_tr_seq": tr_read_seq,
+            **({"_tr_seq": tr_read_seq} if consensus else {}),
         }
 
         # Reads can show up more than once - TODO - cache this information across loci
@@ -1069,6 +1069,7 @@ def call_locus(
             call_seqs = list(
                 map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
             )
+            print(call_seqs)
 
     peak_data = {
         "means": call_peaks.tolist(),  # from np.ndarray
