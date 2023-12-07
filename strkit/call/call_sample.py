@@ -18,6 +18,7 @@ from pysam import AlignmentFile
 from typing import Literal, Optional
 from strkit.logger import logger
 
+from .allele import get_n_alleles
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
 from .output import output_json_report, output_tsv as output_tsv_fn, output_vcf
@@ -44,7 +45,6 @@ def locus_worker(
     num_bootstrap: int,
     flank_size: int,
     sample_id: Optional[str],
-    sex_chroms: Optional[str],
     realign: bool,
     hq: bool,
     # incorporate_snvs: bool,
@@ -99,9 +99,9 @@ def locus_worker(
         if td is None:  # Kill signal
             break
 
-        t_idx, t, locus_seed = td
+        t_idx, t, n_alleles, locus_seed = td
         res = call_locus(
-            t_idx, t, bfs, ref,
+            t_idx, t, n_alleles, bfs, ref,
             min_reads=min_reads,
             min_allele_reads=min_allele_reads,
             min_avg_phred=min_avg_phred,
@@ -110,7 +110,6 @@ def locus_worker(
             seed=locus_seed,
             logger_=lg,
             sample_id=sample_id,
-            sex_chroms=sex_chroms,
             realign=realign,
             hq=hq,
             # incorporate_snvs=incorporate_snvs,
@@ -249,11 +248,17 @@ def call_sample(
     # Keep track of all contigs we are processing to speed up downstream Mendelian inheritance analysis.
     contig_set: set[str] = set()
     for t_idx, t in enumerate(parse_loci_bed(loci_file), 1):
+        contig = t[0]
+
+        n_alleles: Optional[int] = get_n_alleles(2, sex_chroms, contig)
+        if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
+            continue  # --> skip the locus
+
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
-        locus_queue.put((t_idx, t, get_new_seed(rng)))
-        contig_set.add(t[0])
+        locus_queue.put((t_idx, t, n_alleles, get_new_seed(rng)))
+        contig_set.add(contig)
         num_loci += 1
 
     # At the end of the queue, add a None value (* the # of processes).
@@ -271,7 +276,6 @@ def call_sample(
         "num_bootstrap": num_bootstrap,
         "flank_size": flank_size,
         "sample_id": sample_id_final,
-        "sex_chroms": sex_chroms,
         "realign": realign,
         "hq": hq,
         # "incorporate_snvs": incorporate_snvs,

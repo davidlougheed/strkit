@@ -18,7 +18,7 @@ from sklearn.cluster import AgglomerativeClustering
 from numpy.typing import NDArray
 from typing import Iterable, Literal, Optional, Union
 
-from strkit.call.allele import CallDict, get_n_alleles, call_alleles
+from strkit.call.allele import CallDict, call_alleles
 from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
@@ -556,6 +556,7 @@ def debug_log_flanking_seq(logger_: logging.Logger, locus_log_str: str, rn: str,
 def call_locus(
     t_idx: int,
     t: tuple,
+    n_alleles: int,
     bfs: tuple[AlignmentFile, ...],
     ref: FastaFile,
     min_reads: int,
@@ -566,7 +567,6 @@ def call_locus(
     seed: int,
     logger_: logging.Logger,
     sample_id: Optional[str] = None,
-    sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
     # incorporate_snvs: bool = False,
@@ -604,10 +604,6 @@ def call_locus(
     ref_right_flank_seq_plus_1: str = ""
     ref_seq: str = ""
     raised: bool = False
-
-    n_alleles: Optional[int] = get_n_alleles(2, sex_chroms, contig)
-    if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
-        return None
 
     # Currently, only support diploid use of SNVs. There's not much of a point with haploid loci,
     # and polyploidy is hard.
