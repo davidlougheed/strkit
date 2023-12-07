@@ -141,7 +141,7 @@ def get_read_coords_from_matched_pairs(
 
 
 def get_overlapping_segments_and_related_data(
-    bfs: tuple[pysam.AlignmentFile],
+    bfs: tuple[pysam.AlignmentFile, ...],
     read_contig: str,
     left_flank_coord: int,
     right_flank_coord: int,
