@@ -1,5 +1,5 @@
 # import pysam
-from typing import Literal, Optional, TypedDict, Union
+from typing import Literal, TypedDict, Union
 
 
 __all__ = [
@@ -34,12 +34,14 @@ class ReadDict(_ReadDictBase, total=False):
 
 
 class ReadDictExtra(TypedDict, total=False):
-    # Below are only added if SNVs are being incorporated:
-
     _ref_start: int  # Read start in ref coordinates
     _ref_end: int  # Read end in ref coordinates
 
-    _qs: str  # Query (read) sequence... only added if SNVs are being incorporated
+    _tr_seq: str  # Tandem repeat sequence... only added if consensus is being calculated
+
+    # Below are only added if SNVs are being incorporated:
+
+    _qs: str  # Query (read) sequence
 
     sig_clip_left: bool  # Significant amounts of clipping (5' of read)
     sig_clip_right: bool  # Significant amounts of clipping (3' of read)

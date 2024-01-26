@@ -39,6 +39,9 @@
   level, with `-k read`, or both with `-k both`. If the flag is provided with no value, it will default to `peak.`
   Note that k-mer counts will only be reported if a `--json` path is specified. This feature can be used to detect
   motif composition differences between alleles or samples. **Default:** `none`
+* `--consensus` or `-c`: Turn on consensus calculation for alleles. This adds runtime, but gives a better idea of STR 
+  structure and is useful for comparing alleles beyond copy number. If `--vcf` is set, this option is forced on. 
+  **Default:** off
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
@@ -46,6 +49,8 @@
   output. **Default:** *none*
 * `--indent-json` or `-i`: If passed alongside `--json [x]`, the JSON output will be indented to be more human-readable
   but less compact. **Default:** off
+* `--vcf [path]`: Path to output VCF-formatted call data to. Setting this option forces the `--consensus` option as 
+  well in order to output true REF/ALT values, which slows down runtime somewhat. **Default:** *none*
 * `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json`, no output will be generated, which isn't very 
   helpful. **Default:** TSV output on
 * `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 

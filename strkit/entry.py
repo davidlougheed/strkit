@@ -93,6 +93,11 @@ def add_call_parser_args(call_parser):
              "more efficient space and processing. This is the default if the flag is passed by itself.")
 
     call_parser.add_argument(
+        "--consensus", "-c",
+        action="store_true",
+        help="Calculate consensus sequences for alleles. This flag increases runtime.")
+
+    call_parser.add_argument(
         "--min-reads",
         type=int,
         default=4,
@@ -137,6 +142,9 @@ def add_call_parser_args(call_parser):
         help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
              "be genotyped.")
 
+    # BEGIN FILE OUTPUT ARGUMENTS ======================================================================================
+
+    # Begin JSON output arguments --------------------------------------------------------------------------------------
     call_parser.add_argument(
         "--json", "-j",
         type=str,
@@ -148,11 +156,22 @@ def add_call_parser_args(call_parser):
         action="store_true",
         help="If passed alongside --json [x], the JSON output will be indented to be more human readable but "
              "less compact.")
+    # End JSON output arguments ----------------------------------------------------------------------------------------
+
+    # Begin VCF output arguments ---------------------------------------------------------------------------------------
+    call_parser.add_argument(
+        "--vcf",
+        type=str,
+        help="Path to write VCF-formatted calls to. STR alleles are currently formatted symbolically rather than as "
+             "consensus sequences.")
+    # End VCF output arguments -----------------------------------------------------------------------------------------
 
     call_parser.add_argument(
         "--no-tsv",
         action="store_true",
         help="If passed, no TSV call output will be written to stdout.")
+
+    # END FILE OUTPUT ARGUMENTS ========================================================================================
 
     call_parser.add_argument(
         "--seed",
@@ -351,9 +370,11 @@ def _exec_call(p_args) -> None:
         fractional=p_args.fractional,
         respect_ref=p_args.respect_ref,
         count_kmers=p_args.count_kmers,
+        consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
         log_level=log_levels[p_args.log_level],
         json_path=p_args.json,
         indent_json=p_args.indent_json,
+        vcf_path=p_args.vcf,
         output_tsv=not p_args.no_tsv,
         processes=p_args.processes,
         seed=p_args.seed,

@@ -17,5 +17,6 @@ __pycache__
 /*.json
 /*.tsv
 *.vcf.gz*
+*.vcf
 
 *.token

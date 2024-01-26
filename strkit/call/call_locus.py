@@ -18,10 +18,11 @@ from sklearn.cluster import AgglomerativeClustering
 from numpy.typing import NDArray
 from typing import Iterable, Literal, Optional, Union
 
-from strkit.call.allele import CallDict, get_n_alleles, call_alleles
+from strkit.call.allele import CallDict, call_alleles
 from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
+from .consensus import consensus_seq
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import (
@@ -109,6 +110,10 @@ def get_read_coords_from_matched_pairs(
     left_flank_start, _ = matched_pairs[lhs]
     # ------------------------------------------------------------------------------------------------------------------
 
+    # Binary search for left flank end ---------------------------------------------------------------------------------
+    # TODO
+    # ------------------------------------------------------------------------------------------------------------------
+
     for query_coord, ref_coord in matched_pairs[lhs+1:]:
         # Skip gaps on either side to find mapped flank indices
         if ref_coord < left_coord:
@@ -136,7 +141,7 @@ def get_read_coords_from_matched_pairs(
 
 
 def get_overlapping_segments_and_related_data(
-    bfs: tuple[pysam.AlignmentFile],
+    bfs: tuple[pysam.AlignmentFile, ...],
     read_contig: str,
     left_flank_coord: int,
     right_flank_coord: int,
@@ -551,6 +556,7 @@ def debug_log_flanking_seq(logger_: logging.Logger, locus_log_str: str, rn: str,
 def call_locus(
     t_idx: int,
     t: tuple,
+    n_alleles: int,
     bfs: tuple[AlignmentFile, ...],
     ref: FastaFile,
     min_reads: int,
@@ -561,7 +567,6 @@ def call_locus(
     seed: int,
     logger_: logging.Logger,
     sample_id: Optional[str] = None,
-    sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
     # incorporate_snvs: bool = False,
@@ -572,6 +577,7 @@ def call_locus(
     fractional: bool = False,
     respect_ref: bool = False,
     count_kmers: str = "none",  # "none" | "peak" | "read"
+    consensus: bool = False,
     log_level: int = logging.WARNING,
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
@@ -598,10 +604,6 @@ def call_locus(
     ref_right_flank_seq_plus_1: str = ""
     ref_seq: str = ""
     raised: bool = False
-
-    n_alleles: Optional[int] = get_n_alleles(2, sex_chroms, contig)
-    if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
-        return None
 
     # Currently, only support diploid use of SNVs. There's not much of a point with haploid loci,
     # and polyploidy is hard.
@@ -799,6 +801,7 @@ def call_locus(
         flank_len: int = len(flank_left_seq) + len(flank_right_seq)
         tr_len_w_flank: int = tr_len + flank_len
 
+        tr_read_seq = qs[left_flank_end:right_flank_start]
         tr_read_seq_wc = calculate_seq_with_wildcards(qs[left_flank_end:right_flank_start], qqs)
 
         if count_kmers != "none":
@@ -848,6 +851,7 @@ def call_locus(
         read_dict_extra[rn] = {
             "_ref_start": segment_start,
             "_ref_end": segment_end,
+            **({"_tr_seq": tr_read_seq} if consensus else {}),
         }
 
         # Reads can show up more than once - TODO - cache this information across loci
@@ -886,6 +890,7 @@ def call_locus(
         }),
         "motif": motif,
         "ref_cn": ref_cn,
+        **({"ref_seq": ref_seq} if consensus else {}),
         "reads": read_dict,
     }
 
@@ -1008,12 +1013,13 @@ def call_locus(
     call_stdevs = call_data.get("peak_stdevs")
     call_modal_n = call_data.get("modal_n_peaks")
 
-    # Assign reads to peaks and compute peak k-mers --------------------------------------------------------------------
+    # Assign reads to peaks and compute peak k-mers (and optionally consensus sequences) -------------------------------
 
     # We cannot call read-level cluster labels with >2 peaks using distance alone;
     # don't know how re-sampling has occurred.
     call_peak_n_reads: list[int] = []
     peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
+    call_seqs: list[str] = []
     if read_peaks_called := call_modal_n and call_modal_n <= 2:
         peaks: NDArray[np.float_] = call_peaks[:call_modal_n]
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
@@ -1059,6 +1065,11 @@ def call_locus(
 
         call_peak_n_reads = list(map(len, allele_reads))
 
+        if consensus:
+            call_seqs = list(
+                map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
+            )
+
     peak_data = {
         "means": call_peaks.tolist(),  # from np.ndarray
         "weights": call_weights.tolist(),  # from np.ndarray
@@ -1066,6 +1077,7 @@ def call_locus(
         "modal_n": call_modal_n,
         "n_reads": call_peak_n_reads,
         **({"kmers": list(map(dict, peak_kmers))} if count_kmers in ("peak", "both") else {}),
+        **({"seqs": call_seqs} if consensus else {}),
     } if call_data else None
 
     # Calculate call time ----------------------------------------------------------------------------------------------

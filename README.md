@@ -109,6 +109,7 @@ strkit call \
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
   --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
+  --consensus \  # If this flag is set, consensus sequences are calculated for alleles. This increases runtime! 
   --seed 183 \  # Fixed random number generator seed for replicability
   --processes 10  # Number of parallel processes to use; DEFAULT: 1
 ```

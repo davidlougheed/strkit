@@ -9,22 +9,19 @@ import pathlib
 import numpy as np
 import os
 import re
-import sys
 import time
 
 from datetime import datetime
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
 from pysam import AlignmentFile
 
-from typing import Literal, Optional, Union
-
-from strkit import __version__
-
-from strkit.json import dumps_indented, json
+from typing import Literal, Optional
 from strkit.logger import logger
 
+from .allele import get_n_alleles
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
+from .output import output_json_report, output_tsv as output_tsv_fn, output_vcf
 from .utils import get_new_seed
 
 __all__ = [
@@ -48,7 +45,6 @@ def locus_worker(
     num_bootstrap: int,
     flank_size: int,
     sample_id: Optional[str],
-    sex_chroms: Optional[str],
     realign: bool,
     hq: bool,
     # incorporate_snvs: bool,
@@ -57,6 +53,7 @@ def locus_worker(
     fractional: bool,
     respect_ref: bool,
     count_kmers: str,
+    consensus: bool,
     log_level: int,
     locus_queue: mp.Queue,
     is_single_processed: bool,
@@ -102,9 +99,9 @@ def locus_worker(
         if td is None:  # Kill signal
             break
 
-        t_idx, t, locus_seed = td
+        t_idx, t, n_alleles, locus_seed = td
         res = call_locus(
-            t_idx, t, bfs, ref,
+            t_idx, t, n_alleles, bfs, ref,
             min_reads=min_reads,
             min_allele_reads=min_allele_reads,
             min_avg_phred=min_avg_phred,
@@ -113,7 +110,6 @@ def locus_worker(
             seed=locus_seed,
             logger_=lg,
             sample_id=sample_id,
-            sex_chroms=sex_chroms,
             realign=realign,
             hq=hq,
             # incorporate_snvs=incorporate_snvs,
@@ -124,6 +120,7 @@ def locus_worker(
             fractional=fractional,
             respect_ref=respect_ref,
             count_kmers=count_kmers,
+            consensus=consensus,
             log_level=log_level,
             read_file_has_chr=read_file_has_chr,
             ref_file_has_chr=ref_file_has_chr,
@@ -182,10 +179,6 @@ def parse_loci_bed(loci_file: str):
         yield from (tuple(line.split("\t")) for line in (s.strip() for s in tf) if line and not line.startswith("#"))
 
 
-def _cn_to_str(cn: Union[int, float]) -> str:
-    return f"{cn:.1f}" if isinstance(cn, float) else str(cn)
-
-
 def call_sample(
     read_files: tuple[str, ...],
     reference_file: str,
@@ -205,8 +198,10 @@ def call_sample(
     fractional: bool = False,
     respect_ref: bool = False,
     count_kmers: str = "none",  # "none" | "peak" | "read"
+    consensus: bool = False,
     log_level: int = logging.WARNING,
     json_path: Optional[str] = None,
+    vcf_path: Optional[str] = None,
     indent_json: bool = False,
     output_tsv: bool = True,
     processes: int = 1,
@@ -253,11 +248,17 @@ def call_sample(
     # Keep track of all contigs we are processing to speed up downstream Mendelian inheritance analysis.
     contig_set: set[str] = set()
     for t_idx, t in enumerate(parse_loci_bed(loci_file), 1):
+        contig = t[0]
+
+        n_alleles: Optional[int] = get_n_alleles(2, sex_chroms, contig)
+        if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
+            continue  # --> skip the locus
+
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
-        locus_queue.put((t_idx, t, get_new_seed(rng)))
-        contig_set.add(t[0])
+        locus_queue.put((t_idx, t, n_alleles, get_new_seed(rng)))
+        contig_set.add(contig)
         num_loci += 1
 
     # At the end of the queue, add a None value (* the # of processes).
@@ -275,7 +276,6 @@ def call_sample(
         "num_bootstrap": num_bootstrap,
         "flank_size": flank_size,
         "sample_id": sample_id_final,
-        "sex_chroms": sex_chroms,
         "realign": realign,
         "hq": hq,
         # "incorporate_snvs": incorporate_snvs,
@@ -284,6 +284,7 @@ def call_sample(
         "fractional": fractional,
         "respect_ref": respect_ref,
         "count_kmers": count_kmers,
+        "consensus": consensus,
         "log_level": log_level,
     }
 
@@ -317,54 +318,19 @@ def call_sample(
     time_taken = datetime.now() - start_time
 
     if output_tsv:
-        for res in results:
-            has_call = res["call"] is not None
-            # n_peaks = res["peaks"]["modal_n"]
-
-            sys.stdout.write("\t".join((
-                res["contig"],
-                str(res["start"]),
-                str(res["end"]),
-                res["motif"],
-                _cn_to_str(res["ref_cn"]),
-                ",".join(map(_cn_to_str, sorted(r["cn"] for r in res["reads"].values()))) if res["reads"] else ".",
-                "|".join(map(_cn_to_str, res["call"])) if has_call else ".",
-                ("|".join("-".join(map(_cn_to_str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
-                # *((res["assign_method"] if has_call else ".",) if incorporate_snvs else ()),
-                *((res["assign_method"] if has_call else ".",) if snv_vcf is not None else ()),
-
-                # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["means"][:n_peaks]))
-                #  if has_call and n_peaks <= 2 else "."),
-                # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["weights"][:n_peaks]))
-                #  if has_call and n_peaks <= 2 else "."),
-                # ("|".join(map(lambda x: f"{x:.5f}", res["peaks"]["stdevs"][:n_peaks]))
-                #  if has_call and n_peaks <= 2 else "."),
-            )) + "\n")
+        output_tsv_fn(results, has_snv_vcf=snv_vcf is not None)
 
     if json_path:
-        json_report = {
-            "sample_id": sample_id_final,
-            "caller": {
-                "name": "strkit",
-                "version": __version__,
-            },
-            "parameters": {
-                **job_params,
-                "processes": processes,
-            },
-            "runtime": time_taken.total_seconds(),
-            "contigs": tuple(contig_set),
-            "results": results,
-        }
+        output_json_report(
+            sample_id_final,
+            job_params,
+            processes,
+            time_taken,
+            contig_set,
+            results,
+            json_path,
+            indent_json,
+        )
 
-        dfn = dumps_indented if indent_json else json.dumps
-        report_data = dfn(json_report)
-
-        if json_path == "stdout":
-            sys.stdout.buffer.write(report_data)
-            sys.stdout.write("\n")
-            sys.stdout.flush()
-        else:
-            with open(json_path, "wb") as jf:
-                jf.write(report_data)
-                jf.write(b"\n")
+    if vcf_path:
+        output_vcf(sample_id_final, reference_file, results, vcf_path)
