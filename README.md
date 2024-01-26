@@ -127,11 +127,13 @@ If more than one read file is specified, the reads will be pooled. This can come
 have e.g. multiple flow cells of the same sample split into different BAM files, or the reads are
 split by chromosome.
 
-If you want to incorporate SNV calling into the process, which speeds up runtime and gives
+If you want to **incorporate SNV calling** into the process, which speeds up runtime and gives
 marginally better calling results, you must provide an indexed, `bgzip`-compressed SNV catalog 
 VCF which matches your reference genome. You can find dbSNP VCFs at
 [`https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/`](https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/).
 The file for GRCh38 is called `00-common_all.vcf.gz` as of time of writing.
+**Note that this does not need to be an SNV call file for your sample, specifically**; just one 
+which has positions, reference/alternate alleles, and the `ID` field populated.
 
 If you want to output a full call report, you can use the `--json output-file.json` argument to
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
