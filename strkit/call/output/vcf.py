@@ -6,18 +6,18 @@ from typing import Optional
 __all__ = ["output_vcf"]
 
 
-VCF_ALLELE_CNV_TR = "<CNV:TR>"
+# VCF_ALLELE_CNV_TR = "<CNV:TR>"
 
-VCF_TR_INFO_RECORDS: tuple[tuple[str, str, str, str], ...] = (
-    ("SVLEN", "A", "Integer", "Length of the structural variant"),
-    ("CN", "A", "Float", "Copy number of allele"),
-    ("RN", "A", "Integer", "Total number of repeat sequences in this allele"),
-    ("RUS", ".", "String", "Repeat unit sequence of the corresponding repeat sequence"),
-    ("RUL", ".", "Integer", "Repeat unit length of the corresponding repeat sequence"),
-    ("RB", ".", "Integer", "Total number of bases in the corresponding repeat sequence"),
-    ("CIRUC", ".", "Float", "Confidence interval around RUC"),
-    ("CIRB", ".", "Integer", "Confidence interval around RB"),
-)
+# VCF_TR_INFO_RECORDS: tuple[tuple[str, str, str, str], ...] = (
+#     ("SVLEN", "A", "Integer", "Length of the structural variant"),
+#     ("CN", "A", "Float", "Copy number of allele"),
+#     ("RN", "A", "Integer", "Total number of repeat sequences in this allele"),
+#     ("RUS", ".", "String", "Repeat unit sequence of the corresponding repeat sequence"),
+#     ("RUL", ".", "Integer", "Repeat unit length of the corresponding repeat sequence"),
+#     ("RB", ".", "Integer", "Total number of bases in the corresponding repeat sequence"),
+#     ("CIRUC", ".", "Float", "Confidence interval around RUC"),
+#     ("CIRB", ".", "Integer", "Confidence interval around RB"),
+# )
 
 
 def _build_variant_header(sample_id: str, reference_file: str) -> pysam.VariantHeader:
@@ -38,14 +38,14 @@ def _build_variant_header(sample_id: str, reference_file: str) -> pysam.VariantH
     vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")
 
     # Set up basic VCF formats
-    vh.formats.add("AD", "R", "String", "Read depth for each allele")
-    vh.formats.add("DP", 1, "String", "Read depth")
+    vh.formats.add("AD", "R", "Integer", "Read depth for each allele")
+    vh.formats.add("DP", 1, "Integer", "Read depth")
     vh.formats.add("GT", 1, "String", "Genotype")
-    vh.formats.add("PS", 1, "String", "Phase set")
+    # vh.formats.add("PS", 1, "String", "Phase set")  TODO
 
-    # Add INFO records for tandem repeat copies - these are new to VCF4.4!
-    for iv in VCF_TR_INFO_RECORDS:
-        vh.info.add(*iv)
+    # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
+    # for iv in VCF_TR_INFO_RECORDS:
+    #     vh.info.add(*iv)
 
     # Add the sample
     vh.add_sample(sample_id)
@@ -128,36 +128,39 @@ def output_vcf(
             # TODO: set up tandem repeat info fields
 
             vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles.index, seqs)) if seqs else (".",)
+            vr.samples[sample_id_str]["DP"] = sum(result["peaks"]["n_reads"])
 
-            if has_at_least_one_snv_set:
-                vr.samples[sample_id_str].phased = True
-                vr.samples[sample_id_str]["PS"] = str(result_idx)
+            # TODO: output SNVs
 
-            for snv in result.get("snvs", ()):
-                print(snv)
+            # if has_at_least_one_snv_set:
+            #     vr.samples[sample_id_str].phased = True
+            #     vr.samples[sample_id_str]["PS"] = str(result_idx)
 
-                ref = snv["ref"]
-                snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
-                snv_alleles = (ref, *snv_alts)
-
-                snv_vr = vf.new_record(
-                    contig=contig,
-                    id=snv["id"],
-                    # TODO: fix-up coordinates
-                    start=snv["pos"],
-                    stop=snv["pos"] + 1,
-                    alleles=snv_alleles,
-                )
-
-                # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
-
-                snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
-                # snv_vr.samples[sample_id_str].phased = True
-                snv_vr.samples[sample_id_str]["PS"] = str(result_idx)
-
-                contig_vrs.append(snv_vr)
-
-                # TODO: now is the time to figure out phasing SNVs across different TRs
+            # for snv in result.get("snvs", ()):
+            #     print(snv)
+            #
+            #     ref = snv["ref"]
+            #     snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
+            #     snv_alleles = (ref, *snv_alts)
+            #
+            #     snv_vr = vf.new_record(
+            #         contig=contig,
+            #         id=snv["id"],
+            #         # TODO: fix-up coordinates
+            #         start=snv["pos"],
+            #         stop=snv["pos"] + 1,
+            #         alleles=snv_alleles,
+            #     )
+            #
+            #     # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
+            #
+            #     snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
+            #     # snv_vr.samples[sample_id_str].phased = True
+            #     snv_vr.samples[sample_id_str]["PS"] = str(result_idx)
+            #
+            #     contig_vrs.append(snv_vr)
+            #
+            #     # TODO: now is the time to figure out phasing SNVs across different TRs
 
             contig_vrs.append(vr)
 
