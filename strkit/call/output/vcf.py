@@ -1,7 +1,10 @@
 import pathlib
 import pysam
+from os.path import commonprefix
 
 from typing import Optional
+
+from ..utils import cat_strs
 
 __all__ = ["output_vcf"]
 
@@ -57,6 +60,10 @@ def _vr_pos_key(vr: pysam.VariantRecord) -> int:
     return vr.pos
 
 
+def _reversed_str(s: str) -> str:
+    return cat_strs(reversed(s))
+
+
 def output_vcf(
     sample_id: Optional[str],
     reference_file: str,
@@ -84,7 +91,7 @@ def output_vcf(
     try:
         last_contig = results[0]["contig"] if results else ""
 
-        has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
+        # has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
 
         for result_idx, result in enumerate(results, 1):
             contig = result["contig"]
@@ -93,26 +100,35 @@ def output_vcf(
                 # we moved on from the last contig, so write the last batch of variant records to the VCF
                 _write_contig_vrs()
 
-            # TODO: fix-up coordinates / note positioning
-            start = result["start_adj"]
-            end = result["end_adj"]
-            call = result["call"]
+            ref_start_anchor = result["ref_start_anchor"].upper()
 
             # ref_cn = result["ref_cn"]
-            ref_seq = result["ref_seq"].lower()
+            ref_seq = result["ref_seq"].upper()
 
-            seqs = tuple(map(str.lower, (result["peaks"] or {}).get("seqs", ())))
+            seqs = tuple(map(str.upper, (result["peaks"] or {}).get("seqs", ())))
 
             # cn_alts = sorted(set(c for c in call if c != ref_cn)) if call is not None else ()
             seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
+            common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
 
+            call = result["call"]
             # cn_alleles = (ref_cn, *cn_alts) if call is not None else (".",)
-            seq_alleles = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
+            seq_alleles_raw: tuple[str, ...] = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
+            seq_alleles: list[str] = []
 
+            if call is not None:
+                seq_alleles.append(ref_start_anchor + ref_seq[:common_suffix_idx])
+                if seq_alts:
+                    seq_alleles.extend(ref_start_anchor + a[:common_suffix_idx] for a in seq_alts)
+                else:
+                    seq_alleles.append(".")
+
+            # seq_alleles = (ref_start_anchor + ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
+
+            start = result["start_adj"] - len(ref_start_anchor)
             vr: pysam.VariantRecord = vf.new_record(
                 contig=contig,
                 start=start,
-                stop=end,
                 alleles=seq_alleles,
             )
 
@@ -127,7 +143,7 @@ def output_vcf(
 
             # TODO: set up tandem repeat info fields
 
-            vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles.index, seqs)) if seqs else (".",)
+            vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else (".",)
             vr.samples[sample_id_str]["DP"] = sum(result["peaks"]["n_reads"])
 
             # TODO: output SNVs

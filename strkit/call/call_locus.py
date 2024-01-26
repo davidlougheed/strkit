@@ -889,7 +889,7 @@ def call_locus(
         }),
         "motif": motif,
         "ref_cn": ref_cn,
-        **({"ref_seq": ref_seq} if consensus else {}),
+        **({"ref_start_anchor": ref_left_flank_seq[-1], "ref_seq": ref_seq} if consensus else {}),
         "reads": read_dict,
     }
 
