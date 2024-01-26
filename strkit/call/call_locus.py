@@ -34,7 +34,7 @@ from .snvs import (
     call_and_filter_useful_snvs,
 )
 from .types import ReadDict, ReadDictExtra, CandidateSNV
-from .utils import find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
+from .utils import cat_strs, find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
 
 
 __all__ = [
@@ -61,7 +61,6 @@ significant_clip_snv_take_in = 250
 # property getters & other partials
 cn_getter = operator.itemgetter("cn")
 weight_getter = operator.itemgetter("w")
-cat_strs = "".join
 
 
 @functools.cache

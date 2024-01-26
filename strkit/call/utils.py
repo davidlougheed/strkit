@@ -3,12 +3,16 @@ import sys
 from typing import Callable
 
 __all__ = [
+    "cat_strs",
     "find_pair_by_ref_pos_py",
     "find_pair_by_ref_pos",
     "normalize_contig",
     "round_to_base_pos",
     "get_new_seed",
 ]
+
+
+cat_strs = "".join
 
 
 def find_pair_by_ref_pos_py(pairs: list[tuple[int, int]], target: int, start_left: int = 0) -> tuple[int, bool]:
