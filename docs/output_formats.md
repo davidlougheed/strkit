@@ -38,12 +38,113 @@ Here is an example line:
 chr4	5975495	5975530	TTTTG	7	6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,8	6|7	6-6|7-7	snv
 ```
 
-Note that quite a bit of information is missing from the TSV
+Note that quite a bit of information is missing from the TSV, including per-sample copy numbers, read identities, 
+SNV calls, and STR consensus sequences.
 
 
 ## JSON report
 
 TODO
+
+```javascript
+{
+  "sample_id": "HG002",
+  "caller": {
+    "name": "strkit",
+    "version": "0.12.0"
+  },
+  "parameters": {
+    "read_files": [
+      "HG002.SequelII.ccs.phased.40x.chr4.bam"
+    ],
+    "reference_file": "/Users/davidlougheed/git/gt-poc/hg38.analysisSet.fa.gz",
+    "min_reads": 4,
+    "min_allele_reads": 2,
+    "min_avg_phred": 13,
+    "num_bootstrap": 100,
+    "flank_size": 70,
+    "sample_id": "HG002",
+    "realign": true,
+    "hq": true,
+    "snv_vcf": "00-common_all.vcf.gz",
+    "targeted": false,
+    "fractional": false,
+    "respect_ref": false,
+    "count_kmers": "none",
+    "consensus": true,
+    "log_level": 10,
+    "processes": 1
+  },
+  "runtime": 8.628772,
+  "contigs": [
+    "chr4"
+  ],
+  "results": [
+    {
+      "locus_index": 1,
+      "contig": "chr4",
+      "start": 96617,
+      "end": 96648,
+      "start_adj": 96617,
+      "end_adj": 96648,
+      "motif": "AC",
+      "ref_cn": 16,
+      "ref_start_anchor": "t",
+      "ref_seq": "acacacacacacacacacacacacacacaca",
+      "reads": {
+        "m64011_190901_095311/50792740/ccs": {
+          "s": "-",
+          "cn": 15,
+          "w": 1.0217145751733625,
+          "snvu": ["G"],
+          "p": 0
+        },
+        // ...
+        "m64012_190921_234837/4523939/ccs": {
+          "s": "+",
+          "cn": 15,
+          "w": 1.0217145751733625,
+          "snvu": ["A"],
+          "p": 1
+        },
+        // ...
+      },
+      "snvs": [
+        {
+          "id": "rs73213545",
+          "ref": "G",
+          "pos": 94593,
+          "call": ["G", "A"],
+          "rcs": [20, 23]
+        }
+      ],
+      "assign_method": "snv+dist",
+      "call": [15, 15],
+      "call_95_cis": [
+        [15, 15],
+        [15, 15]
+      ],
+      "call_99_cis": [
+        [15, 15],
+        [15, 15]
+      ],
+      "peaks": {
+        "means": [15, 15],
+        "weights": [0.5, 0.5],
+        "stdevs": [0.31622776601683794, 0.3585309239667531],
+        "modal_n": 2,
+        "n_reads": [20, 23],
+        "seqs": [
+          "ACACACACACACACACACACACACACACA",
+          "ACACACACACACACACACACACACACACA"
+        ]
+      },
+      "read_peaks_called": true,
+      "time": 0.1274
+    },
+  ]
+}
+```
 
 
 ## VCF
