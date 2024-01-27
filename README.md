@@ -140,7 +140,7 @@ specify a path to output a more detailed JSON document to. This document contain
 labels, and some other information that isn't included in the normal TSV file. If you want this
 file to be indented and human-readable, use the `--indent-json` flag in addition to `--json ...`.
 
-If you want to output a VCF file (currently with STR sequences only, not with phased SNVs), use the
+If you want to output a VCF file (STRs and SNVs if called; currently not phased), use the
 `--vcf ...` argument.
 
 See the '[Caller catalog format & choosing a catalog](./docs/caller_catalog.md)' page for more on

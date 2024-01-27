@@ -92,6 +92,7 @@ def output_vcf(
         last_contig = results[0]["contig"] if results else ""
 
         # has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
+        snvs_written: set[str] = set()
 
         for result_idx, result in enumerate(results, 1):
             contig = result["contig"]
@@ -146,37 +147,40 @@ def output_vcf(
             vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else (".",)
             vr.samples[sample_id_str]["DP"] = sum(result["peaks"]["n_reads"])
 
-            # TODO: output SNVs
-
+            # TODO: output phased SNVs
             # if has_at_least_one_snv_set:
             #     vr.samples[sample_id_str].phased = True
             #     vr.samples[sample_id_str]["PS"] = str(result_idx)
 
-            # for snv in result.get("snvs", ()):
-            #     print(snv)
-            #
-            #     ref = snv["ref"]
-            #     snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
-            #     snv_alleles = (ref, *snv_alts)
-            #
-            #     snv_vr = vf.new_record(
-            #         contig=contig,
-            #         id=snv["id"],
-            #         # TODO: fix-up coordinates
-            #         start=snv["pos"],
-            #         stop=snv["pos"] + 1,
-            #         alleles=snv_alleles,
-            #     )
-            #
-            #     # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
-            #
-            #     snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
-            #     # snv_vr.samples[sample_id_str].phased = True
-            #     snv_vr.samples[sample_id_str]["PS"] = str(result_idx)
-            #
-            #     contig_vrs.append(snv_vr)
-            #
-            #     # TODO: now is the time to figure out phasing SNVs across different TRs
+            for snv in result.get("snvs", ()):
+                snv_id = snv["id"]
+                if snv_id in snvs_written:
+                    continue
+                snvs_written.add(snv_id)
+
+                ref = snv["ref"]
+                snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
+                snv_alleles = (ref, *snv_alts)
+                snv_pos = snv["pos"]
+
+                snv_vr = vf.new_record(
+                    contig=contig,
+                    id=snv_id,
+                    start=snv_pos,
+                    stop=snv_pos + 1,
+                    alleles=snv_alleles,
+                )
+
+                # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
+
+                snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
+                snv_vr.samples[sample_id_str]["DP"] = sum(snv["rcs"])
+                # snv_vr.samples[sample_id_str].phased = True
+                # snv_vr.samples[sample_id_str]["PS"] = str(result_idx)
+
+                contig_vrs.append(snv_vr)
+
+                # TODO: now is the time to figure out phasing SNVs across different TRs
 
             contig_vrs.append(vr)
 
