@@ -318,25 +318,28 @@ def call_alleles(
         allele_stdev_samples = np.append(allele_stdev_samples, sorted_allele_stdev_estimates, axis=1)
 
     # Calculate 95% and 99% confidence intervals for each allele from the bootstrap distributions.
-    allele_samples.sort(axis=1, kind="stable")
+    allele_samples_argsort = allele_samples.argsort(axis=1, kind="stable")
+    allele_samples = np.take_along_axis(allele_samples, allele_samples_argsort, axis=1)
     allele_cis_95 = _calculate_cis(allele_samples, force_int=force_int, ci="95")
     allele_cis_99 = _calculate_cis(allele_samples, force_int=force_int, ci="99")
-    allele_weight_samples.sort(axis=1, kind="stable")
-    allele_stdev_samples.sort(axis=1, kind="stable")
+    allele_weight_samples = np.take_along_axis(allele_weight_samples, allele_samples_argsort, axis=1)
+    allele_stdev_samples = np.take_along_axis(allele_stdev_samples, allele_samples_argsort, axis=1)
+
     sample_peaks.sort(kind="stable")  # To make mode consistent, given same set of peak #s
 
     # TODO: Calculate CIs based on Gaussians from allele samples instead? Ask someone...
     #  - Could take median of 2.5 percentiles and 97.5 percentiles from Gaussians instead, median of means
 
-    # Report the median estimates (TODO: ???)
-    # and the confidence intervals.
+    # Report the median estimates and the confidence intervals.
+    #  - we choose nearest for median rather than interpolating, so we can get real corresponding weights and stdevs.
 
-    medians_of_means = np.percentile(allele_samples, 50, axis=1, method="interpolated_inverted_cdf")
+    median_idx = allele_samples.shape[1] // 2  #
+    medians_of_means = allele_samples[:, median_idx]
     medians_of_means_final = medians_of_means
     if force_int:
         medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
-    medians_of_weights = np.percentile(allele_weight_samples, 50, axis=1, interpolation="nearest")
-    medians_of_stdevs = np.percentile(allele_stdev_samples, 50, axis=1, interpolation="nearest")
+    peak_weights = allele_weight_samples[:, median_idx]
+    peak_stdevs = allele_stdev_samples[:, median_idx]
     modal_n_peaks: int = statistics.mode(sample_peaks).item()
 
     return {
@@ -344,11 +347,9 @@ def call_alleles(
         "call_95_cis": allele_cis_95,
         "call_99_cis": allele_cis_99,
 
-        "peaks": medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
-        # TODO: Do we want to report this, or the stdev of the final peaks as determined by the bootstrapped
-        #  means and variances????????????????
-        "peak_weights": medians_of_weights.flatten(),
-        "peak_stdevs": medians_of_stdevs.flatten(),
+        "peaks": medians_of_means_final.flatten(),  # Don't round, so we can recover original Gaussian model
+        "peak_weights": peak_weights.flatten(),
+        "peak_stdevs": peak_stdevs.flatten(),
         # TODO: should be ok to use this, because resample gets put at end, vertically (3rd allele in a 3-ploid case)
         #  so taking the first 2 alleles still works in terms of stdev/mean estimates? I think?
         #  Not quite, cause it's sorted...
