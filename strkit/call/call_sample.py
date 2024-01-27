@@ -155,23 +155,31 @@ def progress_worker(
     from strkit.logger import create_process_logger
     lg = create_process_logger(os.getpid(), log_level)
 
-    def _log():
+    def _log(q_size: int):
         try:
             lg.info(
-                f"{sample_id}: processed {num_loci - max(locus_queue.qsize(), num_workers) + num_workers} loci in "
+                f"{sample_id}: processed {num_loci - max(q_size, num_workers) + num_workers} loci in "
                 f"{(datetime.now() - start_time).total_seconds():.1f} seconds")
         except NotImplementedError:
             pass
 
+    last_qsize = locus_queue.qsize()
+    last_qsize_n_stuck = 0
     timer = 0
     while not event.is_set():
         time.sleep(1)
         timer += 1
         if timer >= LOG_PROGRESS_INTERVAL:
-            _log()
+            qsize = locus_queue.qsize()
+            _log(qsize)
+            if last_qsize == locus_queue.qsize():  # stuck
+                last_qsize_n_stuck += 1
+            if last_qsize_n_stuck >= 3:
+                # zombie worker, exit
+                return
             timer = 0
 
-    _log()
+    _log(locus_queue.qsize())
 
 
 def parse_loci_bed(loci_file: str):
