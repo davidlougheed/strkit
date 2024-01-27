@@ -168,10 +168,11 @@ export OMP_NUM_THREADS=1
 If this hard-coded value interferes with your use case, please open an issue.
 
 
-#### Further documentation on the STRkit caller:
+#### Further documentation on the STRkit caller, including output format:
 
   * [Advanced caller usage and configuration](./docs/caller_usage.md)
   * [Caller catalog format & choosing a catalog](./docs/caller_catalog.md)
+  * [Output formats](./docs/output_formats.md)
 
 
 ### `strkit visualize`: Call visualizer
