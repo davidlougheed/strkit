@@ -41,9 +41,10 @@ def _build_variant_header(sample_id: str, reference_file: str) -> pysam.VariantH
     vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")
 
     # Set up basic VCF formats
-    vh.formats.add("AD", "R", "Integer", "Read depth for each allele")
+    vh.formats.add("AD", ".", "Integer", "Read depth for each allele")
     vh.formats.add("DP", 1, "Integer", "Read depth")
     vh.formats.add("GT", 1, "String", "Genotype")
+    vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
     # vh.formats.add("PS", 1, "String", "Phase set")  TODO
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
@@ -146,6 +147,8 @@ def output_vcf(
 
             vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else (".",)
             vr.samples[sample_id_str]["DP"] = sum(result["peaks"]["n_reads"])
+            vr.samples[sample_id_str]["AD"] = tuple(result["peaks"]["n_reads"])
+            vr.samples[sample_id_str]["MC"] = tuple(map(int, result["call"]))  # TODO: support fractional
 
             # TODO: output phased SNVs
             # if has_at_least_one_snv_set:
@@ -175,6 +178,7 @@ def output_vcf(
 
                 snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
                 snv_vr.samples[sample_id_str]["DP"] = sum(snv["rcs"])
+                snv_vr.samples[sample_id_str]["AD"] = snv["rcs"]
                 # snv_vr.samples[sample_id_str].phased = True
                 # snv_vr.samples[sample_id_str]["PS"] = str(result_idx)
 
