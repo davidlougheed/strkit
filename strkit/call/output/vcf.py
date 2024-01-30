@@ -74,7 +74,7 @@ def output_vcf(
     sample_id_str: str = sample_id or "sample"
 
     vh = _build_variant_header(sample_id_str, reference_file)
-    vf = pysam.VariantFile(vcf_path, "w", header=vh)
+    vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 
     contig_vrs: list[pysam.VariantRecord] = []
 
