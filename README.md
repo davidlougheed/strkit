@@ -141,7 +141,8 @@ labels, and some other information that isn't included in the normal TSV file. I
 file to be indented and human-readable, use the `--indent-json` flag in addition to `--json ...`.
 
 If you want to output a VCF file (STRs and SNVs if called; currently not phased), use the
-`--vcf ...` argument.
+`--vcf ...` argument. If you pass `--vcf stdout`, the VCF will be written to `stdout` instead of a 
+file.
 
 See the '[Caller catalog format & choosing a catalog](./docs/caller_catalog.md)' page for more on
 how to format a locus catalog or choose from existing available catalogs.
