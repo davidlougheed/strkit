@@ -126,7 +126,7 @@ def output_vcf(
 
             # seq_alleles = (ref_start_anchor + ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
 
-            start = result["start_adj"] - len(ref_start_anchor)
+            start = result.get("start_adj", result["start"]) - len(ref_start_anchor)
             vr: pysam.VariantRecord = vf.new_record(
                 contig=contig,
                 start=start,
