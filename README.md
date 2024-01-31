@@ -1,4 +1,4 @@
-# STRkit
+# STRkit - short tandem repeat genotyping with long reads
 
 [![PyPI version](https://badge.fury.io/py/strkit.svg)](https://badge.fury.io/py/strkit)
 
