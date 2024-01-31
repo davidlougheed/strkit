@@ -9,6 +9,7 @@ COPY README.md .
 COPY setup.py .
 COPY strkit strkit
 
-RUN pip install --no-cache-dir .
+RUN pip install -U pip
+RUN pip install --no-cache-dir .[rustdeps]
 
 CMD [ "strkit" ]
