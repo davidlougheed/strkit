@@ -51,6 +51,8 @@ Used under the terms of the ISC license.
 
 ## Installation
 
+### Via PyPI
+
 STRkit requires Python 3.9+ and can be installed from PyPI via `pip` 
 with the following command:
 
@@ -70,6 +72,29 @@ On some Alliance (DRAC/CC) clusters, this may require loading Rust first, to com
 ```bash
 module load rust/1.65.0
 python -m pip install strkit[rustdeps]
+```
+
+STRkit should then be available in your Python environment as a command-line tool:
+
+```bash
+strkit --help
+```
+
+### As a Docker container
+
+STRkit is also available as a [Docker container](https://github.com/davidlougheed/strkit/pkgs/container/strkit), stored 
+in the GitHub Container Registry.
+
+It can be pulled using the following command:
+
+```bash
+docker pull ghcr.io/davidlougheed/strkit:latest
+```
+
+Then, STRkit commands can be run mostly as normal using the Docker image:
+
+```bash
+docker run -it ghcr.io/davidlougheed/strkit --help
 ```
 
 
