@@ -2,7 +2,8 @@
 
 [![PyPI version](https://badge.fury.io/py/strkit.svg)](https://badge.fury.io/py/strkit)
 
-A genotyping and analysis toolkit for short(ish) tandem repeats.
+STRkit is a short tandem repeat (STR) genotyping and analysis toolkit for long read sequencing data, especially 
+PacBio HiFi data.
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
