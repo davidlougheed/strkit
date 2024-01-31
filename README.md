@@ -3,7 +3,8 @@
 [![PyPI version](https://badge.fury.io/py/strkit.svg)](https://badge.fury.io/py/strkit)
 
 STRkit is a short tandem repeat (STR) genotyping and analysis toolkit for long read sequencing data, especially 
-PacBio HiFi data.
+PacBio HiFi data. The STRkit software package is written in Python and is available in the PyPI package registry or as
+a Docker container.
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
