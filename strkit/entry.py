@@ -11,14 +11,7 @@ from typing import Callable, Optional, Type
 import strkit.constants as c
 from strkit import __version__
 from strkit.exceptions import ParamError, InputError
-from strkit.logger import logger, attach_stream_handler
-
-log_levels = {
-    "debug": logging.DEBUG,
-    "info": logging.INFO,
-    "warning": logging.WARNING,
-    "error": logging.ERROR,
-}
+from strkit.logger import logger, attach_stream_handler, log_levels
 
 
 def add_call_parser_args(call_parser):
@@ -355,35 +348,14 @@ def add_vs_parser_args(vs_parser):
 
 
 def _exec_call(p_args) -> None:
-    from strkit.call import call_sample
+    from strkit.call import call_sample, CallParams
     call_sample(
-        tuple(p_args.read_files),
-        p_args.ref,
-        p_args.loci,
-        sample_id=p_args.sample_id,
-        min_reads=p_args.min_reads,
-        min_allele_reads=p_args.min_allele_reads,
-        min_avg_phred=p_args.min_avg_phred,
-        num_bootstrap=p_args.num_bootstrap,
-        flank_size=p_args.flank_size,
-        sex_chroms=p_args.sex_chr,
-        realign=p_args.realign,
-        hq=p_args.hq,
-        use_hp=p_args.use_hp,
-        # incorporate_snvs=p_args.incorporate_snvs,
-        snv_vcf=p_args.incorporate_snvs,
-        targeted=p_args.targeted,
-        fractional=p_args.fractional,
-        respect_ref=p_args.respect_ref,
-        count_kmers=p_args.count_kmers,
-        consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
-        log_level=log_levels[p_args.log_level],
+        CallParams.from_args(logger, p_args),
         json_path=p_args.json,
         indent_json=p_args.indent_json,
         vcf_path=p_args.vcf,
         output_tsv=not p_args.no_tsv,
-        processes=p_args.processes,
-        seed=p_args.seed,
+        # seed=p_args.seed,
     )
 
 

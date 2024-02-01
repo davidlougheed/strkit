@@ -2,8 +2,7 @@ import pathlib
 import pysam
 from os.path import commonprefix
 
-from typing import Optional
-
+from ..params import CallParams
 from ..utils import cat_strs
 
 __all__ = ["output_vcf"]
@@ -66,14 +65,13 @@ def _reversed_str(s: str) -> str:
 
 
 def output_vcf(
-    sample_id: Optional[str],
-    reference_file: str,
+    params: CallParams,
     results: tuple[dict, ...],
     vcf_path: str,
 ):
-    sample_id_str: str = sample_id or "sample"
+    sample_id_str: str = params.sample_id or "sample"
 
-    vh = _build_variant_header(sample_id_str, reference_file)
+    vh = _build_variant_header(sample_id_str, params.reference_file)
     vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 
     contig_vrs: list[pysam.VariantRecord] = []

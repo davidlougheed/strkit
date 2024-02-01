@@ -20,6 +20,7 @@ from typing import Iterable, Literal, Optional, TypedDict, Union
 
 import strkit.constants as cc
 
+from .params import CallParams
 from .utils import get_new_seed
 
 __all__ = [
@@ -163,19 +164,18 @@ def call_alleles(
     repeats_rev: RepeatCounts,
     read_weights_fwd: Optional[Iterable[float]],
     read_weights_rev: Optional[Iterable[float]],
-    bootstrap_iterations: int,
+    params: CallParams,
     min_reads: int,
-    min_allele_reads: int,
     n_alleles: int,
     separate_strands: bool,
     read_bias_corr_min: int,
     gm_filter_factor: int,
-    hq: bool,
-    force_int: bool,
     seed: Optional[int],
     logger_: logging.Logger,
     debug_str: str,
 ) -> Optional[CallDict]:
+    force_int = not params.fractional
+
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
 
@@ -234,14 +234,14 @@ def call_alleles(
 
         fwd_strand_samples = rng.choice(
             fwd_strand_reads,
-            size=(bootstrap_iterations, target_length),
+            size=(params.num_bootstrap, target_length),
             replace=True,
             p=fwd_strand_weights,
         )
 
         rev_strand_samples = rng.choice(
             rev_strand_reads,
-            size=(bootstrap_iterations, target_length),
+            size=(params.num_bootstrap, target_length),
             replace=True,
             p=rev_strand_weights,
         )
@@ -254,10 +254,10 @@ def call_alleles(
         concat_samples = np.sort(
             rng.choice(
                 combined_reads,
-                size=(bootstrap_iterations, combined_len),
+                size=(params.num_bootstrap, combined_len),
                 replace=True,
                 p=combined_weights,
-            ) if bootstrap_iterations > 1 else np.array([combined_reads]),
+            ) if params.num_bootstrap > 1 else np.array([combined_reads]),
             kind="stable")
 
     gmm_cache = {}
@@ -265,15 +265,15 @@ def call_alleles(
     def _get_fitted_gmm(s: NDArray[np.int_] | NDArray[np.float_]) -> Optional[object]:
         if (s_t := tuple(s)) not in gmm_cache:
             # Fit Gaussian mixture model to the resampled data
-            gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, hq, gm_filter_factor)
+            gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.hq, gm_filter_factor)
 
         return gmm_cache[s_t]
 
     # Filter out peaks that aren't supported by ~min_allele_reads reads by probability, with some delta to
     # allow for peaks supported by "most of a read".
-    allele_filter = (min_allele_reads - 0.1) / concat_samples.shape[0]
+    allele_filter = (params.min_allele_reads - 0.1) / concat_samples.shape[0]
 
-    for i in range(bootstrap_iterations):
+    for i in range(params.num_bootstrap):
         sample = concat_samples[i, :]
 
         g: Optional[object] = _get_fitted_gmm(sample)

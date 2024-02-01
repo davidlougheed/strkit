@@ -1,17 +1,16 @@
 import sys
 from datetime import timedelta
-from typing import Optional
 
 from strkit import __version__
 from strkit.json import dumps_indented, json
+
+from ..params import CallParams
 
 __all__ = ["output_json_report"]
 
 
 def output_json_report(
-    sample_id: Optional[str],
-    job_params: dict,
-    processes: int,
+    params: CallParams,
     time_taken: timedelta,
     contig_set: set[str],
     results: tuple[dict, ...],
@@ -19,15 +18,12 @@ def output_json_report(
     indent_json: bool,
 ):
     json_report = {
-        "sample_id": sample_id,
+        "sample_id": params.sample_id,
         "caller": {
             "name": "strkit",
             "version": __version__,
         },
-        "parameters": {
-            **job_params,
-            "processes": processes,
-        },
+        "parameters": params.to_dict(as_inputted=True),
         "runtime": time_taken.total_seconds(),
         "contigs": tuple(contig_set),
         "results": results,

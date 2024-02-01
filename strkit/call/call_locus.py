@@ -23,6 +23,7 @@ from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
 from .consensus import consensus_seq
+from .params import CallParams
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import (
@@ -339,10 +340,7 @@ def process_read_snvs_for_locus(
 
 
 def call_alleles_with_haplotags(
-    num_bootstrap: int,
-    min_allele_reads: int,
-    hq: bool,
-    fractional: bool,
+    params: CallParams,
     haplotags: list[str],
     read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
     rng: np.random.Generator,
@@ -374,15 +372,12 @@ def call_alleles_with_haplotags(
         cc: Optional[CallDict] = call_alleles(
             cns[hi], (),  # Don't bother separating by strand for now...
             c_ws[hi], (),
-            bootstrap_iterations=num_bootstrap,
-            min_reads=min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
-            min_allele_reads=min_allele_reads,
+            params=params,
+            min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
             separate_strands=False,
             read_bias_corr_min=0,  # separate_strands is false, so this is ignored
             gm_filter_factor=1,  # n_alleles=1, so this is ignored
-            hq=hq,
-            force_int=not fractional,
             seed=get_new_seed(rng),
             logger_=logger_,
             debug_str=f"{locus_log_str} a{hi}"
@@ -424,10 +419,7 @@ def call_alleles_with_haplotags(
 
 def call_alleles_with_incorporated_snvs(
     n_alleles: int,
-    num_bootstrap: int,
-    min_allele_reads: int,
-    hq: bool,
-    fractional: bool,
+    params: CallParams,
     read_dict: dict[str, ReadDict],
     read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
     read_dict_extra: dict[str, dict],
@@ -556,15 +548,12 @@ def call_alleles_with_incorporated_snvs(
         cc: Optional[CallDict] = call_alleles(
             cns[ci], (),  # Don't bother separating by strand for now...
             c_ws[ci], (),
-            bootstrap_iterations=num_bootstrap,
-            min_reads=min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
-            min_allele_reads=min_allele_reads,
+            params,
+            min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
             separate_strands=False,
             read_bias_corr_min=0,  # separate_strands is false, so this is ignored
             gm_filter_factor=1,  # n_alleles=1, so this is ignored
-            hq=hq,
-            force_int=not fractional,
             seed=get_new_seed(rng),
             logger_=logger_,
             debug_str=f"{locus_log_str} a{ci}"
@@ -588,7 +577,7 @@ def call_alleles_with_incorporated_snvs(
 
     cdd_sort_order_determiner = np.fromiter(
         map(lambda x: (x["peaks"][0], x["call_95_cis"][0][0]), cdd),
-        dtype=[("p", np.float_), ("i", np.float_ if fractional else np.int_)])
+        dtype=[("p", np.float_), ("i", np.float_ if params.fractional else np.int_)])
     # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
     peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
 
@@ -642,31 +631,27 @@ def call_locus(
     n_alleles: int,
     bfs: tuple[AlignmentFile, ...],
     ref: FastaFile,
-    min_reads: int,
-    min_allele_reads: int,
-    min_avg_phred: int,
-    num_bootstrap: int,
-    flank_size: int,
+    params: CallParams,
     seed: int,
     logger_: logging.Logger,
-    sample_id: Optional[str] = None,
-    realign: bool = False,
-    hq: bool = False,
-    use_hp: bool = False,
-    # incorporate_snvs: bool = False,
     snv_vcf_file: Optional[pysam.VariantFile] = None,
     snv_vcf_contigs: tuple[str, ...] = (),
     snv_vcf_file_format: Literal["chr", "num", "acc", ""] = "",
-    targeted: bool = False,
-    fractional: bool = False,
-    respect_ref: bool = False,
-    count_kmers: str = "none",  # "none" | "peak" | "read"
-    consensus: bool = False,
-    log_level: int = logging.WARNING,
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
 ) -> Optional[dict]:
     call_timer = datetime.now()
+
+    # params de-structuring ------------
+    consensus = params.consensus
+    count_kmers = params.count_kmers
+    flank_size = params.flank_size
+    fractional = params.fractional
+    log_level = params.log_level
+    realign = params.realign
+    respect_ref = params.respect_ref
+    sample_id = params.sample_id
+    # ----------------------------------
 
     rng = np.random.default_rng(seed=seed)
 
@@ -704,13 +689,13 @@ def call_locus(
     except IndexError:
         logger_.warning(
             f"Coordinates out of range in provided reference FASTA for region {ref_contig} with flank size "
-            f"{flank_size}: [{left_flank_coord}, {right_flank_coord}] (skipping locus {t_idx})")
+            f"{params.flank_size}: [{left_flank_coord}, {right_flank_coord}] (skipping locus {t_idx})")
         raised = True
     except ValueError:
         logger_.error(f"Invalid region '{ref_contig}' for provided reference FASTA (skipping locus {t_idx})")
         raised = True
 
-    if len(ref_left_flank_seq) < flank_size or len(ref_right_flank_seq) < flank_size:
+    if len(ref_left_flank_seq) < params.flank_size or len(ref_right_flank_seq) < params.flank_size:
         if not raised:  # flank sequence too small for another reason
             logger_.warning(f"Reference flank size too small for locus {t_idx} (skipping)")
             return None
@@ -866,7 +851,7 @@ def call_locus(
 
         # we can fit PHRED scores in uint8
         qqs = np.fromiter(fqqs[left_flank_end:right_flank_start], dtype=np.uint8)
-        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
+        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < (min_avg_phred := params.min_avg_phred):  # TODO: check flank?
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
             continue
@@ -921,7 +906,7 @@ def call_locus(
                 f"be guaranteed. TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
             exit(1)
 
-        mean_containing_size = read_len if targeted else np.mean(sorted_read_lengths[partition_idx:]).item()
+        mean_containing_size = read_len if params.targeted else np.mean(sorted_read_lengths[partition_idx:]).item()
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
         read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
 
@@ -942,7 +927,7 @@ def call_locus(
 
         # Reads can show up more than once - TODO - cache this information across loci
 
-        if use_hp:
+        if params.use_hp:
             tags = dict(segment.get_tags())
             if (hp := tags.get("HP")) is not None:
                 read_dict[rn]["hp"] = hp
@@ -988,7 +973,7 @@ def call_locus(
     }
 
     # Check now if we don't have enough reads to make a call. We can still return some read-level information!
-    if n_reads_in_dict < min_reads:
+    if n_reads_in_dict < params.min_reads:
         return {
             **call_dict_base,
             "call": None,
@@ -1022,14 +1007,11 @@ def call_locus(
             have_rare_realigns = True
             break
 
-    if use_hp:
+    if params.use_hp:
         if haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == n_alleles:
             hp_sorted = sorted(haplotags)
             call_res = call_alleles_with_haplotags(
-                num_bootstrap=num_bootstrap,
-                min_allele_reads=min_allele_reads,
-                hq=hq,
-                fractional=fractional,
+                params,
                 haplotags=hp_sorted,
                 read_dict_items=read_dict_items,
                 rng=rng,
@@ -1059,7 +1041,7 @@ def call_locus(
                 read_dict_extra, read_pairs, candidate_snvs_dict, only_known_snvs, logger_, locus_log_str)
 
             useful_snvs: list[tuple[int, int]] = calculate_useful_snvs(
-                n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs, min_allele_reads)
+                n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs, params.min_allele_reads)
             n_useful_snvs: int = len(useful_snvs)
 
             if not n_useful_snvs:
@@ -1067,10 +1049,7 @@ def call_locus(
             else:
                 am, call_res = call_alleles_with_incorporated_snvs(
                     n_alleles=n_alleles,
-                    num_bootstrap=num_bootstrap,
-                    min_allele_reads=min_allele_reads,
-                    hq=hq,
-                    fractional=fractional,
+                    params=params,
                     read_dict=read_dict,
                     read_dict_items=read_dict_items,
                     read_dict_extra=read_dict_extra,
@@ -1104,15 +1083,12 @@ def call_locus(
         call_data = call_alleles(
             read_cns, (),
             read_weights, (),
-            bootstrap_iterations=num_bootstrap,
-            min_reads=min_reads,
-            min_allele_reads=min_allele_reads,
+            params=params,
+            min_reads=params.min_reads,
             n_alleles=n_alleles,
             separate_strands=False,
             read_bias_corr_min=0,  # TODO: parametrize
             gm_filter_factor=3,  # TODO: parametrize
-            hq=hq,
-            force_int=not fractional,
             seed=get_new_seed(rng),
             logger_=logger_,
             debug_str=locus_log_str,

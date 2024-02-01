@@ -5,6 +5,7 @@ __all__ = [
     "logger",
     "attach_stream_handler",
     "create_process_logger",
+    "log_levels",
 ]
 
 fmt = logging.Formatter(fmt="%(name)s:\t[%(levelname)s]\t%(message)s")
@@ -25,3 +26,11 @@ def create_process_logger(pid: int, level: int):
     lg.setLevel(logging.DEBUG)
     attach_stream_handler(level, logger_=lg)
     return lg
+
+
+log_levels = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+}
