@@ -47,6 +47,7 @@ def locus_worker(
     sample_id: Optional[str],
     realign: bool,
     hq: bool,
+    use_hp: bool,
     # incorporate_snvs: bool,
     snv_vcf: Optional[str],
     targeted: bool,
@@ -112,6 +113,7 @@ def locus_worker(
             sample_id=sample_id,
             realign=realign,
             hq=hq,
+            use_hp=use_hp,
             # incorporate_snvs=incorporate_snvs,
             snv_vcf_file=snv_vcf_file,
             snv_vcf_contigs=tuple(snv_vcf_contigs),
@@ -200,6 +202,7 @@ def call_sample(
     sex_chroms: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
+    use_hp: bool = False,
     # incorporate_snvs: bool = False,
     snv_vcf: Optional[pathlib.Path] = None,
     targeted: bool = False,
@@ -241,8 +244,8 @@ def call_sample(
     sample_id_final: Optional[str] = sample_id or bam_sample_id
 
     logger.info(
-        f"Starting STR genotyping; sample={sample_id_final}, hq={hq}, targeted={targeted}, SNVs={snv_vcf is not None}; "
-        f"seed={seed}")
+        f"Starting STR genotyping; sample={sample_id_final}, hq={hq}, targeted={targeted}, HP={use_hp}, "
+        f"SNVs={snv_vcf is not None}; seed={seed}")
 
     # Seed the random number generator if a seed is provided, for replicability
     rng: np.random.Generator = np.random.default_rng(seed=seed)
@@ -286,6 +289,7 @@ def call_sample(
         "sample_id": sample_id_final,
         "realign": realign,
         "hq": hq,
+        "use_hp": use_hp,
         # "incorporate_snvs": incorporate_snvs,
         "snv_vcf": str(snv_vcf) if snv_vcf else None,
         "targeted": targeted,

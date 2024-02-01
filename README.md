@@ -154,6 +154,10 @@ If more than one read file is specified, the reads will be pooled. This can come
 have e.g. multiple flow cells of the same sample split into different BAM files, or the reads are
 split by chromosome.
 
+If you want to **incorporate haplotagging from an alignment file (`HP` tags)** into the 
+process, which should speed up runtime and potentially improve calling results, you must pass 
+the `--use-hp` flag. **This flag is experimental, and has not been tested extensively.**
+
 If you want to **incorporate SNV calling** into the process, which speeds up runtime and gives
 marginally better calling results, you must provide an indexed, `bgzip`-compressed SNV catalog 
 VCF which matches your reference genome. You can find dbSNP VCFs at

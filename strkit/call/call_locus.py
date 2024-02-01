@@ -338,6 +338,90 @@ def process_read_snvs_for_locus(
     return locus_snvs
 
 
+def call_alleles_with_haplotags(
+    num_bootstrap: int,
+    min_allele_reads: int,
+    hq: bool,
+    fractional: bool,
+    haplotags: list[str],
+    read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
+    rng: np.random.Generator,
+    logger_: logging.Logger,
+    locus_log_str: str,
+) -> Optional[dict]:
+    n_alleles: int = len(haplotags)
+
+    hp_reads: list[tuple[ReadDict, ...]] = []
+    cns: Union[list[list[int]], list[list[float]]] = []
+    c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
+
+    for hi, hp in enumerate(haplotags):
+        # Find reads for cluster
+        crs: tuple[ReadDict, ...] = tuple(r for i, (_, r) in enumerate(read_dict_items) if r.get("hp") == hp)
+
+        # Calculate copy number set
+        cns.append(list(map(cn_getter, crs)))
+
+        # Calculate weights array
+        ws = np.fromiter(map(weight_getter, crs), dtype=np.float_)
+        c_ws.append(ws / np.sum(ws))
+
+        hp_reads.append(crs)
+
+    cdd: list[CallDict] = []
+
+    for hi, hp in enumerate(haplotags):
+        cc: Optional[CallDict] = call_alleles(
+            cns[hi], (),  # Don't bother separating by strand for now...
+            c_ws[hi], (),
+            bootstrap_iterations=num_bootstrap,
+            min_reads=min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
+            min_allele_reads=min_allele_reads,
+            n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
+            separate_strands=False,
+            read_bias_corr_min=0,  # separate_strands is false, so this is ignored
+            gm_filter_factor=1,  # n_alleles=1, so this is ignored
+            hq=hq,
+            force_int=not fractional,
+            seed=get_new_seed(rng),
+            logger_=logger_,
+            debug_str=f"{locus_log_str} a{hi}"
+        )
+
+        if cc is None:  # Early escape
+            return None
+
+        # TODO: set peak weight [0] to the sum of read weights - we normalize this later, but this way
+        #  call dicts with more reads will GET MORE WEIGHT! as it should be, instead of 50/50 for the peak.
+
+        cdd.append(cc)
+
+    # TODO: Multi-allele phasing across STRs
+
+    for i in range(len(haplotags)):  # Cluster indices now referring to ordered ones
+        for rd in hp_reads[i]:
+            rd["p"] = i
+
+    peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
+
+    # All call_datas are truth-y; all arrays should be ordered by peak_order
+    call_data = {
+        "call": np.concatenate(tuple(cc["call"] for cc in cdd), axis=0),
+        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0),
+        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0),
+        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd), axis=None),
+
+        # TODO: Readjust peak weights when combining or don't include
+        # Make peak weights sum to 1
+        "peak_weights": peak_weights_pre_adj / np.sum(peak_weights_pre_adj),
+
+        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0),
+        "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
+    }
+
+    return call_data
+
+
 def call_alleles_with_incorporated_snvs(
     n_alleles: int,
     num_bootstrap: int,
@@ -568,6 +652,7 @@ def call_locus(
     sample_id: Optional[str] = None,
     realign: bool = False,
     hq: bool = False,
+    use_hp: bool = False,
     # incorporate_snvs: bool = False,
     snv_vcf_file: Optional[pysam.VariantFile] = None,
     snv_vcf_contigs: tuple[str, ...] = (),
@@ -683,6 +768,8 @@ def call_locus(
     read_dict: dict[str, ReadDict] = {}
     read_dict_extra: dict[str, ReadDictExtra] = {}
     realign_count: int = 0  # Number of realigned reads
+    haplotagged_reads_count: int = 0  # Number of reads with HP tags
+    haplotags: set[str] = set()
 
     # Aggregations for additional read-level data
     read_kmers: Counter[str] = Counter()
@@ -714,7 +801,7 @@ def call_locus(
         # Soft-clipping in large insertions can result from mapping difficulties.
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
         # via realignment with parasail.
-        # 4: BAM code for soft clip
+        # 4: BAM code for soft clip CIGAR operation
         # TODO: if some alignment is present, use it to reduce realignment overhead?
         #  - use start point + flank*3 or end point - flank*3 or something like that
         if realign and (force_realign or (
@@ -855,6 +942,13 @@ def call_locus(
 
         # Reads can show up more than once - TODO - cache this information across loci
 
+        if use_hp:
+            tags = dict(segment.get_tags())
+            if (hp := tags.get("HP")) is not None:
+                read_dict[rn]["hp"] = hp
+                haplotags.add(hp)
+                haplotagged_reads_count += 1
+
         if should_incorporate_snvs:
             # Store the segment sequence in the read dict for the next go-around if we've enabled SNV incorporation,
             # in order to pass the query sequence to the get_read_snvs function with the cached ref string.
@@ -911,10 +1005,11 @@ def call_locus(
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, ReadDict], ...] = tuple(read_dict.items())
 
-    assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
+    assign_method: Literal["dist", "snv", "snv+dist", "single", "hp"] = "dist"
     if n_alleles < 2:
         assign_method = "single"
 
+    min_hp_read_coverage: int = 8  # TODO: parametrize
     min_snv_read_coverage: int = 8  # TODO: parametrize
 
     # Realigns are missing significant amounts of flanking information since the realignment only uses a portion of the
@@ -927,51 +1022,74 @@ def call_locus(
             have_rare_realigns = True
             break
 
-    if realign_count >= many_realigns_threshold or have_rare_realigns:
-        logger_.warning(
-            f"{locus_log_str} - cannot use SNVs; one of {realign_count=} >= {many_realigns_threshold} or "
-            f"{have_rare_realigns=}")
-
-    elif should_incorporate_snvs and n_reads_in_dict >= min_snv_read_coverage and not have_rare_realigns:
-        # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
-
-        # Second read loop occurs in this function
-        locus_snvs: set[int] = process_read_snvs_for_locus(
-            contig, left_coord_adj, right_coord_adj, left_most_coord, right_most_coord, ref, read_dict_items,
-            read_dict_extra, read_pairs, candidate_snvs_dict, only_known_snvs, logger_, locus_log_str)
-
-        useful_snvs: list[tuple[int, int]] = calculate_useful_snvs(
-            n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs, min_allele_reads)
-        n_useful_snvs: int = len(useful_snvs)
-
-        if not n_useful_snvs:
-            logger_.debug(f"{locus_log_str} - no useful SNVs")
-        else:
-            am, call_res = call_alleles_with_incorporated_snvs(
-                n_alleles=n_alleles,
+    if use_hp:
+        if haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == n_alleles:
+            hp_sorted = sorted(haplotags)
+            call_res = call_alleles_with_haplotags(
                 num_bootstrap=num_bootstrap,
                 min_allele_reads=min_allele_reads,
                 hq=hq,
                 fractional=fractional,
-                read_dict=read_dict,
+                haplotags=hp_sorted,
                 read_dict_items=read_dict_items,
-                read_dict_extra=read_dict_extra,
-                n_reads_in_dict=n_reads_in_dict,
-                useful_snvs=useful_snvs,
-                candidate_snvs_dict=candidate_snvs_dict,
                 rng=rng,
                 logger_=logger_,
                 locus_log_str=locus_log_str,
             )
-            assign_method = am
             if call_res is not None:
-                call_data = call_res[0]  # Call data dictionary
-                call_dict_base["snvs"] = call_res[1]  # Called useful SNVs
+                assign_method = "hp"
+                call_data = call_res
+        else:
+            logger_.debug(
+                f"{locus_log_str} - Not enough HP tags for incorporation; one of {haplotagged_reads_count} < "
+                f"{min_hp_read_coverage} or {len(haplotags)} != {n_alleles}")
 
-    elif n_reads_in_dict < min_snv_read_coverage:
-        logger_.debug(
-            f"{locus_log_str} - not enough coverage for SNV incorporation "
-            f"({n_reads_in_dict} < {min_snv_read_coverage})")
+    if should_incorporate_snvs and assign_method != "hp":
+        if realign_count >= many_realigns_threshold or have_rare_realigns:
+            logger_.warning(
+                f"{locus_log_str} - cannot use SNVs; one of {realign_count=} >= {many_realigns_threshold} or "
+                f"{have_rare_realigns=}")
+
+        elif n_reads_in_dict >= min_snv_read_coverage and not have_rare_realigns:
+            # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
+
+            # Second read loop occurs in this function
+            locus_snvs: set[int] = process_read_snvs_for_locus(
+                contig, left_coord_adj, right_coord_adj, left_most_coord, right_most_coord, ref, read_dict_items,
+                read_dict_extra, read_pairs, candidate_snvs_dict, only_known_snvs, logger_, locus_log_str)
+
+            useful_snvs: list[tuple[int, int]] = calculate_useful_snvs(
+                n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs, min_allele_reads)
+            n_useful_snvs: int = len(useful_snvs)
+
+            if not n_useful_snvs:
+                logger_.debug(f"{locus_log_str} - no useful SNVs")
+            else:
+                am, call_res = call_alleles_with_incorporated_snvs(
+                    n_alleles=n_alleles,
+                    num_bootstrap=num_bootstrap,
+                    min_allele_reads=min_allele_reads,
+                    hq=hq,
+                    fractional=fractional,
+                    read_dict=read_dict,
+                    read_dict_items=read_dict_items,
+                    read_dict_extra=read_dict_extra,
+                    n_reads_in_dict=n_reads_in_dict,
+                    useful_snvs=useful_snvs,
+                    candidate_snvs_dict=candidate_snvs_dict,
+                    rng=rng,
+                    logger_=logger_,
+                    locus_log_str=locus_log_str,
+                )
+                assign_method = am
+                if call_res is not None:
+                    call_data = call_res[0]  # Call data dictionary
+                    call_dict_base["snvs"] = call_res[1]  # Called useful SNVs
+
+        elif n_reads_in_dict < min_snv_read_coverage:
+            logger_.debug(
+                f"{locus_log_str} - not enough coverage for SNV incorporation "
+                f"({n_reads_in_dict} < {min_snv_read_coverage})")
 
     single_or_dist_assign: bool = assign_method in ("single", "dist")
 
@@ -1102,7 +1220,8 @@ def call_locus(
     call_val = apply_or_none(_ndarray_serialize, call)
     call_95_cis_val = apply_or_none(_nested_ndarray_serialize, call_95_cis)
 
-    logger_.debug(f"{locus_log_str} - got call: {call_val} (95% CIs: {call_95_cis_val})")
+    logger_.debug(
+        f"{locus_log_str} - got call: {call_val} (95% CIs: {call_95_cis_val}); peak assign method={assign_method}")
 
     return {
         **call_dict_base,

@@ -59,6 +59,11 @@ def add_call_parser_args(call_parser):
              "DNA truth. Recommended for CCS, and CCS ONLY!")
 
     call_parser.add_argument(
+        "--use-hp",
+        action="store_true",
+        help="Whether to use HP tags from the alignment file (i.e., a haplotagged alignment file), if available.")
+
+    call_parser.add_argument(
         "--incorporate-snvs", "--snv", "-v",
         type=pathlib.Path,
         help="A path to a dbSNP VCF file with a list of validated SNVs to help phase with. Specifying this enables the "
@@ -364,6 +369,7 @@ def _exec_call(p_args) -> None:
         sex_chroms=p_args.sex_chr,
         realign=p_args.realign,
         hq=p_args.hq,
+        use_hp=p_args.use_hp,
         # incorporate_snvs=p_args.incorporate_snvs,
         snv_vcf=p_args.incorporate_snvs,
         targeted=p_args.targeted,

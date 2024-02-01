@@ -29,7 +29,10 @@ class ReadDict(_ReadDictBase, total=False):
 
     kmers: dict[str, int]  # Dictionary of {kmer: count}
 
-    # Below are only added if SNVs are being incorporated:
+    # Only added if HP tags from a haplotagged alignment file are being incorporated:
+    hp: str
+
+    # Only added if SNVs are being incorporated:
     snvu: tuple[str, ...]  # After including only useful SNVs, this contains a tuple of bases for just those
 
 
