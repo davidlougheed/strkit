@@ -4,10 +4,11 @@ import heapq
 import logging
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
-
+import multiprocessing.managers as mmg
 import numpy as np
 import os
 import re
+import threading
 import time
 
 from datetime import datetime
@@ -35,7 +36,16 @@ PROFILE_LOCUS_CALLS: bool = False
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
 
 
-def locus_worker(params: CallParams, locus_queue: mp.Queue, is_single_processed: bool) -> list[dict]:
+def locus_worker(
+    params: CallParams,
+    locus_queue: mp.Queue,
+    phase_set_lock: threading.Lock,
+    phase_set_counter: mmg.ValueProxy,
+    phase_set_remap: mmg.DictProxy,
+    snv_genotype_update_lock: threading.Lock,
+    snv_genotype_cache: mmg.DictProxy,
+    is_single_processed: bool,
+) -> list[dict]:
     if PROFILE_LOCUS_CALLS:
         import cProfile
         pr = cProfile.Profile()
@@ -80,6 +90,11 @@ def locus_worker(params: CallParams, locus_queue: mp.Queue, is_single_processed:
         t_idx, t, n_alleles, locus_seed = td
         res = call_locus(
             t_idx, t, n_alleles, bfs, ref, params,
+            phase_set_lock,
+            phase_set_counter,
+            phase_set_remap,
+            snv_genotype_update_lock,
+            snv_genotype_cache,
             seed=locus_seed,
             logger_=lg,
             snv_vcf_file=snv_vcf_file,
@@ -167,7 +182,7 @@ def call_sample(
     # Seed the random number generator if a seed is provided, for replicability
     rng: np.random.Generator = np.random.default_rng(seed=params.seed)
 
-    manager = mp.Manager()
+    manager: mmg.SyncManager = mp.Manager()
     locus_queue = manager.Queue()
 
     # Add all loci from the BED file to the queue, allowing each job
@@ -195,7 +210,6 @@ def call_sample(
         locus_queue.put(None)
 
     is_single_processed = params.processes == 1
-    job_args = (params, locus_queue, is_single_processed)
     result_lists = []
 
     pool_class = mpd.Pool if is_single_processed else NonDaemonicPool
@@ -209,7 +223,27 @@ def call_sample(
                   finish_event))
         progress_job.start()
 
-        # Spin up the jobs
+        # Set up shared memory for cross-locus phasing tasks
+        phase_set_lock = manager.Lock()  # Lock for generating phase set integers
+        phase_set_counter = manager.Value('I', 1)  # Generates unique phase set IDs
+        #  - We need to remap haplotagged BAM phase sets to unique phase set IDs generated from the above counter:
+        phase_set_remap = manager.dict()
+        #  - When updating SNV genotype cache, we need a lock to make sure we don't get weird phasing artifacts where
+        #    the cache is updated simultaneously:
+        snv_genotype_update_lock = manager.Lock()
+        snv_genotype_cache = manager.dict()  # SNV genotype cache for cross-locus phasing
+
+        # Set up the argument tuple and spin up the jobs
+        job_args = (
+            params,
+            locus_queue,
+            phase_set_lock,
+            phase_set_counter,
+            phase_set_remap,
+            snv_genotype_update_lock,
+            snv_genotype_cache,
+            is_single_processed,
+        )
         jobs = [p.apply_async(locus_worker, job_args) for _ in range(params.processes)]
 
         # Gather the process-specific results for combining.

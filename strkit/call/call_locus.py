@@ -4,10 +4,12 @@ import functools
 import itertools
 import logging
 import multiprocessing as mp
+import multiprocessing.managers as mmg
 import numpy as np
 import pysam
 import operator
 import queue
+import threading
 
 from collections import Counter
 from collections.abc import Sequence
@@ -415,6 +417,8 @@ def call_alleles_with_haplotags(
 
         "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0),
         "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
+
+        "ps": ps_id,
     }
 
     return call_data
@@ -429,6 +433,12 @@ def call_alleles_with_incorporated_snvs(
     n_reads_in_dict: int,  # We could derive this again, but we already have before...
     useful_snvs: list[tuple[int, int]],
     candidate_snvs_dict: dict[int, CandidateSNV],
+    # ---
+    phase_set_lock: threading.Lock,
+    phase_set_counter: mmg.ValueProxy,
+    snv_genotype_update_lock: threading.Lock,
+    snv_genotype_cache: mmg.DictProxy,
+    # ---
     rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
@@ -573,8 +583,6 @@ def call_alleles_with_incorporated_snvs(
 
         cdd.append(cc)
 
-    # TODO: Multi-allele phasing across STRs
-
     # We called these as single-allele (1 peak) loci as a sort of hack, so the return "call" key
     # is an array of length 1.
 
@@ -595,6 +603,72 @@ def call_alleles_with_incorporated_snvs(
         for rd in cluster_reads_ordered[i]:
             rd["p"] = i
 
+    # Call useful SNVs to add to the final return dictionary ----------------------------------------------------------
+    #  - This method needs the read_dict[p] value, so we need to run this after initial peaks have been calculated!
+    called_useful_snvs: list[dict] = call_and_filter_useful_snvs(
+        n_alleles, read_dict, useful_snvs, candidate_snvs_dict, locus_log_str, logger_)
+
+    if not called_useful_snvs:  # No useful SNVs left, so revert to "dist" assignment method
+        return "dist", None
+    # ------------------------------------------------------------------------------------------------------------------
+
+    # We may need to re-order (flip) calls based on SNVs. Check each SNV to see if it's in the SNV genotype/phase-set
+    # dictionary; otherwise, assign a phase set to all reads which have been used for peak calling here.
+
+    call_phase_set: Optional[int] = None
+
+    found_snvs: list[str] = []
+    snv_pss: list[int] = []
+    should_flip: list[bool] = []
+
+    snv_genotype_update_lock.acquire()
+    try:
+        for snv in called_useful_snvs:
+            if snv["id"] in snv_genotype_cache:
+                t_snv_genotype, snv_ps = snv_genotype_cache[snv["id"]]
+                found_snvs.append(snv["id"])
+                snv_pss.append(snv_ps)
+                should_flip.append(len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"])))
+        if not found_snvs:
+            phase_set_lock.acquire()
+            call_phase_set = int(phase_set_counter.value)
+            phase_set_counter.set(call_phase_set + 1)
+            phase_set_lock.release()
+
+            for snv in called_useful_snvs:
+                snv_genotype_cache[snv["id"]] = (tuple(snv["call"]), call_phase_set)
+    finally:
+        snv_genotype_update_lock.release()
+
+    if found_snvs:  # else from the above `if not found_snvs`, but we can release the lock earlier
+        # Have found SNVs, should flip/not flip and assign existing phase set
+        all_should_flip = all(should_flip)
+        flip_consensus = all_should_flip or all(map(lambda f: not f, should_flip))
+        phase_set_consensus_set = tuple(sorted(set(snv_pss)))
+        phase_set_consensus = len(phase_set_consensus_set) == 1
+        if flip_consensus and phase_set_consensus:
+            call_phase_set = phase_set_consensus_set[0]
+            if all_should_flip:
+                for r in read_dict.values():
+                    if (p := r.get("p")) is not None:
+                        # Flip peak - in SNV mode, we're not polyploid, so we can just do int(not bool(p))
+                        r["p"] = int(not bool(p))
+                        r["ps"] = call_phase_set
+                # Then, reverse ordered call data list
+                cdd_ordered.reverse()
+            else:
+                for r in read_dict.values():
+                    if r.get("p") is not None:
+                        # We're good as-is, so assign the phase set
+                        r["ps"] = call_phase_set
+        else:
+            # TODO: what to do? can we recover something here? yes - we could join phase sets post-facto
+            #  - sort snv_pss so we keep the smaller one
+
+            logger_.warning(
+                f"{locus_log_str} - no consensus for SNV phase set/should-flip: got {snv_pss}/{should_flip}; "
+                f"skipping phasing")
+
     peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
 
     # All call_datas are truth-y; all arrays should be ordered by peak_order
@@ -610,14 +684,11 @@ def call_alleles_with_incorporated_snvs(
 
         "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd_ordered), axis=0),
         "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
+
+        **({"ps": call_phase_set} if call_phase_set is not None else {}),
     }
 
-    # Called useful SNVs to add to the final return dictionary:
-    called_useful_snvs: list[dict] = call_and_filter_useful_snvs(
-        n_alleles, read_dict, useful_snvs, candidate_snvs_dict, locus_log_str, logger_)
-
-    if not called_useful_snvs:  # No useful SNVs left, so revert to "dist" assignment method
-        return "dist", None
+    # Return the SNV/SNV+dist method + our called peaks, and update the phase set information.
 
     return assign_method, (call_data, called_useful_snvs)
 
@@ -635,11 +706,20 @@ def call_locus(
     bfs: tuple[AlignmentFile, ...],
     ref: FastaFile,
     params: CallParams,
+    # ---
+    phase_set_lock: threading.Lock,
+    phase_set_counter: mmg.ValueProxy,
+    phase_set_remap: mmg.DictProxy,
+    snv_genotype_update_lock: threading.Lock,
+    snv_genotype_cache: mmg.DictProxy,
+    # ---
     seed: int,
     logger_: logging.Logger,
+    # ---
     snv_vcf_file: Optional[pysam.VariantFile] = None,
     snv_vcf_contigs: tuple[str, ...] = (),
     snv_vcf_file_format: Literal["chr", "num", "acc", ""] = "",
+    # ---
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
 ) -> Optional[dict]:
@@ -936,12 +1016,24 @@ def call_locus(
         if params.use_hp:
             tags = dict(segment.get_tags())
             if (hp := tags.get("HP")) is not None and (ps := tags.get("PS")) is not None:
-                int_ps = int(ps)
+                orig_ps = int(ps)
+                ps_remapped: int
+                if orig_ps in phase_set_remap:
+                    ps_remapped = phase_set_remap[orig_ps]
+                else:
+                    phase_set_lock.acquire()
+                    psc = int(phase_set_counter.value)
+                    phase_set_counter.set(psc + 1)
+                    phase_set_lock.release()
+
+                    phase_set_remap[orig_ps] = psc
+                    ps_remapped = psc
+
                 read_dict[rn]["hp"] = hp
-                read_dict[rn]["ps"] = int_ps
+                read_dict[rn]["ps"] = ps_remapped
                 haplotags.add(hp)
                 haplotagged_reads_count += 1
-                phase_sets[int_ps] += 1
+                phase_sets[ps_remapped] += 1
 
         if should_incorporate_snvs:
             # Store the segment sequence in the read dict for the next go-around if we've enabled SNV incorporation,
@@ -1034,7 +1126,6 @@ def call_locus(
             if call_res is not None:
                 assign_method = "hp"
                 call_data = call_res
-                call_dict_base["ps"] = ps_id
         else:
             logger_.debug(
                 f"{locus_log_str} - Not enough HP/PS tags for incorporation; one of {haplotagged_reads_count} < "
@@ -1071,6 +1162,10 @@ def call_locus(
                     n_reads_in_dict=n_reads_in_dict,
                     useful_snvs=useful_snvs,
                     candidate_snvs_dict=candidate_snvs_dict,
+                    phase_set_lock=phase_set_lock,
+                    phase_set_counter=phase_set_counter,
+                    snv_genotype_update_lock=snv_genotype_update_lock,
+                    snv_genotype_cache=snv_genotype_cache,
                     rng=rng,
                     logger_=logger_,
                     locus_log_str=locus_log_str,
@@ -1120,6 +1215,8 @@ def call_locus(
     call_weights = call_data.get("peak_weights")
     call_stdevs = call_data.get("peak_stdevs")
     call_modal_n = call_data.get("modal_n_peaks")
+
+    call_ps = call_data.get("ps")
 
     # Assign reads to peaks and compute peak k-mers (and optionally consensus sequences) -------------------------------
 
@@ -1221,6 +1318,7 @@ def call_locus(
         "call_95_cis": call_95_cis_val,
         "call_99_cis": apply_or_none(_nested_ndarray_serialize, call_99_cis),
         "peaks": peak_data,
+        "ps": call_ps,
         # make typecheck happy above by checking all of these are not None (even though if call is false-y, all of them
         # should be None and otherwise none of them should).
         "read_peaks_called": read_peaks_called,

@@ -102,17 +102,14 @@ def output_vcf(
 
             ref_start_anchor = result["ref_start_anchor"].upper()
 
-            # ref_cn = result["ref_cn"]
             ref_seq = result["ref_seq"].upper()
 
             seqs = tuple(map(str.upper, (result["peaks"] or {}).get("seqs", ())))
 
-            # cn_alts = sorted(set(c for c in call if c != ref_cn)) if call is not None else ()
             seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
             common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
 
             call = result["call"]
-            # cn_alleles = (ref_cn, *cn_alts) if call is not None else (".",)
             seq_alleles_raw: tuple[str, ...] = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
             seq_alleles: list[str] = []
 
@@ -123,8 +120,6 @@ def output_vcf(
                 else:
                     seq_alleles.append(".")
 
-            # seq_alleles = (ref_start_anchor + ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
-
             start = result.get("start_adj", result["start"]) - len(ref_start_anchor)
             vr: pysam.VariantRecord = vf.new_record(
                 contig=contig,
@@ -132,30 +127,16 @@ def output_vcf(
                 alleles=seq_alleles,
             )
 
-            # TODO: right now we only call one repeat in one allele and use the canonical motif sequence, even though
-            #  there may be multiple motifs present.
-            # motif = result["motif"]
-            # vr.info["SVLEN"] = math.ceil(end - start)
-            # vr.info["CN"] = tuple(a / ref_cn for a in alts) if ref_cn else tuple([1] * len(alts))
-            # vr.info["RN"] = tuple([1] * len(alts))
-            # vr.info["RUS"] = tuple([motif] * len(alts))
-            # vr.info["RUL"] = tuple([len(motif)] * len(alts))
-
-            # TODO: set up tandem repeat info fields
-
             vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else (".",)
             vr.samples[sample_id_str]["DP"] = sum(result["peaks"]["n_reads"])
             vr.samples[sample_id_str]["AD"] = tuple(result["peaks"]["n_reads"])
             vr.samples[sample_id_str]["MC"] = tuple(map(int, result["call"]))  # TODO: support fractional
 
-            if result["assign_method"] == "hp":  # haplotagged call, so mark as phased
-                vr.samples[sample_id_str].phased = True
-                vr.samples[sample_id_str]["PS"] = result["ps"]
+            ps = result["ps"]
 
-            # TODO: output phased SNVs
-            # if has_at_least_one_snv_set:
-            #     vr.samples[sample_id_str].phased = True
-            #     vr.samples[sample_id_str]["PS"] = str(result_idx)
+            if ps is not None:  # have phase set on call, so mark as phased
+                vr.samples[sample_id_str].phased = True
+                vr.samples[sample_id_str]["PS"] = ps
 
             for snv in result.get("snvs", ()):
                 snv_id = snv["id"]
@@ -181,12 +162,12 @@ def output_vcf(
                 snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
                 snv_vr.samples[sample_id_str]["DP"] = sum(snv["rcs"])
                 snv_vr.samples[sample_id_str]["AD"] = snv["rcs"]
-                # snv_vr.samples[sample_id_str].phased = True
-                # snv_vr.samples[sample_id_str]["PS"] = str(result_idx)
+
+                if ps is not None:
+                    snv_vr.samples[sample_id_str].phased = True
+                    snv_vr.samples[sample_id_str]["PS"] = ps
 
                 contig_vrs.append(snv_vr)
-
-                # TODO: now is the time to figure out phasing SNVs across different TRs
 
             contig_vrs.append(vr)
 
