@@ -1,6 +1,6 @@
 import itertools
 
-from typing import Generator, Iterable, Union
+from typing import Iterable, Union
 
 __all__ = [
     "CoordPair",
@@ -72,7 +72,7 @@ def get_aligned_pairs_from_cigar(
     query_start: int = 0,
     ref_start: int = 0,
     matches_only: bool = False,
-) -> Generator[CoordPair, None, None]:
+) -> Iterable[CoordPair]:
     """
     Given an iterable of CIGAR operations (op, count), yield aligned pairs of (query, ref).
     :param cigar: Iterable of CIGAR operations
@@ -88,6 +88,10 @@ def get_aligned_pairs_from_cigar(
 
     return itertools.chain.from_iterable(map(lambda c: ops[c[0]](c[1], qi, di), cigar))
 
-def decode_cigar(encoded_cigar: list[int]) -> Generator[tuple[int, int], None, None]:
-    for item in encoded_cigar:
-        yield item & 15, item >> 4
+
+def _decode_cigar_item(item: int) -> tuple[int, int]:
+    return item & 15, item >> 4
+
+
+def decode_cigar(encoded_cigar: list[int]) -> Iterable[tuple[int, int]]:
+    return map(_decode_cigar_item, encoded_cigar)
