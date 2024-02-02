@@ -31,6 +31,7 @@ class ReadDict(_ReadDictBase, total=False):
 
     # Only added if HP tags from a haplotagged alignment file are being incorporated:
     hp: str
+    ps: int
 
     # Only added if SNVs are being incorporated:
     snvu: tuple[str, ...]  # After including only useful SNVs, this contains a tuple of bases for just those

@@ -44,7 +44,7 @@ def _build_variant_header(sample_id: str, reference_file: str) -> pysam.VariantH
     vh.formats.add("DP", 1, "Integer", "Read depth")
     vh.formats.add("GT", 1, "String", "Genotype")
     vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
-    # vh.formats.add("PS", 1, "String", "Phase set")  TODO
+    vh.formats.add("PS", 1, "Integer", "Phase set")
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
@@ -147,6 +147,10 @@ def output_vcf(
             vr.samples[sample_id_str]["DP"] = sum(result["peaks"]["n_reads"])
             vr.samples[sample_id_str]["AD"] = tuple(result["peaks"]["n_reads"])
             vr.samples[sample_id_str]["MC"] = tuple(map(int, result["call"]))  # TODO: support fractional
+
+            if result["assign_method"] == "hp":  # haplotagged call, so mark as phased
+                vr.samples[sample_id_str].phased = True
+                vr.samples[sample_id_str]["PS"] = result["ps"]
 
             # TODO: output phased SNVs
             # if has_at_least_one_snv_set:

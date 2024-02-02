@@ -342,6 +342,7 @@ def process_read_snvs_for_locus(
 def call_alleles_with_haplotags(
     params: CallParams,
     haplotags: list[str],
+    ps_id: int,
     read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
     rng: np.random.Generator,
     logger_: logging.Logger,
@@ -355,7 +356,9 @@ def call_alleles_with_haplotags(
 
     for hi, hp in enumerate(haplotags):
         # Find reads for cluster
-        crs: tuple[ReadDict, ...] = tuple(r for i, (_, r) in enumerate(read_dict_items) if r.get("hp") == hp)
+        crs: tuple[ReadDict, ...] = tuple(
+            r for i, (_, r) in enumerate(read_dict_items)
+            if r.get("hp") == hp and r.get("ps") == ps_id)
 
         # Calculate copy number set
         cns.append(list(map(cn_getter, crs)))
@@ -753,8 +756,11 @@ def call_locus(
     read_dict: dict[str, ReadDict] = {}
     read_dict_extra: dict[str, ReadDictExtra] = {}
     realign_count: int = 0  # Number of realigned reads
+
+    # Various aggregators for if we have a phased alignment file:
     haplotagged_reads_count: int = 0  # Number of reads with HP tags
     haplotags: set[str] = set()
+    phase_sets: Counter[int] = Counter()
 
     # Aggregations for additional read-level data
     read_kmers: Counter[str] = Counter()
@@ -929,10 +935,13 @@ def call_locus(
 
         if params.use_hp:
             tags = dict(segment.get_tags())
-            if (hp := tags.get("HP")) is not None:
+            if (hp := tags.get("HP")) is not None and (ps := tags.get("PS")) is not None:
+                int_ps = int(ps)
                 read_dict[rn]["hp"] = hp
+                read_dict[rn]["ps"] = int_ps
                 haplotags.add(hp)
                 haplotagged_reads_count += 1
+                phase_sets[int_ps] += 1
 
         if should_incorporate_snvs:
             # Store the segment sequence in the read dict for the next go-around if we've enabled SNV incorporation,
@@ -1008,11 +1017,15 @@ def call_locus(
             break
 
     if params.use_hp:
-        if haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == n_alleles:
+        top_ps = phase_sets.most_common(1)
+        if (haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == n_alleles and top_ps and
+                top_ps[0][1] >= min_hp_read_coverage):
             hp_sorted = sorted(haplotags)
+            ps_id = top_ps[0][0]
             call_res = call_alleles_with_haplotags(
                 params,
                 haplotags=hp_sorted,
+                ps_id=ps_id,
                 read_dict_items=read_dict_items,
                 rng=rng,
                 logger_=logger_,
@@ -1021,10 +1034,12 @@ def call_locus(
             if call_res is not None:
                 assign_method = "hp"
                 call_data = call_res
+                call_dict_base["ps"] = ps_id
         else:
             logger_.debug(
-                f"{locus_log_str} - Not enough HP tags for incorporation; one of {haplotagged_reads_count} < "
-                f"{min_hp_read_coverage} or {len(haplotags)} != {n_alleles}")
+                f"{locus_log_str} - Not enough HP/PS tags for incorporation; one of {haplotagged_reads_count} < "
+                f"{min_hp_read_coverage}, top PS {phase_sets.most_common(1)[0][1]} < {min_hp_read_coverage}, or "
+                f"{len(haplotags)} != {n_alleles}")
 
     if should_incorporate_snvs and assign_method != "hp":
         if realign_count >= many_realigns_threshold or have_rare_realigns:
