@@ -51,13 +51,13 @@ def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, fl
     ref_size = kwargs.pop("ref_size")
 
     # Always assign parasail results to variables due to funky memory allocation behaviour
-    ext_r_seq = flank_left_seq + tr_candidate
+    ext_r_seq = f"{flank_left_seq}{tr_candidate}"
     r_fwd = parasail.sg_de_stats_rowcol_scan_sat(
         ext_r_seq, db_seq, indel_penalty, indel_penalty, dna_matrix)
     r_adj = r_fwd.end_ref + 1 - len(flank_left_seq) - ref_size  # Amount to tweak boundary on the right side by
 
     db_seq_rev = db_seq[::-1]
-    ext_l_seq = (tr_candidate + flank_right_seq[max(r_adj, 0):])[::-1]  # reverse
+    ext_l_seq = f"{tr_candidate}{flank_right_seq[max(r_adj, 0):]}"[::-1]  # reverse
 
     r_rev = parasail.sg_de_stats_rowcol_scan_sat(
         ext_l_seq, db_seq_rev, indel_penalty, indel_penalty, dna_matrix)
@@ -67,8 +67,8 @@ def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, fl
 
 
 def gen_frac_repeats(motif: str, base_tr: str, j: int) -> tuple[str, str]:
-    tr_s = base_tr[abs(j):] if j < 0 else motif[j:] + base_tr
-    tr_e = base_tr[:j] if j < 0 else base_tr + motif[:j]
+    tr_s = base_tr[abs(j):] if j < 0 else f"{motif[j:]}{base_tr}"
+    tr_e = base_tr[:j] if j < 0 else f"{base_tr}{motif[:j]}"
     return tr_s, tr_e
 
 
@@ -181,7 +181,7 @@ def get_ref_repeat_count(
     l_offset: int = 0
     r_offset: int = 0
 
-    db_seq: str = flank_left_seq + tr_seq + flank_right_seq
+    db_seq: str = f"{flank_left_seq}{tr_seq}{flank_right_seq}"
     motif_size = len(motif)
 
     if not respect_coords:  # Extend out coordinates from initial definition
