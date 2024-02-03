@@ -643,7 +643,7 @@ def call_alleles_with_incorporated_snvs(
     if found_snvs:  # else from the above `if not found_snvs`, but we can release the lock earlier
         # Have found SNVs, should flip/not flip and assign existing phase set
         all_should_flip = all(should_flip)
-        flip_consensus = all_should_flip or all(map(lambda f: not f, should_flip))
+        flip_consensus = all_should_flip or all(map(operator.not_, should_flip))
         phase_set_consensus_set = tuple(sorted(set(snv_pss)))
         phase_set_consensus = len(phase_set_consensus_set) == 1
         if flip_consensus and phase_set_consensus:

@@ -6,6 +6,7 @@ from typing import Literal, Union
 
 from strkit.utils import sign
 from .align_matrix import dna_matrix, indel_penalty
+from .utils import idx_1_getter
 
 __all__ = [
     "get_repeat_count",
@@ -41,7 +42,6 @@ def score_candidate(
     motif_count: int,
     flank_left_seq: str,
     flank_right_seq: str,
-    **_kwargs,
 ) -> int:
     return score_candidate_with_string(db_seq, motif * motif_count, flank_left_seq, flank_right_seq)
 
@@ -149,7 +149,7 @@ def get_repeat_count(
 
             szs.append((i, sizes_and_scores[i]))
 
-        mv: tuple[int, int] = max(szs, key=lambda x: x[1])
+        mv: tuple[int, int] = max(szs, key=idx_1_getter)
         if mv[0] > size_to_explore and (new_rc := mv[0] + 1) not in sizes_and_scores:
             if new_rc >= 0:
                 to_explore.append((new_rc, 1))
@@ -164,7 +164,7 @@ def get_repeat_count(
         return get_fractional_rc(top_int_res, motif, flank_left_seq, flank_right_seq, db_seq)
 
     # noinspection PyTypeChecker
-    return max(sizes_and_scores.items(), key=lambda x: x[1])
+    return max(sizes_and_scores.items(), key=idx_1_getter)
 
 
 def get_ref_repeat_count(
@@ -246,7 +246,7 @@ def get_ref_repeat_count(
                     fwd_scores.append((i, fwd_rs, i))
                     rev_scores.append((i, rev_rs, i))
 
-            mv: tuple[Union[float, int], tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=lambda x: x[1])
+            mv: tuple[Union[float, int], tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=idx_1_getter)
             if mv[2] > size_to_explore and (
                     (new_rc := mv[2] + 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
                 if new_rc >= 0:

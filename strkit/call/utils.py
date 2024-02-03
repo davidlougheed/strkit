@@ -1,9 +1,11 @@
 import numpy as np
+import operator
 import sys
 from typing import Callable
 
 __all__ = [
     "cat_strs",
+    "idx_1_getter",
     "find_pair_by_ref_pos_py",
     "find_pair_by_ref_pos",
     "normalize_contig",
@@ -13,6 +15,7 @@ __all__ = [
 
 
 cat_strs = "".join
+idx_1_getter = operator.itemgetter(1)
 
 
 def find_pair_by_ref_pos_py(pairs: list[tuple[int, int]], target: int, start_left: int = 0) -> tuple[int, bool]:
@@ -42,7 +45,7 @@ if sys.version_info[0] >= 3 and (sys.version_info[0] > 3 or sys.version_info[1] 
 
     def find_pair_by_ref_pos_bisect(pairs: list[tuple[int, int]], target: int, start_left: int = 0) -> tuple[int, bool]:
         n_pairs: int = len(pairs)
-        idx = bisect.bisect_left(pairs, target, start_left, n_pairs, key=lambda x: x[1])
+        idx = bisect.bisect_left(pairs, target, start_left, n_pairs, key=idx_1_getter)
         return idx, idx < n_pairs and pairs[idx][1] == target
 
     find_pair_by_ref_pos = find_pair_by_ref_pos_bisect
