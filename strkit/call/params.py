@@ -73,7 +73,7 @@ class CallParams:
             sns_str = "', '".join(sns)
             logger.warning(f"Found more than one sample ID in BAM file(s): '{sns_str}'")
         elif not sns:
-            logger.warning("Could not find sample ID in BAM file(s)")
+            logger.warning("Could not find sample ID in BAM file(s); this can be set manually via --sample-id")
         else:
             bam_sample_id = sns.pop()
 
