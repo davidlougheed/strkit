@@ -136,9 +136,9 @@ def progress_worker(
 
     def _log(q_size: int):
         try:
-            lg.info(
-                f"{sample_id}: processed {num_loci - max(q_size, num_workers) + num_workers} loci in "
-                f"{(datetime.now() - start_time).total_seconds():.1f} seconds")
+            n_loci = num_loci - max(q_size, num_workers) + num_workers
+            n_seconds = (datetime.now() - start_time).total_seconds()
+            lg.info(f"{sample_id}: processed {n_loci} loci in {n_seconds:.1f} seconds ({n_loci/n_seconds:.1f} loci/s)")
         except NotImplementedError:
             pass
 
