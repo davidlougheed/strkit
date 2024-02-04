@@ -13,7 +13,7 @@ def output_json_report(
     params: CallParams,
     time_taken: timedelta,
     contig_set: set[str],
-    results: tuple[dict, ...],
+    results: list[dict],
     json_path: str,
     indent_json: bool,
 ):

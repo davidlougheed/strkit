@@ -2,10 +2,12 @@ import pathlib
 import pysam
 from os.path import commonprefix
 
-from ..params import CallParams
 from ..utils import cat_strs
 
-__all__ = ["output_vcf"]
+__all__ = [
+    "build_vcf_header",
+    "output_vcf_lines",
+]
 
 
 # VCF_ALLELE_CNV_TR = "<CNV:TR>"
@@ -22,7 +24,7 @@ __all__ = ["output_vcf"]
 # )
 
 
-def _build_variant_header(sample_id: str, reference_file: str) -> pysam.VariantHeader:
+def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader:
     vh = pysam.VariantHeader()  # automatically sets VCF version to 4.2
 
     # Add an absolute path to the reference genome
@@ -64,16 +66,7 @@ def _reversed_str(s: str) -> str:
     return cat_strs(reversed(s))
 
 
-def output_vcf(
-    params: CallParams,
-    results: tuple[dict, ...],
-    vcf_path: str,
-):
-    sample_id_str: str = params.sample_id or "sample"
-
-    vh = _build_variant_header(sample_id_str, params.reference_file)
-    vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
-
+def output_vcf_lines(sample_id: str, variant_file: pysam.VariantFile, results: tuple[dict, ...]):
     contig_vrs: list[pysam.VariantRecord] = []
 
     def _write_contig_vrs():
@@ -82,96 +75,92 @@ def output_vcf(
 
         # write them to the VCF
         for contig_vr in contig_vrs:
-            vf.write(contig_vr)
+            variant_file.write(contig_vr)
 
         # clear the contig variant record list for the new contig
         contig_vrs.clear()
 
-    try:
-        last_contig = results[0]["contig"] if results else ""
+    last_contig = results[0]["contig"] if results else ""
 
-        # has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
-        snvs_written: set[str] = set()
+    # has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
+    snvs_written: set[str] = set()
 
-        for result_idx, result in enumerate(results, 1):
-            contig = result["contig"]
+    for result_idx, result in enumerate(results, 1):
+        contig = result["contig"]
 
-            if contig != last_contig:
-                # we moved on from the last contig, so write the last batch of variant records to the VCF
-                _write_contig_vrs()
+        if contig != last_contig:
+            # we moved on from the last contig, so write the last batch of variant records to the VCF
+            _write_contig_vrs()
 
-            ref_start_anchor = result["ref_start_anchor"].upper()
+        ref_start_anchor = result["ref_start_anchor"].upper()
 
-            ref_seq = result["ref_seq"].upper()
+        ref_seq = result["ref_seq"].upper()
 
-            seqs = tuple(map(str.upper, (result["peaks"] or {}).get("seqs", ())))
+        seqs = tuple(map(str.upper, (result["peaks"] or {}).get("seqs", ())))
 
-            seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
-            common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
+        seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
+        common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
 
-            call = result["call"]
-            seq_alleles_raw: tuple[str, ...] = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
-            seq_alleles: list[str] = []
+        call = result["call"]
+        seq_alleles_raw: tuple[str, ...] = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
+        seq_alleles: list[str] = []
 
-            if call is not None:
-                seq_alleles.append(ref_start_anchor + ref_seq[:common_suffix_idx])
-                if seq_alts:
-                    seq_alleles.extend(ref_start_anchor + a[:common_suffix_idx] for a in seq_alts)
-                else:
-                    seq_alleles.append(".")
+        if call is not None:
+            seq_alleles.append(ref_start_anchor + ref_seq[:common_suffix_idx])
+            if seq_alts:
+                seq_alleles.extend(ref_start_anchor + a[:common_suffix_idx] for a in seq_alts)
+            else:
+                seq_alleles.append(".")
 
-            start = result.get("start_adj", result["start"]) - len(ref_start_anchor)
-            vr: pysam.VariantRecord = vf.new_record(
+        start = result.get("start_adj", result["start"]) - len(ref_start_anchor)
+        vr: pysam.VariantRecord = variant_file.new_record(
+            contig=contig,
+            start=start,
+            alleles=seq_alleles,
+        )
+
+        vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else (".",)
+        vr.samples[sample_id]["DP"] = sum(result["peaks"]["n_reads"])
+        vr.samples[sample_id]["AD"] = tuple(result["peaks"]["n_reads"])
+        vr.samples[sample_id]["MC"] = tuple(map(int, result["call"]))  # TODO: support fractional
+
+        ps = result["ps"]
+
+        if ps is not None:  # have phase set on call, so mark as phased
+            vr.samples[sample_id].phased = True
+            vr.samples[sample_id]["PS"] = ps
+
+        for snv in result.get("snvs", ()):
+            snv_id = snv["id"]
+            if snv_id in snvs_written:
+                continue
+            snvs_written.add(snv_id)
+
+            ref = snv["ref"]
+            snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
+            snv_alleles = (ref, *snv_alts)
+            snv_pos = snv["pos"]
+
+            snv_vr = variant_file.new_record(
                 contig=contig,
-                start=start,
-                alleles=seq_alleles,
+                id=snv_id,
+                start=snv_pos,
+                stop=snv_pos + 1,
+                alleles=snv_alleles,
             )
 
-            vr.samples[sample_id_str]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else (".",)
-            vr.samples[sample_id_str]["DP"] = sum(result["peaks"]["n_reads"])
-            vr.samples[sample_id_str]["AD"] = tuple(result["peaks"]["n_reads"])
-            vr.samples[sample_id_str]["MC"] = tuple(map(int, result["call"]))  # TODO: support fractional
+            # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
 
-            ps = result["ps"]
+            snv_vr.samples[sample_id]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
+            snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
+            snv_vr.samples[sample_id]["AD"] = snv["rcs"]
 
-            if ps is not None:  # have phase set on call, so mark as phased
-                vr.samples[sample_id_str].phased = True
-                vr.samples[sample_id_str]["PS"] = ps
+            if ps is not None:
+                snv_vr.samples[sample_id].phased = True
+                snv_vr.samples[sample_id]["PS"] = ps
 
-            for snv in result.get("snvs", ()):
-                snv_id = snv["id"]
-                if snv_id in snvs_written:
-                    continue
-                snvs_written.add(snv_id)
+            contig_vrs.append(snv_vr)
 
-                ref = snv["ref"]
-                snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
-                snv_alleles = (ref, *snv_alts)
-                snv_pos = snv["pos"]
+        contig_vrs.append(vr)
 
-                snv_vr = vf.new_record(
-                    contig=contig,
-                    id=snv_id,
-                    start=snv_pos,
-                    stop=snv_pos + 1,
-                    alleles=snv_alleles,
-                )
-
-                # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
-
-                snv_vr.samples[sample_id_str]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
-                snv_vr.samples[sample_id_str]["DP"] = sum(snv["rcs"])
-                snv_vr.samples[sample_id_str]["AD"] = snv["rcs"]
-
-                if ps is not None:
-                    snv_vr.samples[sample_id_str].phased = True
-                    snv_vr.samples[sample_id_str]["PS"] = ps
-
-                contig_vrs.append(snv_vr)
-
-            contig_vrs.append(vr)
-
-        _write_contig_vrs()  # write the final contig's worth of variant records to the VCF at the end
-
-    finally:
-        vf.close()
+    _write_contig_vrs()  # write the final contig's worth of variant records to the VCF at the end

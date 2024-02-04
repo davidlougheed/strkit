@@ -169,6 +169,9 @@ def add_call_parser_args(call_parser):
         action="store_true",
         help="If passed, no TSV call output will be written to stdout.")
 
+    call_parser.add_argument(
+        "--output-chunk-size", type=int, default=10000, help="How many call records to write to disk at a time.")
+
     # END FILE OUTPUT ARGUMENTS ========================================================================================
 
     call_parser.add_argument(
@@ -355,7 +358,7 @@ def _exec_call(p_args) -> None:
         indent_json=p_args.indent_json,
         vcf_path=p_args.vcf,
         output_tsv=not p_args.no_tsv,
-        # seed=p_args.seed,
+        output_chunk_size=p_args.output_chunk_size,
     )
 
 

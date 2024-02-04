@@ -7,6 +7,7 @@ import multiprocessing.dummy as mpd
 import multiprocessing.managers as mmg
 import numpy as np
 import os
+import pysam
 import re
 import threading
 import time
@@ -15,13 +16,13 @@ from datetime import datetime
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
 
 from typing import Literal, Optional
-from strkit.logger import logger
 
+from strkit.logger import logger
 from .allele import get_n_alleles
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
 from .params import CallParams
-from .output import output_json_report, output_tsv as output_tsv_fn, output_vcf
+from .output import output_json_report, output_tsv as output_tsv_fn, build_vcf_header, output_vcf_lines
 from .utils import get_new_seed
 
 __all__ = [
@@ -171,6 +172,7 @@ def call_sample(
     vcf_path: Optional[str] = None,
     indent_json: bool = False,
     output_tsv: bool = True,
+    output_chunk_size: int = 10000,
 ) -> None:
     # Start the call timer
     start_time = datetime.now()
@@ -181,6 +183,13 @@ def call_sample(
 
     # Seed the random number generator if a seed is provided, for replicability
     rng: np.random.Generator = np.random.default_rng(seed=params.seed)
+
+    # If we're outputting a VCF, open the file and write the header
+    sample_id_str = params.sample_id or "sample"
+    vf: Optional[pysam.VariantFile] = None
+    if vcf_path is not None:
+        vh = build_vcf_header(sample_id_str, params.reference_file)
+        vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 
     manager: mmg.SyncManager = mp.Manager()
     locus_queue = manager.Queue()
@@ -200,6 +209,15 @@ def call_sample(
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
+
+        # Add occasional None breaks to make the jobs terminate. Then, as long as we have
+        # entries in the locus queue, we can get chunks to order and write to disk
+        # instead of keeping everything in RAM.
+
+        if num_loci and (num_loci % output_chunk_size == 0):
+            for _ in range(params.processes):
+                locus_queue.put(None)
+
         locus_queue.put((t_idx, t, n_alleles, get_new_seed(rng)))
         contig_set.add(contig)
         num_loci += 1
@@ -210,7 +228,11 @@ def call_sample(
         locus_queue.put(None)
 
     is_single_processed = params.processes == 1
+    should_keep_all_results_in_mem = json_path is not None
+
     result_lists = []
+    # Only populated if we're outputting JSON; otherwise, we don't want to keep everything in memory at once.
+    all_results: list[dict] = []
 
     pool_class = mpd.Pool if is_single_processed else NonDaemonicPool
     finish_event = mp.Event()
@@ -244,32 +266,51 @@ def call_sample(
             snv_genotype_cache,
             is_single_processed,
         )
-        jobs = [p.apply_async(locus_worker, job_args) for _ in range(params.processes)]
 
-        # Gather the process-specific results for combining.
-        for j in jobs:
-            result_lists.append(j.get())
+        qsize: int = locus_queue.qsize()
+        while qsize > 0:
+            jobs = [p.apply_async(locus_worker, job_args) for _ in range(params.processes)]
+
+            # Gather the process-specific results for combining.
+            for j in jobs:
+                result_lists.append(j.get())
+
+            # Write results
+            #  - merge sorted result lists into single sorted list
+            results: tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
+
+            #  - write partial results to stdout if we're writing a stdout TSV
+            if output_tsv:
+                output_tsv_fn(results, has_snv_vcf=params.snv_vcf is not None)
+
+            if should_keep_all_results_in_mem:
+                all_results.extend(results)
+
+            #  - write partial results to VCF if we're writing a VCF
+            if vf is not None:
+                output_vcf_lines(sample_id_str, vf, results)
+
+            last_qsize = qsize
+            qsize = locus_queue.qsize()
+            if last_qsize == qsize:
+                # If this happens, we've stalled out on completing work while having a
+                # positive qsize, so we need to terminate (but something went wrong.)
+                logger.warning(f"Terminating with non-zero queue size: {qsize}")
+                break
 
         finish_event.set()
         progress_job.join()
 
-    # Merge sorted result lists into single sorted list.
-    results: tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
-
     time_taken = datetime.now() - start_time
 
-    if output_tsv:
-        output_tsv_fn(results, has_snv_vcf=params.snv_vcf is not None)
+    logger.info(f"Finished STR genotyping in {time_taken.total_seconds()}s")
 
     if json_path:
         output_json_report(
             params,
             time_taken,
             contig_set,
-            results,
+            all_results,
             json_path,
             indent_json,
         )
-
-    if vcf_path:
-        output_vcf(params, results, vcf_path)

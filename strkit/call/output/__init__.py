@@ -1,9 +1,10 @@
 from .json_report import output_json_report
 from .tsv import output_tsv
-from .vcf import output_vcf
+from .vcf import build_vcf_header, output_vcf_lines
 
 __all__ = [
     "output_json_report",
     "output_tsv",
-    "output_vcf",
+    "build_vcf_header",
+    "output_vcf_lines",
 ]
