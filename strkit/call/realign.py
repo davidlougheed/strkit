@@ -32,6 +32,7 @@ def realign_read(
     def ret_q(v: MatchedCoordPairListOrNone) -> MatchedCoordPairListOrNone:
         if q:
             q.put(v)
+            q.close()
         return v
 
     from strkit.logger import create_process_logger
