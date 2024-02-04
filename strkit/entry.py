@@ -583,6 +583,7 @@ def main(args: Optional[list[str]] = None) -> int:
         p_args = parser.parse_args(("--help",))
 
     try:
+        logger.info(f"STRkit version {__version__}")
         p_args.func(p_args)
         return 0
     except ParamError as e:
