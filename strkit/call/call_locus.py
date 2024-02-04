@@ -855,6 +855,7 @@ def call_locus(
     # left_most_coord: int = 99999999999999
     # right_most_coord: int = 0
 
+    segment: pysam.AlignedSegment
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn: str = segment.query_name  # Know this is not None from overlapping_segments calculation
         segment_start: int = segment.reference_start
