@@ -5,6 +5,8 @@ import itertools
 import logging
 import multiprocessing as mp
 import multiprocessing.managers as mmg
+import time
+
 import numpy as np
 import pysam
 import operator
@@ -905,7 +907,16 @@ def call_locus(
                 logger_.warning(
                     f"{locus_log_str} - experienced timeout while re-aligning read {rn}. Reverting to BAM alignment.")
                 proc.terminate()
+                time.sleep(0.1)  # wait a little for the process to terminate
             finally:
+                wait_count: int = 0
+                while proc.is_alive():
+                    logger_.warning(f"{locus_log_str} - realign job has still not exited. Waiting 0.5 seconds...")
+                    time.sleep(0.5)
+                    wait_count += 1
+                    if wait_count > 5:
+                        logger_.fatal(f"{locus_log_str} - realign job never exited. Terminating...")
+                        exit(1)
                 proc.close()
 
             if pairs_new is not None:
