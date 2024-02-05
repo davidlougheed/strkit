@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import pysam
 from os.path import commonprefix
@@ -66,7 +67,12 @@ def _reversed_str(s: str) -> str:
     return cat_strs(reversed(s))
 
 
-def output_vcf_lines(sample_id: str, variant_file: pysam.VariantFile, results: tuple[dict, ...]):
+def output_vcf_lines(
+    sample_id: str,
+    variant_file: pysam.VariantFile,
+    results: tuple[dict, ...],
+    logger: logging.Logger,
+):
     contig_vrs: list[pysam.VariantRecord] = []
 
     def _write_contig_vrs():
@@ -113,6 +119,11 @@ def output_vcf_lines(sample_id: str, variant_file: pysam.VariantFile, results: t
                 seq_alleles.append(".")
 
         start = result.get("start_adj", result["start"]) - len(ref_start_anchor)
+
+        if len(seq_alleles) < 2:
+            logger.error(f"{contig}:{start} - Don't have enough alleles to write record; have {seq_alleles}")
+            continue
+
         vr: pysam.VariantRecord = variant_file.new_record(
             contig=contig,
             start=start,
