@@ -174,6 +174,7 @@ def _get_read_snvs_simple_py(
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
+    too_many_snvs_threshold: int,
     entropy_flank_size: int,
     entropy_threshold: float,
 ) -> dict[int, str]:
@@ -187,6 +188,8 @@ def _get_read_snvs_simple_py(
                 read_pos + entropy_flank_size, query_sequence_len)]
             if shannon_entropy(seq) >= entropy_threshold:
                 snvs[ref_pos] = read_base
+            if len(snvs) >= too_many_snvs_threshold:  # early return if we exceed the threshold
+                return snvs
     return snvs
 
 
@@ -199,7 +202,7 @@ except ImportError:
     get_read_snvs_meticulous = _get_read_snvs_meticulous_py
 
 
-get_read_snvs_simple: Callable[[str, str, list[int], list[int], int, int, int, int, float], dict[int, str]]
+get_read_snvs_simple: Callable[[str, str, list[int], list[int], int, int, int, int, int, float], dict[int, str]]
 try:
     from strkit_rust_ext import get_snvs_simple as get_read_snvs_simple
     logger.debug("Found STRkit Rust component, importing get_read_snvs_simple")
@@ -283,6 +286,7 @@ def _get_read_snvs_py(
         ref_coord_start,
         tr_start_pos,
         tr_end_pos,
+        too_many_snvs_threshold,
         entropy_flank_size,
         entropy_threshold,
     )
