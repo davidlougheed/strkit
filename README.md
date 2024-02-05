@@ -67,10 +67,11 @@ for JSON parsing and serialization, specify the `rustdeps` extra:
 python -m pip install strkit[rustdeps]
 ```
 
+This core Rust component may be required in the future!
 On some Alliance (DRAC/CC) clusters, this may require loading Rust first, to compile the wheels:
 
 ```bash
-module load rust/1.65.0
+module load rust/1.70.0
 python -m pip install strkit[rustdeps]
 ```
 
