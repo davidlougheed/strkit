@@ -51,6 +51,10 @@ def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader
     vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
     vh.formats.add("PS", 1, "Integer", "Phase set")
 
+    # Set up VCF info fields
+    vh.info.add("MOTIF", 1, "String", "Motif string")
+    vh.info.add("REFMC", 1, "Integer", "Motif copy number in the reference genome")
+
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
     #     vh.info.add(*iv)
@@ -132,6 +136,9 @@ def output_vcf_lines(
             start=start,
             alleles=seq_alleles,
         )
+
+        vr.info["MOTIF"] = result["motif"]
+        vr.info["REFMC"] = result["ref_cn"]
 
         vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else _blank_entry(n_alleles)
 
