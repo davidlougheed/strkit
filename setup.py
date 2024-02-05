@@ -26,7 +26,7 @@ setup(
     extras_require={
         "rustdeps": [
             "orjson>=3.8.5,<4",
-            "strkit_rust_ext==0.6.0",
+            "strkit_rust_ext==0.7.0",
         ],
     },
 

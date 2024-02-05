@@ -28,7 +28,7 @@ scikit-learn==1.4.0
 scipy==1.12.0
 six==1.16.0
 statsmodels==0.14.1
-strkit_rust_ext==0.6.0
+strkit_rust_ext==0.7.0
 threadpoolctl==3.2.0
 tomli==2.0.1
 tzdata==2023.4

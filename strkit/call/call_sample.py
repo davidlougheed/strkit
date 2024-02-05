@@ -303,7 +303,7 @@ def call_sample(
 
     time_taken = datetime.now() - start_time
 
-    logger.info(f"Finished STR genotyping in {time_taken.total_seconds()}s")
+    logger.info(f"Finished STR genotyping in {time_taken.total_seconds():.1f}s")
 
     if json_path:
         output_json_report(

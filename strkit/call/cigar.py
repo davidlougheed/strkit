@@ -1,11 +1,14 @@
 import itertools
 
-from typing import Iterable, Union
+from typing import Callable, Iterable, Union
+
+from ..logger import logger
 
 __all__ = [
     "CoordPair",
     "get_aligned_pairs_from_cigar",
     "decode_cigar",
+    "get_aligned_pair_matches",
 ]
 
 
@@ -95,3 +98,18 @@ def _decode_cigar_item(item: int) -> tuple[int, int]:
 
 def decode_cigar(encoded_cigar: list[int]) -> Iterable[tuple[int, int]]:
     return map(_decode_cigar_item, encoded_cigar)
+
+
+def _get_aligned_pair_matches_py(
+    cigar_tuples: list[tuple[int, int]], query_start: int, ref_start: int
+) -> tuple[list[int], list[int]]:
+    # noinspection PyTypeChecker
+    return tuple(map(list, zip(*get_aligned_pairs_from_cigar(cigar_tuples, query_start, ref_start, matches_only=True))))
+
+
+get_aligned_pair_matches: Callable[[list[tuple[int, int]], int, int], tuple[list[int], list[int]]]
+try:
+    from strkit_rust_ext import get_aligned_pair_matches
+    logger.debug("Found STRkit Rust component, importing get_aligned_pair_matches")
+except ImportError:
+    get_aligned_pair_matches = _get_aligned_pair_matches_py

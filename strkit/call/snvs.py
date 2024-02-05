@@ -94,8 +94,9 @@ def shannon_entropy(seq: str) -> float:
 
 def _get_read_snvs_meticulous_py(
     query_sequence: str,
-    pairs: list[tuple[int, int]],
     ref_seq: str,
+    q_coords: list[int],
+    r_coords: list[int],
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
@@ -120,7 +121,7 @@ def _get_read_snvs_meticulous_py(
 
     snv_group: list[tuple[int, str]] = []
 
-    for read_pos, ref_pos in pairs:
+    for read_pos, ref_pos in zip(q_coords, r_coords):
         if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
             continue
 
@@ -167,8 +168,9 @@ def _get_read_snvs_meticulous_py(
 
 def _get_read_snvs_simple_py(
     query_sequence: str,
-    pairs: list[tuple[int, int]],
     ref_seq: str,
+    q_coords: list[int],
+    r_coords: list[int],
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
@@ -177,7 +179,7 @@ def _get_read_snvs_simple_py(
 ) -> dict[int, str]:
     query_sequence_len = len(query_sequence)
     snvs: dict[int, str] = {}
-    for read_pos, ref_pos in pairs:
+    for read_pos, ref_pos in zip(q_coords, r_coords):
         if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
             continue
         if (read_base := query_sequence[read_pos]) != ref_seq[ref_pos - ref_coord_start]:
@@ -189,7 +191,7 @@ def _get_read_snvs_simple_py(
 
 
 get_read_snvs_meticulous: Callable[
-    [str, list[tuple[int, int]], str, int, int, int, int, int, int, float], dict[int, str]]
+    [str, str, list[int], list[int], int, int, int, int, int, int, float], dict[int, str]]
 try:
     from strkit_rust_ext import get_snvs_meticulous as get_read_snvs_meticulous
     logger.debug("Found STRkit Rust component, importing get_read_snvs_meticulous")
@@ -197,7 +199,7 @@ except ImportError:
     get_read_snvs_meticulous = _get_read_snvs_meticulous_py
 
 
-get_read_snvs_simple: Callable[[str, list[tuple[int, int]], str, int, int, int, int, float], dict[int, str]]
+get_read_snvs_simple: Callable[[str, str, list[int], list[int], int, int, int, int, float], dict[int, str]]
 try:
     from strkit_rust_ext import get_snvs_simple as get_read_snvs_simple
     logger.debug("Found STRkit Rust component, importing get_read_snvs_simple")
@@ -252,8 +254,9 @@ except ImportError:
 
 def _get_read_snvs_py(
     query_sequence: str,
-    pairs: list[tuple[int, int]],
     ref_seq: str,
+    q_coords: list[int],
+    r_coords: list[int],
     ref_coord_start: int,
     tr_start_pos: int,
     tr_end_pos: int,
@@ -274,8 +277,9 @@ def _get_read_snvs_py(
 
     snvs: dict[int, str] = get_read_snvs_simple(
         query_sequence,
-        pairs,
         ref_seq,
+        q_coords,
+        r_coords,
         ref_coord_start,
         tr_start_pos,
         tr_end_pos,
@@ -286,8 +290,9 @@ def _get_read_snvs_py(
     if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on?
         return get_read_snvs_meticulous(
             query_sequence,
-            pairs,
             ref_seq,
+            q_coords,
+            r_coords,
             ref_coord_start,
             tr_start_pos,
             tr_end_pos,
@@ -307,15 +312,15 @@ except ImportError:
     get_read_snvs = _get_read_snvs_py
 
 
-def _find_base_at_pos(query_sequence: str, pairs_for_read: list[tuple[int, int]], t: int,
+def _find_base_at_pos(query_sequence: str, pairs_for_read: tuple[list[int], list[int]], t: int,
                       start_left: int = 0) -> tuple[str, int]:
-    idx, found = find_pair_by_ref_pos(pairs_for_read, t, start_left=start_left)
+    idx, found = find_pair_by_ref_pos(pairs_for_read[1], t, start_left=start_left)
 
     if found:
         # Even if not in SNV set, it is not guaranteed to be a reference base, since
         # it's possible it was surrounded by too much other variation during the original
         # SNV getter algorithm.
-        return query_sequence[pairs_for_read[idx][0]], idx
+        return query_sequence[pairs_for_read[0][idx]], idx
 
     # Nothing found, so must have been a gap
     return SNV_GAP_CHAR, idx
@@ -325,7 +330,7 @@ def calculate_useful_snvs(
     n_reads: int,
     read_dict_items: tuple[tuple[str, ReadDict], ...],
     read_dict_extra: dict[str, dict],
-    read_match_pairs: dict[str, list[tuple[int, int]]],
+    read_match_pairs: dict[str, tuple[list[int], list[int]]],
     locus_snvs: set[int],
     min_allele_reads: int,
 ) -> list[tuple[int, int]]:

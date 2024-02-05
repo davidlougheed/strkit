@@ -26,6 +26,7 @@ from strkit.call.allele import CallDict, call_alleles
 from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
+from .cigar import get_aligned_pair_matches
 from .consensus import consensus_seq
 from .params import CallParams
 from .realign import realign_read
@@ -34,7 +35,6 @@ from .snvs import (
     SNV_OUT_OF_RANGE_CHAR,
     get_candidate_snvs,
     get_read_snvs,
-    # get_read_snvs_dbsnp,
     calculate_useful_snvs,
     call_and_filter_useful_snvs,
 )
@@ -87,7 +87,9 @@ def get_read_coords_from_matched_pairs(
     motif: str,
     motif_size: int,
     query_seq: str,
-    matched_pairs: list[tuple[int, int]],
+    q_coords: list[int],
+    r_coords: list[int],
+    # matched_pairs: list[tuple[int, int]],
 ) -> tuple[int, int, int, int]:
     left_flank_end = -1
     right_flank_start = -1
@@ -98,11 +100,11 @@ def get_read_coords_from_matched_pairs(
     # Skip gaps on either side to find mapped flank indices
 
     # Binary search for left flank start -------------------------------------------------------------------------------
-    lhs, found = find_pair_by_ref_pos(matched_pairs, left_flank_coord)
+    lhs, found = find_pair_by_ref_pos(r_coords, left_flank_coord)
 
     # lhs now contains the index for the closest starting coordinate to left_flank_coord
 
-    if not found and (lhs == 0 or lhs == len(matched_pairs)):
+    if not found and (lhs == 0 or lhs == len(r_coords)):
         # Completely out of bounds; either right at the start or inserting after the end
         return -1, -1, -1, -1
 
@@ -111,14 +113,17 @@ def get_read_coords_from_matched_pairs(
         # starting coordinate to left_flank_coord which gives us enough flanking material.
         lhs -= 1
 
-    left_flank_start, _ = matched_pairs[lhs]
+    left_flank_start = q_coords[lhs]
     # ------------------------------------------------------------------------------------------------------------------
 
     # Binary search for left flank end ---------------------------------------------------------------------------------
     # TODO
     # ------------------------------------------------------------------------------------------------------------------
 
-    for query_coord, ref_coord in matched_pairs[lhs+1:]:
+    for i in range(lhs + 1, len(q_coords)):
+        query_coord = q_coords[i]
+        ref_coord = r_coords[i]
+
         # Skip gaps on either side to find mapped flank indices
         if ref_coord < left_coord:
             # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
@@ -280,7 +285,7 @@ def process_read_snvs_for_locus(
     ref: FastaFile,
     read_dict_items: tuple[tuple[str, ReadDict], ...],
     read_dict_extra: dict[str, ReadDictExtra],
-    read_pairs: dict[str, list[tuple[int, int]]],
+    read_pairs: dict[str, tuple[list[int], list[int]]],
     candidate_snvs_dict: dict[int, CandidateSNV],
     only_known_snvs: bool,
     logger_: logging.Logger,
@@ -304,21 +309,27 @@ def process_read_snvs_for_locus(
                 f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
                 f"{significant_clip_snv_take_in} bp per side for SNV-finding")
 
-        snv_pairs = read_pairs[rn]
+        # snv_pairs = read_pairs[rn]
+        q_coords, r_coords = read_pairs[rn]
 
-        if len(snv_pairs) < (twox_takein := significant_clip_snv_take_in * 2):
+        if len(q_coords) < (twox_takein := significant_clip_snv_take_in * 2):
             logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
             continue
 
         if scl:
-            snv_pairs = snv_pairs[significant_clip_snv_take_in:]
+            # snv_pairs = snv_pairs[significant_clip_snv_take_in:]
+            q_coords = q_coords[significant_clip_snv_take_in:]
+            r_coords = r_coords[significant_clip_snv_take_in:]
         if scr:
-            snv_pairs = snv_pairs[:-1 * significant_clip_snv_take_in]
+            # snv_pairs = snv_pairs[:-1 * significant_clip_snv_take_in]
+            q_coords = q_coords[:-1 * significant_clip_snv_take_in]
+            r_coords = r_coords[:-1 * significant_clip_snv_take_in]
 
         snvs = get_read_snvs(
             read_dict_extra[rn]["_qs"],
-            snv_pairs,
             ref_cache,
+            q_coords,
+            r_coords,
             left_most_coord,
             left_coord_adj,
             right_coord_adj,
@@ -847,7 +858,7 @@ def call_locus(
 
     # Aggregations for additional read-level data
     read_kmers: Counter[str] = Counter()
-    read_pairs: dict[str, list[tuple[int, int]]] = {}
+    read_pairs: dict[str, tuple[list[int], list[int]]] = {}
 
     # Keep track of left-most and right-most coordinates
     # If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
@@ -869,9 +880,12 @@ def call_locus(
         qs: str = segment.query_sequence
 
         fqqs: Optional[list[int]] = segment.query_qualities
+        cigar_tuples: list[tuple[int, int]] = segment.cigartuples
 
         realigned: bool = False
-        pairs = None
+        # pairs = None
+        q_coords: Optional[list[int]] = None
+        r_coords: Optional[list[int]] = None
 
         # Soft-clipping in large insertions can result from mapping difficulties.
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
@@ -880,8 +894,8 @@ def call_locus(
         # TODO: if some alignment is present, use it to reduce realignment overhead?
         #  - use start point + flank*3 or end point - flank*3 or something like that
         if realign and (force_realign or (
-            ((c1 := segment.cigartuples[0])[0] == 4 and segment_start > left_flank_coord >= segment_start - c1[1]) or
-            ((c2 := segment.cigartuples[-1])[0] == 4 and segment_end < right_flank_coord <= segment_end + c2[1])
+            ((c1 := cigar_tuples[0])[0] == 4 and segment_start > left_flank_coord >= segment_start - c1[1]) or
+            ((c2 := cigar_tuples[-1])[0] == 4 and segment_end < right_flank_coord <= segment_end + c2[1])
         )):
             # Run the realignment in a separate process, to give us a timeout mechanism.
             # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
@@ -921,18 +935,18 @@ def call_locus(
                 proc.close()
 
             if pairs_new is not None:
-                pairs = pairs_new
+                q_coords, r_coords = pairs_new
                 realigned = True
                 realign_count += 1
 
-        if pairs is None:
+        if q_coords is None:
             if left_flank_coord < segment_start or right_flank_coord > segment_end:
                 # Cannot find pair for LHS flank start or RHS flank end;
                 # early-continue before we load pairs since that step is slow
                 debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
                 continue
 
-            pairs = segment.get_aligned_pairs(matches_only=True)
+            q_coords, r_coords = get_aligned_pair_matches(cigar_tuples, 0, segment_start)
 
         left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
             left_flank_coord,
@@ -942,7 +956,8 @@ def call_locus(
             motif,
             motif_size,
             query_seq=qs,
-            matched_pairs=pairs,
+            q_coords=q_coords,
+            r_coords=r_coords,
         )
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
@@ -1066,7 +1081,7 @@ def call_locus(
                     cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
 
             # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
-            read_pairs[rn] = pairs
+            read_pairs[rn] = q_coords, r_coords
 
     # End of first read loop -------------------------------------------------------------------------------------------
 

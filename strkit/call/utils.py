@@ -1,12 +1,10 @@
+import bisect
 import numpy as np
 import operator
-import sys
-from typing import Callable
 
 __all__ = [
     "cat_strs",
     "idx_1_getter",
-    "find_pair_by_ref_pos_py",
     "find_pair_by_ref_pos",
     "normalize_contig",
     "round_to_base_pos",
@@ -18,40 +16,10 @@ cat_strs = "".join
 idx_1_getter = operator.itemgetter(1)
 
 
-def find_pair_by_ref_pos_py(pairs: list[tuple[int, int]], target: int, start_left: int = 0) -> tuple[int, bool]:
-    lhs: int = start_left
-    rhs: int = len(pairs) - 1
-
-    while lhs <= rhs:
-        pivot: int = (lhs + rhs) // 2
-        pair: tuple[int, int] = pairs[pivot]
-        if pair[1] < target:
-            lhs = pivot + 1
-        elif pair[1] > target:  # pair[1] > snv_pos
-            rhs = pivot - 1
-        else:
-            return pivot, True  # Found!
-
-    # Nothing found, so must have been a gap
-    # LHS should be the insertion point
-    return lhs, False
-
-
-find_pair_by_ref_pos: Callable[[list[tuple[int, int]], int], tuple[int, bool]]
-
-
-if sys.version_info[0] >= 3 and (sys.version_info[0] > 3 or sys.version_info[1] >= 10):
-    import bisect
-
-    def find_pair_by_ref_pos_bisect(pairs: list[tuple[int, int]], target: int, start_left: int = 0) -> tuple[int, bool]:
-        n_pairs: int = len(pairs)
-        idx = bisect.bisect_left(pairs, target, start_left, n_pairs, key=idx_1_getter)
-        return idx, idx < n_pairs and pairs[idx][1] == target
-
-    find_pair_by_ref_pos = find_pair_by_ref_pos_bisect
-
-else:
-    find_pair_by_ref_pos = find_pair_by_ref_pos_py
+def find_pair_by_ref_pos(r_coords: list[int], target: int, start_left: int = 0) -> tuple[int, bool]:
+    n_pairs: int = len(r_coords)
+    idx = bisect.bisect_left(r_coords, target, start_left, n_pairs)
+    return idx, idx < n_pairs and r_coords[idx] == target
 
 
 def normalize_contig(contig: str, has_chr: bool) -> str:

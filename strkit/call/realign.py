@@ -6,13 +6,13 @@ import parasail
 from typing import Optional
 
 from .align_matrix import match_score, dna_matrix
-from .cigar import get_aligned_pairs_from_cigar, decode_cigar
+from .cigar import decode_cigar, get_aligned_pair_matches
 
 min_realign_score_ratio: float = 0.95  # TODO: parametrize
 realign_indel_open_penalty: int = 7  # TODO: parametrize
 
 
-MatchedCoordPairList = list[tuple[int, int]]
+MatchedCoordPairList = tuple[list[int], list[int]]
 MatchedCoordPairListOrNone = Optional[MatchedCoordPairList]
 
 
@@ -51,15 +51,6 @@ def realign_read(
         f"Realigned {rn} in locus {t_idx}{' (due to soft clipping)' if not always_realign else ''}: scored {pr.score}; "
         f"Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
 
-    res: MatchedCoordPairList = list(map(
-        tuple,
-        map(
-            # reverse to get (query, ref) instead of (ref, query), due to the flip (!)
-            reversed,
-            # query_start instead of ref_start, due to the flip (!)
-            get_aligned_pairs_from_cigar(
-                decode_cigar(pr.cigar.seq), query_start=left_flank_coord, matches_only=True)
-        )
-    ))
-
+    matches = get_aligned_pair_matches(list(decode_cigar(pr.cigar.seq)), left_flank_coord, 0)
+    res: MatchedCoordPairList = (matches[1], matches[0])
     return ret_q(res)
