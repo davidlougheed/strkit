@@ -8,6 +8,7 @@ import multiprocessing.managers as mmg
 import numpy as np
 import os
 import pysam
+import queue
 import re
 import threading
 import time
@@ -84,29 +85,33 @@ def locus_worker(
     results: list[dict] = []
 
     while True:
-        td = locus_queue.get()
-        if td is None:  # Kill signal
+        try:
+            td = locus_queue.get_nowait()
+            if td is None:  # Kill signal
+                break
+
+            t_idx, t, n_alleles, locus_seed = td
+            res = call_locus(
+                t_idx, t, n_alleles, bfs, ref, params,
+                phase_set_lock,
+                phase_set_counter,
+                phase_set_remap,
+                snv_genotype_update_lock,
+                snv_genotype_cache,
+                seed=locus_seed,
+                logger_=lg,
+                snv_vcf_file=snv_vcf_file,
+                snv_vcf_contigs=tuple(snv_vcf_contigs),
+                snv_vcf_file_format=vcf_file_format,
+                read_file_has_chr=read_file_has_chr,
+                ref_file_has_chr=ref_file_has_chr,
+            )
+
+            if res is not None:
+                results.append(res)
+
+        except queue.Empty:
             break
-
-        t_idx, t, n_alleles, locus_seed = td
-        res = call_locus(
-            t_idx, t, n_alleles, bfs, ref, params,
-            phase_set_lock,
-            phase_set_counter,
-            phase_set_remap,
-            snv_genotype_update_lock,
-            snv_genotype_cache,
-            seed=locus_seed,
-            logger_=lg,
-            snv_vcf_file=snv_vcf_file,
-            snv_vcf_contigs=tuple(snv_vcf_contigs),
-            snv_vcf_file_format=vcf_file_format,
-            read_file_has_chr=read_file_has_chr,
-            ref_file_has_chr=ref_file_has_chr,
-        )
-
-        if res is not None:
-            results.append(res)
 
     if pr:
         pr.disable()
@@ -142,19 +147,21 @@ def progress_worker(
         except NotImplementedError:
             pass
 
-    last_qsize = locus_queue.qsize()
+    qsize = locus_queue.qsize()
     last_qsize_n_stuck = 0
     timer = 0
     while not event.is_set():
         time.sleep(1)
         timer += 1
         if timer >= LOG_PROGRESS_INTERVAL:
+            last_qsize = qsize
             qsize = locus_queue.qsize()
             _log(qsize)
             if last_qsize == locus_queue.qsize():  # stuck
                 last_qsize_n_stuck += 1
             if last_qsize_n_stuck >= 3:
-                # zombie worker, exit
+                # zombie worker or stuck, exit
+                lg.error(f"Terminating progress worker; seems to be stuck with qsize={qsize}")
                 return
             timer = 0
 
@@ -214,18 +221,19 @@ def call_sample(
         # entries in the locus queue, we can get chunks to order and write to disk
         # instead of keeping everything in RAM.
 
-        if num_loci and (num_loci % output_chunk_size == 0):
-            for _ in range(params.processes):
-                locus_queue.put(None)
-
         locus_queue.put((t_idx, t, n_alleles, get_new_seed(rng)))
         contig_set.add(contig)
         num_loci += 1
 
-    # At the end of the queue, add a None value (* the # of processes).
-    # When a job encounters a None value, it will terminate.
-    for _ in range(params.processes):
-        locus_queue.put(None)
+        if num_loci % output_chunk_size == 0:
+            for _ in range(params.processes):
+                locus_queue.put(None)
+
+    if num_loci % output_chunk_size != 0:
+        # At the end of the queue, add a None value (* the # of processes).
+        # When a job encounters a None value, it will terminate.
+        for _ in range(params.processes):
+            locus_queue.put(None)
 
     is_single_processed = params.processes == 1
     should_keep_all_results_in_mem = json_path is not None
