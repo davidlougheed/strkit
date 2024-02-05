@@ -1,8 +1,10 @@
-import logging
+import functools
 import pathlib
 import pysam
 from os.path import commonprefix
 
+from ..allele import get_n_alleles
+from ..params import CallParams
 from ..utils import cat_strs
 
 __all__ = [
@@ -67,11 +69,16 @@ def _reversed_str(s: str) -> str:
     return cat_strs(reversed(s))
 
 
+@functools.cache
+def _blank_entry(n_alleles: int) -> tuple[str, ...]:
+    return tuple(["."] * n_alleles)
+
+
 def output_vcf_lines(
+    params: CallParams,
     sample_id: str,
     variant_file: pysam.VariantFile,
     results: tuple[dict, ...],
-    logger: logging.Logger,
 ):
     contig_vrs: list[pysam.VariantRecord] = []
 
@@ -108,21 +115,17 @@ def output_vcf_lines(
         common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
 
         call = result["call"]
-        seq_alleles_raw: tuple[str, ...] = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
-        seq_alleles: list[str] = []
+        n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
 
-        if call is not None:
-            seq_alleles.append(ref_start_anchor + ref_seq[:common_suffix_idx])
-            if seq_alts:
-                seq_alleles.extend(ref_start_anchor + a[:common_suffix_idx] for a in seq_alts)
-            else:
-                seq_alleles.append(".")
+        seq_alleles_raw: tuple[str, ...] = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
+        seq_alleles: list[str] = [ref_start_anchor + ref_seq[:common_suffix_idx]]
+
+        if call is not None and seq_alts:
+            seq_alleles.extend(ref_start_anchor + a[:common_suffix_idx] for a in seq_alts)
+        else:
+            seq_alleles.append(".")
 
         start = result.get("start_adj", result["start"]) - len(ref_start_anchor)
-
-        if len(seq_alleles) < 2:
-            logger.error(f"{contig}:{start} - Don't have enough alleles to write record; have {seq_alleles}")
-            continue
 
         vr: pysam.VariantRecord = variant_file.new_record(
             contig=contig,
@@ -130,47 +133,49 @@ def output_vcf_lines(
             alleles=seq_alleles,
         )
 
-        vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else (".",)
-        vr.samples[sample_id]["DP"] = sum(result["peaks"]["n_reads"])
-        vr.samples[sample_id]["AD"] = tuple(result["peaks"]["n_reads"])
-        vr.samples[sample_id]["MC"] = tuple(map(int, result["call"]))  # TODO: support fractional
+        vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else _blank_entry(n_alleles)
 
-        ps = result["ps"]
+        if call is not None:
+            vr.samples[sample_id]["DP"] = sum(result["peaks"]["n_reads"])
+            vr.samples[sample_id]["AD"] = tuple(result["peaks"]["n_reads"])
+            vr.samples[sample_id]["MC"] = tuple(map(int, call))  # TODO: support fractional
 
-        if ps is not None:  # have phase set on call, so mark as phased
-            vr.samples[sample_id].phased = True
-            vr.samples[sample_id]["PS"] = ps
+            ps = result["ps"]
 
-        for snv in result.get("snvs", ()):
-            snv_id = snv["id"]
-            if snv_id in snvs_written:
-                continue
-            snvs_written.add(snv_id)
+            if ps is not None:  # have phase set on call, so mark as phased
+                vr.samples[sample_id].phased = True
+                vr.samples[sample_id]["PS"] = ps
 
-            ref = snv["ref"]
-            snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
-            snv_alleles = (ref, *snv_alts)
-            snv_pos = snv["pos"]
+            for snv in result.get("snvs", ()):
+                snv_id = snv["id"]
+                if snv_id in snvs_written:
+                    continue
+                snvs_written.add(snv_id)
 
-            snv_vr = variant_file.new_record(
-                contig=contig,
-                id=snv_id,
-                start=snv_pos,
-                stop=snv_pos + 1,
-                alleles=snv_alleles,
-            )
+                ref = snv["ref"]
+                snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
+                snv_alleles = (ref, *snv_alts)
+                snv_pos = snv["pos"]
 
-            # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
+                snv_vr = variant_file.new_record(
+                    contig=contig,
+                    id=snv_id,
+                    start=snv_pos,
+                    stop=snv_pos + 1,
+                    alleles=snv_alleles,
+                )
 
-            snv_vr.samples[sample_id]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
-            snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
-            snv_vr.samples[sample_id]["AD"] = snv["rcs"]
+                # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
 
-            if ps is not None:
-                snv_vr.samples[sample_id].phased = True
-                snv_vr.samples[sample_id]["PS"] = ps
+                snv_vr.samples[sample_id]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
+                snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
+                snv_vr.samples[sample_id]["AD"] = snv["rcs"]
 
-            contig_vrs.append(snv_vr)
+                if ps is not None:
+                    snv_vr.samples[sample_id].phased = True
+                    snv_vr.samples[sample_id]["PS"] = ps
+
+                contig_vrs.append(snv_vr)
 
         contig_vrs.append(vr)
 
