@@ -634,7 +634,8 @@ def call_alleles_with_incorporated_snvs(
     snv_pss: list[int] = []
     should_flip: list[bool] = []
 
-    snv_genotype_update_lock.acquire()
+    snv_genotype_update_lock.acquire(timeout=30)
+    phase_set_lock.acquire(timeout=30)
     try:
         for snv in called_useful_snvs:
             if snv["id"] in snv_genotype_cache:
@@ -643,14 +644,13 @@ def call_alleles_with_incorporated_snvs(
                 snv_pss.append(snv_ps)
                 should_flip.append(len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"])))
         if not found_snvs:
-            phase_set_lock.acquire()
             call_phase_set = int(phase_set_counter.value)
             phase_set_counter.set(call_phase_set + 1)
-            phase_set_lock.release()
 
             for snv in called_useful_snvs:
                 snv_genotype_cache[snv["id"]] = (tuple(snv["call"]), call_phase_set)
     finally:
+        phase_set_lock.release()
         snv_genotype_update_lock.release()
 
     if found_snvs:  # else from the above `if not found_snvs`, but we can release the lock earlier
@@ -1050,7 +1050,7 @@ def call_locus(
                 if orig_ps in phase_set_remap:
                     ps_remapped = phase_set_remap[orig_ps]
                 else:
-                    phase_set_lock.acquire()
+                    phase_set_lock.acquire(timeout=30)
                     psc = int(phase_set_counter.value)
                     phase_set_counter.set(psc + 1)
                     phase_set_lock.release()
