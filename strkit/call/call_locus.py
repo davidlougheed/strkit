@@ -1099,6 +1099,7 @@ def call_locus(
         "motif": motif,
         "ref_cn": ref_cn,
         **({"ref_start_anchor": ref_left_flank_seq[-1], "ref_seq": ref_seq} if consensus else {}),
+        # TODO: alt anchors
         "reads": read_dict,
     }
 
@@ -1299,7 +1300,12 @@ def call_locus(
 
         call_peak_n_reads = list(map(len, allele_reads))
 
-        if consensus:
+        if any(map(lambda x: x == 0, call_peak_n_reads)):
+            # TODO: This shouldn't happen, but it does occasionally
+            logger_.warning(f"{locus_log_str} - found empty allele, nullifying call results")
+            call_data = {}
+
+        if call_data and consensus:
             call_seqs = list(
                 map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
             )
