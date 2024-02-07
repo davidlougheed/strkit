@@ -38,6 +38,19 @@ PROFILE_LOCUS_CALLS: bool = False
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
 
 
+def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal["chr", "num", "acc", ""]:
+    if snv_vcf_file is None:
+        return ""
+
+    snv_vcf_contigs = list(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
+    if not snv_vcf_contigs or snv_vcf_contigs[0].startswith("chr"):
+        return "chr"
+    elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
+        return "num"
+    else:  # assume stupid accession format
+        return "acc"  # TODO: remove this 'helping' logic... seems harmful
+
+
 def locus_worker(
     params: CallParams,
     locus_queue: mp.Queue,
@@ -69,15 +82,7 @@ def locus_worker(
 
     snv_vcf_file = p.VariantFile(params.snv_vcf) if params.snv_vcf else None
     snv_vcf_contigs: list[str] = []
-    vcf_file_format: Literal["chr", "num", "acc", ""] = ""
-    if snv_vcf_file is not None:
-        snv_vcf_contigs = list(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
-        if not snv_vcf_contigs or snv_vcf_contigs[0].startswith("chr"):
-            vcf_file_format = "chr"
-        elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
-            vcf_file_format = "num"
-        else:  # assume stupid accession format
-            vcf_file_format = "acc"
+    vcf_file_format: Literal["chr", "num", "acc", ""] = get_vcf_contig_format(snv_vcf_file)
 
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
     read_file_has_chr = any(r.startswith("chr") for bf in bfs for r in bf.references)
