@@ -160,7 +160,7 @@ def output_vcf_lines(
                 snvs_written.add(snv_id)
 
                 ref = snv["ref"]
-                snv_alts = tuple(filter(lambda v: v != ref, snv["call"]))
+                snv_alts = tuple(sorted(set(filter(lambda v: v != ref, snv["call"]))))
                 snv_alleles = (ref, *snv_alts)
                 snv_pos = snv["pos"]
 
