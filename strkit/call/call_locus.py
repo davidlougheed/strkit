@@ -89,7 +89,6 @@ def get_read_coords_from_matched_pairs(
     query_seq: str,
     q_coords: list[int],
     r_coords: list[int],
-    # matched_pairs: list[tuple[int, int]],
 ) -> tuple[int, int, int, int]:
     left_flank_end = -1
     right_flank_start = -1
@@ -114,10 +113,6 @@ def get_read_coords_from_matched_pairs(
         lhs -= 1
 
     left_flank_start = q_coords[lhs]
-    # ------------------------------------------------------------------------------------------------------------------
-
-    # Binary search for left flank end ---------------------------------------------------------------------------------
-    # TODO
     # ------------------------------------------------------------------------------------------------------------------
 
     for i in range(lhs + 1, len(q_coords)):
@@ -863,17 +858,12 @@ def call_locus(
     # Keep track of left-most and right-most coordinates
     # If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
     # fairly significant overhead involved in reading from the reference genome for each read to identifify SNVs.
-    # left_most_coord: int = 99999999999999
-    # right_most_coord: int = 0
 
     segment: pysam.AlignedSegment
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn: str = segment.query_name  # Know this is not None from overlapping_segments calculation
         segment_start: int = segment.reference_start
         segment_end: int = segment.reference_end  # Optional[int], but if it's here we know it isn't None
-
-        # left_most_coord = min(left_most_coord, segment_start)
-        # right_most_coord = max(right_most_coord, segment_end)
 
         # While .query_sequence is Optional[str], we know (because we skipped all segments with query_sequence is None
         # above) that this is guaranteed to be, in fact, not None.
@@ -883,7 +873,6 @@ def call_locus(
         cigar_tuples: list[tuple[int, int]] = segment.cigartuples
 
         realigned: bool = False
-        # pairs = None
         q_coords: Optional[list[int]] = None
         r_coords: Optional[list[int]] = None
 
