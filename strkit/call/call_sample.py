@@ -36,6 +36,7 @@ LOG_PROGRESS_INTERVAL: int = 120  # seconds
 PROFILE_LOCUS_CALLS: bool = False
 
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
+ACCESSION_PATTERN = re.compile(r"^NC_\d+")
 
 
 def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal["chr", "num", "acc", ""]:
@@ -47,8 +48,10 @@ def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal[
         return "chr"
     elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
         return "num"
-    else:  # assume stupid accession format
-        return "acc"  # TODO: remove this 'helping' logic... seems harmful
+    elif ACCESSION_PATTERN.match(snv_vcf_contigs[0]):
+        return "acc"
+    else:
+        return ""
 
 
 def locus_worker(
