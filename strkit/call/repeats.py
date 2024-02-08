@@ -17,10 +17,6 @@ __all__ = [
 DEFAULT_LOCAL_SEARCH_RANGE = 3
 
 
-from collections import Counter
-seen = Counter()
-
-
 def score_candidate_with_string(
     db_seq: str,
     tr_candidate: str,
@@ -52,14 +48,14 @@ def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, fl
 
     # Always assign parasail results to variables due to funky memory allocation behaviour
     ext_r_seq = f"{flank_left_seq}{tr_candidate}"
-    r_fwd = parasail.sg_de_stats_rowcol_scan_sat(
+    r_fwd = parasail.sg_de_scan_sat(
         ext_r_seq, db_seq, indel_penalty, indel_penalty, dna_matrix)
     r_adj = r_fwd.end_ref + 1 - len(flank_left_seq) - ref_size  # Amount to tweak boundary on the right side by
 
     db_seq_rev = db_seq[::-1]
     ext_l_seq = f"{tr_candidate}{flank_right_seq[max(r_adj, 0):]}"[::-1]  # reverse
 
-    r_rev = parasail.sg_de_stats_rowcol_scan_sat(
+    r_rev = parasail.sg_de_scan_sat(
         ext_l_seq, db_seq_rev, indel_penalty, indel_penalty, dna_matrix)
     l_adj = r_rev.end_ref + 1 - len(flank_right_seq) - ref_size  # Amount to tweak boundary on the left side by
 
