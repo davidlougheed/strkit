@@ -60,19 +60,14 @@ with the following command:
 python -m pip install strkit
 ```
 
-For **faster genotyping** (via some optimized utility functions) and the faster `orjson` library 
-for JSON parsing and serialization, specify the `rustdeps` extra:
+In some cases, you may need to install the [Rust compiler](https://www.rust-lang.org/tools/install)
+to compile the `strkit_rust_ext` wheels, although prebuilt wheels for this module are available.
 
-```bash
-python -m pip install strkit[rustdeps]
-```
-
-This core Rust component may be required in the future!
-On some Alliance (DRAC/CC) clusters, this may require loading Rust first, to compile the wheels:
+On Digital Research Alliance of Canada/Compute Canada clusters, this involves loading a module:
 
 ```bash
 module load rust/1.70.0
-python -m pip install strkit[rustdeps]
+python -m pip install strkit
 ```
 
 STRkit should then be available in your Python environment as a command-line tool:
@@ -171,6 +166,7 @@ If you want to output a full call report, you can use the `--json output-file.js
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
 labels, and some other information that isn't included in the normal TSV file. If you want this
 file to be indented and human-readable, use the `--indent-json` flag in addition to `--json ...`.
+Note that **memory usage will be higher** when JSON output is enabled.
 
 If you want to output a VCF file (STRs and SNVs if called; currently not phased), use the
 `--vcf ...` argument. If you pass `--vcf stdout`, the VCF will be written to `stdout` instead of a 
