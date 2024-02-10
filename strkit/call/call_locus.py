@@ -439,7 +439,7 @@ def call_alleles_with_incorporated_snvs(
         return assign_method, None
 
     if n_reads_with_no_snvs:
-        logger_.debug(f"{locus_log_str} - will discard {n_reads_with_no_snvs} reads with no SNV data")
+        logger_.debug(f"{locus_log_str} - will discard {n_reads_with_no_snvs}/{n_reads_in_dict} reads with no SNV data")
 
     # Otherwise, we can use the SNV data --------------------------------------
 
