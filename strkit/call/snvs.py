@@ -1,10 +1,9 @@
 import logging
-import math
 import numpy as np
 import pysam
 from collections import Counter
 
-from typing import Callable, Literal, Optional
+from typing import Literal, Optional
 
 from strkit.logger import logger
 
@@ -16,10 +15,10 @@ __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",
     "SNV_GAP_CHAR",
     "get_candidate_snvs",
-    "get_read_snvs_dbsnp",
     "get_read_snvs",
     "calculate_useful_snvs",
     "call_and_filter_useful_snvs",
+    "process_read_snvs_for_locus_and_calculate_useful_snvs",
 ]
 
 SNV_OUT_OF_RANGE_CHAR = "-"
@@ -78,242 +77,7 @@ def get_candidate_snvs(
     return candidate_snvs_dict
 
 
-# We check entropy against a threshold in order to make sure the SNVs we find are somewhat
-# useful, i.e., surrounded by a nice mixture of different bases rather than some possibly
-# mis-mappable base inside a homopolymer (I used to get results like AAAAAAAAAACAAAAAAAA
-# where one of those As could be a gap instead... really useless stuff that made it
-# through the filters.)
-#
-# Below is a Python implementation of https://en.wikipedia.org/wiki/Entropy_(information_theory)
-# but a Rust one exists too in strkit_rust_ext, which gets used by the Rust SNV-finding implementations.
-
-def shannon_entropy(seq: str) -> float:
-    seq_len = len(seq)
-    return -1.0 * sum(map(lambda p: p * math.log2(p), map(lambda c: c / seq_len, Counter(seq).values())))
-
-
-def _get_read_snvs_meticulous_py(
-    query_sequence: str,
-    ref_seq: str,
-    q_coords: list[int],
-    r_coords: list[int],
-    ref_coord_start: int,
-    tr_start_pos: int,
-    tr_end_pos: int,
-    contiguous_threshold: int,
-    max_snv_group_size: int,
-    entropy_flank_size: int,
-    entropy_threshold: float,
-) -> dict[int, str]:
-    """
-    Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
-    surrounded by a stretch of aligned bases of a specified size on either side.
-    :return: Dictionary of {position: base}
-    """
-
-    query_sequence_len = len(query_sequence)
-
-    snvs: dict[int, str] = {}
-
-    lhs_contiguous: int = 0
-    rhs_contiguous: int = 0
-    last_rp: int = -1
-
-    snv_group: list[tuple[int, str]] = []
-
-    for read_pos, ref_pos in zip(q_coords, r_coords):
-        if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
-            continue
-
-        read_base = query_sequence[read_pos]
-        ref_base = ref_seq[ref_pos - ref_coord_start]
-
-        if read_base == ref_base and (contiguous_threshold == 0 or ref_pos - last_rp == 1 or last_rp == -1):
-            if snv_group:
-                rhs_contiguous += 1
-            else:
-                lhs_contiguous += 1
-
-            if lhs_contiguous >= contiguous_threshold and rhs_contiguous >= contiguous_threshold:
-                if len(snv_group) <= max_snv_group_size:
-                    snvs.update(snv_group)
-                # Otherwise, it might be a little mismapped area or a longer deletion vs reference, so ignore it.
-                lhs_contiguous = 0
-                rhs_contiguous = 0
-                snv_group.clear()
-
-            last_rp = ref_pos
-            continue
-
-        if ref_pos - last_rp > 1:  # Non-contiguous jump; insertion in query
-            lhs_contiguous = 0
-            last_rp = ref_pos
-            continue
-
-        if read_base != ref_base:
-            seq = query_sequence[max(read_pos-entropy_flank_size, 0):min(
-                read_pos+entropy_flank_size, query_sequence_len)]
-            if shannon_entropy(seq) >= entropy_threshold:
-                snv_group.append((ref_pos, read_base))
-            # Don't reset either contiguous variable; instead, take this as part of a SNP group
-            last_rp = ref_pos
-
-    # Special case: if we have stuff in the SNV group with no contiguous requirements,
-    # add it to the SNV dict.
-    if contiguous_threshold == 0 and (0 < len(snv_group) <= max_snv_group_size):
-        snvs.update(snv_group)
-
-    return snvs
-
-
-def _get_read_snvs_simple_py(
-    query_sequence: str,
-    ref_seq: str,
-    q_coords: list[int],
-    r_coords: list[int],
-    ref_coord_start: int,
-    tr_start_pos: int,
-    tr_end_pos: int,
-    too_many_snvs_threshold: int,
-    entropy_flank_size: int,
-    entropy_threshold: float,
-) -> dict[int, str]:
-    query_sequence_len = len(query_sequence)
-    snvs: dict[int, str] = {}
-    for read_pos, ref_pos in zip(q_coords, r_coords):
-        if tr_start_pos <= ref_pos < tr_end_pos:  # base is in the tandem repeat itself; skip it
-            continue
-        if (read_base := query_sequence[read_pos]) != ref_seq[ref_pos - ref_coord_start]:
-            seq = query_sequence[max(read_pos - entropy_flank_size, 0):min(
-                read_pos + entropy_flank_size, query_sequence_len)]
-            if shannon_entropy(seq) >= entropy_threshold:
-                snvs[ref_pos] = read_base
-            if len(snvs) >= too_many_snvs_threshold:  # early return if we exceed the threshold
-                return snvs
-    return snvs
-
-
-get_read_snvs_meticulous: Callable[
-    [str, str, list[int], list[int], int, int, int, int, int, int, float], dict[int, str]]
-try:
-    from strkit_rust_ext import get_snvs_meticulous as get_read_snvs_meticulous
-    logger.debug("Found STRkit Rust component, importing get_read_snvs_meticulous")
-except ImportError:
-    get_read_snvs_meticulous = _get_read_snvs_meticulous_py
-
-
-get_read_snvs_simple: Callable[[str, str, list[int], list[int], int, int, int, int, int, float], dict[int, str]]
-try:
-    from strkit_rust_ext import get_snvs_simple as get_read_snvs_simple
-    logger.debug("Found STRkit Rust component, importing get_read_snvs_simple")
-except ImportError:
-    get_read_snvs_simple = _get_read_snvs_simple_py
-
-
-def _get_read_snvs_dbsnp_py(
-    candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]],
-    query_sequence: str,
-    pairs: list[tuple[int, int]],
-    tr_start_pos: int,
-    tr_end_pos: int,
-) -> dict[int, str]:
-    # noinspection PyTypeChecker
-    query_by_ref: dict[int, int] = dict(map(reversed, pairs))
-
-    # L and R mapped reference coordinates for the read
-    mapped_l = pairs[0][1]
-    mapped_r = pairs[-1][1]
-
-    snvs: dict[int, str] = {}
-
-    for pos, _, snv_ref, snv_alts in candidate_snvs_dict_items_flat:
-        if pos < mapped_l:
-            continue
-        if pos > mapped_r:
-            break
-        if tr_start_pos <= pos <= tr_end_pos:
-            continue
-        read_base = query_sequence[query_by_ref[pos]] if pos in query_by_ref else SNV_GAP_CHAR
-        if read_base == snv_ref or read_base in snv_alts:
-            snvs[pos] = read_base
-
-    return snvs
-
-
-get_read_snvs_dbsnp: Callable[[
-    list[tuple[int, str, str, list[str]]],
-    str,
-    list[tuple[int, int]],
-    int,
-    int,
-], dict[int, str]]
-
-try:
-    from strkit_rust_ext import get_snvs_dbsnp as get_read_snvs_dbsnp
-    logger.debug("Found STRkit Rust component, importing get_read_snvs_dbsnp")
-except ImportError:
-    get_read_snvs_dbsnp = _get_read_snvs_dbsnp_py
-
-
-def _get_read_snvs_py(
-    query_sequence: str,
-    ref_seq: str,
-    q_coords: list[int],
-    r_coords: list[int],
-    ref_coord_start: int,
-    tr_start_pos: int,
-    tr_end_pos: int,
-    # below: special parameters for the get_read_snvs_meticulous function to skip STRs which don't look useful
-    contiguous_threshold: int,
-    max_snv_group_size: int,
-    too_many_snvs_threshold: int,
-    entropy_flank_size: int,
-    entropy_threshold: float,
-) -> dict[int, str]:
-    """
-    Given a list of tuples of aligned (read pos, ref pos) pairs, this function finds non-reference SNVs which are
-    surrounded by a stretch of aligned bases of a specified size on either side.
-    :return: Dictionary of {position: base}
-    """
-
-    # Tried to vectorize this with numpy, and it ended up slower... oh well
-
-    snvs: dict[int, str] = get_read_snvs_simple(
-        query_sequence,
-        ref_seq,
-        q_coords,
-        r_coords,
-        ref_coord_start,
-        tr_start_pos,
-        tr_end_pos,
-        too_many_snvs_threshold,
-        entropy_flank_size,
-        entropy_threshold,
-    )
-
-    if len(snvs) >= too_many_snvs_threshold:  # TOO MANY, some kind of mismapping going on?
-        return get_read_snvs_meticulous(
-            query_sequence,
-            ref_seq,
-            q_coords,
-            r_coords,
-            ref_coord_start,
-            tr_start_pos,
-            tr_end_pos,
-            contiguous_threshold,
-            max_snv_group_size,
-            entropy_flank_size,
-            entropy_threshold,
-        )
-
-    return snvs
-
-
-try:
-    from strkit_rust_ext import get_read_snvs
-    logger.debug("Found STRkit Rust component, importing get_read_snvs")
-except ImportError:
-    get_read_snvs = _get_read_snvs_py
+from strkit_rust_ext import get_read_snvs, process_read_snvs_for_locus_and_calculate_useful_snvs
 
 
 def _find_base_at_pos(query_sequence: str, pairs_for_read: tuple[list[int], list[int]], t: int,
@@ -392,7 +156,7 @@ def calculate_useful_snvs(
 
     # snv_counters is guaranteed by the previous inner loop to not have SNV_OUT_OF_RANGE_CHAR or SNV_GAP_CHAR
 
-    for s_idx, (snv_counted, snv_counter) in enumerate(snv_counters.items()):
+    for s_idx, (_, snv_counter) in enumerate(snv_counters.items()):
         n_alleles_meeting_threshold: int = sum(
             1 for n_reads_for_allele in snv_counter.values() if n_reads_for_allele >= allele_read_threshold)
         n_reads_with_this_snv_called: int = snv_counter.total()

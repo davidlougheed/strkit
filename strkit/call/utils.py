@@ -2,6 +2,8 @@ import bisect
 import numpy as np
 import operator
 
+from numpy.typing import NDArray
+
 __all__ = [
     "cat_strs",
     "idx_1_getter",
@@ -16,7 +18,7 @@ cat_strs = "".join
 idx_1_getter = operator.itemgetter(1)
 
 
-def find_pair_by_ref_pos(r_coords: list[int], target: int, start_left: int = 0) -> tuple[int, bool]:
+def find_pair_by_ref_pos(r_coords: NDArray[np.uint64], target: int, start_left: int = 0) -> tuple[int, bool]:
     n_pairs: int = len(r_coords)
     idx = bisect.bisect_left(r_coords, target, start_left, n_pairs)
     return idx, idx < n_pairs and r_coords[idx] == target

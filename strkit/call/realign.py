@@ -1,8 +1,10 @@
 import logging
 import multiprocessing as mp
+import numpy as np
 import os
 import parasail
 
+from numpy.typing import NDArray
 from typing import Optional
 
 from .align_matrix import match_score, dna_matrix
@@ -12,7 +14,7 @@ min_realign_score_ratio: float = 0.95  # TODO: parametrize
 realign_indel_open_penalty: int = 7  # TODO: parametrize
 
 
-MatchedCoordPairList = tuple[list[int], list[int]]
+MatchedCoordPairList = tuple[NDArray[np.uint64], NDArray[np.uint64]]
 MatchedCoordPairListOrNone = Optional[MatchedCoordPairList]
 
 
@@ -52,5 +54,5 @@ def realign_read(
         f"Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
 
     matches = get_aligned_pair_matches(list(decode_cigar(pr.cigar.seq)), left_flank_coord, 0)
-    res: MatchedCoordPairList = (matches[1], matches[0])
+    res: MatchedCoordPairList = (np.array(matches[1], dtype=np.uint64), np.array(matches[0], dtype=np.uint64))
     return ret_q(res)

@@ -22,21 +22,22 @@ from sklearn.cluster import AgglomerativeClustering
 from numpy.typing import NDArray
 from typing import Iterable, Literal, Optional, Union
 
+from strkit_rust_ext import get_pairs_and_tr_read_coords
+
 from strkit.call.allele import CallDict, call_alleles
 from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
-from .cigar import get_aligned_pair_matches
-from .consensus import consensus_seq
+from .consensus import best_representative
+# from .consensus import consensus_seq
 from .params import CallParams
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import (
     SNV_OUT_OF_RANGE_CHAR,
     get_candidate_snvs,
-    get_read_snvs,
-    calculate_useful_snvs,
     call_and_filter_useful_snvs,
+    process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
 from .types import ReadDict, ReadDictExtra, CandidateSNV
 from .utils import cat_strs, find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
@@ -87,8 +88,8 @@ def get_read_coords_from_matched_pairs(
     motif: str,
     motif_size: int,
     query_seq: str,
-    q_coords: list[int],
-    r_coords: list[int],
+    q_coords: NDArray[np.uint64],
+    r_coords: NDArray[np.uint64],
 ) -> tuple[int, int, int, int]:
     left_flank_end = -1
     right_flank_start = -1
@@ -112,7 +113,7 @@ def get_read_coords_from_matched_pairs(
         # starting coordinate to left_flank_coord which gives us enough flanking material.
         lhs -= 1
 
-    left_flank_start = q_coords[lhs]
+    left_flank_start = q_coords[lhs].item()
     # ------------------------------------------------------------------------------------------------------------------
 
     for i in range(lhs + 1, len(q_coords)):
@@ -271,84 +272,6 @@ def calculate_read_distance(
     return distance_matrix
 
 
-def process_read_snvs_for_locus(
-    contig: str,
-    left_coord_adj: int,
-    right_coord_adj: int,
-    left_most_coord: int,
-    right_most_coord: int,
-    ref: FastaFile,
-    read_dict_items: tuple[tuple[str, ReadDict], ...],
-    read_dict_extra: dict[str, ReadDictExtra],
-    read_pairs: dict[str, tuple[list[int], list[int]]],
-    candidate_snvs_dict: dict[int, CandidateSNV],
-    only_known_snvs: bool,
-    logger_: logging.Logger,
-    locus_log_str: str,
-) -> set[int]:
-    # Loop through a second time if we are using SNVs. We do a second loop rather than just using the first loop
-    # in order to have collected the edges of the reference sequence we can cache for faster SNV calculation.
-
-    # Mutates: read_dict_extra
-
-    locus_snvs: set[int] = set()
-
-    ref_cache = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
-
-    for rn, read in read_dict_items:
-        #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
-        scl = read_dict_extra[rn]["sig_clip_left"]
-        scr = read_dict_extra[rn]["sig_clip_right"]
-        if scl or scr:
-            logger_.debug(
-                f"{locus_log_str} - {rn} has significant clipping; trimming pairs by "
-                f"{significant_clip_snv_take_in} bp per side for SNV-finding")
-
-        # snv_pairs = read_pairs[rn]
-        q_coords, r_coords = read_pairs[rn]
-
-        if len(q_coords) < (twox_takein := significant_clip_snv_take_in * 2):
-            logger_.warning(f"{locus_log_str} - skipping SNV calculation for '{rn}' (<{twox_takein} pairs)")
-            continue
-
-        if scl:
-            # snv_pairs = snv_pairs[significant_clip_snv_take_in:]
-            q_coords = q_coords[significant_clip_snv_take_in:]
-            r_coords = r_coords[significant_clip_snv_take_in:]
-        if scr:
-            # snv_pairs = snv_pairs[:-1 * significant_clip_snv_take_in]
-            q_coords = q_coords[:-1 * significant_clip_snv_take_in]
-            r_coords = r_coords[:-1 * significant_clip_snv_take_in]
-
-        snvs = get_read_snvs(
-            read_dict_extra[rn]["_qs"],
-            ref_cache,
-            q_coords,
-            r_coords,
-            left_most_coord,
-            left_coord_adj,
-            right_coord_adj,
-            # below: magic values for skipping false positives / weird 'SNVs' that aren't helpful
-            contiguous_threshold=5,
-            max_snv_group_size=5,
-            too_many_snvs_threshold=20,
-            entropy_flank_size=10,
-            entropy_threshold=1.8,
-        )
-        #   --> RE-ENABLE FOR dbSNP-BASED SNV FINDER <--
-        # snvs = get_read_snvs_dbsnp(
-        #     candidate_snvs_dict_items_flat,
-        #     read_dict_extra[rn]["_qs"],
-        #     read_pairs[rn],
-        #     left_coord_adj,
-        #     right_coord_adj,
-        # )
-        locus_snvs.update(filter(lambda p: (not only_known_snvs) or p in candidate_snvs_dict, snvs.keys()))
-        read_dict_extra[rn]["snv"] = snvs
-
-    return locus_snvs
-
-
 def call_alleles_with_haplotags(
     params: CallParams,
     haplotags: list[str],
@@ -403,8 +326,6 @@ def call_alleles_with_haplotags(
         #  call dicts with more reads will GET MORE WEIGHT! as it should be, instead of 50/50 for the peak.
 
         cdd.append(cc)
-
-    # TODO: Multi-allele phasing across STRs
 
     for i in range(len(haplotags)):  # Cluster indices now referring to ordered ones
         for rd in hp_reads[i]:
@@ -498,10 +419,17 @@ def call_alleles_with_incorporated_snvs(
     pure_snv_peak_assignment: bool = n_reads_with_many_snvs + n_reads_with_no_snvs == n_reads_in_dict
 
     # TODO: parametrize: how many reads with SNV information
+    min_snv_incorporation_read_portion_pure_snvs = 0.65  # At least 65% with 1+ SNV called for many-SNV calling
     min_snv_incorporation_read_portion = 0.8  # At least 80% with 1+ SNV called
     min_snv_incorporation_read_abs = 16  # Or at least 16 reads with 1+ SNV called
 
-    can_incorporate_snvs: bool = pure_snv_peak_assignment or (
+    can_incorporate_snvs: bool = (
+        pure_snv_peak_assignment and
+        (
+            n_reads_with_at_least_one_snv >= min(
+                n_reads_in_dict * min_snv_incorporation_read_portion_pure_snvs, min_snv_incorporation_read_abs)
+        )
+    ) or (
         n_reads_with_at_least_one_snv >=
         min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)
     )
@@ -853,7 +781,8 @@ def call_locus(
 
     # Aggregations for additional read-level data
     read_kmers: Counter[str] = Counter()
-    read_pairs: dict[str, tuple[list[int], list[int]]] = {}
+    read_q_coords: dict[str, np.typing.NDArray[np.uint64]] = {}
+    read_r_coords: dict[str, np.typing.NDArray[np.uint64]] = {}
 
     # Keep track of left-most and right-most coordinates
     # If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
@@ -873,8 +802,14 @@ def call_locus(
         cigar_tuples: list[tuple[int, int]] = segment.cigartuples
 
         realigned: bool = False
-        q_coords: Optional[list[int]] = None
-        r_coords: Optional[list[int]] = None
+
+        left_flank_start = -1
+        left_flank_end = -1
+        right_flank_start = -1
+        right_flank_end = -1
+
+        q_coords: Optional[NDArray[np.uint64]] = None
+        r_coords: Optional[NDArray[np.uint64]] = None
 
         # Soft-clipping in large insertions can result from mapping difficulties.
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
@@ -928,6 +863,19 @@ def call_locus(
                 realigned = True
                 realign_count += 1
 
+                left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
+                    get_read_coords_from_matched_pairs(
+                        left_flank_coord,
+                        left_coord_adj,
+                        right_coord_adj,
+                        right_flank_coord,
+                        motif,
+                        motif_size,
+                        query_seq=qs,
+                        q_coords=q_coords,
+                        r_coords=r_coords,
+                    )
+
         if q_coords is None:
             if left_flank_coord < segment_start or right_flank_coord > segment_end:
                 # Cannot find pair for LHS flank start or RHS flank end;
@@ -935,19 +883,24 @@ def call_locus(
                 debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
                 continue
 
-            q_coords, r_coords = get_aligned_pair_matches(cigar_tuples, 0, segment_start)
+            coords_or_none, left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
+                get_pairs_and_tr_read_coords(
+                    cigar_tuples,
+                    segment_start,
+                    left_flank_coord,
+                    left_coord_adj,
+                    right_coord_adj,
+                    right_flank_coord,
+                    motif,
+                    motif_size,
+                    qs,
+                )
 
-        left_flank_start, left_flank_end, right_flank_start, right_flank_end = get_read_coords_from_matched_pairs(
-            left_flank_coord,
-            left_coord_adj,
-            right_coord_adj,
-            right_flank_coord,
-            motif,
-            motif_size,
-            query_seq=qs,
-            q_coords=q_coords,
-            r_coords=r_coords,
-        )
+            if coords_or_none is None:  # -1 in one of the flank coords
+                debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
+                continue
+
+            q_coords, r_coords = coords_or_none
 
         if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
             debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
@@ -1070,7 +1023,8 @@ def call_locus(
                     cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
 
             # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
-            read_pairs[rn] = q_coords, r_coords
+            read_q_coords[rn] = q_coords
+            read_r_coords[rn] = r_coords
 
     # End of first read loop -------------------------------------------------------------------------------------------
 
@@ -1161,15 +1115,25 @@ def call_locus(
             # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
 
             # Second read loop occurs in this function
-            locus_snvs: set[int] = process_read_snvs_for_locus(
-                contig, left_coord_adj, right_coord_adj, left_most_coord, right_most_coord, ref, read_dict_items,
-                read_dict_extra, read_pairs, candidate_snvs_dict, only_known_snvs, logger_, locus_log_str)
+            ref_cache: str = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
 
-            useful_snvs: list[tuple[int, int]] = calculate_useful_snvs(
-                n_reads_in_dict, read_dict_items, read_dict_extra, read_pairs, locus_snvs, params.min_allele_reads)
-            n_useful_snvs: int = len(useful_snvs)
+            useful_snvs: list[tuple[int, int]] = process_read_snvs_for_locus_and_calculate_useful_snvs(
+                left_coord_adj,
+                right_coord_adj,
+                left_most_coord,
+                ref_cache,
+                read_dict_extra,
+                read_q_coords,
+                read_r_coords,
+                candidate_snvs_dict,
+                params.min_allele_reads,
+                significant_clip_snv_take_in,
+                only_known_snvs,
+                logger_,
+                locus_log_str,
+            )
 
-            if not n_useful_snvs:
+            if not useful_snvs:
                 logger_.debug(f"{locus_log_str} - no useful SNVs")
             else:
                 am, call_res = call_alleles_with_incorporated_snvs(

@@ -19,7 +19,6 @@ setup(
         "pysam>=0.19,<0.23",
         "numpy>=1.23.4,<1.27",
         "parasail>=1.2.4,<1.4",
-        "pyfamsa>=0.3.0,<0.4",
         "scikit-learn>=1.2.1,<1.5",
         "scipy>=1.10,<1.13",
         "statsmodels>=0.14.0,<0.15",
