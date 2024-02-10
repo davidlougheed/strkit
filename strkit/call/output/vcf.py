@@ -50,6 +50,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader
     vh.formats.add("GT", 1, "String", "Genotype")
     vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
     vh.formats.add("PS", 1, "Integer", "Phase set")
+    vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
 
     # Set up VCF info fields
     vh.info.add("MOTIF", 1, "String", "Motif string")
@@ -141,6 +142,7 @@ def output_vcf_lines(
         vr.info["REFMC"] = result["ref_cn"]
 
         vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else _blank_entry(n_alleles)
+        vr.samples[sample_id]["PM"] = result["assign_method"]
 
         if call is not None:
             vr.samples[sample_id]["DP"] = sum(result["peaks"]["n_reads"])
