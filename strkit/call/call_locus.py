@@ -1260,7 +1260,7 @@ def call_locus(
 
         if call_data and consensus:
             call_seqs = list(
-                map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
+                map(lambda a: best_representative(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
             )
 
     peak_data = {
