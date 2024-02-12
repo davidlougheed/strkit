@@ -5,12 +5,11 @@ import itertools
 import logging
 import multiprocessing as mp
 import multiprocessing.managers as mmg
-import time
-
 import numpy as np
 import pysam
 import operator
 import queue
+import time
 import threading
 
 from collections import Counter
@@ -382,17 +381,20 @@ def _determine_snv_call_phase_set(
         for snv in called_useful_snvs:
             if snv["id"] in snv_genotype_cache:
                 t_snv_genotype, snv_ps = snv_genotype_cache[snv["id"]]
-                snv_pss_with_should_flip.append((
-                    snv_ps,
-                    len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"])),
-                ))
+                snv_should_flip = len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"]))
+                snv_pss_with_should_flip.append((snv_ps, snv_should_flip))
 
         if not snv_pss_with_should_flip:
             call_phase_set = int(phase_set_counter.value)
             phase_set_counter.set(call_phase_set + 1)
+            snv_id_list: list[str] = []
 
             for snv in called_useful_snvs:
-                snv_genotype_cache[snv["id"]] = (tuple(snv["call"]), call_phase_set)
+                snv_id = snv["id"]
+                snv_genotype_cache[snv_id] = (tuple(snv["call"]), call_phase_set)
+                snv_id_list.append(snv_id)
+
+            logger_.debug(f"{locus_log_str} - assigned new phase set {call_phase_set} to SNVs {snv_id_list}")
 
         else:
             # Have found SNVs, should flip/not flip and assign existing phase set
@@ -416,7 +418,7 @@ def _determine_snv_call_phase_set(
             if len(phase_set_consensus_set) > 1:
                 logger_.debug(
                     f"{locus_log_str} - new re-mapping of phase sets {phase_set_consensus_set[1:]} to {call_phase_set} "
-                    f"with {should_flip=}")
+                    f"with {should_flip=} ({phase_set_consensus_set=})")
 
             for psm, psm_sf in phase_set_consensus_set[1:]:
                 # (synonymous lower-# call_phase_set, should_flip RELATIVE to call_phase_set - XOR)
@@ -444,6 +446,7 @@ def _determine_snv_call_phase_set(
 
 
 def call_alleles_with_incorporated_snvs(
+    contig: str,
     n_alleles: int,
     params: CallParams,
     read_dict: dict[str, ReadDict],
@@ -633,7 +636,18 @@ def call_alleles_with_incorporated_snvs(
     # Call useful SNVs to add to the final return dictionary ----------------------------------------------------------
     #  - This method needs the read_dict[p] value, so we need to run this after initial peaks have been calculated!
     called_useful_snvs: list[dict] = call_and_filter_useful_snvs(
-        n_alleles, read_dict, useful_snvs, candidate_snvs_dict, locus_log_str, logger_)
+        contig,
+        n_alleles,
+        read_dict,
+        useful_snvs,
+        candidate_snvs_dict,
+        # ---
+        snv_genotype_update_lock,
+        snv_genotype_cache,
+        # ---
+        locus_log_str,
+        logger_,
+    )
 
     if not called_useful_snvs:  # No useful SNVs left, so revert to "dist" assignment method
         return "dist", None
@@ -1194,6 +1208,7 @@ def call_locus(
                 logger_.debug(f"{locus_log_str} - no useful SNVs")
             else:
                 am, call_res = call_alleles_with_incorporated_snvs(
+                    contig=contig,
                     n_alleles=n_alleles,
                     params=params,
                     read_dict=read_dict,
@@ -1337,9 +1352,10 @@ def call_locus(
 
     if call_time > CALL_WARN_TIME:
         logger_.warning(
-            f"{locus_log_str} - locus call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took {call_time}s")
+            f"{locus_log_str} - locus call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took {call_time}s "
+            f"({motif_size=}, {motif=}, {call=})")
 
-    # Finally, compile the call into a dictionary with all information to return ---------------------------------------
+    # Compile the call into a dictionary with all information to return ------------------------------------------------
 
     if fractional:
         def _ndarray_serialize(x: Iterable) -> list[Union[float, np.float_]]:
