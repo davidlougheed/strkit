@@ -25,7 +25,6 @@ def best_representative(seqs: Iterable[str]) -> Optional[str]:
         return None
     else:
         res_t = tuple(res)
-        print("\n".join(res_t))
         return choice(res_t)
 
 
