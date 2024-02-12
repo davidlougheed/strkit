@@ -398,18 +398,13 @@ def _determine_snv_call_phase_set(
             # Have found SNVs, should flip/not flip and assign existing phase set
 
             phase_set_consensus_set = tuple(sorted(set(snv_pss_with_should_flip), key=lambda x: x[0]))
-            phase_set_consensus = len(phase_set_consensus_set) == 1
-
             call_phase_set, should_flip = phase_set_consensus_set[0]
-
-            if not phase_set_consensus:
-                logger_.debug(
-                    f"{locus_log_str} - re-mapping phase sets {phase_set_consensus_set[1:]} to {call_phase_set} with "
-                    f"{should_flip=}")
 
             # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
             while call_phase_set in phase_set_synonymous:
-                logger_.info(f"{locus_log_str} {call_phase_set} -> {phase_set_synonymous[call_phase_set]}")
+                logger_.debug(
+                    f"{locus_log_str} - using existing remap {call_phase_set} -> "
+                    f"{phase_set_synonymous[call_phase_set]}")
                 call_phase_set, r1 = phase_set_synonymous[call_phase_set]
                 # If r[1] is True:
                 #   we should flip while going from call_phase_set -> r[0], so we should invert should_flip
@@ -417,6 +412,11 @@ def _determine_snv_call_phase_set(
                 #   we stay in the same orientation when going call_phase_set -> r[0], so we should keep should_flip
                 # I.e., r[1] is RELATIVE to should_flip
                 should_flip = (not should_flip) if r1 else should_flip
+
+            if len(phase_set_consensus_set) > 1:
+                logger_.debug(
+                    f"{locus_log_str} - new re-mapping of phase sets {phase_set_consensus_set[1:]} to {call_phase_set} "
+                    f"with {should_flip=}")
 
             for psm, psm_sf in phase_set_consensus_set[1:]:
                 # (synonymous lower-# call_phase_set, should_flip RELATIVE to call_phase_set - XOR)
