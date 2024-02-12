@@ -1276,6 +1276,8 @@ def call_locus(
 
     # Assign reads to peaks and compute peak k-mers (and optionally consensus sequences) -------------------------------
 
+    assign_start_time = datetime.now()
+
     # We cannot call read-level cluster labels with >2 peaks using distance alone;
     # don't know how re-sampling has occurred.
     call_peak_n_reads: list[int] = []
@@ -1346,14 +1348,16 @@ def call_locus(
         **({"seqs": call_seqs} if consensus else {}),
     } if call_data else None
 
+    assign_time = (datetime.now() - assign_start_time).total_seconds()
+
     # Calculate call time ----------------------------------------------------------------------------------------------
 
     call_time = (datetime.now() - call_timer).total_seconds()
 
     if call_time > CALL_WARN_TIME:
         logger_.warning(
-            f"{locus_log_str} - locus call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took {call_time}s "
-            f"({motif_size=}, {motif=}, {call=})")
+            f"{locus_log_str} - locus total call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took "
+            f"{call_time}s ({motif_size=}, {motif=}, {call=}, {assign_method=} | {assign_time=}s)")
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
 
