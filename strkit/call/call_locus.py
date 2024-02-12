@@ -353,6 +353,97 @@ def call_alleles_with_haplotags(
     return call_data
 
 
+def _determine_snv_call_phase_set(
+    read_dict: dict[str, ReadDict],
+    cdd_ordered: list[CallDict],
+    called_useful_snvs: list[dict],
+    # ---
+    phase_set_lock: threading.Lock,
+    phase_set_counter: mmg.ValueProxy,
+    phase_set_synonymous: mmg.DictProxy,
+    snv_genotype_update_lock: threading.Lock,
+    snv_genotype_cache: mmg.DictProxy,
+    # ---
+    rng: np.random.Generator,
+    logger_: logging.Logger,
+    locus_log_str: str,
+) -> Optional[int]:
+    # May mutate: cdd_ordered
+
+    # We may need to re-order (flip) calls based on SNVs. Check each SNV to see if it's in the SNV genotype/phase-set
+    # dictionary; otherwise, assign a phase set to all reads which have been used for peak calling here.
+
+    call_phase_set: Optional[int] = None
+
+    found_snvs: list[str] = []
+    snv_pss: list[int] = []
+    should_flip: list[bool] = []
+
+    snv_genotype_update_lock.acquire(timeout=30)
+    phase_set_lock.acquire(timeout=30)
+    try:
+        for snv in called_useful_snvs:
+            if snv["id"] in snv_genotype_cache:
+                t_snv_genotype, snv_ps = snv_genotype_cache[snv["id"]]
+                found_snvs.append(snv["id"])
+                snv_pss.append(snv_ps)
+                should_flip.append(len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"])))
+
+        if not found_snvs:
+            call_phase_set = int(phase_set_counter.value)
+            phase_set_counter.set(call_phase_set + 1)
+
+            for snv in called_useful_snvs:
+                snv_genotype_cache[snv["id"]] = (tuple(snv["call"]), call_phase_set)
+
+        else:
+            # Have found SNVs, should flip/not flip and assign existing phase set
+
+            all_should_flip = all(should_flip)
+            flip_consensus = all_should_flip or all(map(operator.not_, should_flip))
+            phase_set_consensus_set = tuple(sorted(set(snv_pss)))
+            phase_set_consensus = len(phase_set_consensus_set) == 1
+
+            if flip_consensus:
+                call_phase_set = phase_set_consensus_set[0]
+
+                # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
+                while call_phase_set in phase_set_synonymous:
+                    call_phase_set = phase_set_synonymous[call_phase_set]
+
+                if not phase_set_consensus:
+                    logger_.debug(
+                        f"{locus_log_str} - re-mapping phase sets {phase_set_consensus_set[1:]} to {call_phase_set}")
+
+                for psm in phase_set_consensus_set[1:]:
+                    phase_set_synonymous[psm] = call_phase_set
+
+                if all_should_flip:
+                    for r in read_dict.values():
+                        if (p := r.get("p")) is not None:
+                            # Flip peak - in SNV mode, we're not polyploid, so we can just do int(not bool(p))
+                            r["p"] = int(not bool(p))
+                            r["ps"] = call_phase_set
+                    # Then, reverse ordered call data list
+                    cdd_ordered.reverse()
+                else:
+                    for r in read_dict.values():
+                        if r.get("p") is not None:
+                            # We're good as-is, so assign the phase set
+                            r["ps"] = call_phase_set
+            else:
+                # TODO: what to do? can we recover something here? yes - we could flip phase sets post-facto
+                logger_.warning(
+                    f"{locus_log_str} - no flip consensus for SNV phase set/should-flip: got {snv_pss}/{should_flip}; "
+                    f"skipping phasing")
+
+    finally:
+        phase_set_lock.release()
+        snv_genotype_update_lock.release()
+
+    return call_phase_set
+
+
 def call_alleles_with_incorporated_snvs(
     n_alleles: int,
     params: CallParams,
@@ -365,6 +456,7 @@ def call_alleles_with_incorporated_snvs(
     # ---
     phase_set_lock: threading.Lock,
     phase_set_counter: mmg.ValueProxy,
+    phase_set_synonymous: mmg.DictProxy,
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     # ---
@@ -548,62 +640,26 @@ def call_alleles_with_incorporated_snvs(
         return "dist", None
     # ------------------------------------------------------------------------------------------------------------------
 
-    # We may need to re-order (flip) calls based on SNVs. Check each SNV to see if it's in the SNV genotype/phase-set
-    # dictionary; otherwise, assign a phase set to all reads which have been used for peak calling here.
+    # Phase if possible, using SNVs and existing phase sets (or generating a new phase set for this block).
+    # This call may mutate cdd_ordered by reversing it if needed to fit it into an existing phase set.
+    # It will also set phase sets on items in the read dictionary and could change `p` assignments in line with the
+    # above possible flip.
 
-    call_phase_set: Optional[int] = None
+    call_phase_set: Optional[int] = _determine_snv_call_phase_set(
+        read_dict,
+        cdd_ordered,
+        called_useful_snvs,
+        phase_set_lock,
+        phase_set_counter,
+        phase_set_synonymous,
+        snv_genotype_update_lock,
+        snv_genotype_cache,
+        rng,
+        logger_,
+        locus_log_str,
+    )
 
-    found_snvs: list[str] = []
-    snv_pss: list[int] = []
-    should_flip: list[bool] = []
-
-    snv_genotype_update_lock.acquire(timeout=30)
-    phase_set_lock.acquire(timeout=30)
-    try:
-        for snv in called_useful_snvs:
-            if snv["id"] in snv_genotype_cache:
-                t_snv_genotype, snv_ps = snv_genotype_cache[snv["id"]]
-                found_snvs.append(snv["id"])
-                snv_pss.append(snv_ps)
-                should_flip.append(len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"])))
-        if not found_snvs:
-            call_phase_set = int(phase_set_counter.value)
-            phase_set_counter.set(call_phase_set + 1)
-
-            for snv in called_useful_snvs:
-                snv_genotype_cache[snv["id"]] = (tuple(snv["call"]), call_phase_set)
-    finally:
-        phase_set_lock.release()
-        snv_genotype_update_lock.release()
-
-    if found_snvs:  # else from the above `if not found_snvs`, but we can release the lock earlier
-        # Have found SNVs, should flip/not flip and assign existing phase set
-        all_should_flip = all(should_flip)
-        flip_consensus = all_should_flip or all(map(operator.not_, should_flip))
-        phase_set_consensus_set = tuple(sorted(set(snv_pss)))
-        phase_set_consensus = len(phase_set_consensus_set) == 1
-        if flip_consensus and phase_set_consensus:
-            call_phase_set = phase_set_consensus_set[0]
-            if all_should_flip:
-                for r in read_dict.values():
-                    if (p := r.get("p")) is not None:
-                        # Flip peak - in SNV mode, we're not polyploid, so we can just do int(not bool(p))
-                        r["p"] = int(not bool(p))
-                        r["ps"] = call_phase_set
-                # Then, reverse ordered call data list
-                cdd_ordered.reverse()
-            else:
-                for r in read_dict.values():
-                    if r.get("p") is not None:
-                        # We're good as-is, so assign the phase set
-                        r["ps"] = call_phase_set
-        else:
-            # TODO: what to do? can we recover something here? yes - we could join phase sets post-facto
-            #  - sort snv_pss so we keep the smaller one
-
-            logger_.warning(
-                f"{locus_log_str} - no consensus for SNV phase set/should-flip: got {snv_pss}/{should_flip}; "
-                f"skipping phasing")
+    # ------------------------------------------------------------------------------------------------------------------
 
     peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
 
@@ -645,7 +701,8 @@ def call_locus(
     # ---
     phase_set_lock: threading.Lock,
     phase_set_counter: mmg.ValueProxy,
-    phase_set_remap: mmg.DictProxy,
+    phase_set_hp_remap: mmg.DictProxy,
+    phase_set_synonymous: mmg.DictProxy,
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     # ---
@@ -988,17 +1045,19 @@ def call_locus(
             tags = dict(segment.get_tags())
             if (hp := tags.get("HP")) is not None and (ps := tags.get("PS")) is not None:
                 orig_ps = int(ps)
+
+                phase_set_lock.acquire(timeout=30)
+
                 ps_remapped: int
-                if orig_ps in phase_set_remap:
-                    ps_remapped = phase_set_remap[orig_ps]
+                if orig_ps in phase_set_hp_remap:
+                    ps_remapped = phase_set_hp_remap[orig_ps]
                 else:
-                    phase_set_lock.acquire(timeout=30)
                     psc = int(phase_set_counter.value)
                     phase_set_counter.set(psc + 1)
-                    phase_set_lock.release()
-
-                    phase_set_remap[orig_ps] = psc
+                    phase_set_hp_remap[orig_ps] = psc
                     ps_remapped = psc
+
+                phase_set_lock.release()
 
                 read_dict[rn]["hp"] = hp
                 read_dict[rn]["ps"] = ps_remapped
@@ -1147,6 +1206,7 @@ def call_locus(
                     candidate_snvs_dict=candidate_snvs_dict,
                     phase_set_lock=phase_set_lock,
                     phase_set_counter=phase_set_counter,
+                    phase_set_synonymous=phase_set_synonymous,
                     snv_genotype_update_lock=snv_genotype_update_lock,
                     snv_genotype_cache=snv_genotype_cache,
                     rng=rng,

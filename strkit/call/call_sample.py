@@ -60,6 +60,7 @@ def locus_worker(
     phase_set_lock: threading.Lock,
     phase_set_counter: mmg.ValueProxy,
     phase_set_remap: mmg.DictProxy,
+    phase_set_synonymous: mmg.DictProxy,
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     is_single_processed: bool,
@@ -104,6 +105,7 @@ def locus_worker(
                 phase_set_lock,
                 phase_set_counter,
                 phase_set_remap,
+                phase_set_synonymous,
                 snv_genotype_update_lock,
                 snv_genotype_cache,
                 seed=locus_seed,
@@ -266,6 +268,9 @@ def call_sample(
         phase_set_counter = manager.Value('I', 1)  # Generates unique phase set IDs
         #  - We need to remap haplotagged BAM phase sets to unique phase set IDs generated from the above counter:
         phase_set_remap = manager.dict()
+        #  - Some phase sets end up being in truth the same when parallel processing; we need to reconcile this at the
+        #    end. We can do this by keeping track of synonymous phase sets.
+        phase_set_synonymous = manager.dict()
         #  - When updating SNV genotype cache, we need a lock to make sure we don't get weird phasing artifacts where
         #    the cache is updated simultaneously:
         snv_genotype_update_lock = manager.Lock()
@@ -278,6 +283,7 @@ def call_sample(
             phase_set_lock,
             phase_set_counter,
             phase_set_remap,
+            phase_set_synonymous,
             snv_genotype_update_lock,
             snv_genotype_cache,
             is_single_processed,
@@ -295,12 +301,19 @@ def call_sample(
             #  - merge sorted result lists into single sorted list
             results: tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
 
-            #  - write partial results to stdout if we're writing a stdout TSV
-            if output_tsv:
-                output_tsv_fn(results, has_snv_vcf=params.snv_vcf is not None)
+            #  - fix-up phase sets based on phase_set_synonymous
+            if phase_set_synonymous:
+                for r in results:
+                    if "ps" in r and r["ps"] is not None:
+                        while r["ps"] in phase_set_synonymous:
+                            r["ps"] = phase_set_synonymous[r["ps"]]
 
             if should_keep_all_results_in_mem:
                 all_results.extend(results)
+
+            #  - write partial results to stdout if we're writing a stdout TSV
+            if output_tsv:
+                output_tsv_fn(results, has_snv_vcf=params.snv_vcf is not None)
 
             #  - write partial results to VCF if we're writing a VCF
             if vf is not None:
