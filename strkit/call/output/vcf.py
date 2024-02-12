@@ -1,4 +1,5 @@
 import functools
+import logging
 import pathlib
 import pysam
 from os.path import commonprefix
@@ -84,6 +85,7 @@ def output_vcf_lines(
     sample_id: str,
     variant_file: pysam.VariantFile,
     results: tuple[dict, ...],
+    logger: logging.Logger,
 ):
     contig_vrs: list[pysam.VariantRecord] = []
 
@@ -165,6 +167,10 @@ def output_vcf_lines(
                 snv_alts = tuple(sorted(set(filter(lambda v: v != ref, snv["call"]))))
                 snv_alleles = (ref, *snv_alts)
                 snv_pos = snv["pos"]
+
+                if len(snv_alleles) < 2:
+                    logger.error(f"Error while writing VCF: SNV ({snv_id}) at {contig}:{snv_pos+1} has no alts")
+                    continue
 
                 snv_vr = variant_file.new_record(
                     contig=contig,

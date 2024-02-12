@@ -317,7 +317,7 @@ def call_sample(
 
             #  - write partial results to VCF if we're writing a VCF
             if vf is not None:
-                output_vcf_lines(params, sample_id_str, vf, results)
+                output_vcf_lines(params, sample_id_str, vf, results, logger)
 
             last_qsize = qsize
             qsize = locus_queue.qsize()
