@@ -364,7 +364,6 @@ def _determine_snv_call_phase_set(
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     # ---
-    rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
 ) -> Optional[int]:
@@ -373,11 +372,9 @@ def _determine_snv_call_phase_set(
     # We may need to re-order (flip) calls based on SNVs. Check each SNV to see if it's in the SNV genotype/phase-set
     # dictionary; otherwise, assign a phase set to all reads which have been used for peak calling here.
 
-    call_phase_set: Optional[int] = None
+    call_phase_set: Optional[int]
 
-    found_snvs: list[str] = []
-    snv_pss: list[int] = []
-    should_flip: list[bool] = []
+    snv_pss_with_should_flip: list[tuple[int, bool]] = []
 
     snv_genotype_update_lock.acquire(timeout=30)
     phase_set_lock.acquire(timeout=30)
@@ -385,11 +382,12 @@ def _determine_snv_call_phase_set(
         for snv in called_useful_snvs:
             if snv["id"] in snv_genotype_cache:
                 t_snv_genotype, snv_ps = snv_genotype_cache[snv["id"]]
-                found_snvs.append(snv["id"])
-                snv_pss.append(snv_ps)
-                should_flip.append(len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"])))
+                snv_pss_with_should_flip.append((
+                    snv_ps,
+                    len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"])),
+                ))
 
-        if not found_snvs:
+        if not snv_pss_with_should_flip:
             call_phase_set = int(phase_set_counter.value)
             phase_set_counter.set(call_phase_set + 1)
 
@@ -399,43 +397,44 @@ def _determine_snv_call_phase_set(
         else:
             # Have found SNVs, should flip/not flip and assign existing phase set
 
-            all_should_flip = all(should_flip)
-            flip_consensus = all_should_flip or all(map(operator.not_, should_flip))
-            phase_set_consensus_set = tuple(sorted(set(snv_pss)))
+            phase_set_consensus_set = tuple(sorted(set(snv_pss_with_should_flip), key=lambda x: x[0]))
             phase_set_consensus = len(phase_set_consensus_set) == 1
 
-            if flip_consensus:
-                call_phase_set = phase_set_consensus_set[0]
+            call_phase_set, should_flip = phase_set_consensus_set[0]
 
-                # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
-                while call_phase_set in phase_set_synonymous:
-                    call_phase_set = phase_set_synonymous[call_phase_set]
+            if not phase_set_consensus:
+                logger_.debug(
+                    f"{locus_log_str} - re-mapping phase sets {phase_set_consensus_set[1:]} to {call_phase_set} with "
+                    f"{should_flip=}")
 
-                if not phase_set_consensus:
-                    logger_.debug(
-                        f"{locus_log_str} - re-mapping phase sets {phase_set_consensus_set[1:]} to {call_phase_set}")
+            # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
+            while call_phase_set in phase_set_synonymous:
+                logger_.info(f"{locus_log_str} {call_phase_set} -> {phase_set_synonymous[call_phase_set]}")
+                call_phase_set, r1 = phase_set_synonymous[call_phase_set]
+                # If r[1] is True:
+                #   we should flip while going from call_phase_set -> r[0], so we should invert should_flip
+                # If r[1] is False:
+                #   we stay in the same orientation when going call_phase_set -> r[0], so we should keep should_flip
+                # I.e., r[1] is RELATIVE to should_flip
+                should_flip = (not should_flip) if r1 else should_flip
 
-                for psm in phase_set_consensus_set[1:]:
-                    phase_set_synonymous[psm] = call_phase_set
+            for psm, psm_sf in phase_set_consensus_set[1:]:
+                # (synonymous lower-# call_phase_set, should_flip RELATIVE to call_phase_set - XOR)
+                phase_set_synonymous[psm] = (call_phase_set, (should_flip or psm_sf) and not (should_flip and psm_sf))
 
-                if all_should_flip:
-                    for r in read_dict.values():
-                        if (p := r.get("p")) is not None:
-                            # Flip peak - in SNV mode, we're not polyploid, so we can just do int(not bool(p))
-                            r["p"] = int(not bool(p))
-                            r["ps"] = call_phase_set
-                    # Then, reverse ordered call data list
-                    cdd_ordered.reverse()
-                else:
-                    for r in read_dict.values():
-                        if r.get("p") is not None:
-                            # We're good as-is, so assign the phase set
-                            r["ps"] = call_phase_set
+            if should_flip:
+                for r in read_dict.values():
+                    if (p := r.get("p")) is not None:
+                        # Flip peak - in SNV mode, we're not polyploid, so we can just do int(not bool(p))
+                        r["p"] = int(not bool(p))
+                        r["ps"] = call_phase_set
+                # Then, reverse ordered call data list
+                cdd_ordered.reverse()
             else:
-                # TODO: what to do? can we recover something here? yes - we could flip phase sets post-facto
-                logger_.warning(
-                    f"{locus_log_str} - no flip consensus for SNV phase set/should-flip: got {snv_pss}/{should_flip}; "
-                    f"skipping phasing")
+                for r in read_dict.values():
+                    if r.get("p") is not None:
+                        # We're good as-is, so assign the phase set
+                        r["ps"] = call_phase_set
 
     finally:
         phase_set_lock.release()
@@ -654,7 +653,6 @@ def call_alleles_with_incorporated_snvs(
         phase_set_synonymous,
         snv_genotype_update_lock,
         snv_genotype_cache,
-        rng,
         logger_,
         locus_log_str,
     )
