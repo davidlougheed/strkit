@@ -24,7 +24,8 @@ def attach_stream_handler(level: int, logger_=logger):
 def create_process_logger(pid: int, level: int):
     lg = logging.getLogger(f"strkit-{pid}")
     lg.setLevel(logging.DEBUG)
-    attach_stream_handler(level, logger_=lg)
+    if not lg.handlers:
+        attach_stream_handler(level, logger_=lg)
     return lg
 
 
