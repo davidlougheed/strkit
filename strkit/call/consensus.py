@@ -21,7 +21,7 @@ def best_representative(seqs: Iterable[str]) -> Optional[str]:
     res = best_representatives(seqs_t)
     if len(res) == 1:
         return res.pop()
-    elif len(res) == 0 or len(res) == len(seqs_t):
+    elif len(res) == 0:
         return None
     else:
         res_t = tuple(res)
