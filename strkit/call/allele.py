@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-# Disable OpenMP multithreading since it adds enormous overhead when multiprocessing
+# Disable OpenMP/other multithreading since it adds enormous overhead when multiprocessing
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 # ----------------------------------------------------------------------------------------------------------------------
 

@@ -84,7 +84,6 @@ module load python/3.9
 cd /home/xxxxx || exit
 source env/bin/activate
 
-export OMP_NUM_THREADS=1  # Legacy, should be automatic now but drastically improved performance
 strkit call \
   --loci /path/to/catalog \
   --ref /path/to/ref.fa.gz \
