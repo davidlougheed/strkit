@@ -246,6 +246,10 @@ def call_sample(
             locus_queue.put(None)
 
     is_single_processed = params.processes == 1
+
+    if not is_single_processed:
+        logger.info(f"Using {params.processes} workers")
+
     should_keep_all_results_in_mem = json_path is not None
 
     result_lists = []
