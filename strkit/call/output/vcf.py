@@ -164,6 +164,7 @@ def output_vcf_lines(
                     vr.samples[sample_id].phased = True
                     vr.samples[sample_id]["PS"] = ps
             except TypeError:
+                vr.samples[sample_id].phased = False
                 logger.error(f"Received bad PS value while writing VCF record at {contig}:{start} - {ps}")
                 ps = None
 
