@@ -21,6 +21,7 @@ class CallParams:
         sample_id: Optional[str],
         min_reads: int = 4,
         min_allele_reads: int = 2,
+        max_reads: int = 250,
         min_avg_phred: int = 13,
         num_bootstrap: int = 100,
         flank_size: int = 70,
@@ -44,6 +45,7 @@ class CallParams:
         self.loci_file: str = loci_file
         self.min_reads: int = min_reads
         self.min_allele_reads: int = min_allele_reads
+        self.max_reads: int = max_reads
         self.min_avg_phred: int = min_avg_phred
         self.num_bootstrap: int = num_bootstrap
         self.flank_size: int = flank_size
@@ -93,6 +95,7 @@ class CallParams:
             sample_id=p_args.sample_id,
             min_reads=p_args.min_reads,
             min_allele_reads=p_args.min_allele_reads,
+            max_reads=p_args.max_reads,
             min_avg_phred=p_args.min_avg_phred,
             num_bootstrap=p_args.num_bootstrap,
             flank_size=p_args.flank_size,
@@ -118,6 +121,7 @@ class CallParams:
             "reference_file": self.reference_file,
             "min_reads": self.min_reads,
             "min_allele_reads": self.min_allele_reads,
+            "max_reads": self.max_reads,
             "min_avg_phred": self.min_avg_phred,
             "num_bootstrap": self.num_bootstrap,
             "flank_size": self.flank_size,

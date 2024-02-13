@@ -107,6 +107,12 @@ def add_call_parser_args(call_parser):
         default=2,
         help="Minimum number of supporting reads needed to call a specific allele peak.")
 
+    call_parser.add_argument(
+        "--max-reads",
+        type=int,
+        default=250,
+        help="Maximum number of supporting reads before a locus is skipped.")
+
     # Min PHRED score of 13 for 95% confidence avg. in bases; although this may be over-estimated in ONT.
     # TODO: cite overest. and put a note in README.
     call_parser.add_argument(

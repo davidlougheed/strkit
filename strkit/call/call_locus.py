@@ -762,6 +762,19 @@ def call_locus(
     ref_seq: str = ""
     raised: bool = False
 
+    call_dict_base = {
+        "locus_index": t_idx,
+        "contig": contig,
+        "start": left_coord,
+        "end": right_coord,
+        "motif": motif,
+        # --- TO BE FILLED IN IF SUCCESSFUL (here so that we always have the key): ---
+        "assign_method": None,
+        "call": None,
+        "call_95_cis": None,
+        "call_99_cis": None,
+    }
+
     # Currently, only support diploid use of SNVs. There's not much of a point with haploid loci,
     # and polyploidy is hard.
     # should_incorporate_snvs: bool = incorporate_snvs and n_alleles == 2
@@ -786,10 +799,10 @@ def call_locus(
     if len(ref_left_flank_seq) < params.flank_size or len(ref_right_flank_seq) < params.flank_size:
         if not raised:  # flank sequence too small for another reason
             logger_.warning(f"Reference flank size too small for locus {t_idx} (skipping)")
-            return None
+            return call_dict_base
 
     if raised:
-        return None
+        return None  # don't even return call_dict_base, this locus has an invalid position
 
     # String representation of locus for logging purposes
     locus_log_str: str = \
@@ -807,12 +820,19 @@ def call_locus(
         fractional=fractional,
         respect_coords=respect_ref,
     )
+    call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
 
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
     # more spaces in which an indel could end up), adjust our coordinates to match.
     # Currently, contractions of the TR region are ignored.
     left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
     right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
+
+    if not respect_ref:  # tag call_dict_base with adjusted start/end
+        call_dict_base.update({
+            "start_adj": left_coord_adj,
+            "end_adj": right_coord_adj,
+        })
 
     # Find the initial set of overlapping aligned segments with associated read lengths + whether we have in-locus
     # chimera reads (i.e., reads which aligned twice with different soft-clipping, likely due to a large indel.) -------
@@ -826,6 +846,12 @@ def call_locus(
             bfs, read_contig, left_flank_coord, right_flank_coord, logger_, locus_log_str)
 
     n_overlapping_reads = len(overlapping_segments)
+
+    if n_overlapping_reads > params.max_reads:
+        logger_.warning(
+            f"{locus_log_str} - skipping locus; too many overlapping reads ({n_overlapping_reads} > "
+            f"{params.max_reads})")
+        return call_dict_base
 
     sorted_read_lengths = np.sort(read_lengths)
 
@@ -1018,7 +1044,9 @@ def call_locus(
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
-            logger_.debug(f"{locus_log_str} - skipping read {rn} (scored {read_adj_score} < {min_read_score})")
+            logger_.debug(
+                f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score} < "
+                f"{min_read_score})")
             continue
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
@@ -1101,30 +1129,16 @@ def call_locus(
 
     n_reads_in_dict: int = len(read_dict)
 
-    call_dict_base = {
-        "locus_index": t_idx,
-        "contig": contig,
-        "start": left_coord,
-        "end": right_coord,
-        **({} if respect_ref else {
-            "start_adj": left_coord_adj,
-            "end_adj": right_coord_adj,
-        }),
-        "motif": motif,
-        "ref_cn": ref_cn,
+    call_dict_base.update({
+        # TODO: alt anchors:
         **({"ref_start_anchor": ref_left_flank_seq[-1], "ref_seq": ref_seq} if consensus else {}),
-        # TODO: alt anchors
         "reads": read_dict,
-    }
+    })
 
     # Check now if we don't have enough reads to make a call. We can still return some read-level information!
     if n_reads_in_dict < params.min_reads:
         return {
             **call_dict_base,
-            "assign_method": None,
-            "call": None,
-            "call_95_cis": None,
-            "call_99_cis": None,
             "peaks": None,
             "read_peaks_called": False,
             "time": (datetime.now() - call_timer).total_seconds(),

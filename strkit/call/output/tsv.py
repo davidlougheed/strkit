@@ -13,13 +13,16 @@ def output_tsv(results: tuple[dict, ...], has_snv_vcf: bool):
         has_call = res["call"] is not None
         # n_peaks = res["peaks"]["modal_n"]
 
+        ref_cn = res.get("ref_cn")
+        reads = res.get("reads")
+
         sys.stdout.write("\t".join((
             res["contig"],
             str(res["start"]),
             str(res["end"]),
             res["motif"],
-            _cn_to_str(res["ref_cn"]),
-            ",".join(map(_cn_to_str, sorted(r["cn"] for r in res["reads"].values()))) if res["reads"] else ".",
+            _cn_to_str(ref_cn) if ref_cn is not None else ".",
+            ",".join(map(_cn_to_str, sorted(r["cn"] for r in reads.values()))) if reads else ".",
             "|".join(map(_cn_to_str, res["call"])) if has_call else ".",
             ("|".join("-".join(map(_cn_to_str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
             # *((res["assign_method"] if has_call else ".",) if incorporate_snvs else ()),
