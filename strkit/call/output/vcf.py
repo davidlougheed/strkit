@@ -155,9 +155,13 @@ def output_vcf_lines(
 
             ps = result["ps"]
 
-            if ps is not None:  # have phase set on call, so mark as phased
-                vr.samples[sample_id].phased = True
-                vr.samples[sample_id]["PS"] = ps
+            try:
+                if ps is not None:  # have phase set on call, so mark as phased
+                    vr.samples[sample_id].phased = True
+                    vr.samples[sample_id]["PS"] = ps
+            except TypeError:
+                logger.error(f"Received bad PS value while writing VCF record at {contig}:{start} - {ps}")
+                ps = None
 
             for snv in result.get("snvs", ()):
                 snv_id = snv["id"]
