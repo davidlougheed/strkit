@@ -144,7 +144,9 @@ def output_vcf_lines(
         vr.info["REFMC"] = result["ref_cn"]
 
         vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else _blank_entry(n_alleles)
-        vr.samples[sample_id]["PM"] = result["assign_method"]
+
+        if am := result.get("assign_method"):
+            vr.samples[sample_id]["PM"] = am
 
         if call is not None:
             vr.samples[sample_id]["DP"] = sum(result["peaks"]["n_reads"])

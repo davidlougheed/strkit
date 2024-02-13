@@ -1121,6 +1121,7 @@ def call_locus(
     if n_reads_in_dict < params.min_reads:
         return {
             **call_dict_base,
+            "assign_method": None,
             "call": None,
             "call_95_cis": None,
             "call_99_cis": None,
