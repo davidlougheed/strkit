@@ -245,6 +245,8 @@ def call_sample(
         for _ in range(params.processes):
             locus_queue.put(None)
 
+    logger.info(f"Loaded {num_loci} loci")
+
     is_single_processed = params.processes == 1
 
     if not is_single_processed:
