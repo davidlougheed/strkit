@@ -112,6 +112,10 @@ def output_vcf_lines(
             # we moved on from the last contig, so write the last batch of variant records to the VCF
             _write_contig_vrs()
 
+        if "ref_start_anchor" not in result:
+            logger.warning(f"No ref anchor for {result['contig']}:{result['start']}; skipping VCF output")
+            continue
+
         ref_start_anchor = result["ref_start_anchor"].upper()
 
         ref_seq = result["ref_seq"].upper()
