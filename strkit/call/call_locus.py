@@ -1153,6 +1153,8 @@ def call_locus(
             have_rare_realigns = True
             break
 
+    allele_start_time = datetime.now()
+
     if params.use_hp:
         top_ps = phase_sets.most_common(1)
         if (haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == n_alleles and top_ps and
@@ -1261,6 +1263,8 @@ def call_locus(
             debug_str=locus_log_str,
         ) or {}  # Still false-y
 
+    allele_time = (datetime.now() - allele_start_time).total_seconds()
+
     # Extract data from call_data --------------------------------------------------------------------------------------
 
     call = call_data.get("call")
@@ -1358,7 +1362,8 @@ def call_locus(
     if call_time > CALL_WARN_TIME:
         logger_.warning(
             f"{locus_log_str} - locus total call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took "
-            f"{call_time}s ({motif_size=}, {motif=}, {call=}, {assign_method=} | {assign_time=}s)")
+            f"{call_time}s ({motif_size=}, {motif=}, {call=}, {assign_method=} | {allele_time=:.4f}s, "
+            f"{assign_time=:.4f}s)")
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
 
