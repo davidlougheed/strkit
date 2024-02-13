@@ -34,6 +34,7 @@ class CallParams:
         respect_ref: bool = False,
         count_kmers: str = "none",  # "none" | "peak" | "read"
         consensus: bool = False,
+        # ---
         log_level: int = logging.WARNING,
         seed: Optional[int] = None,
         processes: int = 1,
@@ -56,6 +57,7 @@ class CallParams:
         self.respect_ref: bool = respect_ref
         self.count_kmers: str = count_kmers
         self.consensus: bool = consensus
+        # ---
         self.log_level: int = log_level
         self.seed: Optional[int] = seed
         self.processes: int = processes
@@ -98,14 +100,15 @@ class CallParams:
             realign=p_args.realign,
             hq=p_args.hq,
             use_hp=p_args.use_hp,
-            # incorporate_snvs=p_args.incorporate_snvs,
             snv_vcf=p_args.incorporate_snvs,
             targeted=p_args.targeted,
             fractional=p_args.fractional,
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
             consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
+            # ---
             log_level=log_levels[p_args.log_level],
+            seed=p_args.seed,
             processes=p_args.processes,
         )
 
@@ -129,5 +132,6 @@ class CallParams:
             "count_kmers": self.count_kmers,
             "consensus": self.consensus,
             "log_level": self.log_level,
+            "Seed": self.seed,
             "processes": self.processes,
         }
