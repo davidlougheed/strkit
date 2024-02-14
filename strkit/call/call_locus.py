@@ -191,7 +191,7 @@ def get_overlapping_segments_and_related_data(
             continue
 
         if segment.query_sequence is None:
-            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (no aligned segment)")
+            # logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (no aligned segment)")
             continue
 
         if segment.reference_end is None:
