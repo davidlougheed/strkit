@@ -176,7 +176,7 @@ def add_call_parser_args(call_parser):
         help="If passed, no TSV call output will be written to stdout.")
 
     call_parser.add_argument(
-        "--output-chunk-size", type=int, default=3000, help="How many call records to write to disk at a time.")
+        "--output-chunk-size", type=int, default=5000, help="How many call records to write to disk at a time.")
 
     # END FILE OUTPUT ARGUMENTS ========================================================================================
 

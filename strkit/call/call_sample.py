@@ -202,7 +202,7 @@ def call_sample(
     vcf_path: Optional[str] = None,
     indent_json: bool = False,
     output_tsv: bool = True,
-    output_chunk_size: int = 10000,
+    output_chunk_size: int = 5000,
 ) -> None:
     # Start the call timer
     start_time = datetime.now()
