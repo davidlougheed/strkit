@@ -59,6 +59,8 @@ def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal[
 def locus_worker(
     params: CallParams,
     locus_queue: mp.Queue,
+    locus_counter_lock: threading.Lock,
+    locus_counter: mmg.ValueProxy,
     phase_set_lock: threading.Lock,
     phase_set_counter: mmg.ValueProxy,
     phase_set_remap: mmg.DictProxy,
@@ -119,6 +121,10 @@ def locus_worker(
                 ref_file_has_chr=ref_file_has_chr,
             )
 
+            locus_counter_lock.acquire(timeout=30)
+            locus_counter.set(locus_counter.get() + 1)
+            locus_counter_lock.release()
+
             if res is not None:
                 results.append(res)
 
@@ -138,8 +144,8 @@ def progress_worker(
     start_time: datetime,
     log_level: int,
     locus_queue: mp.Queue,
+    locus_counter: mmg.ValueProxy,
     num_loci: int,
-    num_workers: int,
     event: EventClass,
 ):
     import os
@@ -151,11 +157,14 @@ def progress_worker(
     from strkit.logger import create_process_logger
     lg = create_process_logger(os.getpid(), log_level)
 
-    def _log(q_size: int):
+    def _log():
         try:
-            n_loci = num_loci - max(q_size, num_workers) + num_workers
+            processed_loci = int(locus_counter.get())
             n_seconds = (datetime.now() - start_time).total_seconds()
-            lg.info(f"{sample_id}: processed {n_loci} loci in {n_seconds:.1f} seconds ({n_loci/n_seconds:.1f} loci/s)")
+            loci_per_second = processed_loci / n_seconds
+            est_time_remaining = (num_loci - processed_loci) / loci_per_second
+            lg.info(f"{sample_id}: processed {processed_loci}/{num_loci} loci in {n_seconds:.1f} seconds "
+                    f"({processed_loci/n_seconds:.1f} loci/s; est. time remaining: {est_time_remaining:.0f}s)")
         except NotImplementedError:
             pass
 
@@ -168,7 +177,7 @@ def progress_worker(
         if timer >= LOG_PROGRESS_INTERVAL:
             last_qsize = qsize
             qsize = locus_queue.qsize()
-            _log(qsize)
+            _log()
             if last_qsize == locus_queue.qsize():  # stuck
                 last_qsize_n_stuck += 1
             if last_qsize_n_stuck >= 3:
@@ -177,7 +186,7 @@ def progress_worker(
                 return
             timer = 0
 
-    _log(locus_queue.qsize())
+    _log()
 
 
 def parse_loci_bed(loci_file: str):
@@ -263,17 +272,27 @@ def call_sample(
     pool_class = mpd.Pool if is_single_processed else NonDaemonicPool
     finish_event = mp.Event()
     with pool_class(params.processes) as p:
+        locus_counter_lock = manager.Lock()
+        locus_counter = manager.Value("I", 0)
+
         # Start the progress tracking process
         progress_job = mp.Process(
             target=progress_worker,
             daemon=True,
-            args=(params.sample_id, start_time, params.log_level, locus_queue, num_loci, params.processes,
-                  finish_event))
+            args=(
+                params.sample_id,
+                start_time,
+                params.log_level,
+                locus_queue,
+                locus_counter,
+                num_loci,
+                finish_event,
+            ))
         progress_job.start()
 
         # Set up shared memory for cross-locus phasing tasks
         phase_set_lock = manager.Lock()  # Lock for generating phase set integers
-        phase_set_counter = manager.Value('I', 1)  # Generates unique phase set IDs
+        phase_set_counter = manager.Value("I", 1)  # Generates unique phase set IDs
         #  - We need to remap haplotagged BAM phase sets to unique phase set IDs generated from the above counter:
         phase_set_remap = manager.dict()
         #  - Some phase sets end up being in truth the same when parallel processing; we need to reconcile this at the
@@ -288,6 +307,8 @@ def call_sample(
         job_args = (
             params,
             locus_queue,
+            locus_counter_lock,
+            locus_counter,
             phase_set_lock,
             phase_set_counter,
             phase_set_remap,
