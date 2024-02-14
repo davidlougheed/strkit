@@ -38,6 +38,8 @@ PROFILE_LOCUS_CALLS: bool = False
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
 ACCESSION_PATTERN = re.compile(r"^NC_\d+")
 
+SNV_GENOTYPE_CACHE_MAX_SIZE = 1000
+
 
 def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal["chr", "num", "acc", ""]:
     if snv_vcf_file is None:
@@ -324,6 +326,13 @@ def call_sample(
             #  - write partial results to VCF if we're writing a VCF
             if vf is not None:
                 output_vcf_lines(params, sample_id_str, vf, results, logger)
+
+            snv_genotype_update_lock.acquire(timeout=30)
+            if (sgcs := len(snv_genotype_cache)) > SNV_GENOTYPE_CACHE_MAX_SIZE:
+                keys_to_clear = list(snv_genotype_cache.keys())[:sgcs - SNV_GENOTYPE_CACHE_MAX_SIZE]
+                for k in keys_to_clear:
+                    del snv_genotype_cache[k]
+            snv_genotype_update_lock.release()
 
             last_qsize = qsize
             qsize = locus_queue.qsize()
