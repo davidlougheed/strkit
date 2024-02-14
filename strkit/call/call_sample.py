@@ -164,8 +164,9 @@ def progress_worker(
             n_seconds = (datetime.now() - start_time).total_seconds()
             loci_per_second = processed_loci / n_seconds
             est_time_remaining = (num_loci - processed_loci) / loci_per_second
-            lg.info(f"{sample_id}: processed {processed_loci}/{num_loci} loci in {n_seconds:.1f} seconds "
-                    f"({processed_loci/n_seconds:.1f} loci/s; est. time remaining: {est_time_remaining:.0f}s)")
+            lg.info(f"{sample_id}: processed {processed_loci}/{num_loci} loci ({processed_loci/num_loci*100:.1f}%) in "
+                    f"{n_seconds:.1f} seconds (~{processed_loci/n_seconds:.0f} l/s; est. time remaining: "
+                    f"{est_time_remaining:.0f}s)")
         except NotImplementedError:
             pass
 
