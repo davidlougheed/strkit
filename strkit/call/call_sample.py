@@ -265,7 +265,6 @@ def call_sample(
 
     should_keep_all_results_in_mem = json_path is not None
 
-    result_lists = []
     # Only populated if we're outputting JSON; otherwise, we don't want to keep everything in memory at once.
     all_results: list[dict] = []
 
@@ -323,8 +322,7 @@ def call_sample(
             jobs = [p.apply_async(locus_worker, job_args) for _ in range(params.processes)]
 
             # Gather the process-specific results for combining.
-            for j in jobs:
-                result_lists.append(j.get())
+            result_lists = [j.get() for j in jobs]
 
             # Write results
             #  - merge sorted result lists into single sorted list
