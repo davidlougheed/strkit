@@ -1054,7 +1054,7 @@ def call_locus(
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
             logger_.debug(
-                f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score} < "
+                f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
                 f"{min_read_score})")
             continue
 
