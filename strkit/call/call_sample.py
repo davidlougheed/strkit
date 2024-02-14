@@ -39,6 +39,7 @@ NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
 ACCESSION_PATTERN = re.compile(r"^NC_\d+")
 
 SNV_GENOTYPE_CACHE_MAX_SIZE = 1000
+PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE = 1000
 
 
 def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal["chr", "num", "acc", ""]:
@@ -365,6 +366,15 @@ def call_sample(
             #  - write partial results to VCF if we're writing a VCF
             if vf is not None:
                 output_vcf_lines(params, sample_id_str, vf, results, logger)
+
+            #  - clean up
+
+            phase_set_lock.acquire(timeout=30)
+            if (psls := len(phase_set_synonymous)) > PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE:
+                keys_to_clear = list(phase_set_synonymous.keys())[:psls - PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE]
+                for k in keys_to_clear:
+                    del phase_set_synonymous[k]
+            phase_set_lock.release()
 
             snv_genotype_update_lock.acquire(timeout=30)
             if (sgcs := len(snv_genotype_cache)) > SNV_GENOTYPE_CACHE_MAX_SIZE:
