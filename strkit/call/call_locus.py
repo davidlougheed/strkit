@@ -190,8 +190,10 @@ def get_overlapping_segments_and_related_data(
             logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (already seen)")
             continue
 
-        if segment.query_sequence is None:
-            # logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (no aligned segment)")
+        qal: int = segment.query_alignment_length
+
+        if segment.query_length == 0 or qal == 0:
+            # No aligned segment, skip entry (used to pull segment.query_sequence, but that's extra work)
             continue
 
         if segment.reference_end is None:
@@ -202,7 +204,7 @@ def get_overlapping_segments_and_related_data(
 
         seen_reads.add(rn)
         overlapping_segments.append(segment)
-        read_lengths.append(segment.query_alignment_length)
+        read_lengths.append(qal)
 
         left_most_coord = min(left_most_coord, segment.reference_start)
         right_most_coord = max(right_most_coord, segment.reference_end)
