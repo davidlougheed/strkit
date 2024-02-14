@@ -845,6 +845,9 @@ def call_locus(
 
     # Find the initial set of overlapping aligned segments with associated read lengths + whether we have in-locus
     # chimera reads (i.e., reads which aligned twice with different soft-clipping, likely due to a large indel.) -------
+    #  - Keep track of left-most and right-most coordinates
+    #    If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
+    #    fairly significant overhead involved in reading from the reference genome for each read to identifify SNVs.
 
     overlapping_segments: list[pysam.AlignedSegment]
     read_lengths: list[int]
@@ -888,9 +891,7 @@ def call_locus(
     read_q_coords: dict[str, np.typing.NDArray[np.uint64]] = {}
     read_r_coords: dict[str, np.typing.NDArray[np.uint64]] = {}
 
-    # Keep track of left-most and right-most coordinates
-    # If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
-    # fairly significant overhead involved in reading from the reference genome for each read to identifify SNVs.
+    n_extremely_poor_scoring_reads = 0
 
     segment: pysam.AlignedSegment
     for segment, read_len in zip(overlapping_segments, read_lengths):
@@ -1056,6 +1057,18 @@ def call_locus(
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
                 f"{min_read_score})")
+
+            if read_adj_score < 0.05:  # TODO: Parametrize
+                n_extremely_poor_scoring_reads += 1
+                if n_extremely_poor_scoring_reads > 3:  # TODO: Parametrize
+                    logger_.debug(f"{locus_log_str} - not calling locus due to >3 extremely poor-aligning reads")
+                    return {
+                        **call_dict_base,
+                        "peaks": None,
+                        "read_peaks_called": False,
+                        "time": (datetime.now() - call_timer).total_seconds(),
+                    }
+
             continue
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
@@ -1199,7 +1212,7 @@ def call_locus(
                 call_data = call_res
         else:
             logger_.debug(
-                f"{locus_log_str} - Not enough HP/PS tags for incorporation; one of {haplotagged_reads_count} < "
+                f"{locus_log_str} - not enough HP/PS tags for incorporation; one of {haplotagged_reads_count} < "
                 f"{min_hp_read_coverage}, top PS {phase_sets.most_common(1)[0][1]} < {min_hp_read_coverage}, or "
                 f"{len(haplotags)} != {n_alleles}")
 
