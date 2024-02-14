@@ -14,6 +14,7 @@ chr#    10000    10101    [...]    AC
 The important requirements here are:
 
   * The fields are tab-separated
+  * The rows are sorted by contig, and then by starting position
   * Locus coordinates are 0-based and half-open (start is inclusive, end is exclusive)
   * The locus motif must come **last** in the row, but *any number of fields* can separate
     the end position and the motif.

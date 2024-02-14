@@ -127,7 +127,7 @@ strkit call \
   --hq \  # If using PacBio HiFi reads, enable this to get better genotyping & more robust expansion detection
   --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
-  --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) list of loci to genotype
+  --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
   --incorporate-snvs path/to/dbsnp.vcf.gz \   # [RECOMMENDED FOR HIFI ONLY] If you want SNV calls to help phase STRs & speed up calling
   --min-reads 4 \  # Minimum number of supporting reads needed to make a call
   --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
