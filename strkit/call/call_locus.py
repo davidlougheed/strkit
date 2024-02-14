@@ -1146,6 +1146,7 @@ def call_locus(
 
     # Check now if we don't have enough reads to make a call. We can still return some read-level information!
     if n_reads_in_dict < params.min_reads:
+        logger_.debug(f"{locus_log_str} - not enough reads to make a call ({n_reads_in_dict} < {params.min_reads})")
         return {
             **call_dict_base,
             "peaks": None,
