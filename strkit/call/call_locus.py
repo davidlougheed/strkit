@@ -149,6 +149,7 @@ def get_overlapping_segments_and_related_data(
     read_contig: str,
     left_flank_coord: int,
     right_flank_coord: int,
+    max_reads: int,
     logger_: logging.Logger,
     locus_log_str: str,
 ) -> tuple[list[pysam.AlignedSegment], list[int], dict[str, int], int, int]:
@@ -159,6 +160,7 @@ def get_overlapping_segments_and_related_data(
     overlapping_segments: list[pysam.AlignedSegment] = []
     seen_reads: set[str] = set()
     read_lengths: list[int] = []
+    n_seen: int = 0
 
     chimeric_read_status: dict[str, int] = {}
 
@@ -196,12 +198,17 @@ def get_overlapping_segments_and_related_data(
             logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (reference_end is None, unmapped?)")
             continue
 
+        n_seen += 1
+
         seen_reads.add(rn)
         overlapping_segments.append(segment)
         read_lengths.append(segment.query_alignment_length)
 
         left_most_coord = min(left_most_coord, segment.reference_start)
         right_most_coord = max(right_most_coord, segment.reference_end)
+
+        if n_seen > max_reads:
+            break
 
     return overlapping_segments, read_lengths, chimeric_read_status, left_most_coord, right_most_coord
 
@@ -841,16 +848,16 @@ def call_locus(
     read_lengths: list[int]
     chimeric_read_status: dict[str, int]
 
+    max_reads: int = params.max_reads
+
     overlapping_segments, read_lengths, chimeric_read_status, left_most_coord, right_most_coord = \
         get_overlapping_segments_and_related_data(
-            bfs, read_contig, left_flank_coord, right_flank_coord, logger_, locus_log_str)
+            bfs, read_contig, left_flank_coord, right_flank_coord, max_reads, logger_, locus_log_str)
 
     n_overlapping_reads = len(overlapping_segments)
 
     if n_overlapping_reads > params.max_reads:
-        logger_.warning(
-            f"{locus_log_str} - skipping locus; too many overlapping reads ({n_overlapping_reads} > "
-            f"{params.max_reads})")
+        logger_.warning(f"{locus_log_str} - skipping locus; too many overlapping reads")
         return call_dict_base
 
     sorted_read_lengths = np.sort(read_lengths)
