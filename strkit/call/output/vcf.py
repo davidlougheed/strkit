@@ -3,6 +3,7 @@ import logging
 import pathlib
 import pysam
 from os.path import commonprefix
+from typing import Optional
 
 from ..allele import get_n_alleles
 from ..params import CallParams
@@ -76,8 +77,8 @@ def _reversed_str(s: str) -> str:
 
 
 @functools.cache
-def _blank_entry(n_alleles: int) -> tuple[str, ...]:
-    return tuple(["."] * n_alleles)
+def _blank_entry(n_alleles: int) -> tuple[None, ...]:
+    return tuple([None] * n_alleles)
 
 
 def output_vcf_lines(
@@ -117,18 +118,20 @@ def output_vcf_lines(
             continue
 
         ref_start_anchor = result["ref_start_anchor"].upper()
-
         ref_seq = result["ref_seq"].upper()
 
+        n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
+
         seqs = tuple(map(str.upper, (result["peaks"] or {}).get("seqs", ())))
+        if 0 < len(seqs) < n_alleles:
+            seqs = tuple([seqs[0]] * n_alleles)
 
         seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
         common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
 
         call = result["call"]
-        n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
 
-        seq_alleles_raw: tuple[str, ...] = (ref_seq, *(seq_alts or (".",))) if call is not None else (".",)
+        seq_alleles_raw: tuple[Optional[str], ...] = (ref_seq, *(seq_alts or (None,))) if call is not None else (".",)
         seq_alleles: list[str] = [ref_start_anchor + ref_seq[:common_suffix_idx]]
 
         if call is not None and seq_alts:
@@ -147,7 +150,8 @@ def output_vcf_lines(
         vr.info["MOTIF"] = result["motif"]
         vr.info["REFMC"] = result["ref_cn"]
 
-        vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if seqs else _blank_entry(n_alleles)
+        vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if call is not None and seqs \
+            else _blank_entry(n_alleles)
 
         if am := result.get("assign_method"):
             vr.samples[sample_id]["PM"] = am

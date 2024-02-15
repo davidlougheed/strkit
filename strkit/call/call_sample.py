@@ -202,7 +202,6 @@ def call_sample(
     vcf_path: Optional[str] = None,
     indent_json: bool = False,
     output_tsv: bool = True,
-    output_chunk_size: int = 5000,
 ) -> None:
     # Start the call timer
     start_time = datetime.now()
@@ -229,30 +228,33 @@ def call_sample(
     num_loci: int = 0
     # Keep track of all contigs we are processing to speed up downstream Mendelian inheritance analysis.
     contig_set: set[str] = set()
+    last_contig: Optional[str] = None
+    last_none_append_n_loci: int = 0
     for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
         contig = t[0]
 
         n_alleles: Optional[int] = get_n_alleles(2, params.sex_chroms, contig)
         if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
+            last_contig = contig
             continue  # --> skip the locus
 
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
-
-        # Add occasional None breaks to make the jobs terminate. Then, as long as we have
-        # entries in the locus queue, we can get chunks to order and write to disk
-        # instead of keeping everything in RAM.
-
         locus_queue.put((t_idx, t, n_alleles, get_new_seed(rng)))
+
         contig_set.add(contig)
         num_loci += 1
 
-        if num_loci % output_chunk_size == 0:
+        # For each contig, add None breaks to make the jobs terminate. Then, as long as we have entries in the locus
+        # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
+        if last_contig != contig and last_contig is not None:
             for _ in range(params.processes):
                 locus_queue.put(None)
+                last_none_append_n_loci = num_loci
+        last_contig = contig
 
-    if num_loci % output_chunk_size != 0:
+    if num_loci > last_none_append_n_loci:  # have progressed since the last None-append
         # At the end of the queue, add a None value (* the # of processes).
         # When a job encounters a None value, it will terminate.
         for _ in range(params.processes):
@@ -344,6 +346,7 @@ def call_sample(
                             should_flip = (not should_flip) if r_sf else should_flip
 
                         if should_flip and r["call"]:
+                            # Need to flip EVERYTHING which is phased (calls, reads, SNVs, peaks):
                             r["call"].reverse()
                             r["call_95_cis"].reverse()
                             if r["call_99_cis"]:
@@ -352,6 +355,10 @@ def call_sample(
                                 for k in r["reads"]:
                                     if "p" in r["reads"][k]:
                                         r["reads"][k]["p"] = int(not bool(r["reads"][k]["p"]))
+                            if "snvs" in r:
+                                for s in r["snvs"]:
+                                    s["call"].reverse()
+                                    s["rcs"].reverse()
                             if "peaks" in r:
                                 for k in r["peaks"]:
                                     if isinstance(r["peaks"][k], list):
@@ -368,20 +375,14 @@ def call_sample(
             if vf is not None:
                 output_vcf_lines(params, sample_id_str, vf, results, logger)
 
-            #  - clean up
+            #  - clean up caches, since we're changing contigs
 
             phase_set_lock.acquire(timeout=30)
-            if (psls := len(phase_set_synonymous)) > PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE:
-                keys_to_clear = list(phase_set_synonymous.keys())[:psls - PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE]
-                for k in keys_to_clear:
-                    del phase_set_synonymous[k]
+            phase_set_synonymous.clear()
             phase_set_lock.release()
 
             snv_genotype_update_lock.acquire(timeout=30)
-            if (sgcs := len(snv_genotype_cache)) > SNV_GENOTYPE_CACHE_MAX_SIZE:
-                keys_to_clear = list(snv_genotype_cache.keys())[:sgcs - SNV_GENOTYPE_CACHE_MAX_SIZE]
-                for k in keys_to_clear:
-                    del snv_genotype_cache[k]
+            snv_genotype_cache.clear()
             snv_genotype_update_lock.release()
 
             #  - check that we're progressing
