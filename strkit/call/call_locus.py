@@ -424,6 +424,13 @@ def _determine_snv_call_phase_set(
                 # I.e., r[1] is RELATIVE to should_flip
                 should_flip = (not should_flip) if r1 else should_flip
 
+            for psm, _ in phase_set_consensus_set[1:]:
+                if psm == call_phase_set:
+                    logger_.warning(
+                        f"{locus_log_str} - encountered self-flip while trying to re-use a phase set; "
+                        f"{phase_set_consensus_set=}; {snv_pss_with_should_flip=}; {called_useful_snvs=}")
+                    return None
+
             if len(phase_set_consensus_set) > 1:
                 logger_.debug(
                     f"{locus_log_str} - new re-mapping of phase sets {phase_set_consensus_set[1:]} to {call_phase_set} "
