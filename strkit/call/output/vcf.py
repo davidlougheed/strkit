@@ -113,7 +113,7 @@ def output_vcf_lines(
             _write_contig_vrs()
 
         if "ref_start_anchor" not in result:
-            logger.warning(f"No ref anchor for {result['contig']}:{result['start']}; skipping VCF output")
+            logger.debug(f"No ref anchor for {result['contig']}:{result['start']}; skipping VCF output")
             continue
 
         ref_start_anchor = result["ref_start_anchor"].upper()
