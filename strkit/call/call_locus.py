@@ -382,7 +382,7 @@ def _determine_snv_call_phase_set(
 
     call_phase_set: Optional[int]
 
-    snv_pss_with_should_flip: list[tuple[int, bool]] = []
+    snv_pss_with_should_flip: list[tuple[int, bool, tuple]] = []
 
     snv_genotype_update_lock.acquire(timeout=30)
     phase_set_lock.acquire(timeout=30)
@@ -391,7 +391,7 @@ def _determine_snv_call_phase_set(
             if snv["id"] in snv_genotype_cache:
                 t_snv_genotype, snv_ps = snv_genotype_cache[snv["id"]]
                 snv_should_flip = len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"]))
-                snv_pss_with_should_flip.append((snv_ps, snv_should_flip))
+                snv_pss_with_should_flip.append((snv_ps, snv_should_flip, t_snv_genotype))
 
         if not snv_pss_with_should_flip:
             call_phase_set = int(phase_set_counter.value)
@@ -409,7 +409,7 @@ def _determine_snv_call_phase_set(
             # Have found SNVs, should flip/not flip and assign existing phase set
 
             phase_set_consensus_set = tuple(sorted(set(snv_pss_with_should_flip), key=lambda x: x[0]))
-            call_phase_set, should_flip = phase_set_consensus_set[0]
+            call_phase_set, should_flip, _ = phase_set_consensus_set[0]
 
             # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
             while call_phase_set in phase_set_synonymous:
@@ -424,7 +424,7 @@ def _determine_snv_call_phase_set(
                 # I.e., r[1] is RELATIVE to should_flip
                 should_flip = (not should_flip) if r1 else should_flip
 
-            for psm, _ in phase_set_consensus_set[1:]:
+            for psm, _, _ in phase_set_consensus_set[1:]:
                 if psm == call_phase_set:
                     logger_.warning(
                         f"{locus_log_str} - encountered self-flip while trying to re-use a phase set; "
@@ -436,7 +436,7 @@ def _determine_snv_call_phase_set(
                     f"{locus_log_str} - new re-mapping of phase sets {phase_set_consensus_set[1:]} to {call_phase_set} "
                     f"with {should_flip=} ({phase_set_consensus_set=})")
 
-            for psm, psm_sf in phase_set_consensus_set[1:]:
+            for psm, psm_sf, _ in phase_set_consensus_set[1:]:
                 # (synonymous lower-# call_phase_set, should_flip RELATIVE to call_phase_set - XOR)
                 phase_set_synonymous[psm] = (call_phase_set, (should_flip or psm_sf) and not (should_flip and psm_sf))
 
