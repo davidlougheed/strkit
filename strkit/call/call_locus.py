@@ -540,7 +540,7 @@ def call_alleles_with_incorporated_snvs(
     can_incorporate_snvs: bool = (
         pure_snv_peak_assignment and
         (
-            n_reads_with_at_least_one_snv >= min(
+            n_reads_with_many_snvs >= min(
                 n_reads_in_dict * min_snv_incorporation_read_portion_pure_snvs, min_snv_incorporation_read_abs)
         )
     ) or (
