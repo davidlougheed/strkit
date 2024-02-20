@@ -10,7 +10,7 @@ from typing import Literal, Optional
 from strkit_rust_ext import get_read_snvs, process_read_snvs_for_locus_and_calculate_useful_snvs
 
 from strkit.logger import logger
-from .types import ReadDict, CandidateSNV
+from .types import ReadDict, CandidateSNV, CalledSNV
 
 
 __all__ = [
@@ -90,7 +90,7 @@ def call_and_filter_useful_snvs(
     # ---
     locus_log_str: str,
     logger_: logging.Logger,
-) -> list[dict]:
+) -> list[CalledSNV]:
     """
     Call useful SNVs at a locus level from read-level SNV data.
     :param contig: The contig of the SNVs. Used for generating an ID if one does not exist.

@@ -6,6 +6,7 @@ __all__ = [
     "ReadDict",
     "ReadDictExtra",
     "CandidateSNV",
+    "CalledSNV",
 ]
 
 # TODO: py3.10: new Required[] TypedDict structuring
@@ -58,3 +59,14 @@ class CandidateSNV(TypedDict):
     id: str
     ref: str
     alts: tuple[str, ...]
+
+
+class _CalledSNVBase(TypedDict):
+    id: str
+    pos: int
+    call: list[str]
+    rcs: list[int]
+
+
+class CalledSNV(_CalledSNVBase, total=False):
+    ref: str

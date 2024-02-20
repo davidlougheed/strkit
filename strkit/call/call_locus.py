@@ -38,7 +38,7 @@ from .snvs import (
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
-from .types import ReadDict, ReadDictExtra, CandidateSNV
+from .types import ReadDict, ReadDictExtra, CandidateSNV, CalledSNV
 from .utils import cat_strs, find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
 
 
@@ -364,7 +364,7 @@ def call_alleles_with_haplotags(
 def _determine_snv_call_phase_set(
     read_dict: dict[str, ReadDict],
     cdd_ordered: list[CallDict],
-    called_useful_snvs: list[dict],
+    called_useful_snvs: list[CalledSNV],
     # ---
     phase_set_lock: threading.Lock,
     phase_set_counter: mmg.ValueProxy,
@@ -388,8 +388,8 @@ def _determine_snv_call_phase_set(
     phase_set_lock.acquire(timeout=30)
     try:
         for snv in called_useful_snvs:
-            if snv["id"] in snv_genotype_cache:
-                t_snv_genotype, snv_ps = snv_genotype_cache[snv["id"]]
+            if (snv_id := snv["id"]) in snv_genotype_cache:
+                t_snv_genotype, snv_ps = snv_genotype_cache[snv_id]
                 snv_should_flip = len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"]))
                 snv_pss_with_should_flip.append((snv_ps, snv_should_flip))
 
@@ -655,7 +655,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Call useful SNVs to add to the final return dictionary ----------------------------------------------------------
     #  - This method needs the read_dict[p] value, so we need to run this after initial peaks have been calculated!
-    called_useful_snvs: list[dict] = call_and_filter_useful_snvs(
+    called_useful_snvs: list[CalledSNV] = call_and_filter_useful_snvs(
         contig,
         n_alleles,
         read_dict,
