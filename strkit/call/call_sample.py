@@ -14,6 +14,7 @@ import threading
 import time
 
 from datetime import datetime
+from operator import itemgetter
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
 
 from typing import Literal, Optional
@@ -40,6 +41,8 @@ ACCESSION_PATTERN = re.compile(r"^NC_\d+")
 
 SNV_GENOTYPE_CACHE_MAX_SIZE = 1000
 PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE = 1000
+
+get_locus_index = itemgetter("locus_index")
 
 
 def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal["chr", "num", "acc", ""]:
@@ -137,7 +140,7 @@ def locus_worker(
         pr.print_stats("tottime")
 
     # Sort worker results; we will merge them after
-    return results if is_single_processed else sorted(results, key=lambda x: x["locus_index"])
+    return results if is_single_processed else sorted(results, key=get_locus_index)
 
 
 def progress_worker(
@@ -325,12 +328,10 @@ def call_sample(
         while qsize > 0:
             jobs = [p.apply_async(locus_worker, job_args) for _ in range(params.processes)]
 
-            # Gather the process-specific results for combining.
-            result_lists = [j.get() for j in jobs]
-
             # Write results
-            #  - merge sorted result lists into single sorted list
-            results: tuple[dict, ...] = tuple(heapq.merge(*result_lists, key=lambda x: x["locus_index"]))
+            #  - gather the process-specific results for combining
+            #  - merge sorted result lists into single sorted list for the current contig
+            results: tuple[dict, ...] = tuple(heapq.merge(*(j.get() for j in jobs), key=get_locus_index))
 
             #  - fix-up phase sets based on phase_set_synonymous
             #     - if determined necessary while traversing the phase set graph, flip all peak data (i.e., if phase
@@ -375,10 +376,14 @@ def call_sample(
             if vf is not None:
                 output_vcf_lines(params, sample_id_str, vf, results, logger)
 
+            #  - we're done with this tuple, so delete it as early as possible
+            del results
+
             #  - clean up caches, since we're changing contigs
 
             phase_set_lock.acquire(timeout=30)
             phase_set_synonymous.clear()
+            phase_set_remap.clear()
             phase_set_lock.release()
 
             snv_genotype_update_lock.acquire(timeout=30)
