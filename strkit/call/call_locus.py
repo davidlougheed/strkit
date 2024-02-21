@@ -384,8 +384,15 @@ def _determine_snv_call_phase_set(
 
     snv_pss_with_should_flip: list[tuple[int, bool]] = []
 
-    snv_genotype_update_lock.acquire(timeout=30)
-    phase_set_lock.acquire(timeout=30)
+    l1 = snv_genotype_update_lock.acquire(timeout=300)
+    l2 = phase_set_lock.acquire(timeout=300)
+
+    if not (l1 and l2):
+        logger_.error(
+            f"Failed to acquire one of the following locks: {'snv_genotype_update_lock' if not l1 else ''} "
+            f"{'phase_set_lock' if not l2 else ''}")
+        return None
+
     try:
         for snv in called_useful_snvs:
             if (snv_id := snv["id"]) in snv_genotype_cache:
@@ -1122,7 +1129,7 @@ def call_locus(
             if (hp := tags.get("HP")) is not None and (ps := tags.get("PS")) is not None:
                 orig_ps = int(ps)
 
-                phase_set_lock.acquire(timeout=30)
+                phase_set_lock.acquire(timeout=600)
 
                 ps_remapped: int
                 if orig_ps in phase_set_hp_remap:

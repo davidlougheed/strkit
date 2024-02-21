@@ -125,7 +125,7 @@ def locus_worker(
                 ref_file_has_chr=ref_file_has_chr,
             )
 
-            locus_counter_lock.acquire(timeout=30)
+            locus_counter_lock.acquire(timeout=300)
             locus_counter.set(locus_counter.get() + 1)
             locus_counter_lock.release()
 
@@ -382,12 +382,12 @@ def call_sample(
 
             #  - clean up caches, since we're changing contigs
 
-            phase_set_lock.acquire(timeout=30)
+            phase_set_lock.acquire(timeout=60)
             phase_set_synonymous.clear()
             phase_set_remap.clear()
             phase_set_lock.release()
 
-            snv_genotype_update_lock.acquire(timeout=30)
+            snv_genotype_update_lock.acquire(timeout=60)
             snv_genotype_cache.clear()
             snv_genotype_update_lock.release()
 

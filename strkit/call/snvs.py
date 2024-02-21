@@ -173,7 +173,7 @@ def call_and_filter_useful_snvs(
         snv_call = np.array(call).tolist()
 
         if not skipped:
-            snv_genotype_update_lock.acquire(timeout=30)
+            snv_genotype_update_lock.acquire(timeout=600)
             if snv_id in snv_genotype_cache and (cgt := set(snv_genotype_cache[snv_id][0])) != (sgt := set(snv_call)):
                 logger_.warning(
                     f"{locus_log_str} - got mismatch for SNV {snv_id} (position {u_ref}); cache genotype set {cgt} != "
