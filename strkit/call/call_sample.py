@@ -24,7 +24,7 @@ from .allele import get_n_alleles
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
 from .params import CallParams
-from .output import output_json_report, output_tsv as output_tsv_fn, build_vcf_header, output_vcf_lines
+from .output import output_json_report, output_tsv as output_tsv_fn, build_vcf_header, output_contig_vcf_lines
 from .utils import get_new_seed
 
 __all__ = [
@@ -372,9 +372,10 @@ def call_sample(
             if output_tsv:
                 output_tsv_fn(results, has_snv_vcf=params.snv_vcf is not None)
 
-            #  - write partial results to VCF if we're writing a VCF
+            #  - write partial results to VCF if we're writing a VCF - this must be a whole contig's worth of calls, or
+            #    at least the catalog's perception of a whole contig (i.e., all regions from one contig)
             if vf is not None:
-                output_vcf_lines(params, sample_id_str, vf, results, logger)
+                output_contig_vcf_lines(params, sample_id_str, vf, results, logger)
 
             #  - we're done with this tuple, so delete it as early as possible
             del results

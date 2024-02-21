@@ -11,7 +11,7 @@ from ..utils import cat_strs
 
 __all__ = [
     "build_vcf_header",
-    "output_vcf_lines",
+    "output_contig_vcf_lines",
 ]
 
 
@@ -81,40 +81,24 @@ def _blank_entry(n_alleles: int) -> tuple[None, ...]:
     return tuple([None] * n_alleles)
 
 
-def output_vcf_lines(
+def output_contig_vcf_lines(
     params: CallParams,
     sample_id: str,
     variant_file: pysam.VariantFile,
     results: tuple[dict, ...],
     logger: logging.Logger,
 ):
-    contig_vrs: list[pysam.VariantRecord] = []
-
-    def _write_contig_vrs():
-        # sort the variant records by position
-        contig_vrs.sort(key=_vr_pos_key)
-
-        # write them to the VCF
-        for contig_vr in contig_vrs:
-            variant_file.write(contig_vr)
-
-        # clear the contig variant record list for the new contig
-        contig_vrs.clear()
-
-    last_contig = results[0]["contig"] if results else ""
+    variant_records: list[pysam.VariantRecord] = []
 
     # has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
     snvs_written: set[str] = set()
 
     for result_idx, result in enumerate(results, 1):
         contig = result["contig"]
-
-        if contig != last_contig:
-            # we moved on from the last contig, so write the last batch of variant records to the VCF
-            _write_contig_vrs()
+        start = result["start"]
 
         if "ref_start_anchor" not in result:
-            logger.debug(f"No ref anchor for {result['contig']}:{result['start']}; skipping VCF output")
+            logger.debug(f"No ref anchor for {contig}:{start}; skipping VCF output")
             continue
 
         ref_start_anchor = result["ref_start_anchor"].upper()
@@ -139,7 +123,7 @@ def output_vcf_lines(
         else:
             seq_alleles.append(".")
 
-        start = result.get("start_adj", result["start"]) - len(ref_start_anchor)
+        start = result.get("start_adj", start) - len(ref_start_anchor)
 
         vr: pysam.VariantRecord = variant_file.new_record(
             contig=contig,
@@ -205,8 +189,13 @@ def output_vcf_lines(
                     snv_vr.samples[sample_id].phased = True
                     snv_vr.samples[sample_id]["PS"] = ps
 
-                contig_vrs.append(snv_vr)
+                variant_records.append(snv_vr)
 
-        contig_vrs.append(vr)
+        variant_records.append(vr)
 
-    _write_contig_vrs()  # write the final contig's worth of variant records to the VCF at the end
+    # sort the variant records by position
+    variant_records.sort(key=_vr_pos_key)
+
+    # write them to the VCF
+    for vrr in variant_records:
+        variant_file.write(vrr)
