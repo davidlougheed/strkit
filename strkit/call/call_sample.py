@@ -241,21 +241,22 @@ def call_sample(
             last_contig = contig
             continue  # --> skip the locus
 
+        # For each contig, add None breaks to make the jobs terminate. Then, as long as we have entries in the locus
+        # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
+        if last_contig != contig:
+            if last_contig is not None:
+                for _ in range(params.processes):
+                    locus_queue.put(None)
+                last_none_append_n_loci = num_loci
+
+            contig_set.add(contig)
+            last_contig = contig
+
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
         locus_queue.put((t_idx, t, n_alleles, get_new_seed(rng)))
-
-        contig_set.add(contig)
         num_loci += 1
-
-        # For each contig, add None breaks to make the jobs terminate. Then, as long as we have entries in the locus
-        # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
-        if last_contig != contig and last_contig is not None:
-            for _ in range(params.processes):
-                locus_queue.put(None)
-                last_none_append_n_loci = num_loci
-        last_contig = contig
 
     if num_loci > last_none_append_n_loci:  # have progressed since the last None-append
         # At the end of the queue, add a None value (* the # of processes).
