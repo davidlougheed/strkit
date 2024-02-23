@@ -1156,8 +1156,8 @@ def call_locus(
             # Observed significant increase in annoying, probably false SNVs near the edges of significantly
             # clipped reads in CCS data. Figure out if we have large clipping for later use here in the SNV finder.
             #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
-            cigar_first_op = segment.cigartuples[0]
-            cigar_last_op = segment.cigartuples[-1]
+            cigar_first_op = cigar_tuples[0]
+            cigar_last_op = cigar_tuples[-1]
 
             read_dict_extra[rn]["sig_clip_left"] = (
                 cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
