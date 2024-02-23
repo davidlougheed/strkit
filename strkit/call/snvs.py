@@ -70,11 +70,6 @@ def get_candidate_snvs(
             # See https://pysam.readthedocs.io/en/latest/api.html#pysam.VariantRecord.pos
             candidate_snvs_dict[snv.pos - 1] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv_alts)
 
-    # candidate_snvs_dict_items: list[tuple[int, CandidateSNV]] = list(candidate_snvs_dict.items())
-    # This flattened version is useful for passing to the Rust extension
-    # candidate_snvs_dict_items_flat: list[tuple[int, str, str, list[str]]] = [
-    #     (k, v["id"], v["ref"], list(v["alts"])) for k, v in candidate_snvs_dict_items]
-
     return candidate_snvs_dict
 
 
