@@ -16,7 +16,6 @@ import time
 from datetime import datetime
 from operator import itemgetter
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
-
 from typing import Literal, Optional
 
 from strkit.logger import logger
@@ -381,18 +380,14 @@ def call_sample(
             #  - we're done with this tuple, so delete it as early as possible
             del results
 
-            #  - clean up caches, since we're changing contigs
+            #  - clean up caches, since we're changing contigs. We don't need the locks, since at this point only the
+            #    main process is operational.
 
-            phase_set_lock.acquire(timeout=60)
             phase_set_synonymous.clear()
             phase_set_remap.clear()
-            phase_set_lock.release()
-
-            snv_genotype_update_lock.acquire(timeout=60)
             snv_genotype_cache.clear()
-            snv_genotype_update_lock.release()
 
-            #  - check that we're progressing
+            #  - check that we're progressing:
 
             last_qsize = qsize
             qsize = locus_queue.qsize()
