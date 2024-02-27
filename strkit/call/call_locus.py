@@ -1199,7 +1199,6 @@ def call_locus(
         assign_method = "single"
 
     min_hp_read_coverage: int = 8  # TODO: parametrize
-    min_snv_read_coverage: int = 8  # TODO: parametrize
 
     # Realigns are missing significant amounts of flanking information since the realignment only uses a portion of the
     # reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
@@ -1243,7 +1242,7 @@ def call_locus(
                 f"{locus_log_str} - cannot use SNVs; one of {realign_count=} >= {many_realigns_threshold} or "
                 f"{have_rare_realigns=}")
 
-        elif n_reads_in_dict >= min_snv_read_coverage and not have_rare_realigns:
+        else:
             # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
 
             # Second read loop occurs in this function
@@ -1291,11 +1290,6 @@ def call_locus(
                 if call_res is not None:
                     call_data = call_res[0]  # Call data dictionary
                     call_dict_base["snvs"] = call_res[1]  # Called useful SNVs
-
-        elif n_reads_in_dict < min_snv_read_coverage:
-            logger_.debug(
-                f"{locus_log_str} - not enough coverage for SNV incorporation "
-                f"({n_reads_in_dict} < {min_snv_read_coverage})")
 
     single_or_dist_assign: bool = assign_method in ("single", "dist")
 
