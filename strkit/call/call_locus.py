@@ -540,7 +540,7 @@ def call_alleles_with_incorporated_snvs(
     pure_snv_peak_assignment: bool = n_reads_with_many_snvs + n_reads_with_no_snvs == n_reads_in_dict
 
     # TODO: parametrize: how many reads with SNV information
-    min_snv_incorporation_read_portion_pure_snvs = 0.65  # At least 65% with 1+ SNV called for many-SNV calling
+    min_snv_incorporation_read_portion_pure_snvs = 0.68  # At least 68% with 1+ SNV called for many-SNV calling
     min_snv_incorporation_read_portion = 0.8  # At least 80% with 1+ SNV called
     min_snv_incorporation_read_abs = 16  # Or at least 16 reads with 1+ SNV called
 
