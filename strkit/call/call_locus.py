@@ -1433,7 +1433,8 @@ def call_locus(
     call_95_cis_val = apply_or_none(_nested_ndarray_serialize, call_95_cis)
 
     logger_.debug(
-        f"{locus_log_str} - got call: {call_val} (95% CIs: {call_95_cis_val}); peak assign method={assign_method}")
+        f"{locus_log_str} - got call: {call_val} (95% CIs: {call_95_cis_val}); peak assign method={assign_method}; "
+        f"# reads={call_peak_n_reads}")
 
     return {
         **call_dict_base,
