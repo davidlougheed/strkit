@@ -156,7 +156,7 @@ def get_repeat_count(
     if fractional:
         # Refine further using partial copy numbers, starting from the best couple of integer copy numbers
         # noinspection PyTypeChecker
-        top_int_res: list[tuple[int, int]] = sorted(sizes_and_scores.items(), reverse=True, key=lambda x: x[1])[:3]
+        top_int_res: list[tuple[int, int]] = sorted(sizes_and_scores.items(), reverse=True, key=idx_1_getter)[:3]
         return get_fractional_rc(top_int_res, motif, flank_left_seq, flank_right_seq, db_seq)
 
     # noinspection PyTypeChecker

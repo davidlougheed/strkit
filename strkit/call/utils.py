@@ -6,6 +6,7 @@ from numpy.typing import NDArray
 
 __all__ = [
     "cat_strs",
+    "idx_0_getter",
     "idx_1_getter",
     "find_pair_by_ref_pos",
     "normalize_contig",
@@ -15,6 +16,7 @@ __all__ = [
 
 
 cat_strs = "".join
+idx_0_getter = operator.itemgetter(0)
 idx_1_getter = operator.itemgetter(1)
 
 

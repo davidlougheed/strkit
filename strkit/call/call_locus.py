@@ -39,7 +39,7 @@ from .snvs import (
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
 from .types import ReadDict, ReadDictExtra, CandidateSNV, CalledSNV
-from .utils import cat_strs, find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
+from .utils import cat_strs, idx_0_getter, find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
 
 
 __all__ = [
@@ -66,6 +66,8 @@ significant_clip_snv_take_in = 250
 # property getters & other partials
 cn_getter = operator.itemgetter("cn")
 weight_getter = operator.itemgetter("w")
+not_snv_out_of_range_char = functools.partial(operator.ne, SNV_OUT_OF_RANGE_CHAR)
+eq_0 = functools.partial(operator.eq, 0)
 
 
 @functools.cache
@@ -516,9 +518,7 @@ def call_alleles_with_incorporated_snvs(
             continue
 
         read_useful_snv_bases = tuple(snv_bases[bi] for bi, _pos in useful_snvs)
-        n_non_blank_read_useful_snv_bases = len(
-            tuple(filter(lambda bb: bb != SNV_OUT_OF_RANGE_CHAR, read_useful_snv_bases))
-        )
+        n_non_blank_read_useful_snv_bases = sum(1 for _ in filter(not_snv_out_of_range_char, read_useful_snv_bases))
 
         if n_non_blank_read_useful_snv_bases:  # TODO: parametrize
             read_dict_items_with_at_least_one_snv.append(read_item)
@@ -1385,7 +1385,7 @@ def call_locus(
 
         call_peak_n_reads = list(map(len, allele_reads))
 
-        if any(map(lambda x: x == 0, call_peak_n_reads)):
+        if any(map(eq_0, call_peak_n_reads)):
             # TODO: This shouldn't happen, but it does occasionally
             logger_.warning(f"{locus_log_str} - found empty allele, nullifying call results")
             call_data = {}
