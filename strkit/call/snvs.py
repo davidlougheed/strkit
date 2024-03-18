@@ -105,10 +105,10 @@ def call_and_filter_useful_snvs(
     # for a given peak... most of the time.
 
     allele_range = tuple(range(n_alleles))
-    peak_base_counts: dict[int, dict[int, Counter]] = {}
-
-    for _, u_ref in useful_snvs:
-        peak_base_counts[u_ref] = {p: Counter() for p in allele_range}
+    peak_base_counts: dict[int, dict[int, Counter]] = {
+        u_ref: {p: Counter() for p in allele_range}
+        for _, u_ref in useful_snvs
+    }
 
     for rn, read in read_dict.items():
         p: Optional[int] = read.get("p")
