@@ -143,7 +143,7 @@ def output_contig_vcf_lines(
         if call is not None:
             vr.samples[sample_id]["DP"] = sum(result["peaks"]["n_reads"])
             vr.samples[sample_id]["AD"] = tuple(result["peaks"]["n_reads"])
-            vr.samples[sample_id]["MC"] = tuple(map(int, call))  # TODO: support fractional
+            vr.samples[sample_id]["MC"] = tuple(map(int, call))
 
             ps = result["ps"]
 

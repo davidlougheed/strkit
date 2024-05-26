@@ -69,11 +69,6 @@ def add_call_parser_args(call_parser):
         help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
 
     call_parser.add_argument(
-        "--fractional", "-f",
-        action="store_true",
-        help="Call fractional repeat counts (partial repeats). Experimental!")
-
-    call_parser.add_argument(
         "--respect-ref", "-e",
         action="store_true",
         help="Do not extend reference TR region coordinates out from what is specified in the catalog. This should "

@@ -57,15 +57,11 @@ def _array_as_int(n: Union[NDArray[np.int_], NDArray[np.float_]]) -> NDArray[np.
     return np.rint(n).astype(np.int32)
 
 
-def _calculate_cis(
-    samples,
-    force_int: bool = False,
-    ci: str = Literal["95", "99"],
-) -> Union[NDArray[np.int32], NDArray[np.float_]]:
+def _calculate_cis(samples, ci: str = Literal["95", "99"]) -> Union[NDArray[np.int32], NDArray[np.float_]]:
     percentiles = np.percentile(
         samples, CI_PERCENTILE_RANGES[ci], axis=1, method="interpolated_inverted_cdf"
     ).transpose()
-    return _array_as_int(percentiles) if force_int else percentiles
+    return _array_as_int(percentiles)
 
 
 def get_n_alleles(default_n_alleles: int, sample_sex_chroms: Optional[str], contig: str) -> Optional[int]:
@@ -178,8 +174,6 @@ def call_alleles(
     logger_: logging.Logger,
     debug_str: str,
 ) -> Optional[CallDict]:
-    force_int = not params.fractional
-
     fwd_strand_reads = np.array(repeats_fwd)
     rev_strand_reads = np.array(repeats_rev)
 
@@ -204,15 +198,15 @@ def call_alleles(
         logger_.debug(f"{debug_str} - skipping bootstrap / GMM fitting for allele(s) (single value)")
         cn = combined_reads[0]
 
-        call = np.array([cn] * n_alleles)
-        call_cis = np.array([[cn, cn] for _ in range(n_alleles)])
+        call = _array_as_int(np.array([cn] * n_alleles))
+        call_cis = _array_as_int(np.array([[cn, cn] for _ in range(n_alleles)]))
 
         peaks: NDArray[np.float_] = np.array([cn] * n_alleles, dtype=np.float_)
 
         return {
-            "call": _array_as_int(call) if force_int else call,
-            "call_95_cis": _array_as_int(call_cis) if force_int else call,
-            "call_99_cis": _array_as_int(call_cis) if force_int else call,
+            "call": call,
+            "call_95_cis": call_cis,
+            "call_99_cis": call_cis,
             "peaks": peaks,
             "peak_weights": np.array([1.0] * n_alleles) / n_alleles,
             "peak_stdevs": np.array([0.0] * n_alleles),
@@ -324,8 +318,8 @@ def call_alleles(
     # Calculate 95% and 99% confidence intervals for each allele from the bootstrap distributions.
     allele_samples_argsort = allele_samples.argsort(axis=1, kind="stable")
     allele_samples = np.take_along_axis(allele_samples, allele_samples_argsort, axis=1)
-    allele_cis_95 = _calculate_cis(allele_samples, force_int=force_int, ci="95")
-    allele_cis_99 = _calculate_cis(allele_samples, force_int=force_int, ci="99")
+    allele_cis_95 = _calculate_cis(allele_samples, ci="95")
+    allele_cis_99 = _calculate_cis(allele_samples, ci="99")
     allele_weight_samples = np.take_along_axis(allele_weight_samples, allele_samples_argsort, axis=1)
     allele_stdev_samples = np.take_along_axis(allele_stdev_samples, allele_samples_argsort, axis=1)
 
@@ -339,9 +333,7 @@ def call_alleles(
 
     median_idx = allele_samples.shape[1] // 2  #
     medians_of_means = allele_samples[:, median_idx]
-    medians_of_means_final = medians_of_means
-    if force_int:
-        medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
+    medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
     peak_weights = allele_weight_samples[:, median_idx]
     peak_stdevs = allele_stdev_samples[:, median_idx]
     modal_n_peaks: int = statistics.mode(sample_peaks).item()
@@ -351,7 +343,7 @@ def call_alleles(
         "call_95_cis": allele_cis_95,
         "call_99_cis": allele_cis_99,
 
-        "peaks": medians_of_means_final.flatten(),  # Don't round, so we can recover original Gaussian model
+        "peaks": medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
         "peak_weights": peak_weights.flatten(),
         "peak_stdevs": peak_stdevs.flatten(),
         # TODO: should be ok to use this, because resample gets put at end, vertically (3rd allele in a 3-ploid case)

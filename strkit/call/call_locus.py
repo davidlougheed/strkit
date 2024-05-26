@@ -645,7 +645,7 @@ def call_alleles_with_incorporated_snvs(
 
     cdd_sort_order_determiner = np.fromiter(
         map(lambda x: (x["peaks"][0], x["call_95_cis"][0][0]), cdd),
-        dtype=[("p", np.float_), ("i", np.float_ if params.fractional else np.int_)])
+        dtype=[("p", np.float_), ("i", np.int_)])
     # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
     peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
 
@@ -764,7 +764,6 @@ def call_locus(
     consensus = params.consensus
     count_kmers = params.count_kmers
     flank_size = params.flank_size
-    fractional = params.fractional
     log_level = params.log_level
     realign = params.realign
     respect_ref = params.respect_ref
@@ -847,7 +846,6 @@ def call_locus(
         ref_right_flank_seq,
         motif,
         ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
-        fractional=fractional,
         respect_coords=respect_ref,
     )
     call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
@@ -1069,7 +1067,6 @@ def call_locus(
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
-            fractional=fractional,
         )
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
@@ -1297,7 +1294,7 @@ def call_locus(
         # Dicts are ordered in Python; very nice :)
         rdvs = tuple(read_dict.values())
         rcns = tuple(map(cn_getter, rdvs))
-        read_cns = np.fromiter(rcns, dtype=np.float_ if fractional else np.int_)
+        read_cns = np.fromiter(rcns, dtype=np.int_)
         read_weights = np.fromiter(map(weight_getter, rdvs), dtype=np.float_)
         read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 

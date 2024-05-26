@@ -1,3 +1,4 @@
+import ctypes
 import math
 import parasail
 
@@ -17,29 +18,23 @@ __all__ = [
 DEFAULT_LOCAL_SEARCH_RANGE = 3
 
 
-def score_candidate_with_string(
-    db_seq: str,
-    tr_candidate: str,
-    flank_left_seq: str,
-    flank_right_seq: str,
-) -> int:
+def score_candidate_with_string(db_seq_profile: parasail.Profile, tr_seq: str) -> int:
     # TODO: sub-flank again, to avoid more errors in flanking region contributing to score?
     # Always assign parasail results to variables due to funky memory allocation behaviour
-    r = parasail.sg_striped_sat(
-        f"{flank_left_seq}{tr_candidate}{flank_right_seq}", db_seq, indel_penalty, indel_penalty, dna_matrix)
+    #  - switch 'db' and 'query' here so we can use the db sequence as the profile for a "database" search against
+    #    candidate sequences. order doesn't end up mattering, since we're using semi-global alignment.
+    r = parasail.sg_striped_profile_sat(db_seq_profile, tr_seq, indel_penalty, indel_penalty)
     return r.score
 
 
-# TODO: instead of lru_cache, some more custom mechanism for sharing?
-@lru_cache(maxsize=512)  # especially with HiFi reads, these candidates could be the same between reads!
 def score_candidate(
-    db_seq: str,
+    db_seq_profile: parasail.Profile,
     motif: str,
     motif_count: int,
     flank_left_seq: str,
     flank_right_seq: str,
 ) -> int:
-    return score_candidate_with_string(db_seq, motif * motif_count, flank_left_seq, flank_right_seq)
+    return score_candidate_with_string(db_seq_profile, f"{flank_left_seq}{motif * motif_count}{flank_right_seq}")
 
 
 def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str,
@@ -62,70 +57,21 @@ def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, fl
     return (r_fwd.score, r_adj), (r_rev.score, l_adj)
 
 
-def gen_frac_repeats(motif: str, base_tr: str, j: int) -> tuple[str, str]:
-    tr_s = base_tr[abs(j):] if j < 0 else f"{motif[j:]}{base_tr}"
-    tr_e = base_tr[:j] if j < 0 else f"{base_tr}{motif[:j]}"
-    return tr_s, tr_e
-
-
-def get_fractional_rc(
-    top_int_res: list[tuple[int, int]],
-    motif: str,
-    flank_left_seq: str,
-    flank_right_seq: str,
-    db_seq: str,
-) -> tuple[float, int]:
-    motif_size = len(motif)
-    p_szs = {float(int_res[0]): (int_res[1], motif * int_res[0]) for int_res in top_int_res}
-
-    j_range = range(-1 * motif_size + 1, motif_size)
-    for int_res in top_int_res:
-        i_mm = motif * int_res[0]  # Best integer candidate
-        for j in j_range:
-            if j == 0:
-                # Already done
-                continue
-
-            frac_cn = int_res[0] + j / motif_size
-
-            if frac_cn in p_szs:
-                continue
-
-            tr_s, tr_e = gen_frac_repeats(motif, i_mm, j)
-            p_szs[frac_cn] = max((
-                score_candidate_with_string(
-                    db_seq=db_seq,
-                    # Add or subtract partial copies at start
-                    tr_candidate=tr_s,
-                    flank_left_seq=flank_left_seq,
-                    flank_right_seq=flank_right_seq,
-                ),
-                score_candidate_with_string(
-                    db_seq=db_seq,
-                    # Add or subtract partial copies at end
-                    tr_candidate=tr_e,
-                    flank_left_seq=flank_left_seq,
-                    flank_right_seq=flank_right_seq,
-                ),
-            ))
-
-    res: tuple[float, int] = max(p_szs.items())
-    return res
-
-
+# TODO: instead of lru_cache, some more custom mechanism for sharing?
+@lru_cache(maxsize=512)
 def get_repeat_count(
     start_count: int,
     tr_seq: str,
     flank_left_seq: str,
     flank_right_seq: str,
     motif: str,
-    fractional: bool = False,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
 ) -> tuple[Union[int, float], int]:
     to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
     sizes_and_scores: dict[int, int] = {}
 
-    db_seq: str = f"{flank_left_seq}{tr_seq}{flank_right_seq}"
+    db_seq_profile: parasail.Profile = parasail.profile_create_sat(
+        f"{flank_left_seq}{tr_seq}{flank_right_seq}", dna_matrix)
 
     while to_explore:
         size_to_explore, direction = to_explore.pop()
@@ -141,7 +87,7 @@ def get_repeat_count(
             if i not in sizes_and_scores:
                 # Generate a candidate TR tract by copying the provided motif 'i' times & score it
                 # Separate this from the .get() to postpone computation to until we need it
-                sizes_and_scores[i] = score_candidate(db_seq, motif, i, flank_left_seq, flank_right_seq)
+                sizes_and_scores[i] = score_candidate(db_seq_profile, motif, i, flank_left_seq, flank_right_seq)
 
             szs.append((i, sizes_and_scores[i]))
 
@@ -152,12 +98,6 @@ def get_repeat_count(
         elif mv[0] < size_to_explore and (new_rc := mv[0] - 1) not in sizes_and_scores:
             if new_rc >= 0:
                 to_explore.append((new_rc, -1))
-
-    if fractional:
-        # Refine further using partial copy numbers, starting from the best couple of integer copy numbers
-        # noinspection PyTypeChecker
-        top_int_res: list[tuple[int, int]] = sorted(sizes_and_scores.items(), reverse=True, key=idx_1_getter)[:3]
-        return get_fractional_rc(top_int_res, motif, flank_left_seq, flank_right_seq, db_seq)
 
     # noinspection PyTypeChecker
     return max(sizes_and_scores.items(), key=idx_1_getter)
@@ -170,7 +110,6 @@ def get_ref_repeat_count(
     flank_right_seq: str,
     motif: str,
     ref_size: int,
-    fractional: bool = False,
     respect_coords: bool = False,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
 ) -> tuple[tuple[Union[int, float], int], int, int]:
@@ -187,8 +126,6 @@ def get_ref_repeat_count(
         fwd_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
         rev_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
 
-        j_range = range(-1 * motif_size + 1, motif_size)
-
         while to_explore:
             size_to_explore, direction = to_explore.pop()
             if size_to_explore < 0:
@@ -203,44 +140,17 @@ def get_ref_repeat_count(
             for i in range(start_size, end_size + 1):
                 i_mm = motif * i
 
-                if fractional:
-                    for j in j_range:  # j_range:
-                        frac_cn = i + j/motif_size
+                fwd_rs = fwd_sizes_scores_adj.get(i)
+                rev_rs = rev_sizes_scores_adj.get(i)
 
-                        fwd_rs = fwd_sizes_scores_adj.get(frac_cn)
-                        rev_rs = rev_sizes_scores_adj.get(frac_cn)
+                if fwd_rs is None or rev_rs is None:
+                    res = score_ref_boundaries(db_seq, i_mm, flank_left_seq, flank_right_seq, ref_size=ref_size)
 
-                        if fwd_rs is None or rev_rs is None:
-                            # Generate a candidate TR tract by copying the provided motif 'i +/- frac j' times & score
-                            # it Separate this from the .get() to postpone computation to until we need it
+                    fwd_sizes_scores_adj[i] = fwd_rs = res[0]
+                    rev_sizes_scores_adj[i] = rev_rs = res[1]
 
-                            tr_s, tr_e = gen_frac_repeats(motif, i_mm, j)
-
-                            res_s = score_ref_boundaries(
-                                db_seq, tr_s, flank_left_seq, flank_right_seq, ref_size=ref_size)
-                            res_e = score_ref_boundaries(
-                                db_seq, tr_e, flank_left_seq, flank_right_seq, ref_size=ref_size)
-
-                            res = res_s if (res_s[0][0] + res_s[1][0]) > (res_e[0][0] + res_e[1][0]) else res_e
-
-                            fwd_sizes_scores_adj[frac_cn] = fwd_rs = res[0]
-                            rev_sizes_scores_adj[frac_cn] = rev_rs = res[1]
-
-                        fwd_scores.append((frac_cn, fwd_rs, i))
-                        rev_scores.append((frac_cn, rev_rs, i))
-
-                else:
-                    fwd_rs = fwd_sizes_scores_adj.get(i)
-                    rev_rs = rev_sizes_scores_adj.get(i)
-
-                    if fwd_rs is None or rev_rs is None:
-                        res = score_ref_boundaries(db_seq, i_mm, flank_left_seq, flank_right_seq, ref_size=ref_size)
-
-                        fwd_sizes_scores_adj[i] = fwd_rs = res[0]
-                        rev_sizes_scores_adj[i] = rev_rs = res[1]
-
-                    fwd_scores.append((i, fwd_rs, i))
-                    rev_scores.append((i, rev_rs, i))
+                fwd_scores.append((i, fwd_rs, i))
+                rev_scores.append((i, rev_rs, i))
 
             mv: tuple[Union[float, int], tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=idx_1_getter)
             if mv[2] > size_to_explore and (
@@ -260,12 +170,8 @@ def get_ref_repeat_count(
         # Ignore negative differences (contractions vs TRF definition), but follow expansions
         # TODO: Should we incorporate contractions? How would that work?
 
-        if fractional:
-            l_offset = rev_top_res[1][1]
-            r_offset = fwd_top_res[1][1]
-        else:
-            l_offset = sign(rev_top_res[1][1]) * math.floor(abs(rev_top_res[1][1]) / motif_size) * motif_size
-            r_offset = sign(fwd_top_res[1][1]) * math.floor(abs(fwd_top_res[1][1]) / motif_size) * motif_size
+        l_offset = sign(rev_top_res[1][1]) * math.floor(abs(rev_top_res[1][1]) / motif_size) * motif_size
+        r_offset = sign(fwd_top_res[1][1]) * math.floor(abs(fwd_top_res[1][1]) / motif_size) * motif_size
 
         if l_offset > 0:
             flank_left_seq = flank_left_seq[:-1*l_offset]

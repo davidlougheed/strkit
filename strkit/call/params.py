@@ -31,7 +31,6 @@ class CallParams:
         use_hp: bool = False,
         snv_vcf: Optional[pathlib.Path] = None,
         targeted: bool = False,
-        fractional: bool = False,
         respect_ref: bool = False,
         count_kmers: str = "none",  # "none" | "peak" | "read"
         consensus: bool = False,
@@ -55,7 +54,6 @@ class CallParams:
         self.use_hp: bool = use_hp
         self.snv_vcf: Optional[pathlib.Path] = snv_vcf
         self.targeted: bool = targeted
-        self.fractional: bool = fractional
         self.respect_ref: bool = respect_ref
         self.count_kmers: str = count_kmers
         self.consensus: bool = consensus
@@ -105,7 +103,6 @@ class CallParams:
             use_hp=p_args.use_hp,
             snv_vcf=p_args.incorporate_snvs,
             targeted=p_args.targeted,
-            fractional=p_args.fractional,
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
             consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
@@ -131,7 +128,6 @@ class CallParams:
             "use_hp": self.use_hp,
             "snv_vcf": str(self.snv_vcf) if self.snv_vcf else None,
             "targeted": self.targeted,
-            "fractional": self.fractional,
             "respect_ref": self.respect_ref,
             "count_kmers": self.count_kmers,
             "consensus": self.consensus,

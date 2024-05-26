@@ -190,7 +190,7 @@ class StrKitJSONCalculator(BaseCalculator):
     def calculate_contig(self, contig: str) -> MIContigResult:
         c_report = self._cache["child_data"]
 
-        fractional = c_report["parameters"]["fractional"]
+        fractional = c_report["parameters"].get("fractional", False)
 
         tuple_conv = float_tuple if fractional else int_tuple
         dtype = float if fractional else int
