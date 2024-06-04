@@ -123,7 +123,7 @@ long read data should still work.
 
 ```bash
 strkit call \
-  path/to/read/file.bam \  # [REQUIRED] At least one indexed read file (BAM/CRAM)
+  path/to/read/file.bam \  # [REQUIRED] One indexed read file (BAM/CRAM)
   --hq \  # If using PacBio HiFi reads, enable this to get better genotyping & more robust expansion detection
   --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
@@ -145,10 +145,6 @@ for CCS alignment in this scenario.
 If you're using HiFi reads as input, **use the `--hq` and `--realign` options** to get better 
 genotype calculation and a greater proportion of reads incorporated into the computed genotypes, 
 respectively. These should not add much performance overhead.
-
-If more than one read file is specified, the reads will be pooled. This can come in handy if you
-have e.g. multiple flow cells of the same sample split into different BAM files, or the reads are
-split by chromosome.
 
 If you want to **incorporate haplotagging from an alignment file (`HP` tags)** into the 
 process, which should speed up runtime and potentially improve calling results, you must pass 

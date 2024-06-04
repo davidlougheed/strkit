@@ -15,7 +15,7 @@ class CallParams:
 
         logger: logging.Logger,
 
-        read_files: tuple[str, ...],
+        read_file: str,
         reference_file: str,
         loci_file: str,
         sample_id: Optional[str],
@@ -39,7 +39,7 @@ class CallParams:
         seed: Optional[int] = None,
         processes: int = 1,
     ):
-        self.read_files: tuple[str, ...] = read_files
+        self.read_file: str = read_file
         self.reference_file: str = reference_file
         self.loci_file: str = loci_file
         self.min_reads: int = min_reads
@@ -62,12 +62,12 @@ class CallParams:
         self.seed: Optional[int] = seed
         self.processes: int = processes
 
-        bfs = tuple(AlignmentFile(rf, reference_filename=reference_file) for rf in read_files)
+        bf = AlignmentFile(read_file, reference_filename=reference_file)
 
         # noinspection PyTypeChecker
-        bfhs = [bf.header.to_dict() for bf in bfs]
+        bfh = bf.header.to_dict()
 
-        sns: set[str] = {e.get("SM") for bfh in bfhs for e in bfh.get("RG", ()) if e.get("SM")}
+        sns: set[str] = {e.get("SM") for e in bfh.get("RG", ()) if e.get("SM")}
         bam_sample_id: Optional[str] = None
 
         if len(sns) > 1:
@@ -87,7 +87,7 @@ class CallParams:
     def from_args(cls, logger: logging.Logger, p_args):
         return cls(
             logger,
-            tuple(p_args.read_files),
+            p_args.read_file,
             p_args.ref,
             p_args.loci,
             sample_id=p_args.sample_id,
@@ -114,7 +114,7 @@ class CallParams:
 
     def to_dict(self, as_inputted: bool = False):
         return {
-            "read_files": self.read_files,
+            "read_file": self.read_file,
             "reference_file": self.reference_file,
             "min_reads": self.min_reads,
             "min_allele_reads": self.min_allele_reads,

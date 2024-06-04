@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import functools
-import itertools
 import logging
 import multiprocessing as mp
 import multiprocessing.managers as mmg
 import numpy as np
-import pysam
 import operator
 import queue
 import time
@@ -15,31 +13,33 @@ import threading
 from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
-from pysam import AlignmentFile, FastaFile
+from pysam import FastaFile
 from sklearn.cluster import AgglomerativeClustering
 
 from numpy.typing import NDArray
 from typing import Iterable, Literal, Optional, Union
 
-from strkit_rust_ext import get_pairs_and_tr_read_coords
+from strkit_rust_ext import (
+    get_pairs_and_tr_read_coords, STRkitBAMReader, STRkitAlignedSegment, STRkitVCFReader, CandidateSNVs
+)
 
 from strkit.call.allele import CallDict, call_alleles
 from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
-from .consensus import best_representative
-# from .consensus import consensus_seq
+from .cigar import decode_cigar_np
+# from .consensus import best_representative
+from .consensus import consensus_seq
 from .params import CallParams
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import (
     SNV_OUT_OF_RANGE_CHAR,
-    get_candidate_snvs,
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
-from .types import ReadDict, ReadDictExtra, CandidateSNV, CalledSNV
-from .utils import cat_strs, idx_0_getter, find_pair_by_ref_pos, normalize_contig, round_to_base_pos, get_new_seed
+from .types import ReadDict, ReadDictExtra, CalledSNV
+from .utils import cat_strs, idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed
 
 
 __all__ = [
@@ -75,7 +75,7 @@ def _mask_low_q_base(base_and_qual: tuple[str, int]) -> str:
     return base_and_qual[0] if base_and_qual[1] > base_wildcard_threshold else "X"
 
 
-def calculate_seq_with_wildcards(qs: str, quals: Optional[list[int]]) -> str:
+def calculate_seq_with_wildcards(qs: str, quals: Optional[NDArray[np.uint8]]) -> str:
     if quals is None:
         return qs  # No quality information, so don't do anything
     return cat_strs(map(_mask_low_q_base, zip(qs, quals)))
@@ -146,77 +146,6 @@ def get_read_coords_from_matched_pairs(
     return left_flank_start, left_flank_end, right_flank_start, right_flank_end
 
 
-def get_overlapping_segments_and_related_data(
-    bfs: tuple[pysam.AlignmentFile, ...],
-    read_contig: str,
-    left_flank_coord: int,
-    right_flank_coord: int,
-    max_reads: int,
-    logger_: logging.Logger,
-    locus_log_str: str,
-) -> tuple[list[pysam.AlignedSegment], list[int], dict[str, int], int, int]:
-
-    left_most_coord: int = 999999999999999
-    right_most_coord: int = 0
-
-    overlapping_segments: list[pysam.AlignedSegment] = []
-    seen_reads: set[str] = set()
-    read_lengths: list[int] = []
-    n_seen: int = 0
-
-    chimeric_read_status: dict[str, int] = {}
-
-    segment: pysam.AlignedSegment
-
-    for segment in itertools.chain.from_iterable(
-        map(lambda bf: bf.fetch(read_contig, left_flank_coord, right_flank_coord), bfs)
-    ):
-        rn = segment.query_name
-
-        if rn is None:  # Skip reads with no name
-            logger_.debug(f"{locus_log_str} - skipping entry for read with no name")
-            continue
-
-        supp = segment.flag & 2048
-
-        # If we have two overlapping alignments for the same read, we have a chimeric read within the TR
-        # (so probably a large expansion...)
-
-        chimeric_read_status[rn] = chimeric_read_status.get(rn, 0) | (2 if supp else 1)
-
-        if supp:  # Skip supplemental alignments
-            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (supplemental)")
-            continue
-
-        if rn in seen_reads:
-            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (already seen)")
-            continue
-
-        qal: int = segment.query_alignment_length
-
-        if segment.query_length == 0 or qal == 0:
-            # No aligned segment, skip entry (used to pull segment.query_sequence, but that's extra work)
-            continue
-
-        if segment.reference_end is None:
-            logger_.debug(f"{locus_log_str} - skipping entry for read {rn} (reference_end is None, unmapped?)")
-            continue
-
-        n_seen += 1
-
-        seen_reads.add(rn)
-        overlapping_segments.append(segment)
-        read_lengths.append(qal)
-
-        left_most_coord = min(left_most_coord, segment.reference_start)
-        right_most_coord = max(right_most_coord, segment.reference_end)
-
-        if n_seen > max_reads:
-            break
-
-    return overlapping_segments, read_lengths, chimeric_read_status, left_most_coord, right_most_coord
-
-
 def calculate_read_distance(
     n_reads: int,
     read_dict_items: Sequence[tuple[str, ReadDict]],
@@ -284,7 +213,7 @@ def calculate_read_distance(
 
 def call_alleles_with_haplotags(
     params: CallParams,
-    haplotags: list[str],
+    haplotags: list[int],
     ps_id: int,
     read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
     rng: np.random.Generator,
@@ -387,12 +316,8 @@ def _determine_snv_call_phase_set(
     snv_pss_with_should_flip: list[tuple[int, bool]] = []
 
     l1 = snv_genotype_update_lock.acquire(timeout=300)
-    l2 = phase_set_lock.acquire(timeout=300)
-
-    if not (l1 and l2):
-        logger_.error(
-            f"Failed to acquire one of the following locks: {'snv_genotype_update_lock' if not l1 else ''} "
-            f"{'phase_set_lock' if not l2 else ''}")
+    if not l1:
+        logger_.error("Failed to acquire snv_genotype_update_lock")
         return None
 
     try:
@@ -414,10 +339,21 @@ def _determine_snv_call_phase_set(
 
             logger_.debug(f"{locus_log_str} - assigned new phase set {call_phase_set} to SNVs {snv_id_list}")
 
-        else:
+            return call_phase_set
+
+    finally:
+        snv_genotype_update_lock.release()
+
+    l2 = phase_set_lock.acquire(timeout=300)
+    if not l2:
+        logger_.error("Failed to acquire phase_set_lock")
+        return None
+
+    try:
+        if snv_pss_with_should_flip:  # else from above, but we want to release snv_genotype_update_lock first
             # Have found SNVs, should flip/not flip and assign existing phase set
 
-            phase_set_consensus_set = tuple(sorted(set(snv_pss_with_should_flip), key=lambda x: x[0]))
+            phase_set_consensus_set = tuple(sorted(set(snv_pss_with_should_flip), key=idx_0_getter))
             call_phase_set, should_flip = phase_set_consensus_set[0]
 
             # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
@@ -467,11 +403,10 @@ def _determine_snv_call_phase_set(
                         # We're good as-is, so assign the phase set
                         r["ps"] = call_phase_set
 
+            return call_phase_set
+
     finally:
         phase_set_lock.release()
-        snv_genotype_update_lock.release()
-
-    return call_phase_set
 
 
 def call_alleles_with_incorporated_snvs(
@@ -483,7 +418,7 @@ def call_alleles_with_incorporated_snvs(
     read_dict_extra: dict[str, dict],
     n_reads_in_dict: int,  # We could derive this again, but we already have before...
     useful_snvs: list[tuple[int, int]],
-    candidate_snvs_dict: dict[int, CandidateSNV],
+    candidate_snvs_dict: CandidateSNVs,
     # ---
     phase_set_lock: threading.Lock,
     phase_set_counter: mmg.ValueProxy,
@@ -737,7 +672,7 @@ def call_locus(
     t_idx: int,
     t: tuple,
     n_alleles: int,
-    bfs: tuple[AlignmentFile, ...],
+    bf: STRkitBAMReader,
     ref: FastaFile,
     params: CallParams,
     # ---
@@ -751,7 +686,7 @@ def call_locus(
     seed: int,
     logger_: logging.Logger,
     # ---
-    snv_vcf_file: Optional[pysam.VariantFile] = None,
+    snv_vcf_file: Optional[STRkitVCFReader] = None,
     snv_vcf_contigs: tuple[str, ...] = (),
     snv_vcf_file_format: Literal["chr", "num", "acc", ""] = "",
     # ---
@@ -868,17 +803,21 @@ def call_locus(
     #    If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
     #    fairly significant overhead involved in reading from the reference genome for each read to identifify SNVs.
 
-    overlapping_segments: list[pysam.AlignedSegment]
-    read_lengths: list[int]
+    overlapping_segments: NDArray[STRkitAlignedSegment]
+    read_lengths: NDArray[np.uint]
     chimeric_read_status: dict[str, int]
 
     max_reads: int = params.max_reads
 
-    overlapping_segments, read_lengths, chimeric_read_status, left_most_coord, right_most_coord = \
-        get_overlapping_segments_and_related_data(
-            bfs, read_contig, left_flank_coord, right_flank_coord, max_reads, logger_, locus_log_str)
-
-    n_overlapping_reads = len(overlapping_segments)
+    (
+        overlapping_segments,
+        n_overlapping_reads,
+        read_lengths,
+        chimeric_read_status,
+        left_most_coord,
+        right_most_coord,
+    ) = bf.get_overlapping_segments_and_related_data(
+        read_contig, left_flank_coord, right_flank_coord, max_reads, logger_, locus_log_str)
 
     if n_overlapping_reads > params.max_reads:
         logger_.warning(f"{locus_log_str} - skipping locus; too many overlapping reads")
@@ -888,11 +827,12 @@ def call_locus(
 
     # Find candidate SNVs, if we're using SNV data
 
-    candidate_snvs_dict: dict[int, CandidateSNV] = {}  # Lookup dictionary for candidate SNVs by position
+    candidate_snvs_dict: Optional[CandidateSNVs] = None  # Lookup dictionary for candidate SNVs by position
     if n_overlapping_reads and should_incorporate_snvs and snv_vcf_file:
         # ^^ n_overlapping_reads check since otherwise we will have invalid left/right_most_coord
-        candidate_snvs_dict = get_candidate_snvs(
-            snv_vcf_file, snv_vcf_contigs, snv_vcf_file_format, contig, left_most_coord, right_most_coord)
+        candidate_snvs_dict = snv_vcf_file.get_candidate_snvs(
+            snv_vcf_contigs, snv_vcf_file_format, contig, left_most_coord, right_most_coord
+        )
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
@@ -902,7 +842,7 @@ def call_locus(
 
     # Various aggregators for if we have a phased alignment file:
     haplotagged_reads_count: int = 0  # Number of reads with HP tags
-    haplotags: set[str] = set()
+    haplotags: set[int] = set()
     phase_sets: Counter[int] = Counter()
 
     # Aggregations for additional read-level data
@@ -912,18 +852,16 @@ def call_locus(
 
     n_extremely_poor_scoring_reads = 0
 
-    segment: pysam.AlignedSegment
+    segment: STRkitAlignedSegment
     for segment, read_len in zip(overlapping_segments, read_lengths):
-        rn: str = segment.query_name  # Know this is not None from overlapping_segments calculation
-        segment_start: int = segment.reference_start
-        segment_end: int = segment.reference_end  # Optional[int], but if it's here we know it isn't None
+        rn: str = segment.name  # Know this is not None from overlapping_segments calculation
+        segment_start: int = segment.start
+        segment_end: int = segment.end
 
-        # While .query_sequence is Optional[str], we know (because we skipped all segments with query_sequence is None
-        # above) that this is guaranteed to be, in fact, not None.
         qs: str = segment.query_sequence
 
-        fqqs: Optional[list[int]] = segment.query_qualities
-        cigar_tuples: list[tuple[int, int]] = segment.cigartuples
+        fqqs: NDArray[np.uint8] = segment.query_qualities
+        cigar_tuples: list[tuple[int, int]] = list(decode_cigar_np(segment.raw_cigar))
 
         realigned: bool = False
 
@@ -1031,7 +969,7 @@ def call_locus(
             continue
 
         # we can fit PHRED scores in uint8
-        qqs = np.fromiter(fqqs[left_flank_end:right_flank_start], dtype=np.uint8)
+        qqs = fqqs[left_flank_end:right_flank_start]
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < (min_avg_phred := params.min_avg_phred):  # TODO: check flank?
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
@@ -1054,7 +992,7 @@ def call_locus(
         tr_len_w_flank: int = tr_len + flank_len
 
         tr_read_seq = qs[left_flank_end:right_flank_start]
-        tr_read_seq_wc = calculate_seq_with_wildcards(qs[left_flank_end:right_flank_start], qqs)
+        tr_read_seq_wc = calculate_seq_with_wildcards(tr_read_seq, qqs)
 
         if count_kmers != "none":
             read_kmers.clear()
@@ -1122,8 +1060,7 @@ def call_locus(
         # Reads can show up more than once - TODO - cache this information across loci
 
         if params.use_hp:
-            tags = dict(segment.get_tags())
-            if (hp := tags.get("HP")) is not None and (ps := tags.get("PS")) is not None:
+            if (hp := segment.hp) is not None and (ps := segment.ps) is not None:
                 orig_ps = int(ps)
 
                 phase_set_lock.acquire(timeout=600)
@@ -1389,7 +1326,7 @@ def call_locus(
 
         if call_data and consensus:
             call_seqs = list(
-                map(lambda a: best_representative(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
+                map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
             )
 
     peak_data = {
@@ -1416,14 +1353,10 @@ def call_locus(
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
 
-    if fractional:
-        def _ndarray_serialize(x: Iterable) -> list[Union[float, np.float_]]:
-            return [round_to_base_pos(y, motif_size) for y in x]
-    else:
-        def _ndarray_serialize(x: Iterable) -> list[Union[int, float, np.int_, np.float_]]:
-            return list(map(round, x))
+    def _ndarray_serialize(x: Iterable) -> list[Union[int, np.int_]]:
+        return list(map(round, x))
 
-    def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, float, np.int_, np.float_]]]:
+    def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, np.int_]]]:
         return list(map(_ndarray_serialize, x))
 
     call_val = apply_or_none(_ndarray_serialize, call)

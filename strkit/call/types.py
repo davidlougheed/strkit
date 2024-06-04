@@ -31,7 +31,7 @@ class ReadDict(_ReadDictBase, total=False):
     kmers: dict[str, int]  # Dictionary of {kmer: count}
 
     # Only added if HP tags from a haplotagged alignment file are being incorporated:
-    hp: str
+    hp: int
     ps: int
 
     # Only added if SNVs are being incorporated:

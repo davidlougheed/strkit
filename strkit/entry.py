@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import pathlib
 import os
 import sys
@@ -16,10 +15,9 @@ from strkit.logger import logger, attach_stream_handler, log_levels
 
 def add_call_parser_args(call_parser):
     call_parser.add_argument(
-        "read_files",
-        nargs="+",
+        "read_file",
         type=str,
-        help="BAM file(s) with reads to call from. If multiple files are specified, the reads will be pooled.")
+        help="Indexed BAM/CRAM file(s) with reads to call from.")
 
     call_parser.add_argument(
         "--ref", "-r",
@@ -332,7 +330,7 @@ def add_cv_parser_args(al_parser):
 
 
 def add_vs_parser_args(vs_parser):
-    vs_parser.add_argument("align_files", nargs="+", type=str, help="Alignment file(s) to visualize.")
+    vs_parser.add_argument("align_file", type=str, help="Alignment file to visualize.")
     vs_parser.add_argument(
         "--align-indices",
         nargs="*",
@@ -470,26 +468,17 @@ def _exec_viz_server(p_args):
     from strkit.json import json
     from strkit.viz.server import run_server as viz_run_server
 
-    align_files = [str(pathlib.Path(af).resolve()) for af in p_args.align_files]
-    align_indices = [str(pathlib.Path(aif).resolve()) for aif in (p_args.align_indices or ())]
+    align_file = str(pathlib.Path(p_args.align_file).resolve())
+    align_index = str(pathlib.Path(p_args.align_index).resolve()) if p_args.align_index else None
 
-    if align_indices and len(align_files) != len(align_indices):
-        raise ParamError(
-            f"Number of alignment indices must match number of alignment files ({len(align_indices)} vs. "
-            f"{len(align_files)})")
+    align_format = os.path.splitext(align_file)[-1].lstrip(".")
+    if align_format not in ("bam", "cram"):
+        raise ParamError(f"File type '{align_format}' not supported")
 
-    align_formats = []
-
-    for af in align_files:
-        if (align_type := os.path.splitext(af)[-1].lstrip(".")) not in ("bam", "cram"):
-            raise ParamError(f"File type '{align_type}' not supported")
-        align_formats.append(align_type)
-
-    if not align_indices:
-        for idx, af in enumerate(align_files):
-            if not os.path.exists(align_index := f"{af}.{'crai' if align_formats[idx] == 'cram' else 'bai'}"):
-                raise ParamError(f"Missing index at '{align_index}'")
-            align_indices.append(align_index)
+    if not align_index:
+        align_index = f"{align_file}.{'crai' if align_format == 'cram' else 'bai'}"
+        if not os.path.exists(align_index):
+            raise ParamError(f"Missing index at '{align_index}'")
 
     # TODO: Conditionally use this code if ref looks like a path
     # ref = pathlib.Path(p_args.ref).resolve()
@@ -518,11 +507,11 @@ def _exec_viz_server(p_args):
         initial_i=idx-1,
         ref=p_args.ref,
         # ref_index=ref_index,
-        align_files=align_files,
-        align_indices=align_indices,
-        align_names=[os.path.basename(af) for af in align_files],
-        align_index_names=[os.path.basename(ai) for ai in align_indices],
-        align_formats=align_formats,
+        align_file=align_file,
+        align_index=align_index,
+        align_name=os.path.basename(align_file),
+        align_index_name=os.path.basename(align_index),
+        align_format=align_format,
     )
 
     return 0

@@ -1,22 +1,20 @@
 import logging
 import multiprocessing.managers as mmg
-import numpy as np
-import pysam
 import threading
 
 from collections import Counter
-from typing import Literal, Optional
+from typing import Optional
 
-from strkit_rust_ext import get_read_snvs, process_read_snvs_for_locus_and_calculate_useful_snvs
+from strkit_rust_ext import get_read_snvs, process_read_snvs_for_locus_and_calculate_useful_snvs, CandidateSNVs
 
 from strkit.logger import logger
-from .types import ReadDict, CandidateSNV, CalledSNV
+from .types import ReadDict, CalledSNV
+from .utils import idx_1_getter
 
 
 __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",
     "SNV_GAP_CHAR",
-    "get_candidate_snvs",
     "get_read_snvs",
     "call_and_filter_useful_snvs",
     "process_read_snvs_for_locus_and_calculate_useful_snvs",
@@ -26,59 +24,12 @@ SNV_OUT_OF_RANGE_CHAR = "-"
 SNV_GAP_CHAR = "_"
 
 
-def _human_chrom_to_refseq_accession(contig: str, snv_vcf_contigs: tuple[str, ...]) -> Optional[str]:
-    contig = contig.removeprefix("chr")
-    if contig == "X":
-        contig = "23"
-    if contig == "Y":
-        contig = "24"
-    if contig == "M":
-        contig = "12920"
-    contig = f"NC_{contig.zfill(6)}"
-
-    for vcf_contig in snv_vcf_contigs:
-        if vcf_contig.startswith(contig):
-            return vcf_contig
-
-    return None
-
-
-def get_candidate_snvs(
-    snv_vcf_file: pysam.VariantFile,
-    snv_vcf_contigs: tuple[str, ...],
-    snv_vcf_file_format: Literal["chr", "num", "acc", ""],
-    contig: str,
-    left_most_coord: int,
-    right_most_coord: int,
-) -> dict[int, CandidateSNV]:
-    candidate_snvs_dict: dict[int, CandidateSNV] = {}  # Lookup dictionary for candidate SNVs by position
-
-    snv_contig: str = contig
-    if snv_contig not in snv_vcf_contigs:
-        if snv_vcf_file_format == "num":
-            snv_contig = snv_contig.removeprefix("chr")
-        elif snv_vcf_file_format == "acc":
-            snv_contig = _human_chrom_to_refseq_accession(snv_contig, snv_vcf_contigs)
-        # Otherwise, leave as-is
-
-    for snv in snv_vcf_file.fetch(snv_contig, left_most_coord, right_most_coord + 1):
-        snv_ref = snv.ref
-        snv_alts = snv.alts
-        # check actually is SNV
-        if snv_ref is not None and len(snv_ref) == 1 and snv_alts and any(len(a) == 1 for a in snv_alts):
-            # Convert from 1-based indexing to 0-based indexing!!!
-            # See https://pysam.readthedocs.io/en/latest/api.html#pysam.VariantRecord.pos
-            candidate_snvs_dict[snv.pos - 1] = CandidateSNV(id=snv.id, ref=snv.ref, alts=snv_alts)
-
-    return candidate_snvs_dict
-
-
 def call_and_filter_useful_snvs(
     contig: str,
     n_alleles: int,
     read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
-    candidate_snvs_dict: dict[int, CandidateSNV],
+    candidate_snvs_dict: CandidateSNVs,
     # ---
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
@@ -158,21 +109,27 @@ def call_and_filter_useful_snvs(
             call.append(mcc[0])
             rs.append(mcc[1])
 
-        if not skipped and len(set(call)) == 1:
+        snv_call_set = set(call)
+
+        if not skipped and len(snv_call_set) == 1:
             # print(u_idx, u_ref, peak_counts, call, rs)
             logger_.warning(f"{locus_log_str} - for SNV position {u_ref}: got degenerate call {call} from {peak_counts=}")
             skipped = True
 
         snv_rec = candidate_snvs_dict.get(u_ref)
-        snv_id = snv_rec["id"] if snv_rec is not None else f"{contig}_{u_ref}"
-        snv_call = np.array(call).tolist()
+        if snv_rec is not None:
+            snv_id = snv_rec["id"]
+            if snv_id == ".":
+                snv_id = f"{contig}_{u_ref}"
+        else:
+            snv_id = f"{contig}_{u_ref}"
 
         if not skipped:
             snv_genotype_update_lock.acquire(timeout=600)
-            if snv_id in snv_genotype_cache and (cgt := set(snv_genotype_cache[snv_id][0])) != (sgt := set(snv_call)):
+            if snv_id in snv_genotype_cache and (cgt := set(snv_genotype_cache[snv_id][0])) != snv_call_set:
                 logger_.warning(
                     f"{locus_log_str} - got mismatch for SNV {snv_id} (position {u_ref}); cache genotype set {cgt} != "
-                    f"current genotype set {sgt}")
+                    f"current genotype set {snv_call_set}")
                 skipped = True
             snv_genotype_update_lock.release()
 
@@ -182,10 +139,10 @@ def call_and_filter_useful_snvs(
 
         called_snvs.append({
             "id": snv_id,
-            **({"ref": snv_rec["ref"]} if snv_rec is not None else {}),
+            **({"ref": snv_rec["ref_base"]} if snv_rec is not None else {}),
             "pos": u_ref,
-            "call": snv_call,
-            "rcs": np.array(rs).tolist(),
+            "call": call,
+            "rcs": rs,
         })
 
     # If we've skipped any SNVs, filter them out of the read dict - MUTATION
@@ -193,7 +150,7 @@ def call_and_filter_useful_snvs(
         for read in read_dict.values():
             if "snvu" not in read:
                 continue
-            read["snvu"] = tuple(b for i, b in enumerate(read["snvu"]) if i not in skipped_snvs)
+            read["snvu"] = tuple(map(idx_1_getter, filter(lambda e: e[0] not in skipped_snvs, enumerate(read["snvu"]))))
         logger.debug(f"{locus_log_str} - filtered out {len(skipped_snvs)} not-actually-useful SNVs")
 
     return called_snvs

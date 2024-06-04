@@ -66,14 +66,14 @@ def get_call_data(i: int):
 #     return send_file(app.config["PARAMS"]["ref_index"], conditional=True)
 
 
-@app.route("/align_files/<int:i>")
+@app.route("/align_file")
 def get_align_file(i: int):
-    return send_file(app.config["PARAMS"]["align_files"][i], conditional=True)
+    return send_file(app.config["PARAMS"]["align_file"], conditional=True)
 
 
-@app.route("/align_indices/<int:i>")
+@app.route("/align_index")
 def get_align_index_file(i: int):
-    return send_file(app.config["PARAMS"]["align_indices"][i], conditional=True)
+    return send_file(app.config["PARAMS"]["align_index"], conditional=True)
 
 
 def run_server(call_report, **kwargs):

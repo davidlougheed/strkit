@@ -44,11 +44,7 @@ PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE = 1000
 get_locus_index = itemgetter("locus_index")
 
 
-def get_vcf_contig_format(snv_vcf_file: Optional[pysam.VariantFile]) -> Literal["chr", "num", "acc", ""]:
-    if snv_vcf_file is None:
-        return ""
-
-    snv_vcf_contigs = list(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
+def get_vcf_contig_format(snv_vcf_contigs: list[str]) -> Literal["chr", "num", "acc", ""]:
     if not snv_vcf_contigs or snv_vcf_contigs[0].startswith("chr"):
         return "chr"
     elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
@@ -80,6 +76,7 @@ def locus_worker(
         pr = None
 
     import pysam as p
+    from strkit_rust_ext import STRkitBAMReader, STRkitVCFReader
 
     lg: logging.Logger
     if is_single_processed:
@@ -89,14 +86,16 @@ def locus_worker(
         lg = create_process_logger(os.getpid(), params.log_level)
 
     ref = p.FastaFile(params.reference_file)
-    bfs = tuple(p.AlignmentFile(rf, reference_filename=params.reference_file) for rf in params.read_files)
+    bf = STRkitBAMReader(params.read_file, params.reference_file)
 
     snv_vcf_file = p.VariantFile(params.snv_vcf) if params.snv_vcf else None
-    snv_vcf_contigs: list[str] = []
-    vcf_file_format: Literal["chr", "num", "acc", ""] = get_vcf_contig_format(snv_vcf_file)
+    snv_vcf_contigs = list(map(lambda c: c.name, snv_vcf_file.header.contigs.values())) if snv_vcf_file else []
+    vcf_file_format: Literal["chr", "num", "acc", ""] = get_vcf_contig_format(snv_vcf_contigs)
 
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
-    read_file_has_chr = any(r.startswith("chr") for bf in bfs for r in bf.references)
+    read_file_has_chr = any(r.startswith("chr") for r in bf.references)
+
+    snv_vcf_reader = STRkitVCFReader(str(params.snv_vcf)) if params.snv_vcf else None
 
     results: list[dict] = []
 
@@ -108,7 +107,7 @@ def locus_worker(
 
             t_idx, t, n_alleles, locus_seed = td
             res = call_locus(
-                t_idx, t, n_alleles, bfs, ref, params,
+                t_idx, t, n_alleles, bf, ref, params,
                 phase_set_lock,
                 phase_set_counter,
                 phase_set_remap,
@@ -117,7 +116,7 @@ def locus_worker(
                 snv_genotype_cache,
                 seed=locus_seed,
                 logger_=lg,
-                snv_vcf_file=snv_vcf_file,
+                snv_vcf_file=snv_vcf_reader,
                 snv_vcf_contigs=tuple(snv_vcf_contigs),
                 snv_vcf_file_format=vcf_file_format,
                 read_file_has_chr=read_file_has_chr,

@@ -378,24 +378,21 @@
                 browser = null;
             }
 
-            const alignTracks = [];
-            for (let i = 0; i < params.cmd.align_names.length; i++) {
-                alignTracks.push({
-                    name: params.cmd.align_names[i],
-                    url: `/align_files/${i}`,
-                    indexURL: `/align_indices/${i}`,
-                    format: params.cmd.align_formats[i],
-                    showSoftClips: true,
-                    showInsertionText: true,
-                    showDeletionText: true,
-                    color: alignment => readColours[alignment.readName] ?? "rgb(180, 180, 180)",
-                    sort: {
-                        chr: callData.contig,
-                        position: ((callData.start + callData.end) / 2).toFixed(0),
-                        option: "INSERT_SIZE",
-                    },
-                });
-            }
+            const alignTracks = [{
+                name: params.cmd.align_name,
+                url: `/align_file`,
+                indexURL: `/align_index`,
+                format: params.cmd.align_format,
+                showSoftClips: true,
+                showInsertionText: true,
+                showDeletionText: true,
+                color: alignment => readColours[alignment.readName] ?? "rgb(180, 180, 180)",
+                sort: {
+                    chr: callData.contig,
+                    position: ((callData.start + callData.end) / 2).toFixed(0),
+                    option: "INSERT_SIZE",
+                },
+            }];
 
             // Set up new IGV browser instance
             igv.createBrowser(igvContainer, {
