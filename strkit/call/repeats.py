@@ -1,4 +1,3 @@
-import ctypes
 import math
 import parasail
 
