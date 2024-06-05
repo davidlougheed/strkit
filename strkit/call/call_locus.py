@@ -731,10 +731,8 @@ def call_locus(
     realign = params.realign
     respect_ref = params.respect_ref
     sample_id = params.sample_id
+    snv_min_base_qual = params.snv_min_base_qual
     # ----------------------------------
-
-    # TODO: param
-    snv_quality_threshold: int = 20
 
     rng = np.random.default_rng(seed=seed)
 
@@ -1244,7 +1242,7 @@ def call_locus(
                     useful_snvs=useful_snvs,
                     candidate_snvs_dict=candidate_snvs_dict,
                     # ---
-                    snv_quality_threshold=snv_quality_threshold,
+                    snv_quality_threshold=snv_min_base_qual,
                     # ---
                     phase_set_lock=phase_set_lock,
                     phase_set_counter=phase_set_counter,

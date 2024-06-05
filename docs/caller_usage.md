@@ -29,6 +29,8 @@
   You can find dbSNP VCFs at
   [`https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/`](https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/).
   The file for GRCh38 is called `00-common_all.vcf.gz` as of time of writing.
+* `--snv-min-base-qual [int]` or `--min-sbq [int]`: Minimum PHRED quality score for bases of SNVs to use for phasing. 
+  **Default:** 20
 * `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads that do not reflect normal mapping patterns, e.g. from PacBio No-Amp 
   Targeted Sequencing. **Default:** off

@@ -30,6 +30,7 @@ class CallParams:
         hq: bool = False,
         use_hp: bool = False,
         snv_vcf: Optional[pathlib.Path] = None,
+        snv_min_base_qual: int = 20,
         targeted: bool = False,
         respect_ref: bool = False,
         count_kmers: str = "none",  # "none" | "peak" | "read"
@@ -53,6 +54,7 @@ class CallParams:
         self.hq: bool = hq
         self.use_hp: bool = use_hp
         self.snv_vcf: Optional[pathlib.Path] = snv_vcf
+        self.snv_min_base_qual: int = snv_min_base_qual
         self.targeted: bool = targeted
         self.respect_ref: bool = respect_ref
         self.count_kmers: str = count_kmers
@@ -102,6 +104,7 @@ class CallParams:
             hq=p_args.hq,
             use_hp=p_args.use_hp,
             snv_vcf=p_args.incorporate_snvs,
+            snv_min_base_qual=p_args.snv_min_base_qual,
             targeted=p_args.targeted,
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
@@ -127,6 +130,7 @@ class CallParams:
             "hq": self.hq,
             "use_hp": self.use_hp,
             "snv_vcf": str(self.snv_vcf) if self.snv_vcf else None,
+            "snv_min_base_qual": self.snv_min_base_qual,
             "targeted": self.targeted,
             "respect_ref": self.respect_ref,
             "count_kmers": self.count_kmers,

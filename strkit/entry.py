@@ -62,6 +62,12 @@ def add_call_parser_args(call_parser):
              "is enabled. Use with CCS ONLY! This option is currently EXPERIMENTAL!")
 
     call_parser.add_argument(
+        "--snv-min-base-qual", "--snv-mbq",
+        type=int,
+        default=20,
+        help="Minimum PHRED quality score for bases of SNVs to use for phasing.")
+
+    call_parser.add_argument(
         "--targeted", "-t",
         action="store_true",
         help="Whether these reads come from targeted (e.g. gene-of-interest or WES) or genome-wide sequencing (WGS).")
