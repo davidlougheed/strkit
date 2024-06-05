@@ -1,5 +1,7 @@
 # import pysam
+import numpy as np
 from typing import Literal, TypedDict, Union
+from numpy.typing import NDArray
 
 
 __all__ = [
@@ -35,7 +37,8 @@ class ReadDict(_ReadDictBase, total=False):
     ps: int
 
     # Only added if SNVs are being incorporated:
-    snvu: tuple[str, ...]  # After including only useful SNVs, this contains a tuple of bases for just those
+    #  - After including only useful SNVs, this contains a tuple of bases for just those + corresponding qualities
+    snvu: tuple[tuple[str, int], ...]
 
 
 class ReadDictExtra(TypedDict, total=False):
@@ -47,12 +50,14 @@ class ReadDictExtra(TypedDict, total=False):
     # Below are only added if SNVs are being incorporated:
 
     _qs: str  # Query (read) sequence
+    _fqqs: NDArray[np.uint8]  # Query (read) base qualities
 
     sig_clip_left: bool  # Significant amounts of clipping (5' of read)
     sig_clip_right: bool  # Significant amounts of clipping (3' of read)
 
     snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
-    snv_bases: tuple[str, ...]  # Intermediate result: tuple of bases for the set of SNVs across all reads
+    # Intermediate result: tuple of bases/qualities for the set of SNVs across all reads
+    snv_bases: tuple[tuple[str, int], ...]
 
 
 class CandidateSNV(TypedDict):

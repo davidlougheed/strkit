@@ -31,6 +31,8 @@ def call_and_filter_useful_snvs(
     useful_snvs: list[tuple[int, int]],
     candidate_snvs_dict: CandidateSNVs,
     # ---
+    snv_quality_threshold: int,
+    # ---
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     # ---
@@ -44,6 +46,7 @@ def call_and_filter_useful_snvs(
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
     :param candidate_snvs_dict: A dictionary of useful SNVs, indexed by reference position. Used to look up IDs.
+    :param snv_quality_threshold: Minimum PHRED score needed to incorporate a read base into the genotype.
     :param snv_genotype_update_lock: Lock for updating/querying the SNV genotype/phase set cache for a long time.
     :param snv_genotype_cache: Cache for SNV genotype/phase set information.
     :param locus_log_str: Locus string representation for logging purposes.
@@ -66,7 +69,10 @@ def call_and_filter_useful_snvs(
         if p is None:  # No peak; read wasn't used to call peaks
             continue
         for u_idx, (_, u_ref) in enumerate(useful_snvs):
-            peak_base_counts[u_ref][p].update((read["snvu"][u_idx],))
+            su, su_q = read["snvu"][u_idx]
+
+            if su == SNV_GAP_CHAR or su_q >= snv_quality_threshold:
+                peak_base_counts[u_ref][p].update((read["snvu"][u_idx][0],))
 
     called_snvs: list[dict] = []
     skipped_snvs: set[int] = set()

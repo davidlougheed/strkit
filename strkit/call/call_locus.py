@@ -34,6 +34,7 @@ from .params import CallParams
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import (
+    SNV_GAP_CHAR,
     SNV_OUT_OF_RANGE_CHAR,
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
@@ -154,6 +155,7 @@ def calculate_read_distance(
     relative_cn_distance_weight_scaling_few: float = 0.2,
     relative_cn_distance_weight_scaling_many: float = 0.1,
     many_snvs_quantity: int = 3,
+    snv_quality_threshold: int = 20,
 ) -> NDArray[np.float_]:
     """
     Calculate pairwise distance for all reads using either SNVs ONLY or a mixture of SNVs and copy number.
@@ -166,6 +168,8 @@ def calculate_read_distance(
     :param relative_cn_distance_weight_scaling_many: How much to weight 1-difference in CN vs SNVs with many SNVs
             available (indels are more erroneous in CCS)
     :param many_snvs_quantity: How many SNVs constitutes "many" for the different weights.
+    :param snv_quality_threshold: Minimum PHRED score needed to incorporate a read base at an SNV locus into the
+            distance calculation.
     :return: The distance matrix.
     """
 
@@ -179,7 +183,13 @@ def calculate_read_distance(
         r1 = read_dict_items[i][1]
         r1_snv_u = r1["snvu"]
 
-        r1_out_of_range: set[int] = set(filter(lambda y: r1_snv_u[y] == SNV_OUT_OF_RANGE_CHAR, useful_snvs_range))
+        r1_skip: set[int] = set(
+            filter(
+                lambda y: r1_snv_u[y][0] == SNV_OUT_OF_RANGE_CHAR or
+                          (r1_snv_u[y][0] != SNV_GAP_CHAR and r1_snv_u[y][1] < snv_quality_threshold),
+                useful_snvs_range
+            )
+        )
 
         for j in range(i + 1, n_reads):
             r2 = read_dict_items[j][1]
@@ -189,14 +199,21 @@ def calculate_read_distance(
             n_comparable: int = 0
 
             for z in useful_snvs_range:
-                if z in r1_out_of_range:
+                if z in r1_skip:
                     continue
-                r2_b = r2_snv_u[z]
+
+                r2_b, r2_bq = r2_snv_u[z]
                 if r2_b == SNV_OUT_OF_RANGE_CHAR:
                     continue
-                r1_b = r1_snv_u[z]
+
+                if r2_b != SNV_GAP_CHAR and r2_bq < snv_quality_threshold:
+                    # too low quality to incorporate in distance metric
+                    continue
+
+                r1_b, r1_bq = r1_snv_u[z]
                 if r1_b != r2_b:
                     n_not_equal += 1
+
                 n_comparable += 1
 
             d: float = float(n_not_equal)
@@ -420,6 +437,8 @@ def call_alleles_with_incorporated_snvs(
     useful_snvs: list[tuple[int, int]],
     candidate_snvs_dict: CandidateSNVs,
     # ---
+    snv_quality_threshold: int,
+    # ---
     phase_set_lock: threading.Lock,
     phase_set_counter: mmg.ValueProxy,
     phase_set_synonymous: mmg.DictProxy,
@@ -446,18 +465,23 @@ def call_alleles_with_incorporated_snvs(
 
     for read_item in read_dict_items:
         rn, read = read_item
-        snv_bases = read_dict_extra[rn].get("snv_bases")
+        snv_bases: Optional[tuple[tuple[str, int], ...]] = read_dict_extra[rn].get("snv_bases")
 
         if snv_bases is None:
             read_dict_items_with_no_snvs.append(read_item)
             continue
 
-        read_useful_snv_bases = tuple(snv_bases[bi] for bi, _pos in useful_snvs)
-        n_non_blank_read_useful_snv_bases = sum(1 for _ in filter(not_snv_out_of_range_char, read_useful_snv_bases))
+        read_useful_snv_bases: tuple[tuple[str, int], ...] = tuple(snv_bases[bi] for bi, _pos in useful_snvs)
+        n_non_blank_hq_read_useful_snv_bases = sum(
+            1 for _ in filter(
+                lambda s: s[0] != SNV_OUT_OF_RANGE_CHAR and (s[0] == SNV_GAP_CHAR or s[1] >= snv_quality_threshold),
+                read_useful_snv_bases
+            )
+        )
 
-        if n_non_blank_read_useful_snv_bases:  # TODO: parametrize
+        if n_non_blank_hq_read_useful_snv_bases:  # TODO: parametrize
             read_dict_items_with_at_least_one_snv.append(read_item)
-            if n_non_blank_read_useful_snv_bases >= 2:  # TODO: parametrize
+            if n_non_blank_hq_read_useful_snv_bases >= 2:  # TODO: parametrize
                 read_dict_items_with_many_snvs.append(read_item)
         else:
             read_dict_items_with_no_snvs.append(read_item)
@@ -465,7 +489,8 @@ def call_alleles_with_incorporated_snvs(
         read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
 
         if print_snvs:
-            print(rn, f"\t{read['cn']:.0f}", "\t", cat_strs(read_useful_snv_bases), n_non_blank_read_useful_snv_bases)
+            print(
+                rn, f"\t{read['cn']:.0f}", "\t", cat_strs(read_useful_snv_bases), n_non_blank_hq_read_useful_snv_bases)
 
     n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
     n_reads_with_at_least_one_snv: int = len(read_dict_items_with_at_least_one_snv)
@@ -515,7 +540,8 @@ def call_alleles_with_incorporated_snvs(
     # a mixture of SNVs and copy number:
     # dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment, n_useful_snvs)
     dm = calculate_read_distance(
-        n_reads_with_at_least_one_snv, read_dict_items_with_at_least_one_snv, pure_snv_peak_assignment, n_useful_snvs)
+        n_reads_with_at_least_one_snv, read_dict_items_with_at_least_one_snv, pure_snv_peak_assignment, n_useful_snvs,
+        snv_quality_threshold=snv_quality_threshold)
 
     # Cluster reads together using the distance matrix, which incorporates
     # SNV and possibly copy number information.
@@ -603,6 +629,8 @@ def call_alleles_with_incorporated_snvs(
         read_dict,
         useful_snvs,
         candidate_snvs_dict,
+        # ---
+        snv_quality_threshold,
         # ---
         snv_genotype_update_lock,
         snv_genotype_cache,
@@ -704,6 +732,9 @@ def call_locus(
     respect_ref = params.respect_ref
     sample_id = params.sample_id
     # ----------------------------------
+
+    # TODO: param
+    snv_quality_threshold: int = 20
 
     rng = np.random.default_rng(seed=seed)
 
@@ -1083,9 +1114,10 @@ def call_locus(
                 phase_sets[ps_remapped] += 1
 
         if should_incorporate_snvs:
-            # Store the segment sequence in the read dict for the next go-around if we've enabled SNV incorporation,
-            # in order to pass the query sequence to the get_read_snvs function with the cached ref string.
+            # Store the segment sequence and qualities in the read dict for the next go-around if we've enabled SNV
+            # incorporation, in order to pass them to the get_read_snvs function with the cached ref string.
             read_dict_extra[rn]["_qs"] = qs
+            read_dict_extra[rn]["_fqqs"] = fqqs
 
             # Observed significant increase in annoying, probably false SNVs near the edges of significantly
             # clipped reads in CCS data. Figure out if we have large clipping for later use here in the SNV finder.
@@ -1211,11 +1243,15 @@ def call_locus(
                     n_reads_in_dict=n_reads_in_dict,
                     useful_snvs=useful_snvs,
                     candidate_snvs_dict=candidate_snvs_dict,
+                    # ---
+                    snv_quality_threshold=snv_quality_threshold,
+                    # ---
                     phase_set_lock=phase_set_lock,
                     phase_set_counter=phase_set_counter,
                     phase_set_synonymous=phase_set_synonymous,
                     snv_genotype_update_lock=snv_genotype_update_lock,
                     snv_genotype_cache=snv_genotype_cache,
+                    # ---
                     rng=rng,
                     logger_=logger_,
                     locus_log_str=locus_log_str,
@@ -1326,7 +1362,7 @@ def call_locus(
 
         if call_data and consensus:
             call_seqs = list(
-                map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)), allele_reads)
+                map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a), logger_), allele_reads)
             )
 
     peak_data = {
