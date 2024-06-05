@@ -774,6 +774,10 @@ def call_locus(
     should_incorporate_snvs: bool = snv_vcf_file is not None and n_alleles == 2
     only_known_snvs: bool = True  # TODO: parametrize
 
+    # String representation of locus for logging purposes
+    locus_log_str: str = \
+        f"{sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {contig}:{left_coord}-{right_coord}"
+
     try:
         ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
         ref_right_flank_seq_plus_1 = ref.fetch(ref_contig, right_coord, right_flank_coord + 1)
@@ -782,24 +786,19 @@ def call_locus(
         ref_seq = ref.fetch(ref_contig, left_coord, right_coord)
     except IndexError:
         logger_.warning(
-            f"Coordinates out of range in provided reference FASTA for region {ref_contig} with flank size "
-            f"{params.flank_size}: [{left_flank_coord}, {right_flank_coord}] (skipping locus {t_idx})")
+            f"{locus_log_str} - skipping locus, coordinates out of range in provided reference FASTA for region "
+            f"{ref_contig} with flank size {params.flank_size}: [{left_flank_coord}, {right_flank_coord}]")
         raised = True
     except ValueError:
-        logger_.error(f"Invalid region '{ref_contig}' for provided reference FASTA (skipping locus {t_idx})")
+        logger_.error(f"{locus_log_str} - skipping locus., invalid region '{ref_contig}' for provided reference FASTA")
         raised = True
-
-    if len(ref_left_flank_seq) < params.flank_size or len(ref_right_flank_seq) < params.flank_size:
-        if not raised:  # flank sequence too small for another reason
-            logger_.warning(f"Reference flank size too small for locus {t_idx} (skipping)")
-            return call_dict_base
 
     if raised:
         return None  # don't even return call_dict_base, this locus has an invalid position
 
-    # String representation of locus for logging purposes
-    locus_log_str: str = \
-        f"{sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {contig}:{left_coord}-{right_coord}"
+    if len(ref_left_flank_seq) < params.flank_size or len(ref_right_flank_seq) < params.flank_size:
+        logger_.warning(f"{locus_log_str} - skipping locus, reference flank size too small")
+        return call_dict_base
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
