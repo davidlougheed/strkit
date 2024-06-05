@@ -1,6 +1,8 @@
+import logging
 from random import choice
 from strkit_rust_ext import best_representatives, consensus_seq as _consensus_seq
 from typing import Iterable, Optional
+from .utils import neq_blank
 
 __all__ = [
     "best_representative",
@@ -28,12 +30,12 @@ def best_representative(seqs: Iterable[str]) -> Optional[str]:
         return choice(res_t)
 
 
-def consensus_seq(seqs: Iterable[str]) -> Optional[str]:
+def consensus_seq(seqs: Iterable[str], logger: logging.Logger) -> Optional[str]:
     # Return a stringified, gapless version of the column-wise mode for the MSA
     # - Filter out blanks and if the consensus fails, try eliminating the outlier VERY naively
     #   via just comparing sorted values
-    seqs_t = tuple(sorted(filter(lambda s: s != "", seqs)))
+    seqs_t = tuple(sorted(filter(neq_blank, seqs)))
     res = _consensus_seq(seqs_t)
     if res is None:
-        print(seqs_t)
+        logger.error(f"Got no consensus sequence from sequences: {seqs_t}")
     return res

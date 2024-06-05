@@ -7,7 +7,7 @@ from typing import Optional
 
 from ..allele import get_n_alleles
 from ..params import CallParams
-from ..utils import cat_strs
+from ..utils import cat_strs, is_none
 
 __all__ = [
     "build_vcf_header",
@@ -106,7 +106,12 @@ def output_contig_vcf_lines(
 
         n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
 
-        seqs = tuple(map(str.upper, (result["peaks"] or {}).get("seqs", ())))
+        peak_seqs = (result["peaks"] or {}).get("seqs", ())
+        if any(map(is_none, peak_seqs)):
+            logger.error(f"Encountered None in results[{result_idx}].peaks.seqs: {peak_seqs}")
+            continue
+
+        seqs = tuple(map(str.upper, peak_seqs))
         if 0 < len(seqs) < n_alleles:
             seqs = tuple([seqs[0]] * n_alleles)
 
