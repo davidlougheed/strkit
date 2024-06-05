@@ -800,6 +800,10 @@ def call_locus(
         logger_.warning(f"{locus_log_str} - skipping locus, reference flank size too small")
         return call_dict_base
 
+    if ref_left_flank_seq.endswith("N" * motif_size) or ref_right_flank_seq.startswith("N" * motif_size):
+        logger_.warning(f"{locus_log_str} - skipping locus, reference has flanking N[...] sequence")
+        return call_dict_base
+
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
     (ref_cn, _), l_offset, r_offset = get_ref_repeat_count(
