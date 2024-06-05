@@ -70,11 +70,18 @@ def get_repeat_count(
     db_seq_profile: parasail.Profile = parasail.profile_create_sat(
         f"{flank_left_seq}{tr_seq}{flank_right_seq}", dna_matrix)
 
-    max_score = (len(motif * start_count) + len(flank_left_seq) + len(flank_right_seq)) * match_score
+    max_init_score = (len(motif * start_count) + len(flank_left_seq) + len(flank_right_seq)) * match_score
     start_score = score_candidate(db_seq_profile, motif, start_count, flank_left_seq, flank_right_seq)
 
-    if start_score == max_score:
+    score_diff = abs(start_score - max_init_score) / max_init_score
+
+    if score_diff == 0:
         return start_count, start_score
+    elif score_diff < 0.05:  # TODO: parametrize
+        # If we're very close to the maximum, explore less.
+        local_search_range = 1
+    elif score_diff < 0.1:
+        local_search_range = 2
 
     sizes_and_scores: dict[int, int] = {start_count: start_score}
     to_explore: list[tuple[int, Literal[-1, 1]]] = [(start_count - 1, -1), (start_count + 1, 1)]
