@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Literal, Union
 
 from strkit.utils import sign
-from .align_matrix import dna_matrix, indel_penalty
+from .align_matrix import dna_matrix, indel_penalty, match_score
 from .utils import idx_1_getter
 
 __all__ = [
@@ -65,12 +65,19 @@ def get_repeat_count(
     flank_right_seq: str,
     motif: str,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
-) -> tuple[Union[int, float], int]:
-    to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [(start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
-    sizes_and_scores: dict[int, int] = {}
+) -> tuple[int, int]:
 
     db_seq_profile: parasail.Profile = parasail.profile_create_sat(
         f"{flank_left_seq}{tr_seq}{flank_right_seq}", dna_matrix)
+
+    max_score = (len(motif * start_count) + len(flank_left_seq) + len(flank_right_seq)) * match_score
+    start_score = score_candidate(db_seq_profile, motif, start_count, flank_left_seq, flank_right_seq)
+
+    if start_score == max_score:
+        return start_count, start_score
+
+    sizes_and_scores: dict[int, int] = {start_count: start_score}
+    to_explore: list[tuple[int, Literal[-1, 1]]] = [(start_count - 1, -1), (start_count + 1, 1)]
 
     while to_explore:
         size_to_explore, direction = to_explore.pop()
@@ -79,8 +86,8 @@ def get_repeat_count(
 
         szs: list[tuple[int, int]] = []
 
-        start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
-        end_size = size_to_explore + (local_search_range if direction > -1 else 0)
+        start_size = max(size_to_explore - (local_search_range if direction == -1 else 0), 0)
+        end_size = size_to_explore + (local_search_range if direction == 1 else 0)
 
         for i in range(start_size, end_size + 1):
             if i not in sizes_and_scores:
