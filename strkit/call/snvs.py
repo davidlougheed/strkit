@@ -72,7 +72,7 @@ def call_and_filter_useful_snvs(
             su, su_q = read["snvu"][u_idx]
 
             if su == SNV_GAP_CHAR or su_q >= snv_quality_threshold:
-                peak_base_counts[u_ref][p].update((read["snvu"][u_idx][0],))
+                peak_base_counts[u_ref][p].update((su,))
 
     called_snvs: list[dict] = []
     skipped_snvs: set[int] = set()
@@ -87,7 +87,15 @@ def call_and_filter_useful_snvs(
             if skipped:
                 break
 
-            mc = peak_counts[a].most_common(2)
+            peak_counts_a = peak_counts[a]
+            a_total = peak_counts[a].total()
+
+            if a_total == 0:  # probably due to quality filtering
+                skipped = True
+                logger.warning(f"{locus_log_str} - for SNV {u_ref}, found a 0-total for allele {a} (a)")
+                break
+
+            mc = peak_counts_a.most_common(2)
             mcc = mc[0]
 
             try:
@@ -97,8 +105,16 @@ def call_and_filter_useful_snvs(
                 for b in allele_range:
                     if b == a:
                         continue
-                    if (peak_counts[b][mcc[0]] / peak_counts[b].total()) > (
-                            peak_counts[a][mcc[0]] / peak_counts[a].total() / 2):  # TODO: parametrize
+
+                    peak_counts_b = peak_counts[b]
+                    b_total = peak_counts_b.total()
+
+                    if b_total == 0:  # probably due to quality filtering
+                        skipped = True
+                        logger.warning(f"{locus_log_str} - for SNV {u_ref}, found a 0-total for allele {b} (b)")
+                        break
+
+                    if (peak_counts_b[mcc[0]] / b_total) > (peak_counts_a[mcc[0]] / a_total / 2):  # TODO: parametrize
                         logger_.debug(
                             f"{locus_log_str} - for SNV position {u_ref}: got uninformative peak counts (cross-talk) - "
                             f"{peak_counts=}")
@@ -112,8 +128,9 @@ def call_and_filter_useful_snvs(
                 skipped = True
                 break
 
-            call.append(mcc[0])
-            rs.append(mcc[1])
+            if not skipped:
+                call.append(mcc[0])
+                rs.append(mcc[1])
 
         snv_call_set = set(call)
 
