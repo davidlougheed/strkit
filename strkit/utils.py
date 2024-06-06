@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import math
+import operator
+from functools import partial
 from typing import Any, Callable, Iterable, Union
 
 __all__ = [
+    "cat_strs",
+    "is_none",
     "apply_or_none",
     "int_tuple",
     "float_tuple",
@@ -11,6 +15,10 @@ __all__ = [
     "cis_overlap",
     "sign",
 ]
+
+
+cat_strs = "".join
+is_none = partial(operator.is_, None)
 
 
 def apply_or_none(fn: Callable, x: Any) -> Any:

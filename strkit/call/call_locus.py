@@ -24,7 +24,7 @@ from strkit_rust_ext import (
 )
 
 from strkit.call.allele import CallDict, call_alleles
-from strkit.utils import apply_or_none
+from strkit.utils import cat_strs, apply_or_none
 
 from .align_matrix import match_score
 from .cigar import decode_cigar_np
@@ -40,7 +40,7 @@ from .snvs import (
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
 from .types import ReadDict, ReadDictExtra, CalledSNV
-from .utils import cat_strs, idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed
+from .utils import idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed
 
 
 __all__ = [

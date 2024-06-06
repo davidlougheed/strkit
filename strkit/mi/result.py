@@ -13,7 +13,7 @@ from statsmodels.stats.multitest import multipletests
 from strkit.constants import CHROMOSOMES
 from strkit.json import json, dumps_indented
 from strkit.logger import logger as logger_
-from strkit.utils import cis_overlap
+from strkit.utils import cat_strs, cis_overlap
 
 from typing import Generator, Iterable, Optional, Union
 
@@ -631,8 +631,8 @@ class MIResult:
             header.append(f"MI% (99% CI{widen_str})")
             mi_vals.append(self.mi_value_99_ci)
 
-        header_str = "".join(h.ljust(14) for h in header)
-        mi_vals_str = "".join(map(lambda m: f"{m*100:.2f}".ljust(14), mi_vals))
+        header_str = cat_strs(h.ljust(14) for h in header)
+        mi_vals_str = cat_strs(map(lambda m: f"{m*100:.2f}".ljust(14), mi_vals))
 
         return f"{header_str}\n{mi_vals_str}"
 

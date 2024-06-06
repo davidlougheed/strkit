@@ -5,9 +5,9 @@ import pysam
 from os.path import commonprefix
 from typing import Optional
 
+from strkit.utils import cat_strs, is_none
 from ..allele import get_n_alleles
 from ..params import CallParams
-from ..utils import cat_strs, is_none
 
 __all__ = [
     "build_vcf_header",

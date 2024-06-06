@@ -6,11 +6,9 @@ from functools import partial
 from numpy.typing import NDArray
 
 __all__ = [
-    "cat_strs",
     "idx_0_getter",
     "idx_1_getter",
     "neq_blank",
-    "is_none",
     "find_pair_by_ref_pos",
     "normalize_contig",
     "round_to_base_pos",
@@ -18,11 +16,9 @@ __all__ = [
 ]
 
 
-cat_strs = "".join
 idx_0_getter = operator.itemgetter(0)
 idx_1_getter = operator.itemgetter(1)
 neq_blank = partial(operator.ne, "")
-is_none = partial(operator.is_, None)
 
 
 def find_pair_by_ref_pos(r_coords: NDArray[np.uint64], target: int, start_left: int = 0) -> tuple[int, bool]:
