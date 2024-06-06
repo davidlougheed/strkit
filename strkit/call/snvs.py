@@ -33,7 +33,6 @@ def call_and_filter_useful_snvs(
     # ---
     snv_quality_threshold: int,
     # ---
-    snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     # ---
     locus_log_str: str,
@@ -47,7 +46,6 @@ def call_and_filter_useful_snvs(
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
     :param candidate_snvs_dict: A dictionary of useful SNVs, indexed by reference position. Used to look up IDs.
     :param snv_quality_threshold: Minimum PHRED score needed to incorporate a read base into the genotype.
-    :param snv_genotype_update_lock: Lock for updating/querying the SNV genotype/phase set cache for a long time.
     :param snv_genotype_cache: Cache for SNV genotype/phase set information.
     :param locus_log_str: Locus string representation for logging purposes.
     :param logger_: Python logger object.
@@ -147,13 +145,12 @@ def call_and_filter_useful_snvs(
             snv_id = f"{contig}_{u_ref}"
 
         if not skipped:
-            snv_genotype_update_lock.acquire(timeout=600)
-            if snv_id in snv_genotype_cache and (cgt := set(snv_genotype_cache[snv_id][0])) != snv_call_set:
+            cached_snv_genotype = snv_genotype_cache.get(snv_id)
+            if cached_snv_genotype is not None and (cgt := set(cached_snv_genotype[0])) != snv_call_set:
                 logger_.warning(
                     f"{locus_log_str} - got mismatch for SNV {snv_id} (position {u_ref}); cache genotype set {cgt} != "
                     f"current genotype set {snv_call_set}")
                 skipped = True
-            snv_genotype_update_lock.release()
 
         if skipped:
             skipped_snvs.add(u_idx)  # Skip this useful SNV, since it isn't actually useful

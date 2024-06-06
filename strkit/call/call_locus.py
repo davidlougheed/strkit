@@ -632,7 +632,6 @@ def call_alleles_with_incorporated_snvs(
         # ---
         snv_quality_threshold,
         # ---
-        snv_genotype_update_lock,
         snv_genotype_cache,
         # ---
         locus_log_str,
