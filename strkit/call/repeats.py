@@ -70,7 +70,7 @@ def get_repeat_count(
     db_seq_profile: parasail.Profile = parasail.profile_create_sat(
         f"{flank_left_seq}{tr_seq}{flank_right_seq}", dna_matrix)
 
-    max_init_score = (len(motif * start_count) + len(flank_left_seq) + len(flank_right_seq)) * match_score
+    max_init_score = (len(motif) * start_count + len(flank_left_seq) + len(flank_right_seq)) * match_score
     start_score = score_candidate(db_seq_profile, motif, start_count, flank_left_seq, flank_right_seq)
 
     score_diff = abs(start_score - max_init_score) / max_init_score
