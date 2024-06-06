@@ -45,6 +45,7 @@ small_allele_min = 8
 expansion_ratio = 5
 N_GM_INIT = 3
 
+WEIGHT_1_0 = np.array([[1.0]])
 FLOAT_32_EPSILON = np.finfo(np.float32).eps
 
 CI_PERCENTILE_RANGES = {
@@ -101,7 +102,7 @@ def fit_gmm(
             # I've confirmed this gives an ~identical result to fitting a GMM with one parameter.
             fake_g: object = type("", (), {})()
             fake_g.means_ = np.array([[np.mean(sample_rs)]])
-            fake_g.weights_ = np.array([[1.0]])
+            fake_g.weights_ = WEIGHT_1_0
             fake_g.covariances_ = np.array([[np.var(sample_rs)]])
             return fake_g
 
@@ -198,18 +199,18 @@ def call_alleles(
         logger_.debug(f"{debug_str} - skipping bootstrap / GMM fitting for allele(s) (single value)")
         cn = combined_reads[0]
 
-        call = _array_as_int(np.array([cn] * n_alleles))
-        call_cis = _array_as_int(np.array([[cn, cn] for _ in range(n_alleles)]))
+        call = _array_as_int(np.full(n_alleles, cn))
+        call_cis = _array_as_int(np.full((n_alleles, 2), cn))
 
-        peaks: NDArray[np.float_] = np.array([cn] * n_alleles, dtype=np.float_)
+        peaks: NDArray[np.float_] = call.astype(np.float_)
 
         return {
             "call": call,
             "call_95_cis": call_cis,
             "call_99_cis": call_cis,
             "peaks": peaks,
-            "peak_weights": np.array([1.0] * n_alleles) / n_alleles,
-            "peak_stdevs": np.array([0.0] * n_alleles),
+            "peak_weights": np.full(n_alleles, 1.0 / n_alleles),
+            "peak_stdevs": np.full(n_alleles, 0.0),
             "modal_n_peaks": 1,  # 1 peak, since we have 1 value
         }
 

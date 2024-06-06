@@ -696,6 +696,13 @@ def debug_log_flanking_seq(logger_: logging.Logger, locus_log_str: str, rn: str,
         f"{' (post-realignment)' if realigned else ''}")
 
 
+def _ndarray_serialize(x: Iterable) -> list[Union[int, np.int_]]:
+    return list(map(round, x))
+
+def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, np.int_]]]:
+    return list(map(_ndarray_serialize, x))
+
+
 def call_locus(
     t_idx: int,
     t: tuple,
@@ -1028,8 +1035,7 @@ def call_locus(
 
         if count_kmers != "none":
             read_kmers.clear()
-            for i in range(0, tr_len - motif_size + 1):
-                read_kmers.update((tr_read_seq_wc[i:i+motif_size],))
+            read_kmers.update(tr_read_seq_wc[i:i+motif_size] for i in range(0, tr_len - motif_size + 1))
 
         read_cn, read_cn_score = get_repeat_count(
             start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
@@ -1172,8 +1178,8 @@ def call_locus(
     have_rare_realigns: bool = False
     for rn, read in read_dict_items:
         read_cn = read["cn"]
-        n_same_cn_no_realign = sum(1 for _, r2 in read_dict_items if not r2.get("realn") and r2["cn"] == read_cn)
-        if read.get("realn") and n_same_cn_no_realign == 0:
+        if (read.get("realn") and
+                sum(1 for _, r2 in read_dict_items if not r2.get("realn") and r2["cn"] == read_cn) == 0):
             have_rare_realigns = True
             break
 
@@ -1389,12 +1395,6 @@ def call_locus(
             f"{assign_time=:.4f}s)")
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
-
-    def _ndarray_serialize(x: Iterable) -> list[Union[int, np.int_]]:
-        return list(map(round, x))
-
-    def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, np.int_]]]:
-        return list(map(_ndarray_serialize, x))
 
     call_val = apply_or_none(_ndarray_serialize, call)
     call_95_cis_val = apply_or_none(_nested_ndarray_serialize, call_95_cis)
