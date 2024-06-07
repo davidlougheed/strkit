@@ -1386,9 +1386,13 @@ def call_locus(
         call_peak_n_reads = list(map(len, allele_reads))
 
         if any(map(eq_0, call_peak_n_reads)):
-            # TODO: This shouldn't happen, but it does occasionally
+            # TODO: This shouldn't happen, but it does occasionally - why?
             logger_.warning(f"{locus_log_str} - found empty allele, nullifying call results")
+
             call_data = {}
+            call = None
+            call_95_cis = None
+            call_99_cis = None
 
         if call_data and consensus:
             call_seqs = list(
