@@ -57,6 +57,7 @@ min_read_score = 0.9  # TODO: parametrize
 # TODO: Parametrize - if very low alignment or very slow, then "bad read"
 extremely_low_read_adj_score: float = 0.1  # fraction
 bad_read_alignment_time: int = 15  # seconds
+really_bad_read_alignment_time: int = 150
 max_bad_reads: int = 3
 
 base_wildcard_threshold = 3
@@ -1052,17 +1053,28 @@ def call_locus(
         )
         rc_time = (datetime.now() - rc_timer).total_seconds()
 
+        if rc_time >= really_bad_read_alignment_time:
+            logger_.debug(f"{locus_log_str} - not calling locus due to a pathologically-poorly-aligning read ({rn})")
+            return {
+                **call_dict_base,
+                "peaks": None,
+                "read_peaks_called": False,
+                "time": (datetime.now() - call_timer).total_seconds(),
+            }
+
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
-                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s)")
+                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s; TR seq: {tr_read_seq_wc[:20]}...)")
 
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
                 n_extremely_poor_scoring_reads += 1
                 if n_extremely_poor_scoring_reads > max_bad_reads:
-                    logger_.debug(f"{locus_log_str} - not calling locus due to >3 extremely poor-aligning reads")
+                    logger_.debug(
+                        f"{locus_log_str} - not calling locus due to >3 extremely poor-aligning reads (TR seq: "
+                        f"{tr_read_seq_wc[:20]}...)")
                     return {
                         **call_dict_base,
                         "peaks": None,
