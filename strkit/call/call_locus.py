@@ -52,7 +52,13 @@ __all__ = [
 CALL_WARN_TIME = 3  # seconds
 
 realign_timeout = 5
+
 min_read_score = 0.9  # TODO: parametrize
+# TODO: Parametrize - if very low alignment or very slow, then "bad read"
+extremely_low_read_adj_score: float = 0.1  # fraction
+bad_read_alignment_time: int = 15  # seconds
+max_bad_reads: int = 3
+
 base_wildcard_threshold = 3
 
 roughly_equiv_stdev_dist = 1
@@ -1036,6 +1042,7 @@ def call_locus(
             read_kmers.clear()
             read_kmers.update(tr_read_seq_wc[i:i+motif_size] for i in range(0, tr_len - motif_size + 1))
 
+        rc_timer = datetime.now()
         read_cn, read_cn_score = get_repeat_count(
             start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
             tr_seq=tr_read_seq_wc,
@@ -1043,17 +1050,18 @@ def call_locus(
             flank_right_seq=flank_right_seq,
             motif=motif,
         )
+        rc_time = (datetime.now() - rc_timer).total_seconds()
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
-                f"{min_read_score})")
+                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s)")
 
-            if read_adj_score < 0.05:  # TODO: Parametrize
+            if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
                 n_extremely_poor_scoring_reads += 1
-                if n_extremely_poor_scoring_reads > 3:  # TODO: Parametrize
+                if n_extremely_poor_scoring_reads > max_bad_reads:
                     logger_.debug(f"{locus_log_str} - not calling locus due to >3 extremely poor-aligning reads")
                     return {
                         **call_dict_base,
