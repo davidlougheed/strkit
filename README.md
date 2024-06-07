@@ -60,13 +60,14 @@ with the following command:
 python -m pip install strkit
 ```
 
-In some cases, you may need to install the [Rust compiler](https://www.rust-lang.org/tools/install)
-to compile the `strkit_rust_ext` wheels, although prebuilt wheels for this module are available.
+You may need to install the [Rust toolchain](https://www.rust-lang.org/tools/install)
+to compile the `strkit_rust_ext` wheels, although prebuilt wheels for this module are available
+for some platforms.
 
 On Digital Research Alliance of Canada/Compute Canada clusters, this involves loading a module:
 
 ```bash
-module load rust/1.70.0
+module load rust/1.76.0
 python -m pip install strkit
 ```
 
