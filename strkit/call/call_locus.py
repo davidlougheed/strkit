@@ -1053,8 +1053,14 @@ def call_locus(
         )
         rc_time = (datetime.now() - rc_timer).total_seconds()
 
+        # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
+        read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
+
         if rc_time >= really_bad_read_alignment_time:
-            logger_.debug(f"{locus_log_str} - not calling locus due to a pathologically-poorly-aligning read ({rn})")
+            logger_.debug(
+                f"{locus_log_str} - not calling locus due to a pathologically-poorly-aligning read ({rn}; "
+                f"repeat count alignment scored {read_adj_score:.2f} < {min_read_score}; get_repeat_count time: "
+                f"{rc_time:.3f}s)")
             return {
                 **call_dict_base,
                 "peaks": None,
@@ -1062,8 +1068,6 @@ def call_locus(
                 "time": (datetime.now() - call_timer).total_seconds(),
             }
 
-        # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
-        read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
         if read_adj_score < min_read_score:
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
