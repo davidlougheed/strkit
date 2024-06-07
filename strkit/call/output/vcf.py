@@ -106,7 +106,8 @@ def output_contig_vcf_lines(
 
         n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
 
-        peak_seqs = (result["peaks"] or {}).get("seqs", ())
+        res_peaks = result["peaks"] or {}
+        peak_seqs = res_peaks.get("seqs", ())
         if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
             logger.error(f"Encountered None in results[{result_idx}].peaks.seqs: {peak_seqs}")
             continue
@@ -145,9 +146,9 @@ def output_contig_vcf_lines(
         if am := result.get("assign_method"):
             vr.samples[sample_id]["PM"] = am
 
-        if call is not None:
-            vr.samples[sample_id]["DP"] = sum(result["peaks"]["n_reads"])
-            vr.samples[sample_id]["AD"] = tuple(result["peaks"]["n_reads"])
+        if call is not None and res_peaks:
+            vr.samples[sample_id]["DP"] = sum(res_peaks["n_reads"])
+            vr.samples[sample_id]["AD"] = tuple(res_peaks["n_reads"])
             vr.samples[sample_id]["MC"] = tuple(map(int, call))
 
             ps = result["ps"]
