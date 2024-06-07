@@ -1067,7 +1067,7 @@ def call_locus(
         if read_adj_score < min_read_score:
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
-                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s; TR seq: {tr_read_seq_wc[:20]}...)")
+                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s)")
 
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
                 n_extremely_poor_scoring_reads += 1
