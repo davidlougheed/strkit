@@ -32,10 +32,17 @@ def best_representative(seqs: Iterable[str]) -> Optional[str]:
 
 def consensus_seq(seqs: Iterable[str], logger: logging.Logger) -> Optional[str]:
     # Return a stringified, gapless version of the column-wise mode for the MSA
-    # - Filter out blanks and if the consensus fails, try eliminating the outlier VERY naively
-    #   via just comparing sorted values
-    seqs_t = tuple(sorted(filter(neq_blank, seqs)))
-    res = _consensus_seq(seqs_t)
+    # If the consensus fails, try a best-representative strategy instead. If that fails, something's gone wrong...
+
+    seqs_l = list(seqs)
+    if len(set(seqs_l)) == 1:
+        return seqs_l[0]
+
+    seqs_l.sort()
+    res = _consensus_seq(seqs_l)
     if res is None:
-        logger.error(f"Got no consensus sequence from sequences: {seqs_t}")
+        logger.error(f"Got no consensus sequence from sequences {seqs_l}; trying best representative strategy")
+        res = best_representatives(seqs_l)
+        if res is None:
+            logger.debug(f"Got no best representative from sequences {seqs_l}")
     return res

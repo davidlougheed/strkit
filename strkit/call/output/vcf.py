@@ -107,7 +107,7 @@ def output_contig_vcf_lines(
         n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
 
         peak_seqs = (result["peaks"] or {}).get("seqs", ())
-        if any(map(is_none, peak_seqs)):
+        if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
             logger.error(f"Encountered None in results[{result_idx}].peaks.seqs: {peak_seqs}")
             continue
 
