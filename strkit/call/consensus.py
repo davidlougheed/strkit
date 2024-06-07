@@ -1,8 +1,7 @@
 import logging
 from random import choice
 from strkit_rust_ext import best_representatives, consensus_seq as _consensus_seq
-from typing import Iterable, Optional
-from .utils import neq_blank
+from typing import Iterable, Optional, Sequence
 
 __all__ = [
     "best_representative",
@@ -10,7 +9,7 @@ __all__ = [
 ]
 
 
-def best_representative(seqs: Iterable[str]) -> Optional[str]:
+def best_representative(seqs: Sequence[str]) -> Optional[str]:
     """
     Slightly different from a true consensus - returns the string with the minimum Levenshtein distance to all other
     strings for a particular allele. This roughly approximates a true consensus when |seqs| is large. If more than one
@@ -19,15 +18,13 @@ def best_representative(seqs: Iterable[str]) -> Optional[str]:
     :param seqs: An iterable of sequences to find the best representative of.
     :return: One of the best representative sequences from the passed sequences.
     """
-    seqs_t = tuple(seqs)
-    res = best_representatives(seqs_t)
+    res = best_representatives(seqs)
     if len(res) == 1:
         return res.pop()
     elif len(res) == 0:
         return None
     else:
-        res_t = tuple(res)
-        return choice(res_t)
+        return choice(tuple(res))
 
 
 def consensus_seq(seqs: Iterable[str], logger: logging.Logger) -> Optional[str]:
