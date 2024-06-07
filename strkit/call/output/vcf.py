@@ -33,7 +33,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader
     vh = pysam.VariantHeader()  # automatically sets VCF version to 4.2
 
     # Add an absolute path to the reference genome
-    vh.add_meta("reference", f"file://{str(pathlib.Path(reference_file).absolute())}")
+    vh.add_meta("reference", f"file://{str(pathlib.Path(reference_file).resolve().absolute())}")
 
     # Add all contigs from the reference genome file + lengths
     rf = pysam.FastaFile(reference_file)
