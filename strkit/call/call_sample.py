@@ -183,7 +183,7 @@ def progress_worker(
             _log()
             if last_qsize == locus_queue.qsize():  # stuck
                 last_qsize_n_stuck += 1
-            if last_qsize_n_stuck >= 3:
+            if last_qsize_n_stuck >= 20:
                 # zombie worker or stuck, exit
                 lg.error(f"Terminating progress worker; seems to be stuck with qsize={qsize}")
                 return
