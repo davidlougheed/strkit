@@ -1061,6 +1061,12 @@ def call_locus(
                 f"{locus_log_str} - not calling locus due to a pathologically-poorly-aligning read ({rn}; "
                 f"repeat count alignment scored {read_adj_score:.2f} < {min_read_score}; get_repeat_count time: "
                 f"{rc_time:.3f}s)")
+            logger_.debug(f"{locus_log_str} - ref left flank:  {ref_left_flank_seq}")
+            logger_.debug(f"{locus_log_str} - read left flank: {flank_left_seq}")
+            logger_.debug(f"{locus_log_str} - ref TR seq (:500):  {ref_seq[:500]} (len={len(ref_seq)})")
+            logger_.debug(f"{locus_log_str} - read TR seq (:500): {tr_read_seq_wc[:500]} (len={len(tr_read_seq_wc)})")
+            logger_.debug(f"{locus_log_str} - ref right flank:  {ref_right_flank_seq}")
+            logger_.debug(f"{locus_log_str} - read right flank: {flank_right_seq}")
             return {
                 **call_dict_base,
                 "peaks": None,
