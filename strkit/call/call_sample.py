@@ -172,22 +172,28 @@ def progress_worker(
             pass
 
     qsize = locus_queue.qsize()
-    last_qsize_n_stuck = 0
-    timer = 0
+    last_qsize_n_stuck: int = 0
+    timer: int = 0
     while not event.is_set():
         time.sleep(1)
-        timer += 1
+        timer += 1  # one second has elapsed
         if timer >= LOG_PROGRESS_INTERVAL:
-            last_qsize = qsize
+            last_qsize = qsize  # qsize from {LOG_PROGRESS_INTERVAL} seconds ago
             qsize = locus_queue.qsize()
-            _log()
-            if last_qsize == locus_queue.qsize():  # stuck
+
+            _log()  # log every {LOG_PROGRESS_INTERVAL} seconds
+
+            if last_qsize == qsize:  # stuck
                 last_qsize_n_stuck += 1
+            else:
+                last_qsize_n_stuck = 0
+
             if last_qsize_n_stuck >= 20:
                 # zombie worker or stuck, exit
-                lg.error(f"Terminating progress worker; seems to be stuck with qsize={qsize}")
+                lg.error(f"Terminating progress worker; seems to be stuck with {qsize=}")
                 return
-            timer = 0
+
+            timer = 0  # reset timer
 
     _log()
 
