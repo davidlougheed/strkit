@@ -98,7 +98,7 @@ def output_contig_vcf_lines(
         start = result["start"]
 
         if "ref_start_anchor" not in result:
-            logger.debug(f"No ref anchor for {contig}:{start}; skipping VCF output")
+            logger.debug(f"No ref anchor for {contig}:{start}; skipping VCF output for locus")
             continue
 
         ref_start_anchor = result["ref_start_anchor"].upper()
