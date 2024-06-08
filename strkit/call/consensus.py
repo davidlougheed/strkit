@@ -1,6 +1,6 @@
 import logging
 from random import choice
-from strkit_rust_ext import best_representatives, consensus_seq as _consensus_seq
+from strkit_rust_ext import best_representatives as _best_representatives, consensus_seq as _consensus_seq
 from typing import Iterable, Optional, Sequence
 
 __all__ = [
@@ -18,7 +18,7 @@ def best_representative(seqs: Sequence[str]) -> Optional[str]:
     :param seqs: An iterable of sequences to find the best representative of.
     :return: One of the best representative sequences from the passed sequences.
     """
-    res = best_representatives(seqs)
+    res = _best_representatives(seqs)
     if len(res) == 1:
         return res.pop()
     elif len(res) == 0:
@@ -39,7 +39,7 @@ def consensus_seq(seqs: Iterable[str], logger: logging.Logger) -> Optional[str]:
     res = _consensus_seq(seqs_l)
     if res is None:
         logger.error(f"Got no consensus sequence from sequences {seqs_l}; trying best representative strategy")
-        res = best_representatives(seqs_l)
+        res = best_representative(seqs_l)
         if res is None:
             logger.debug(f"Got no best representative from sequences {seqs_l}")
     return res
