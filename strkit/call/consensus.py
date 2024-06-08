@@ -36,7 +36,7 @@ def consensus_seq(seqs: Iterable[str], logger: logging.Logger) -> Optional[str]:
         return seqs_l[0]
 
     seqs_l.sort()
-    res = _consensus_seq(seqs_l)
+    res: Optional[str] = _consensus_seq(seqs_l)
     if res is None:
         logger.error(f"Got no consensus sequence from sequences {seqs_l}; trying best representative strategy")
         res = best_representative(seqs_l)
