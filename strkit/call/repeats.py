@@ -65,7 +65,7 @@ def get_repeat_count(
     flank_right_seq: str,
     motif: str,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
-) -> tuple[int, int]:
+) -> tuple[tuple[int, int], int]:
 
     db_seq_profile: parasail.Profile = parasail.profile_create_sat(
         f"{flank_left_seq}{tr_seq}{flank_right_seq}", dna_matrix)
@@ -76,7 +76,7 @@ def get_repeat_count(
     score_diff = abs(start_score - max_init_score) / max_init_score
 
     if score_diff == 0:
-        return start_count, start_score
+        return (start_count, start_score), 1
     elif score_diff < 0.05:  # TODO: parametrize
         # If we're very close to the maximum, explore less.
         local_search_range = 1
@@ -113,7 +113,7 @@ def get_repeat_count(
                 to_explore.append((new_rc, -1))
 
     # noinspection PyTypeChecker
-    return max(sizes_and_scores.items(), key=idx_1_getter)
+    return max(sizes_and_scores.items(), key=idx_1_getter), len(sizes_and_scores)
 
 
 def get_ref_repeat_count(
@@ -193,7 +193,7 @@ def get_ref_repeat_count(
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    final_res = get_repeat_count(
+    final_res, _ = get_repeat_count(
         round(start_count + (max(0, l_offset) + max(0, r_offset)) / motif_size),  # always start with int here
         db_seq,
         flank_left_seq,

@@ -1044,7 +1044,7 @@ def call_locus(
             read_kmers.update(tr_read_seq_wc[i:i+motif_size] for i in range(0, tr_len - motif_size + 1))
 
         rc_timer = datetime.now()
-        read_cn, read_cn_score = get_repeat_count(
+        (read_cn, read_cn_score), n_read_cn_iters = get_repeat_count(
             start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
             tr_seq=tr_read_seq_wc,
             flank_left_seq=flank_left_seq,
@@ -1060,7 +1060,7 @@ def call_locus(
             logger_.debug(
                 f"{locus_log_str} - not calling locus due to a pathologically-poorly-aligning read ({rn}; "
                 f"repeat count alignment scored {read_adj_score:.2f} < {min_read_score}; get_repeat_count time: "
-                f"{rc_time:.3f}s)")
+                f"{rc_time:.3f}s; # get_repeat_count iters: {n_read_cn_iters}; {motif=}; {ref_cn=})")
             logger_.debug(f"{locus_log_str} - ref left flank:  {ref_left_flank_seq}")
             logger_.debug(f"{locus_log_str} - read left flank: {flank_left_seq}")
             logger_.debug(f"{locus_log_str} - ref TR seq (:500):  {ref_seq[:500]} (len={len(ref_seq)})")
@@ -1077,7 +1077,8 @@ def call_locus(
         if read_adj_score < min_read_score:
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
-                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s)")
+                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s; # get_repeat_count iters: "
+                f"{n_read_cn_iters})")
 
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
                 n_extremely_poor_scoring_reads += 1
