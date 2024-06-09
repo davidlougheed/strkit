@@ -88,8 +88,11 @@ def locus_worker(
     ref = p.FastaFile(params.reference_file)
     bf = STRkitBAMReader(params.read_file, params.reference_file)
 
-    snv_vcf_file = p.VariantFile(params.snv_vcf) if params.snv_vcf else None
-    snv_vcf_contigs = list(map(lambda c: c.name, snv_vcf_file.header.contigs.values())) if snv_vcf_file else []
+    snv_vcf_contigs: list[str] = []
+    if params.snv_vcf:
+        with p.VariantFile(params.snv_vcf) as snv_vcf_file:
+            snv_vcf_contigs.extend(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
+
     vcf_file_format: Literal["chr", "num", "acc", ""] = get_vcf_contig_format(snv_vcf_contigs)
 
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
@@ -132,6 +135,10 @@ def locus_worker(
 
         except queue.Empty:
             break
+
+    ref.close()
+    del bf
+    del snv_vcf_reader
 
     if pr:
         pr.disable()
