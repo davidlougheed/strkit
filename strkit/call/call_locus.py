@@ -727,6 +727,7 @@ def call_locus(
     # ---
     seed: int,
     logger_: logging.Logger,
+    locus_log_str: str,
     # ---
     snv_vcf_file: Optional[STRkitVCFReader] = None,
     snv_vcf_contigs: tuple[str, ...] = (),
@@ -744,7 +745,6 @@ def call_locus(
     log_level = params.log_level
     realign = params.realign
     respect_ref = params.respect_ref
-    sample_id = params.sample_id
     snv_min_base_qual = params.snv_min_base_qual
     # ----------------------------------
 
@@ -787,10 +787,6 @@ def call_locus(
     # should_incorporate_snvs: bool = incorporate_snvs and n_alleles == 2
     should_incorporate_snvs: bool = snv_vcf_file is not None and n_alleles == 2
     only_known_snvs: bool = True  # TODO: parametrize
-
-    # String representation of locus for logging purposes
-    locus_log_str: str = \
-        f"{sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {contig}:{left_coord}-{right_coord}"
 
     try:
         ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)

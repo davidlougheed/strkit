@@ -12,6 +12,7 @@ import queue
 import re
 import threading
 import time
+import traceback
 
 from datetime import datetime
 from operator import itemgetter
@@ -85,6 +86,8 @@ def locus_worker(
         from strkit.logger import create_process_logger
         lg = create_process_logger(os.getpid(), params.log_level)
 
+    sample_id = params.sample_id
+
     ref = p.FastaFile(params.reference_file)
     bf = STRkitBAMReader(params.read_file, params.reference_file)
 
@@ -107,8 +110,15 @@ def locus_worker(
             td = locus_queue.get_nowait()
             if td is None:  # Kill signal
                 break
+        except queue.Empty:
+            break
 
-            t_idx, t, n_alleles, locus_seed = td
+        t_idx, t, n_alleles, locus_seed = td
+
+        # String representation of locus for logging purposes
+        locus_log_str: str = f"{sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {t[0]}:{t[1]}-{t[2]}"
+
+        try:
             res = call_locus(
                 t_idx, t, n_alleles, bf, ref, params,
                 phase_set_lock,
@@ -119,6 +129,7 @@ def locus_worker(
                 snv_genotype_cache,
                 seed=locus_seed,
                 logger_=lg,
+                locus_log_str=locus_log_str,
                 snv_vcf_file=snv_vcf_reader,
                 snv_vcf_contigs=tuple(snv_vcf_contigs),
                 snv_vcf_file_format=vcf_file_format,
@@ -126,15 +137,17 @@ def locus_worker(
                 ref_file_has_chr=ref_file_has_chr,
             )
 
-            locus_counter_lock.acquire(timeout=300)
-            locus_counter.set(locus_counter.get() + 1)
-            locus_counter_lock.release()
+        except Exception as e:
+            res = None
+            logger.error(f"{locus_log_str} - encountered exception while genotyping: {repr(e)}")
+            logger.error(f"{locus_log_str} - {traceback.format_exc()}")
 
-            if res is not None:
-                results.append(res)
+        locus_counter_lock.acquire(timeout=300)
+        locus_counter.set(locus_counter.get() + 1)
+        locus_counter_lock.release()
 
-        except queue.Empty:
-            break
+        if res is not None:
+            results.append(res)
 
     ref.close()
     del bf
