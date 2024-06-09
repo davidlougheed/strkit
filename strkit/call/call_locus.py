@@ -53,6 +53,7 @@ CALL_WARN_TIME = 3  # seconds
 
 realign_timeout = 5
 
+max_rc_iters = 50
 min_read_score = 0.9  # TODO: parametrize
 # TODO: Parametrize - if very low alignment or very slow, then "bad read"
 extremely_low_read_adj_score: float = 0.1  # fraction
@@ -1050,8 +1051,12 @@ def call_locus(
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
+            max_iters=max_rc_iters,
         )
         rc_time = (datetime.now() - rc_timer).total_seconds()
+
+        if n_read_cn_iters >= max_rc_iters:
+            logger_.debug(f"{locus_log_str} - locus repeat counting exceeded maximum # iterations ({n_read_cn_iters})")
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank

@@ -64,6 +64,7 @@ def get_repeat_count(
     flank_left_seq: str,
     flank_right_seq: str,
     motif: str,
+    max_iters: int,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
 ) -> tuple[tuple[int, int], int]:
 
@@ -84,9 +85,10 @@ def get_repeat_count(
         local_search_range = 2
 
     sizes_and_scores: dict[int, int] = {start_count: start_score}
+    n_scores: int = 1
     to_explore: list[tuple[int, Literal[-1, 1]]] = [(start_count - 1, -1), (start_count + 1, 1)]
 
-    while to_explore:
+    while to_explore and n_scores < max_iters:
         size_to_explore, direction = to_explore.pop()
         if size_to_explore < 0:
             continue
@@ -101,6 +103,7 @@ def get_repeat_count(
                 # Generate a candidate TR tract by copying the provided motif 'i' times & score it
                 # Separate this from the .get() to postpone computation to until we need it
                 sizes_and_scores[i] = score_candidate(db_seq_profile, motif, i, flank_left_seq, flank_right_seq)
+                n_scores += 1
 
             szs.append((i, sizes_and_scores[i]))
 
@@ -198,6 +201,7 @@ def get_ref_repeat_count(
         db_seq,
         flank_left_seq,
         flank_right_seq,
-        motif)
+        motif,
+        max_iters=100)
 
     return final_res, l_offset, r_offset
