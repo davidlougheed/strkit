@@ -316,6 +316,11 @@ def call_alleles_with_haplotags(
     return call_data
 
 
+@functools.cache
+def _snv_should_flip_gt(gt1: tuple[str, ...], gt2: tuple[str, ...]):
+    return gt1 != gt2 and gt1 == tuple(reversed(gt2))
+
+
 def _determine_snv_call_phase_set(
     read_dict: dict[str, ReadDict],
     cdd_ordered: list[CallDict],
@@ -348,8 +353,7 @@ def _determine_snv_call_phase_set(
         for snv in called_useful_snvs:
             if (snv_id := snv["id"]) in snv_genotype_cache:
                 t_snv_genotype, snv_ps = snv_genotype_cache[snv_id]
-                snv_should_flip = len(t_snv_genotype) > 1 and tuple(t_snv_genotype) == tuple(reversed(snv["call"]))
-                snv_pss_with_should_flip.append((snv_ps, snv_should_flip))
+                snv_pss_with_should_flip.append((snv_ps, _snv_should_flip_gt(t_snv_genotype, snv["call"])))
 
         if not snv_pss_with_should_flip:
             call_phase_set = int(phase_set_counter.value)
@@ -358,7 +362,7 @@ def _determine_snv_call_phase_set(
 
             for snv in called_useful_snvs:
                 snv_id = snv["id"]
-                snv_genotype_cache[snv_id] = (tuple(snv["call"]), call_phase_set)
+                snv_genotype_cache[snv_id] = (snv["call"], call_phase_set)
                 snv_id_list.append(snv_id)
 
             logger_.debug(f"{locus_log_str} - assigned new phase set {call_phase_set} to SNVs {snv_id_list}")
@@ -368,18 +372,20 @@ def _determine_snv_call_phase_set(
     finally:
         snv_genotype_update_lock.release()
 
-    l2 = phase_set_lock.acquire(timeout=300)
-    if not l2:
-        logger_.error("Failed to acquire phase_set_lock")
-        return None
+    if snv_pss_with_should_flip:  # else from above, but we want to release snv_genotype_update_lock first
+        # Have found SNVs, should flip/not flip and assign existing phase set
 
-    try:
-        if snv_pss_with_should_flip:  # else from above, but we want to release snv_genotype_update_lock first
-            # Have found SNVs, should flip/not flip and assign existing phase set
+        phase_set_consensus_set = tuple(sorted(set(snv_pss_with_should_flip), key=idx_0_getter))
+        call_phase_set, should_flip = phase_set_consensus_set[0]
 
-            phase_set_consensus_set = tuple(sorted(set(snv_pss_with_should_flip), key=idx_0_getter))
-            call_phase_set, should_flip = phase_set_consensus_set[0]
+        # Now, acquire lock since we're working with phase_set_synonymous:
 
+        l2 = phase_set_lock.acquire(timeout=300)
+        if not l2:
+            logger_.error("Failed to acquire phase_set_lock")
+            return None
+
+        try:
             # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
             while call_phase_set in phase_set_synonymous:
                 logger_.debug(
@@ -409,28 +415,30 @@ def _determine_snv_call_phase_set(
                 # (synonymous lower-# call_phase_set, should_flip RELATIVE to call_phase_set - XOR)
                 phase_set_synonymous[psm] = (call_phase_set, (should_flip or psm_sf) and not (should_flip and psm_sf))
 
-            if should_flip:
-                for r in read_dict.values():
-                    if (p := r.get("p")) is not None:
-                        # Flip peak - in SNV mode, we're not polyploid, so we can just do int(not bool(p))
-                        r["p"] = int(not bool(p))
-                        r["ps"] = call_phase_set
-                # Then, reverse ordered call data list
-                cdd_ordered.reverse()
-                # Finally, flip the calls in the useful SNV set
-                for s in called_useful_snvs:
-                    s["call"].reverse()
-                    s["rcs"].reverse()
-            else:
-                for r in read_dict.values():
-                    if r.get("p") is not None:
-                        # We're good as-is, so assign the phase set
-                        r["ps"] = call_phase_set
+        finally:
+            phase_set_lock.release()
 
-            return call_phase_set
+        # ----
 
-    finally:
-        phase_set_lock.release()
+        if should_flip:
+            for r in read_dict.values():
+                if (p := r.get("p")) is not None:
+                    # Flip peak - in SNV mode, we're not polyploid, so we can just do int(not bool(p))
+                    r["p"] = int(not bool(p))
+                    r["ps"] = call_phase_set
+            # Then, reverse ordered call data list
+            cdd_ordered.reverse()
+            # Finally, flip the calls in the useful SNV set
+            for s in called_useful_snvs:
+                s["call"] = tuple(reversed(s["call"]))
+                s["rcs"].reverse()
+        else:
+            for r in read_dict.values():
+                if r.get("p") is not None:
+                    # We're good as-is, so assign the phase set
+                    r["ps"] = call_phase_set
+
+        return call_phase_set
 
 
 def call_alleles_with_incorporated_snvs(

@@ -69,7 +69,7 @@ class CandidateSNV(TypedDict):
 class _CalledSNVBase(TypedDict):
     id: str
     pos: int
-    call: list[str]
+    call: tuple[str, ...]
     rcs: list[int]
 
 

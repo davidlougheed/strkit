@@ -158,7 +158,7 @@ def call_and_filter_useful_snvs(
             "id": snv_id,
             **({"ref": snv_rec["ref_base"]} if snv_rec is not None else {}),
             "pos": u_ref,
-            "call": call,
+            "call": tuple(call),
             "rcs": rs,
         })
 

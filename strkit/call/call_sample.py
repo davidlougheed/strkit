@@ -402,7 +402,7 @@ def call_sample(
                                         r["reads"][k]["p"] = int(not bool(r["reads"][k]["p"]))
                             if "snvs" in r:
                                 for s in r["snvs"]:
-                                    s["call"].reverse()
+                                    s["call"] = tuple(reversed(s["call"]))
                                     s["rcs"].reverse()
                             if "peaks" in r:
                                 for k in r["peaks"]:
