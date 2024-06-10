@@ -1167,7 +1167,7 @@ def call_locus(
             if (hp := segment.hp) is not None and (ps := segment.ps) is not None:
                 orig_ps = int(ps)
 
-                phase_set_lock.acquire(timeout=600)
+                phase_set_lock.acquire(timeout=300)
 
                 ps_remapped: int
                 if orig_ps in phase_set_hp_remap:
