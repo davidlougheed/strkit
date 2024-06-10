@@ -732,7 +732,11 @@ def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, np.int_]]]:
 
 def call_locus(
     t_idx: int,
-    t: tuple,
+    contig: str,
+    left_coord: int,
+    right_coord: int,
+    motif: str,
+    # ---
     n_alleles: int,
     bf: STRkitBAMReader,
     ref: FastaFile,
@@ -770,15 +774,10 @@ def call_locus(
 
     rng = np.random.default_rng(seed=seed)
 
-    contig: str = t[0]
     read_contig = normalize_contig(contig, read_file_has_chr)
     ref_contig = normalize_contig(contig, ref_file_has_chr)
 
-    motif: str = t[-1]
     motif_size = len(motif)
-
-    left_coord = int(t[1])
-    right_coord = int(t[2])
 
     left_flank_coord = left_coord - flank_size
     right_flank_coord = right_coord + flank_size
@@ -786,7 +785,6 @@ def call_locus(
     ref_total_seq: str = ""
     ref_left_flank_seq: str = ""
     ref_right_flank_seq: str = ""
-    ref_right_flank_seq_plus_1: str = ""
     ref_seq: str = ""
     raised: bool = False
 
@@ -813,11 +811,10 @@ def call_locus(
     ref_seq_offset_r = right_coord - left_flank_coord
 
     try:
-        ref_total_seq = ref.fetch(ref_contig, left_flank_coord, right_flank_coord + 1)
+        ref_total_seq = ref.fetch(ref_contig, left_flank_coord, right_flank_coord + 1)  # plus one for use with realign
 
         ref_left_flank_seq = ref_total_seq[:ref_seq_offset_l]
-        ref_right_flank_seq_plus_1 = ref_total_seq[ref_seq_offset_r:]
-        ref_right_flank_seq = ref_right_flank_seq_plus_1[:-1]
+        ref_right_flank_seq = ref_total_seq[ref_seq_offset_r:-1]
         ref_seq = ref_total_seq[ref_seq_offset_l:ref_seq_offset_r]
     except IndexError:
         logger_.warning(

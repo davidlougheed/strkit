@@ -117,27 +117,39 @@ def locus_worker(
             lg.debug(f"worker {worker_id} encountered queue.Empty")
             break
 
-        t_idx, t, n_alleles, locus_seed = td
+        t_idx, contig, left_coord, right_coord, motif, n_alleles, locus_seed = td
 
         if current_contig is None:
-            current_contig = t[0]
+            current_contig = contig
 
         # String representation of locus for logging purposes
         locus_log_str: str = (
-            f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {t[0]}:{t[1]}-{t[2]}"
+            f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: "
+            f"{contig}:{left_coord}-{right_coord}"
         )
 
         lg.debug(f"{locus_log_str} - working on locus")
 
         try:
             res = call_locus(
-                t_idx, t, n_alleles, bf, ref, params,
+                t_idx,
+                contig,
+                left_coord,
+                right_coord,
+                motif,
+                # ---
+                n_alleles,
+                bf,
+                ref,
+                params,
+                # ---
                 phase_set_lock,
                 phase_set_counter,
                 phase_set_remap,
                 phase_set_synonymous,
                 snv_genotype_update_lock,
                 snv_genotype_cache,
+                # ---
                 seed=locus_seed,
                 logger_=lg,
                 locus_log_str=locus_log_str,
@@ -150,9 +162,7 @@ def locus_worker(
 
         except Exception as e:
             res = None
-            lg.error(
-                f"{locus_log_str} - encountered exception while genotyping ({t_idx=}, {t[:3]=}, {n_alleles=}): "
-                f"{repr(e)}")
+            lg.error(f"{locus_log_str} - encountered exception while genotyping ({t_idx=}, {n_alleles=}): {repr(e)}")
             lg.error(f"{locus_log_str} - {traceback.format_exc()}")
 
         locus_counter_lock.acquire(timeout=30)
@@ -296,8 +306,8 @@ def call_sample(
 
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
-        # Tuple of (1-indexed locus index, locus data, locus-specific random seed)
-        locus_queue.put((t_idx, t, n_alleles, get_new_seed(rng)))
+        # Tuple of (1-indexed locus index, contig, left coord, right coord, motif, locus-specific random seed)
+        locus_queue.put((t_idx, contig, int(t[1]), int(t[2]), t[-1], n_alleles, get_new_seed(rng)))
         num_loci += 1
 
     if num_loci > last_none_append_n_loci:  # have progressed since the last None-append
