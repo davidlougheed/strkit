@@ -10,7 +10,7 @@ from typing import Callable, Optional, Type
 import strkit.constants as c
 from strkit import __version__
 from strkit.exceptions import ParamError, InputError
-from strkit.logger import logger, attach_stream_handler, log_levels
+from strkit.logger import get_main_logger, attach_stream_handler, log_levels
 
 
 def add_call_parser_args(call_parser):
@@ -354,6 +354,7 @@ def add_vs_parser_args(vs_parser):
 
 def _exec_call(p_args) -> None:
     from strkit.call import call_sample, CallParams
+    logger = get_main_logger()
     call_sample(
         CallParams.from_args(logger, p_args),
         json_path=p_args.json,
@@ -571,8 +572,10 @@ def main(args: Optional[list[str]] = None) -> int:
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)
 
+    logger = get_main_logger()
+
     if hasattr(p_args, "log_level"):
-        attach_stream_handler(log_levels[p_args.log_level])
+        attach_stream_handler(log_levels[p_args.log_level], logger)
 
     if not getattr(p_args, "func", None):
         p_args = parser.parse_args(("--help",))

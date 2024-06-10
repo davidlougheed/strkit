@@ -28,7 +28,6 @@ from strkit.utils import cat_strs, apply_or_none
 
 from .align_matrix import match_score
 from .cigar import decode_cigar_np
-# from .consensus import best_representative
 from .consensus import consensus_seq
 from .params import CallParams
 from .realign import realign_read

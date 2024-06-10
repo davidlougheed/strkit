@@ -19,7 +19,6 @@ from operator import itemgetter
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
 from typing import Literal, Optional
 
-from strkit.logger import logger
 from .allele import get_n_alleles
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
@@ -57,6 +56,7 @@ def get_vcf_contig_format(snv_vcf_contigs: list[str]) -> Literal["chr", "num", "
 
 
 def locus_worker(
+    worker_id: int,
     params: CallParams,
     locus_queue: mp.Queue,
     locus_counter_lock: threading.Lock,
@@ -81,7 +81,8 @@ def locus_worker(
 
     lg: logging.Logger
     if is_single_processed:
-        lg = logger
+        from strkit.logger import get_main_logger
+        lg = get_main_logger()
     else:
         from strkit.logger import create_process_logger
         lg = create_process_logger(os.getpid(), params.log_level)
@@ -103,24 +104,30 @@ def locus_worker(
 
     snv_vcf_reader = STRkitVCFReader(str(params.snv_vcf)) if params.snv_vcf else None
 
+    current_contig: Optional[str] = None
     results: list[dict] = []
 
     while True:
         try:
             td = locus_queue.get_nowait()
             if td is None:  # Kill signal
-                logger.debug("worker finished current contig")
+                lg.debug(f"worker {worker_id} finished current contig: {current_contig}")
                 break
         except queue.Empty:
-            logger.debug("encountered queue.Empty")
+            lg.debug(f"worker {worker_id} encountered queue.Empty")
             break
 
         t_idx, t, n_alleles, locus_seed = td
 
-        # String representation of locus for logging purposes
-        locus_log_str: str = f"{sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {t[0]}:{t[1]}-{t[2]}"
+        if current_contig is None:
+            current_contig = t[0]
 
-        logger.debug(f"{locus_log_str} - working on locus")
+        # String representation of locus for logging purposes
+        locus_log_str: str = (
+            f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {t[0]}:{t[1]}-{t[2]}"
+        )
+
+        lg.debug(f"{locus_log_str} - working on locus")
 
         try:
             res = call_locus(
@@ -143,10 +150,10 @@ def locus_worker(
 
         except Exception as e:
             res = None
-            logger.error(
+            lg.error(
                 f"{locus_log_str} - encountered exception while genotyping ({t_idx=}, {t[:3]=}, {n_alleles=}): "
                 f"{repr(e)}")
-            logger.error(f"{locus_log_str} - {traceback.format_exc()}")
+            lg.error(f"{locus_log_str} - {traceback.format_exc()}")
 
         locus_counter_lock.acquire(timeout=30)
         locus_counter.set(locus_counter.get() + 1)
@@ -162,6 +169,8 @@ def locus_worker(
     if pr:
         pr.disable()
         pr.print_stats("tottime")
+
+    lg.debug(f"worker {worker_id} - returning batch of {len(results)} locus results")
 
     # Sort worker results; we will merge them after
     return results if is_single_processed else sorted(results, key=get_locus_index)
@@ -236,6 +245,9 @@ def call_sample(
     indent_json: bool = False,
     output_tsv: bool = True,
 ) -> None:
+    from strkit.logger import get_main_logger
+    logger = get_main_logger()
+
     # Start the call timer
     start_time = datetime.now()
 
@@ -254,7 +266,7 @@ def call_sample(
         vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 
     manager: mmg.SyncManager = mp.Manager()
-    locus_queue = manager.Queue()
+    locus_queue = manager.Queue()  # TODO: one queue per contig?
 
     # Add all loci from the BED file to the queue, allowing each job
     # to pull from the queue as it becomes freed up to do so.
@@ -357,7 +369,7 @@ def call_sample(
 
         qsize: int = locus_queue.qsize()
         while qsize > 0:
-            jobs = [p.apply_async(locus_worker, job_args) for _ in range(params.processes)]
+            jobs = [p.apply_async(locus_worker, (i + 1, *job_args)) for i in range(params.processes)]
 
             # Write results
             #  - gather the process-specific results for combining

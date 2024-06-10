@@ -2,7 +2,7 @@ import logging
 import sys
 
 __all__ = [
-    "logger",
+    "get_main_logger",
     "attach_stream_handler",
     "create_process_logger",
     "log_levels",
@@ -10,11 +10,14 @@ __all__ = [
 
 fmt = logging.Formatter(fmt="%(name)s:\t[%(levelname)s]\t%(message)s")
 
-logger = logging.getLogger("strkit-main")
-logger.setLevel(logging.DEBUG)
+
+def get_main_logger():
+    logger = logging.getLogger("strkit-main")
+    logger.setLevel(logging.DEBUG)
+    return logger
 
 
-def attach_stream_handler(level: int, logger_=logger):
+def attach_stream_handler(level: int, logger_=None):
     ch = logging.StreamHandler(sys.stderr)
     ch.setLevel(level)
     ch.setFormatter(fmt)
