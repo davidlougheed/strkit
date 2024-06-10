@@ -12,7 +12,7 @@ from ..utils import parse_cis
 __all__ = ["ExpansionHunterCalculator"]
 
 
-def _parse_allele(a: int | str | None) -> int | None:
+def _parse_allele(a: Union[int, str, None]) -> int | None:
     if isinstance(a, str):
         if a == ".":
             return None

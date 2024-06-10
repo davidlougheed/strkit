@@ -261,7 +261,7 @@ def call_alleles(
 
     gmm_cache = {}
 
-    def _get_fitted_gmm(s: NDArray[np.int_] | NDArray[np.float_]) -> Optional[object]:
+    def _get_fitted_gmm(s: Union[NDArray[np.int_], NDArray[np.float_]]) -> Optional[object]:
         if (s_t := tuple(s)) not in gmm_cache:
             # Fit Gaussian mixture model to the resampled data
             gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.hq, gm_filter_factor)
