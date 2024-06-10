@@ -815,18 +815,22 @@ def call_locus(
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
-    (ref_cn, _), l_offset, r_offset = get_ref_repeat_count(
+    ref_max_iters: int = 100
+    (ref_cn, _), l_offset, r_offset, r_n_is = get_ref_repeat_count(
         round(len(ref_seq) / motif_size),  # Initial estimate of copy number based on coordinates + motif size
         ref_seq,
         ref_left_flank_seq,
         ref_right_flank_seq,
         motif,
         ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
+        max_iters=ref_max_iters,
         respect_coords=respect_ref,
     )
     call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
 
-    logger_.debug(f"{locus_log_str} - got ref. copy number: {ref_cn} ({l_offset=}; {r_offset=})")
+    logger_.debug(
+        f"{locus_log_str} - got ref. copy number: {ref_cn} ({l_offset=}; {r_offset=}; iters={r_n_is}; "
+        f"slow_ref_count={any(x > 50 for x in r_n_is)})")
 
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
     # more spaces in which an indel could end up), adjust our coordinates to match.

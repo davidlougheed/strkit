@@ -126,14 +126,17 @@ def get_ref_repeat_count(
     flank_right_seq: str,
     motif: str,
     ref_size: int,
+    max_iters: int,
     respect_coords: bool = False,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
-) -> tuple[tuple[Union[int, float], int], int, int]:
+) -> tuple[tuple[Union[int, float], int], int, int, tuple[int, int]]:
     l_offset: int = 0
     r_offset: int = 0
 
     db_seq: str = f"{flank_left_seq}{tr_seq}{flank_right_seq}"
     motif_size = len(motif)
+
+    n_offset_scores: int = 0
 
     if not respect_coords:  # Extend out coordinates from initial definition
         to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [
@@ -164,6 +167,8 @@ def get_ref_repeat_count(
 
                     fwd_sizes_scores_adj[i] = fwd_rs = res[0]
                     rev_sizes_scores_adj[i] = rev_rs = res[1]
+
+                    n_offset_scores += 1
 
                 fwd_scores.append((i, fwd_rs, i))
                 rev_scores.append((i, rev_rs, i))
@@ -196,12 +201,13 @@ def get_ref_repeat_count(
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    final_res, _ = get_repeat_count(
-        round(start_count + (max(0, l_offset) + max(0, r_offset)) / motif_size),  # always start with int here
-        db_seq,
+    final_res, n_iters_final_count = get_repeat_count(
+        # always start with int here:
+        round(((start_count * motif_size) + (max(0, l_offset) + max(0, r_offset))) / motif_size),
+        tr_seq,
         flank_left_seq,
         flank_right_seq,
         motif,
-        max_iters=100)
+        max_iters=max_iters)
 
-    return final_res, l_offset, r_offset
+    return final_res, l_offset, r_offset, (n_offset_scores, n_iters_final_count)
