@@ -12,7 +12,7 @@ from statsmodels.stats.multitest import multipletests
 
 from strkit.constants import CHROMOSOMES
 from strkit.json import json, dumps_indented
-from strkit.logger import logger as logger_
+from strkit.logger import get_main_logger
 from strkit.utils import cat_strs, cis_overlap
 
 from typing import Generator, Iterable, Optional, Union
@@ -61,7 +61,7 @@ class MILocusData:
 
         test_to_perform: str = "none",
 
-        logger: logging.Logger = logger_,
+        logger: Optional[logging.Logger] = None,
     ):
         self._contig = contig
         self._start = start
@@ -95,7 +95,7 @@ class MILocusData:
         if test_to_perform != "none":
             self._p_value = self.de_novo_test(test_to_perform)
 
-        self._logger = logger
+        self._logger = logger or get_main_logger()
 
     @property
     def contig(self) -> str:
@@ -450,13 +450,13 @@ class MIResult:
         test_to_perform: str = "none",
         sig_level: float = 0.05,
         mt_corr: str = "none",
-        logger: logging.Logger = logger_,
+        logger: Optional[logging.Logger] = None,
     ):
         self.mi_value: float = mi_value
         self.mi_value_pm1: float = mi_value_pm1
         self.mi_value_95_ci: Optional[float] = mi_value_95_ci
         self.mi_value_99_ci: Optional[float] = mi_value_99_ci
-        self._contig_results: tuple[MIContigResult] = tuple(contig_results)
+        self._contig_results: tuple[MIContigResult, ...] = tuple(contig_results)
         self._output_loci: list[MILocusData] = output_loci
         self.widen: float = widen
         self._test_to_perform: str = test_to_perform
@@ -467,10 +467,10 @@ class MIResult:
         self._seen_loci_lengths: tuple[int, ...] = tuple(
             itertools.chain.from_iterable(cr.seen_loci_lengths for cr in self.contig_results))
 
-        self._logger: logging.Logger = logger
+        self._logger: logging.Logger = logger or get_main_logger()
 
     @property
-    def contig_results(self) -> tuple[MIContigResult]:
+    def contig_results(self) -> tuple[MIContigResult, ...]:
         return self._contig_results
 
     @property

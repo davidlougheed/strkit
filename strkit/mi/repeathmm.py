@@ -87,6 +87,8 @@ class RepeatHMMCalculator(BaseCalculator):
                     child_gt=int_tuple(call.split("/")),
                     mother_gt=mother_calls[lookup],
                     father_gt=father_calls[lookup],
+
+                    logger=self._logger,
                 ))
 
         return cr

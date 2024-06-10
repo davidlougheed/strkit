@@ -173,7 +173,9 @@ class BaseCalculator(ABC):
             self._widen,
             self.test_to_perform,
             self.sig_level,
-            self.mt_corr)
+            self.mt_corr,
+            logger=self._logger,
+        )
 
         if self.test_to_perform != "none":
             mi_res.correct_for_multiple_testing()  # Also calculates new output loci
