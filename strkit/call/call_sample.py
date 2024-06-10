@@ -109,14 +109,18 @@ def locus_worker(
         try:
             td = locus_queue.get_nowait()
             if td is None:  # Kill signal
+                logger.debug("worker finished current contig")
                 break
         except queue.Empty:
+            logger.debug("encountered queue.Empty")
             break
 
         t_idx, t, n_alleles, locus_seed = td
 
         # String representation of locus for logging purposes
         locus_log_str: str = f"{sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: {t[0]}:{t[1]}-{t[2]}"
+
+        logger.debug(f"{locus_log_str} - working on locus")
 
         try:
             res = call_locus(
@@ -139,7 +143,9 @@ def locus_worker(
 
         except Exception as e:
             res = None
-            logger.error(f"{locus_log_str} - encountered exception while genotyping: {repr(e)}")
+            logger.error(
+                f"{locus_log_str} - encountered exception while genotyping ({t_idx=}, {t[:3]=}, {n_alleles=}): "
+                f"{repr(e)}")
             logger.error(f"{locus_log_str} - {traceback.format_exc()}")
 
         locus_counter_lock.acquire(timeout=300)
