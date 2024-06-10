@@ -6,7 +6,6 @@ from strkit.json import json
 
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
-from ..logger import logger
 from ..utils import int_tuple, float_tuple, parse_cis
 
 __all__ = [
@@ -59,12 +58,12 @@ class StrKitCalculator(BaseCalculator):
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
 
-        logger.debug(f"loaded materal calls for {contig}")
+        self._logger.debug(f"loaded materal calls for {contig}")
 
         with open(self._father_call_file) as fh:
             father_calls = self.make_calls_dict(fh, contig)
 
-        logger.debug(f"loaded paternal calls for {contig}")
+        self._logger.debug(f"loaded paternal calls for {contig}")
 
         with open(self._child_call_file) as ch:
             for cv in ch:
@@ -198,10 +197,10 @@ class StrKitJSONCalculator(BaseCalculator):
         cr = MIContigResult(includes_95_ci=True)
 
         mother_data = self.make_calls_dict(self._cache["mother_data"], contig)
-        logger.debug(f"loaded materal calls for {contig}")
+        self._logger.debug(f"loaded materal calls for {contig}")
 
         father_data = self.make_calls_dict(self._cache["father_data"], contig)
-        logger.debug(f"loaded paternal calls for {contig}")
+        self._logger.debug(f"loaded paternal calls for {contig}")
 
         for res in c_report["results"]:
             if res["contig"] != contig:

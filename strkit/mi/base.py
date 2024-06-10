@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Optional
 
-from strkit.logger import logger as logger_
+from strkit.logger import get_main_logger
 from .result import MIContigResult, MIResult
 
 __all__ = [
@@ -44,7 +44,7 @@ class BaseCalculator(ABC):
         mt_corr: str = "none",
 
         debug: bool = False,
-        logger: logging.Logger = logger_,
+        logger: Optional[logging.Logger] = None,
     ):
         self._child_call_file: Path = child_call_file
         self._mother_call_file: Path = mother_call_file
@@ -68,7 +68,7 @@ class BaseCalculator(ABC):
         self._mt_corr: str = mt_corr
 
         self._debug: bool = debug
-        self._logger: logging.Logger = logger
+        self._logger: logging.Logger = logger or get_main_logger()
 
         self._cache: dict[str, Any] = {}
 
