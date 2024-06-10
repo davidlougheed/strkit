@@ -1,13 +1,11 @@
 import logging
 import multiprocessing.managers as mmg
-import threading
 
 from collections import Counter
 from typing import Optional
 
 from strkit_rust_ext import get_read_snvs, process_read_snvs_for_locus_and_calculate_useful_snvs, CandidateSNVs
 
-from strkit.logger import logger
 from .types import ReadDict, CalledSNV
 from .utils import idx_1_getter
 
@@ -90,7 +88,7 @@ def call_and_filter_useful_snvs(
 
             if a_total == 0:  # probably due to quality filtering
                 skipped = True
-                logger.warning(f"{locus_log_str} - for SNV {u_ref}, found a 0-total for allele {a} (a)")
+                logger_.warning(f"{locus_log_str} - for SNV {u_ref}, found a 0-total for allele {a} (a)")
                 break
 
             mc = peak_counts_a.most_common(2)
@@ -109,7 +107,7 @@ def call_and_filter_useful_snvs(
 
                     if b_total == 0:  # probably due to quality filtering
                         skipped = True
-                        logger.warning(f"{locus_log_str} - for SNV {u_ref}, found a 0-total for allele {b} (b)")
+                        logger_.warning(f"{locus_log_str} - for SNV {u_ref}, found a 0-total for allele {b} (b)")
                         break
 
                     if (peak_counts_b[mcc[0]] / b_total) > (peak_counts_a[mcc[0]] / a_total / 2):  # TODO: parametrize
@@ -170,6 +168,6 @@ def call_and_filter_useful_snvs(
             if "snvu" not in read:
                 continue
             read["snvu"] = tuple(map(idx_1_getter, filter(lambda e: e[0] not in skipped_snvs, enumerate(read["snvu"]))))
-        logger.debug(f"{locus_log_str} - filtered out {len(skipped_snvs)} not-actually-useful SNVs")
+        logger_.debug(f"{locus_log_str} - filtered out {len(skipped_snvs)} not-actually-useful SNVs")
 
     return called_snvs
