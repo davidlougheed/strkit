@@ -148,7 +148,7 @@ def locus_worker(
                 f"{repr(e)}")
             logger.error(f"{locus_log_str} - {traceback.format_exc()}")
 
-        locus_counter_lock.acquire(timeout=300)
+        locus_counter_lock.acquire(timeout=30)
         locus_counter.set(locus_counter.get() + 1)
         locus_counter_lock.release()
 
