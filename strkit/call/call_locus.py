@@ -805,12 +805,16 @@ def call_locus(
     should_incorporate_snvs: bool = snv_vcf_file is not None and n_alleles == 2
     only_known_snvs: bool = True  # TODO: parametrize
 
+    ref_seq_offset_l = left_coord - left_flank_coord
+    ref_seq_offset_r = right_coord - left_flank_coord
+
     try:
-        ref_left_flank_seq = ref.fetch(ref_contig, left_flank_coord, left_coord)
-        ref_right_flank_seq_plus_1 = ref.fetch(ref_contig, right_coord, right_flank_coord + 1)
-        # ref_right_flank_seq = ref.fetch(ref_contig, right_coord, right_flank_coord)
+        fetched_seq = ref.fetch(ref_contig, left_flank_coord, right_flank_coord + 1)
+
+        ref_left_flank_seq = fetched_seq[:ref_seq_offset_l]
+        ref_right_flank_seq_plus_1 = fetched_seq[ref_seq_offset_r:]
         ref_right_flank_seq = ref_right_flank_seq_plus_1[:-1]
-        ref_seq = ref.fetch(ref_contig, left_coord, right_coord)
+        ref_seq = fetched_seq[ref_seq_offset_l:ref_seq_offset_r]
     except IndexError:
         logger_.warning(
             f"{locus_log_str} - skipping locus, coordinates out of range in provided reference FASTA for region "
