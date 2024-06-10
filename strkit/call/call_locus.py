@@ -948,7 +948,8 @@ def call_locus(
                 proc.join()
             except queue.Empty:
                 logger_.warning(
-                    f"{locus_log_str} - experienced timeout while re-aligning read {rn}. Reverting to BAM alignment.")
+                    f"{locus_log_str} - experienced timeout while re-aligning read {rn}. Reverting to initial "
+                    f"alignment.")
                 proc.terminate()
                 time.sleep(0.1)  # wait a little for the process to terminate
             finally:
