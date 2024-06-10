@@ -356,8 +356,18 @@ def _determine_snv_call_phase_set(
                 snv_pss_with_should_flip.append((snv_ps, _snv_should_flip_gt(t_snv_genotype, snv["call"])))
 
         if not snv_pss_with_should_flip:
+            psl = phase_set_lock.acquire(timeout=30)
+            if not psl:
+                logger_.error("Failed to acquire phase_set_lock")
+                return None
+
             call_phase_set = int(phase_set_counter.value)
             phase_set_counter.set(call_phase_set + 1)
+
+            phase_set_lock.release()
+
+            # ---------
+
             snv_id_list: list[str] = []
 
             for snv in called_useful_snvs:
