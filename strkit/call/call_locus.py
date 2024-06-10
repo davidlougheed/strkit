@@ -780,6 +780,7 @@ def call_locus(
     left_flank_coord = left_coord - flank_size
     right_flank_coord = right_coord + flank_size
 
+    ref_total_seq: str = ""
     ref_left_flank_seq: str = ""
     ref_right_flank_seq: str = ""
     ref_right_flank_seq_plus_1: str = ""
@@ -809,12 +810,12 @@ def call_locus(
     ref_seq_offset_r = right_coord - left_flank_coord
 
     try:
-        fetched_seq = ref.fetch(ref_contig, left_flank_coord, right_flank_coord + 1)
+        ref_total_seq = ref.fetch(ref_contig, left_flank_coord, right_flank_coord + 1)
 
-        ref_left_flank_seq = fetched_seq[:ref_seq_offset_l]
-        ref_right_flank_seq_plus_1 = fetched_seq[ref_seq_offset_r:]
+        ref_left_flank_seq = ref_total_seq[:ref_seq_offset_l]
+        ref_right_flank_seq_plus_1 = ref_total_seq[ref_seq_offset_r:]
         ref_right_flank_seq = ref_right_flank_seq_plus_1[:-1]
-        ref_seq = fetched_seq[ref_seq_offset_l:ref_seq_offset_r]
+        ref_seq = ref_total_seq[ref_seq_offset_l:ref_seq_offset_r]
     except IndexError:
         logger_.warning(
             f"{locus_log_str} - skipping locus, coordinates out of range in provided reference FASTA for region "
@@ -837,7 +838,7 @@ def call_locus(
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
-    ref_max_iters: int = 100
+    ref_max_iters: int = 150
     (ref_cn, _), l_offset, r_offset, r_n_is = get_ref_repeat_count(
         round(len(ref_seq) / motif_size),  # Initial estimate of copy number based on coordinates + motif size
         ref_seq,
@@ -850,9 +851,13 @@ def call_locus(
     )
     call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
 
+    slow_ref_count = any(x > 75 for x in r_n_is)
+
     logger_.debug(
-        f"{locus_log_str} - got ref. copy number: {ref_cn} ({l_offset=}; {r_offset=}; iters={r_n_is}; "
-        f"slow_ref_count={any(x > 50 for x in r_n_is)})")
+        f"{locus_log_str} - got ref. copy number: {ref_cn} ({l_offset=}; {r_offset=}; iters={r_n_is})")
+
+    if slow_ref_count:
+        logger_.warning(f"{locus_log_str} - slow reference copy number counting ({motif=}; {ref_cn=}; iters={r_n_is})")
 
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
     # more spaces in which an indel could end up), adjust our coordinates to match.
@@ -960,7 +965,7 @@ def call_locus(
             q: mp.Queue = mp.Queue()
             proc = mp.Process(target=realign_read, daemon=False, kwargs=dict(
                 # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-                ref_seq=f"{ref_left_flank_seq}{ref_seq}{ref_right_flank_seq_plus_1}",  # TODO: plus 1, really?
+                ref_seq=ref_total_seq,  # TODO: with the plus 1, really?
                 query_seq=calculate_seq_with_wildcards(qs, fqqs),
                 left_flank_coord=left_flank_coord,
                 flank_size=flank_size,
