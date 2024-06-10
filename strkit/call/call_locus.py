@@ -827,6 +827,8 @@ def call_locus(
     )
     call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
 
+    logger_.debug(f"{locus_log_str} - got ref. copy number: {ref_cn} ({l_offset=}; {r_offset=})")
+
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
     # more spaces in which an indel could end up), adjust our coordinates to match.
     # Currently, contractions of the TR region are ignored.
@@ -860,6 +862,8 @@ def call_locus(
         right_most_coord,
     ) = bf.get_overlapping_segments_and_related_data(
         read_contig, left_flank_coord, right_flank_coord, max_reads, logger_, locus_log_str)
+
+    logger_.debug(f"{locus_log_str} - got {n_overlapping_reads} overlapping aligned segments")
 
     if n_overlapping_reads > params.max_reads:
         logger_.warning(f"{locus_log_str} - skipping locus; too many overlapping reads")
