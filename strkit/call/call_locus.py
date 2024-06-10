@@ -52,6 +52,9 @@ CALL_WARN_TIME = 3  # seconds
 
 realign_timeout = 5
 
+ref_max_iters: int = 250
+ref_max_iters_to_be_slow: int = 100
+
 max_rc_iters = 50
 min_read_score = 0.9  # TODO: parametrize
 # TODO: Parametrize - if very low alignment or very slow, then "bad read"
@@ -838,7 +841,6 @@ def call_locus(
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     ref_cn: Union[int, float]
-    ref_max_iters: int = 150
     (ref_cn, _), l_offset, r_offset, r_n_is = get_ref_repeat_count(
         round(len(ref_seq) / motif_size),  # Initial estimate of copy number based on coordinates + motif size
         ref_seq,
@@ -851,7 +853,7 @@ def call_locus(
     )
     call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
 
-    slow_ref_count = any(x > 75 for x in r_n_is)
+    slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
 
     logger_.debug(
         f"{locus_log_str} - got ref. copy number: {ref_cn} ({l_offset=}; {r_offset=}; iters={r_n_is})")
