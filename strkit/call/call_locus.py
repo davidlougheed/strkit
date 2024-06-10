@@ -1346,6 +1346,8 @@ def call_locus(
         read_weights = np.fromiter(map(weight_getter, rdvs), dtype=np.float_)
         read_weights = read_weights / np.sum(read_weights)  # Normalize to probabilities
 
+        logger_.debug(f"{locus_log_str} - assigning alleles using {assign_method} method with {len(rcns)} reads")
+
         call_data = call_alleles(
             read_cns, (),
             read_weights, (),
@@ -1361,6 +1363,8 @@ def call_locus(
         ) or {}  # Still false-y
 
     allele_time = (datetime.now() - allele_start_time).total_seconds()
+
+    logger_.debug(f"{locus_log_str} - finished assigning alleles using {assign_method} method: took {allele_time:.4f}s")
 
     # Extract data from call_data --------------------------------------------------------------------------------------
 
