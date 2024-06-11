@@ -502,7 +502,9 @@ def call_alleles_with_incorporated_snvs(
         read_useful_snv_bases: tuple[tuple[str, int], ...] = tuple(snv_bases[bi] for bi, _pos in useful_snvs)
         n_non_blank_hq_read_useful_snv_bases = sum(
             1 for _ in filter(
-                lambda s: s[0] != SNV_OUT_OF_RANGE_CHAR and (s[0] == SNV_GAP_CHAR or s[1] >= snv_quality_threshold),
+                # If we were calling SNVs from scratch, we used to include the gap character. However, it seems to cause
+                # more issues than not - let's stick to real SNVs...
+                lambda s: s[0] not in (SNV_OUT_OF_RANGE_CHAR, SNV_GAP_CHAR) and s[1] >= snv_quality_threshold,
                 read_useful_snv_bases
             )
         )
