@@ -518,7 +518,7 @@ def call_alleles_with_incorporated_snvs(
 
         if print_snvs:
             print(
-                rn, f"\t{read['cn']:.0f}", "\t", cat_strs(read_useful_snv_bases), n_non_blank_hq_read_useful_snv_bases)
+                rn, f"\t{read['cn']:.0f}", "\t", read_useful_snv_bases, n_non_blank_hq_read_useful_snv_bases)
 
     n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
     n_reads_with_at_least_one_snv: int = len(read_dict_items_with_at_least_one_snv)
