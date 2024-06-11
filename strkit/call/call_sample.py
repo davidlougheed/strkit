@@ -32,7 +32,7 @@ __all__ = [
 
 
 # TODO: Parameterize
-LOG_PROGRESS_INTERVAL: int = 10  # seconds
+LOG_PROGRESS_INTERVAL: int = 120  # seconds
 PROFILE_LOCUS_CALLS: bool = False
 
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
