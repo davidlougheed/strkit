@@ -64,7 +64,7 @@ def get_repeat_count(
     motif: str,
     max_iters: int,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
-) -> tuple[tuple[int, int], int]:
+) -> tuple[tuple[int, int], int, int]:
 
     db_seq_profile: parasail.Profile = parasail.profile_create_sat(
         f"{flank_left_seq}{tr_seq}{flank_right_seq}", dna_matrix)
@@ -127,7 +127,7 @@ def get_repeat_count(
                     # reduce search range as we approach an optimum
                     local_search_range = 1
 
-    return (best_size, best_score), n_explored
+    return (best_size, best_score), n_explored, best_size - start_count
 
 
 def get_ref_repeat_count(
@@ -214,7 +214,7 @@ def get_ref_repeat_count(
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    final_res, n_iters_final_count = get_repeat_count(
+    final_res, n_iters_final_count, _ = get_repeat_count(
         # always start with int here:
         round(((start_count * motif_size) + (max(0, l_offset) + max(0, r_offset))) / motif_size),
         tr_seq,

@@ -934,6 +934,8 @@ def call_locus(
 
     n_extremely_poor_scoring_reads = 0
 
+    last_read_offset_from_starting_guess: int = 0
+
     segment: STRkitAlignedSegment
     for segment, read_len in zip(overlapping_segments, read_lengths):
         rn: str = segment.name  # Know this is not None from overlapping_segments calculation
@@ -1082,14 +1084,20 @@ def call_locus(
             read_kmers.update(tr_read_seq_wc[i:i+motif_size] for i in range(0, tr_len - motif_size + 1))
 
         rc_timer = datetime.now()
-        (read_cn, read_cn_score), n_read_cn_iters = get_repeat_count(
-            start_count=round(tr_len / motif_size),  # Set initial integer copy number based on aligned TR size
+        # Set initial integer copy number guess based on aligned TR size, plus the previous read offset (how much the
+        # last guess was wrong by, as a delta.)
+        read_sc = round(tr_len / motif_size) + last_read_offset_from_starting_guess
+        (read_cn, read_cn_score), n_read_cn_iters, new_offset_from_starting_count = get_repeat_count(
+            start_count=read_sc,
             tr_seq=tr_read_seq_wc,
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
             max_iters=max_rc_iters,
         )
+        # Update using +=, since if we use an offset that was correct, the new returned offset will be 0, so we really
+        # want to keep the old offset, not set it to 0.
+        last_read_offset_from_starting_guess += new_offset_from_starting_count
         rc_time = (datetime.now() - rc_timer).total_seconds()
 
         if n_read_cn_iters >= max_rc_iters:
