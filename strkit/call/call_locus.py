@@ -52,7 +52,7 @@ CALL_WARN_TIME = 3  # seconds
 
 realign_timeout = 5
 
-ref_max_iters: int = 250
+default_ref_max_iters: int = 250
 ref_max_iters_to_be_slow: int = 100
 
 max_rc_iters = 50
@@ -846,9 +846,29 @@ def call_locus(
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     #  - Replace flanking/ref TR sequences with adjusted sequences
+
+    ref_est_cn = round(len(ref_seq) / motif_size)  # Initial estimate of copy number based on coordinates + motif size
+
+    ref_max_iters = default_ref_max_iters
+    ref_step_size = 1
+    ref_local_search_range = 3
+
+    # search less with large repeat counts, but in bigger steps, because each alignment takes a long time.
+    if ref_est_cn >= 200:
+        if ref_est_cn < 1000:
+            ref_step_size = 3
+            ref_max_iters = 200
+        elif 1000 <= ref_est_cn < 2000:
+            ref_step_size = 5
+            ref_max_iters = 150
+        elif ref_est_cn >= 2000:  # ref_cn >= 2000
+            ref_step_size = 15
+            ref_max_iters = 50
+            ref_local_search_range = 1
+
     ref_cn: Union[int, float]
     (ref_cn, _), l_offset, r_offset, r_n_is, (ref_left_flank_seq, ref_seq, ref_right_flank_seq) = get_ref_repeat_count(
-        round(len(ref_seq) / motif_size),  # Initial estimate of copy number based on coordinates + motif size
+        ref_est_cn,
         ref_seq,
         ref_left_flank_seq,
         ref_right_flank_seq,
@@ -856,6 +876,8 @@ def call_locus(
         ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
         max_iters=ref_max_iters,
         respect_coords=respect_ref,
+        local_search_range=ref_local_search_range,
+        step_size=ref_step_size,
     )
     call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
 

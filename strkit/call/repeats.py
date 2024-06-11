@@ -34,20 +34,23 @@ def score_candidate(
     return score_candidate_with_string(db_seq_profile, f"{flank_left_seq}{motif * motif_count}{flank_right_seq}")
 
 
-def score_ref_boundaries(db_seq: str, tr_candidate: str, flank_left_seq: str, flank_right_seq: str,
-                         **kwargs) -> tuple[tuple[int, int], tuple[int, int]]:
-    ref_size = kwargs.pop("ref_size")
-
+def score_ref_boundaries(
+    db_seq_profile: parasail.Profile,
+    db_seq_rev_profile: parasail.Profile,
+    tr_candidate: str,
+    flank_left_seq: str,
+    flank_right_seq: str,
+    ref_size: int,
+) -> tuple[tuple[int, int], tuple[int, int]]:
     # Always assign parasail results to variables due to funky memory allocation behaviour
     ext_r_seq = f"{flank_left_seq}{tr_candidate}"
-    r_fwd = parasail.sg_de_scan_sat(ext_r_seq, db_seq, indel_penalty, indel_penalty, dna_matrix)
-    r_adj = r_fwd.end_ref + 1 - len(flank_left_seq) - ref_size  # Amount to tweak boundary on the right side by
+    r_fwd = parasail.sg_qe_scan_profile_sat(db_seq_profile, ext_r_seq, indel_penalty, indel_penalty)
+    r_adj = r_fwd.end_query + 1 - len(flank_left_seq) - ref_size  # Amount to tweak boundary on the right side by
 
-    db_seq_rev = db_seq[::-1]
     ext_l_seq = f"{tr_candidate}{flank_right_seq[max(r_adj, 0):]}"[::-1]  # reverse
 
-    r_rev = parasail.sg_de_scan_sat(ext_l_seq, db_seq_rev, indel_penalty, indel_penalty, dna_matrix)
-    l_adj = r_rev.end_ref + 1 - len(flank_right_seq) - ref_size  # Amount to tweak boundary on the left side by
+    r_rev = parasail.sg_qe_scan_profile_sat(db_seq_rev_profile, ext_l_seq, indel_penalty, indel_penalty)
+    l_adj = r_rev.end_query + 1 - len(flank_right_seq) - ref_size  # Amount to tweak boundary on the left side by
 
     return (r_fwd.score, r_adj), (r_rev.score, l_adj)
 
@@ -62,6 +65,7 @@ def get_repeat_count(
     motif: str,
     max_iters: int,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
+    step_size: int = 1,
 ) -> tuple[tuple[int, int], int, int]:
 
     db_seq_profile: parasail.Profile = parasail.profile_create_sat(
@@ -75,14 +79,18 @@ def get_repeat_count(
     if score_diff < 0.05:  # TODO: parametrize
         # If we're very close to the maximum, explore less.
         local_search_range = 1
+        step_size = 1
     elif score_diff < 0.1:
         local_search_range = 2
+        step_size = 1
 
     explored_sizes: set[int] = {start_count}
     best_size: int = start_count
     best_score: int = start_score
     n_explored: int = 1
     to_explore: list[tuple[int, Literal[-1, 1]]] = [(start_count - 1, -1), (start_count + 1, 1)]
+
+    skip_search: bool = step_size > local_search_range  # whether we're skipping small areas for a faster search
 
     while to_explore and n_explored < max_iters:
         size_to_explore, direction = to_explore.pop()
@@ -92,8 +100,8 @@ def get_repeat_count(
         best_size_this_round: Optional[int] = None
         best_score_this_round: int = -99999999999
 
-        start_size = max(size_to_explore - (local_search_range if direction == -1 else 0), 0)
-        end_size = size_to_explore + (local_search_range if direction == 1 else 0)
+        start_size = max(size_to_explore - (local_search_range if (direction == -1 or skip_search) else 0), 0)
+        end_size = size_to_explore + (local_search_range if (direction == 1 or skip_search) else 0)
 
         for i in range(start_size, end_size + 1):
             if i not in explored_sizes:
@@ -109,13 +117,6 @@ def get_repeat_count(
                 n_explored += 1
 
         if best_size_this_round:
-            if best_size_this_round > size_to_explore and (new_rc := best_size_this_round + 1) not in explored_sizes:
-                if new_rc >= 0:
-                    to_explore.append((new_rc, 1))
-            elif best_size_this_round < size_to_explore and (new_rc := best_size_this_round - 1) not in explored_sizes:
-                if new_rc >= 0:
-                    to_explore.append((new_rc, -1))
-
             # If this round is the best we've got so far, update the record size/score for the final return
             if best_score_this_round > best_score:
                 best_size = best_size_this_round
@@ -124,6 +125,15 @@ def get_repeat_count(
                 if local_search_range > 1 and abs(best_score - max_init_score) / max_init_score < 0.05:
                     # reduce search range as we approach an optimum
                     local_search_range = 1
+
+            if (best_size_this_round > size_to_explore and
+                    (new_rc := best_size_this_round + step_size) not in explored_sizes):
+                if new_rc >= 0:
+                    to_explore.append((new_rc, 1))
+            elif (best_size_this_round < size_to_explore and
+                  (new_rc := best_size_this_round - step_size) not in explored_sizes):
+                if new_rc >= 0:
+                    to_explore.append((new_rc, -1))
 
     return (best_size, best_score), n_explored, best_size - start_count
 
@@ -138,23 +148,27 @@ def get_ref_repeat_count(
     max_iters: int,
     respect_coords: bool = False,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
+    step_size: int = 1,
 ) -> tuple[tuple[Union[int, float], int], int, int, tuple[int, int], tuple[str, str, str]]:
     l_offset: int = 0
     r_offset: int = 0
 
     db_seq: str = f"{flank_left_seq}{tr_seq}{flank_right_seq}"
+    db_seq_profile: parasail.Profile = parasail.profile_create_sat(db_seq, dna_matrix)
+    db_seq_rev_profile: parasail.Profile = parasail.profile_create_sat(db_seq[::-1], dna_matrix)
+
     motif_size = len(motif)
 
     n_offset_scores: int = 0
 
     if not respect_coords:  # Extend out coordinates from initial definition
         to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [
-            (start_count - 1, -1), (start_count + 1, 1), (start_count, 0)]
+            (start_count - step_size, -1), (start_count + step_size, 1), (start_count, 0)]
 
         fwd_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
         rev_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
 
-        while to_explore:
+        while to_explore and n_offset_scores < max_iters:
             size_to_explore, direction = to_explore.pop()
             if size_to_explore < 0:
                 continue
@@ -162,17 +176,18 @@ def get_ref_repeat_count(
             fwd_scores: list[tuple[Union[float, int], tuple[int, int], int]] = []  # For right-side adjustment
             rev_scores: list[tuple[Union[float, int], tuple[int, int], int]] = []  # For left-side adjustment
 
-            start_size = max(size_to_explore - (local_search_range if direction < 1 else 0), 0)
-            end_size = size_to_explore + (local_search_range if direction > -1 else 0)
+            start_size = max(
+                size_to_explore - (local_search_range if (direction < 1 or step_size > local_search_range) else 0), 0)
+            end_size = size_to_explore + (local_search_range if (direction > -1 or step_size > local_search_range)
+                                          else 0)
 
             for i in range(start_size, end_size + 1):
-                i_mm = motif * i
-
                 fwd_rs = fwd_sizes_scores_adj.get(i)
                 rev_rs = rev_sizes_scores_adj.get(i)
 
                 if fwd_rs is None or rev_rs is None:
-                    res = score_ref_boundaries(db_seq, i_mm, flank_left_seq, flank_right_seq, ref_size=ref_size)
+                    res = score_ref_boundaries(
+                        db_seq_profile, db_seq_rev_profile, motif * i, flank_left_seq, flank_right_seq, ref_size)
 
                     fwd_sizes_scores_adj[i] = fwd_rs = res[0]
                     rev_sizes_scores_adj[i] = rev_rs = res[1]
@@ -184,11 +199,11 @@ def get_ref_repeat_count(
 
             mv: tuple[Union[float, int], tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=idx_1_getter)
             if mv[2] > size_to_explore and (
-                    (new_rc := mv[2] + 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
+                    (new_rc := mv[2] + step_size) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
                 if new_rc >= 0:
                     to_explore.append((new_rc, 1))
             if mv[2] < size_to_explore and (
-                    (new_rc := mv[2] - 1) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
+                    (new_rc := mv[2] - step_size) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
                 if new_rc >= 0:
                     to_explore.append((new_rc, -1))
 
@@ -219,7 +234,9 @@ def get_ref_repeat_count(
         flank_left_seq,
         flank_right_seq,
         motif,
-        max_iters=max_iters)
+        max_iters=max_iters,
+        step_size=step_size,
+    )
 
     return (
         final_res, l_offset, r_offset, (n_offset_scores, n_iters_final_count), (flank_left_seq, tr_seq, flank_right_seq)
