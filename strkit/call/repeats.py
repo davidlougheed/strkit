@@ -140,7 +140,7 @@ def get_ref_repeat_count(
     max_iters: int,
     respect_coords: bool = False,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
-) -> tuple[tuple[Union[int, float], int], int, int, tuple[int, int]]:
+) -> tuple[tuple[Union[int, float], int], int, int, tuple[int, int], tuple[str, str, str]]:
     l_offset: int = 0
     r_offset: int = 0
 
@@ -223,4 +223,6 @@ def get_ref_repeat_count(
         motif,
         max_iters=max_iters)
 
-    return final_res, l_offset, r_offset, (n_offset_scores, n_iters_final_count)
+    return (
+        final_res, l_offset, r_offset, (n_offset_scores, n_iters_final_count), (flank_left_seq, tr_seq, flank_right_seq)
+    )

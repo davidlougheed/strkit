@@ -807,6 +807,10 @@ def call_locus(
     should_incorporate_snvs: bool = snv_vcf_file is not None and n_alleles == 2
     only_known_snvs: bool = True  # TODO: parametrize
 
+    # Get reference sequence and copy number ---------------------------------------------------------------------------
+
+    ref_timer = datetime.now()
+
     ref_seq_offset_l = left_coord - left_flank_coord
     ref_seq_offset_r = right_coord - left_flank_coord
 
@@ -837,8 +841,9 @@ def call_locus(
         return call_dict_base
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
+    #  - Replace flanking/ref TR sequences with adjusted sequences
     ref_cn: Union[int, float]
-    (ref_cn, _), l_offset, r_offset, r_n_is = get_ref_repeat_count(
+    (ref_cn, _), l_offset, r_offset, r_n_is, (ref_left_flank_seq, ref_seq, ref_right_flank_seq) = get_ref_repeat_count(
         round(len(ref_seq) / motif_size),  # Initial estimate of copy number based on coordinates + motif size
         ref_seq,
         ref_left_flank_seq,
@@ -869,6 +874,8 @@ def call_locus(
             "start_adj": left_coord_adj,
             "end_adj": right_coord_adj,
         })
+
+    ref_time = (datetime.now() - ref_timer).total_seconds()
 
     # Find the initial set of overlapping aligned segments with associated read lengths + whether we have in-locus
     # chimera reads (i.e., reads which aligned twice with different soft-clipping, likely due to a large indel.) -------
@@ -1472,8 +1479,8 @@ def call_locus(
     if call_time > CALL_WARN_TIME:
         logger_.warning(
             f"{locus_log_str} - locus total call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took "
-            f"{call_time}s ({motif_size=}, {motif=}, {call=}, {assign_method=} | {allele_time=:.4f}s, "
-            f"{assign_time=:.4f}s)")
+            f"{call_time}s ({motif_size=}, {motif=}, {call=}, {assign_method=} | {ref_time=:.4f}s, "
+            f"{allele_time=:.4f}s, {assign_time=:.4f}s)")
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
 
