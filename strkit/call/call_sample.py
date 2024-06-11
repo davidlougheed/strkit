@@ -391,33 +391,32 @@ def call_sample(
             #     - if determined necessary while traversing the phase set graph, flip all peak data (i.e., if phase
             #       sets are synonymous but for phasing to work we need to flip some of the loci.)
             if phase_set_synonymous:
-                for r in results:
-                    if "ps" in r and r["ps"] is not None:
-                        should_flip = False
+                for r in filter(lambda rr: rr.get("ps") is not None, results):
+                    should_flip = False
 
-                        while r["ps"] in phase_set_synonymous:
-                            r_ps, r_sf = phase_set_synonymous[r["ps"]]
-                            r["ps"] = r_ps
-                            should_flip = (not should_flip) if r_sf else should_flip
+                    while r["ps"] in phase_set_synonymous:
+                        r_ps, r_sf = phase_set_synonymous[r["ps"]]
+                        r["ps"] = r_ps
+                        should_flip = (not should_flip) if r_sf else should_flip
 
-                        if should_flip and r["call"]:
-                            # Need to flip EVERYTHING which is phased (calls, reads, SNVs, peaks):
-                            r["call"].reverse()
-                            r["call_95_cis"].reverse()
-                            if r["call_99_cis"]:
-                                r["call_99_cis"].reverse()
-                            if "reads" in r:
-                                for k in r["reads"]:
-                                    if "p" in r["reads"][k]:
-                                        r["reads"][k]["p"] = int(not bool(r["reads"][k]["p"]))
-                            if "snvs" in r:
-                                for s in r["snvs"]:
-                                    s["call"] = tuple(reversed(s["call"]))
-                                    s["rcs"].reverse()
-                            if "peaks" in r:
-                                for k in r["peaks"]:
-                                    if isinstance(r["peaks"][k], list):
-                                        r["peaks"][k].reverse()
+                    if should_flip and r["call"]:
+                        # Need to flip EVERYTHING which is phased (calls, reads, SNVs, peaks):
+                        r["call"].reverse()
+                        r["call_95_cis"].reverse()
+                        if r["call_99_cis"]:
+                            r["call_99_cis"].reverse()
+                        if "reads" in r:
+                            for k in r["reads"]:
+                                if "p" in r["reads"][k]:
+                                    r["reads"][k]["p"] = int(not bool(r["reads"][k]["p"]))
+                        if "snvs" in r:
+                            for s in r["snvs"]:
+                                s["call"] = tuple(reversed(s["call"]))
+                                s["rcs"].reverse()
+                        if r.get("peaks"):
+                            for k in r["peaks"]:
+                                if k in {"means", "weights", "stdevs", "n_reads", "kmers", "seqs"}:  # peak/list keys
+                                    r["peaks"][k].reverse()
 
             if should_keep_all_results_in_mem:
                 all_results.extend(results)
