@@ -572,10 +572,8 @@ def main(args: Optional[list[str]] = None) -> int:
     args = args or sys.argv[1:]
     p_args = parser.parse_args(args)
 
-    ll = log_levels[p_args.log_level]
-
-
     if hasattr(p_args, "log_level"):
+        ll = log_levels[p_args.log_level]
         logger = get_main_logger(ll)
         attach_stream_handler(ll, logger)
     else:
