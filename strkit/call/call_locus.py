@@ -1399,6 +1399,14 @@ def call_locus(
                 if (rp := rd.get("p")) is not None:
                     # Already has a peak from using SNV data; add it to the right allele_reads list.
                     allele_reads[rp].append(r)
+
+                    if count_kmers in ("peak", "both"):
+                        peak_kmers[rp] += Counter(rd["kmers"])
+
+                        # If we aren't reporting read-level k-mers, we have to delete them (space-saving!)
+                        if count_kmers == "peak":
+                            del rd["kmers"]
+
                 # Skip the rest; no peak assigned.
                 continue
 
