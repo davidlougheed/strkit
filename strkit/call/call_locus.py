@@ -463,7 +463,7 @@ def call_alleles_with_incorporated_snvs(
     read_dict_extra: dict[str, dict],
     n_reads_in_dict: int,  # We could derive this again, but we already have before...
     useful_snvs: list[tuple[int, int]],
-    candidate_snvs_dict: CandidateSNVs,
+    candidate_snvs: CandidateSNVs,
     # ---
     snv_quality_threshold: int,
     # ---
@@ -656,7 +656,7 @@ def call_alleles_with_incorporated_snvs(
         n_alleles,
         read_dict,
         useful_snvs,
-        candidate_snvs_dict,
+        candidate_snvs,
         # ---
         snv_quality_threshold,
         # ---
@@ -909,10 +909,10 @@ def call_locus(
 
     # Find candidate SNVs, if we're using SNV data
 
-    candidate_snvs_dict: Optional[CandidateSNVs] = None  # Lookup dictionary for candidate SNVs by position
+    candidate_snvs: Optional[CandidateSNVs] = None  # Lookup dictionary for candidate SNVs by position
     if n_overlapping_reads and should_incorporate_snvs and snv_vcf_file:
         # ^^ n_overlapping_reads check since otherwise we will have invalid left/right_most_coord
-        candidate_snvs_dict = snv_vcf_file.get_candidate_snvs(
+        candidate_snvs = snv_vcf_file.get_candidate_snvs(
             snv_vcf_contigs, snv_vcf_file_format, contig, left_most_coord, right_most_coord
         )
 
@@ -1309,7 +1309,7 @@ def call_locus(
                 read_dict_extra,
                 read_q_coords,
                 read_r_coords,
-                candidate_snvs_dict,
+                candidate_snvs,
                 params.min_allele_reads,
                 significant_clip_snv_take_in,
                 only_known_snvs,
@@ -1329,7 +1329,7 @@ def call_locus(
                     read_dict_extra=read_dict_extra,
                     n_reads_in_dict=n_reads_in_dict,
                     useful_snvs=useful_snvs,
-                    candidate_snvs_dict=candidate_snvs_dict,
+                    candidate_snvs=candidate_snvs,
                     # ---
                     snv_quality_threshold=snv_min_base_qual,
                     # ---

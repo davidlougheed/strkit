@@ -27,7 +27,7 @@ def call_and_filter_useful_snvs(
     n_alleles: int,
     read_dict: dict[str, ReadDict],
     useful_snvs: list[tuple[int, int]],
-    candidate_snvs_dict: CandidateSNVs,
+    candidate_snvs: CandidateSNVs,
     # ---
     snv_quality_threshold: int,
     # ---
@@ -42,7 +42,7 @@ def call_and_filter_useful_snvs(
     :param n_alleles: The number of alleles called for this locus.
     :param read_dict: Dictionary of read data. Must already have peaks assigned.
     :param useful_snvs: List of tuples representing useful SNVs: (SNV index, reference position)
-    :param candidate_snvs_dict: A dictionary of useful SNVs, indexed by reference position. Used to look up IDs.
+    :param candidate_snvs: A dictionary of useful SNVs, indexed by reference position. Used to look up IDs.
     :param snv_quality_threshold: Minimum PHRED score needed to incorporate a read base into the genotype.
     :param snv_genotype_cache: Cache for SNV genotype/phase set information.
     :param locus_log_str: Locus string representation for logging purposes.
@@ -134,7 +134,7 @@ def call_and_filter_useful_snvs(
             logger_.warning(f"{locus_log_str} - for SNV position {u_ref}: got degenerate call {call} from {peak_counts=}")
             skipped = True
 
-        snv_rec = candidate_snvs_dict.get(u_ref)
+        snv_rec = candidate_snvs.get(u_ref)
         if snv_rec is not None:
             snv_id = snv_rec["id"]
             if snv_id == ".":
