@@ -32,7 +32,7 @@ __all__ = [
 
 
 # TODO: Parameterize
-LOG_PROGRESS_INTERVAL: int = 120  # seconds
+LOG_PROGRESS_INTERVAL: int = 10  # seconds
 PROFILE_LOCUS_CALLS: bool = False
 
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
@@ -233,7 +233,7 @@ def progress_worker(
             else:
                 last_qsize_n_stuck = 0
 
-            if last_qsize_n_stuck >= 20:
+            if last_qsize_n_stuck >= 30:
                 # zombie worker or stuck, exit
                 lg.error(f"Terminating progress worker; seems to be stuck with {qsize=}")
                 return
