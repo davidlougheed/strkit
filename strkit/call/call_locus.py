@@ -1101,6 +1101,10 @@ def call_locus(
         read_offset_frac_from_starting_guess += new_offset_from_starting_count / max(read_cn, 1)
         rc_time = (datetime.now() - rc_timer).total_seconds()
 
+        logger_.debug(
+            f"{locus_log_str} - {rn} | start: {read_sc}, offset frac.: {read_offset_frac_from_starting_guess:.4f} | "
+            f"rc time: {rc_time}, copy number: {read_cn}, score: {read_cn_score}")
+
         if n_read_cn_iters >= max_rc_iters:
             logger_.debug(f"{locus_log_str} - locus repeat counting exceeded maximum # iterations ({n_read_cn_iters})")
 
