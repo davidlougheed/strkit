@@ -11,9 +11,9 @@ __all__ = [
 fmt = logging.Formatter(fmt="%(name)s:\t[%(levelname)s]\t%(message)s")
 
 
-def get_main_logger():
+def get_main_logger(level: int = logging.DEBUG):
     logger = logging.getLogger("strkit-main")
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
     return logger
 
 
@@ -26,7 +26,7 @@ def attach_stream_handler(level: int, logger_=None):
 
 def create_process_logger(pid: int, level: int):
     lg = logging.getLogger(f"strkit-{pid}")
-    lg.setLevel(logging.DEBUG)
+    lg.setLevel(level)
     if not lg.handlers:
         attach_stream_handler(level, logger_=lg)
     return lg
