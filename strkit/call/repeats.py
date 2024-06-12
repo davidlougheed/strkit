@@ -80,7 +80,7 @@ def get_repeat_count(
         # If we're very close to the maximum, explore less.
         local_search_range = 1
         step_size = 1
-    elif score_diff < 0.1:
+    elif score_diff < 0.1 and local_search_range > 2:
         local_search_range = 2
         step_size = 1
 
@@ -90,12 +90,12 @@ def get_repeat_count(
     n_explored: int = 1
     to_explore: list[tuple[int, Literal[-1, 1]]] = [(start_count - 1, -1), (start_count + 1, 1)]
 
-    skip_search: bool = step_size > local_search_range  # whether we're skipping small areas for a faster search
-
     while to_explore and n_explored < max_iters:
         size_to_explore, direction = to_explore.pop()
         if size_to_explore < 0:
             continue
+
+        skip_search: bool = step_size > local_search_range  # whether we're skipping small areas for a faster search
 
         best_size_this_round: Optional[int] = None
         best_score_this_round: int = -99999999999
