@@ -1302,12 +1302,10 @@ def call_locus(
         top_ps = phase_sets.most_common(1)
         if (haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == n_alleles and top_ps and
                 top_ps[0][1] >= min_hp_read_coverage):
-            hp_sorted = sorted(haplotags)
-            ps_id = top_ps[0][0]
             call_res = call_alleles_with_haplotags(
                 params,
-                haplotags=hp_sorted,
-                ps_id=ps_id,
+                haplotags=sorted(haplotags),
+                ps_id=top_ps[0][0],
                 read_dict_items=read_dict_items,
                 rng=rng,
                 logger_=logger_,
@@ -1319,7 +1317,7 @@ def call_locus(
         else:
             logger_.debug(
                 f"{locus_log_str} - not enough HP/PS tags for incorporation; one of {haplotagged_reads_count} < "
-                f"{min_hp_read_coverage}, top PS {phase_sets.most_common(1)[0][1]} < {min_hp_read_coverage}, or "
+                f"{min_hp_read_coverage}, top PS {top_ps and top_ps[0][1]} < {min_hp_read_coverage}, or "
                 f"{len(haplotags)} != {n_alleles}")
 
     if should_incorporate_snvs and assign_method != "hp":
