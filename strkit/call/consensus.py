@@ -1,12 +1,16 @@
 import logging
 from random import choice
 from strkit_rust_ext import best_representatives as _best_representatives, consensus_seq as _consensus_seq
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Literal, Optional, Sequence
 
 __all__ = [
+    "ConsensusMethod",
     "best_representative",
     "consensus_seq",
 ]
+
+
+ConsensusMethod = Literal["single", "poa", "best_rep"]
 
 
 def best_representative(seqs: Sequence[str]) -> Optional[str]:
@@ -27,19 +31,37 @@ def best_representative(seqs: Sequence[str]) -> Optional[str]:
         return choice(tuple(res))
 
 
-def consensus_seq(seqs: Iterable[str], logger: logging.Logger) -> Optional[str]:
+def _run_best_representative(seqs: list[str], logger: logging.Logger) -> Optional[tuple[str, ConsensusMethod]]:
+    res = best_representative(seqs)
+    method: ConsensusMethod = "best_rep"
+    if res is None:
+        logger.debug(f"Got no best representative from sequences {seqs}")
+        return None
+    return res, method
+
+
+def consensus_seq(
+    seqs: Iterable[str], logger: logging.Logger, max_poa_length: int
+) -> Optional[tuple[str, ConsensusMethod]]:
     # Return a stringified, gapless version of the column-wise mode for the MSA
     # If the consensus fails, try a best-representative strategy instead. If that fails, something's gone wrong...
 
     seqs_l = list(seqs)
-    if len(set(seqs_l)) == 1:
-        return seqs_l[0]
+
+    if len(seqs_l) == 0:
+        return None
+    elif len(set(seqs_l)) == 1:
+        return seqs_l[0], "single"
 
     seqs_l.sort()
+    if any(s > max_poa_length for s in map(len, seqs_l)):
+        return _run_best_representative(seqs_l, logger)
+
     res: Optional[str] = _consensus_seq(seqs_l)
+    method: ConsensusMethod = "poa"
+
     if res is None:
         logger.error(f"Got no consensus sequence from sequences {seqs_l}; trying best representative strategy")
-        res = best_representative(seqs_l)
-        if res is None:
-            logger.debug(f"Got no best representative from sequences {seqs_l}")
-    return res
+        return _run_best_representative(seqs_l, logger)
+
+    return res, method

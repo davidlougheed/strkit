@@ -28,7 +28,7 @@ from strkit.utils import cat_strs, apply_or_none
 
 from .align_matrix import match_score
 from .cigar import decode_cigar_np
-from .consensus import consensus_seq
+from .consensus import ConsensusMethod, consensus_seq
 from .params import CallParams
 from .realign import realign_read
 from .repeats import get_repeat_count, get_ref_repeat_count
@@ -72,6 +72,8 @@ many_realigns_threshold = 2
 
 significant_clip_threshold = 100
 significant_clip_snv_take_in = 250
+
+max_poa_length = 5000  # maximum number of bases before we can't use POA for consensus anymore due to performance
 
 
 # property getters & other partials
@@ -1431,7 +1433,7 @@ def call_locus(
     # don't know how re-sampling has occurred.
     call_peak_n_reads: list[int] = []
     peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
-    call_seqs: list[str] = []
+    call_seqs: list[tuple[str, ConsensusMethod]] = []
     if read_peaks_called := call_modal_n and call_modal_n <= 2:
         peaks: NDArray[np.float_] = call_peaks[:call_modal_n]
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
@@ -1495,8 +1497,15 @@ def call_locus(
             call_99_cis = None
 
         if call_data and consensus:
-            call_seqs = list(
-                map(lambda a: consensus_seq(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a), logger_), allele_reads)
+            call_seqs.extend(
+                map(
+                    lambda a: consensus_seq(
+                        map(lambda rr: read_dict_extra[rr]["_tr_seq"], a),
+                        logger_,
+                        max_poa_length=max_poa_length,
+                    ),
+                    allele_reads,
+                )
             )
 
     peak_data = {
