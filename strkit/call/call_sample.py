@@ -24,7 +24,7 @@ from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
 from .params import CallParams
 from .output import output_json_report, output_tsv as output_tsv_fn, build_vcf_header, output_contig_vcf_lines
-from .types import VCFContigFormat
+from .types import VCFContigFormat, LocusResult
 from .utils import get_new_seed
 
 __all__ = [
@@ -69,7 +69,7 @@ def locus_worker(
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     is_single_processed: bool,
-) -> list[dict]:
+) -> list[LocusResult]:
     if PROFILE_LOCUS_CALLS:
         import cProfile
         pr = cProfile.Profile()
@@ -106,7 +106,7 @@ def locus_worker(
     snv_vcf_reader = STRkitVCFReader(str(params.snv_vcf)) if params.snv_vcf else None
 
     current_contig: Optional[str] = None
-    results: list[dict] = []
+    results: list[LocusResult] = []
 
     while True:
         try:
@@ -385,13 +385,14 @@ def call_sample(
             # Write results
             #  - gather the process-specific results for combining
             #  - merge sorted result lists into single sorted list for the current contig
-            results: tuple[dict, ...] = tuple(heapq.merge(*(j.get() for j in jobs), key=get_locus_index))
+            results: tuple[LocusResult, ...] = tuple(heapq.merge(*(j.get() for j in jobs), key=get_locus_index))
             del jobs
 
             #  - fix-up phase sets based on phase_set_synonymous
             #     - if determined necessary while traversing the phase set graph, flip all peak data (i.e., if phase
             #       sets are synonymous but for phasing to work we need to flip some of the loci.)
             if phase_set_synonymous:
+                r: LocusResult
                 for r in filter(lambda rr: rr.get("ps") is not None, results):
                     should_flip = False
 

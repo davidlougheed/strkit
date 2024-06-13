@@ -1,6 +1,6 @@
 # import pysam
 import numpy as np
-from typing import Literal, TypedDict, Union
+from typing import Literal, Optional, TypedDict, Union
 from numpy.typing import NDArray
 
 
@@ -8,9 +8,12 @@ __all__ = [
     "VCFContigFormat",
     "AssignMethod",
     "AssignMethodWithHP",
+    "ConsensusMethod",
+    # ---
     "ReadDict",
     "ReadDictExtra",
     "CalledSNV",
+    "LocusResult",
 ]
 
 # TODO: py3.10: new Required[] TypedDict structuring
@@ -20,6 +23,8 @@ VCFContigFormat = Literal["chr", "num", "acc", ""]
 
 AssignMethod = Literal["dist", "snv", "snv+dist", "single"]
 AssignMethodWithHP = Union[AssignMethod, Literal["hp"]]
+
+ConsensusMethod = Literal["single", "poa", "best_rep"]
 
 
 class _ReadDictBase(TypedDict):
@@ -77,3 +82,50 @@ class _CalledSNVBase(TypedDict):
 
 class CalledSNV(_CalledSNVBase, total=False):
     ref: str
+
+
+class BasePeakData(TypedDict):
+    means: list[float]
+    weights: list[float]
+    stdevs: list[float]
+    modal_int: int
+    n_reads: list[int]
+
+
+class PeakData(BasePeakData):
+    kmers: dict[str, int]
+    seqs: list[tuple[str, ConsensusMethod]]  # really "list-tyup
+
+
+class BaseLocusResult(TypedDict):
+    locus_index: int
+    contig: str
+    start: int
+    end: int
+
+    motif: str
+
+    assign_method: Optional[AssignMethodWithHP]
+    call: Optional[list[int]]
+    call_95_cis: Optional[list[list[int]]]
+    call_99_cis: Optional[list[list[int]]]
+
+
+class LocusResult(BaseLocusResult, total=False):
+    start_adj: int
+    end_adj: int
+
+    ref_cn: int
+
+    ps: int | None
+    peaks: Optional[PeakData]
+    read_peaks_called: bool
+    time: float
+
+    # if we're in consensus mode: ---
+    ref_start_anchor: str
+    ref_seq: str
+    # ---
+
+    reads: dict[str, ReadDict]
+    snvs: list[CalledSNV]

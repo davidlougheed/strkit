@@ -25,7 +25,7 @@ from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
 from .cigar import decode_cigar_np
-from .consensus import ConsensusMethod, consensus_seq
+from .consensus import consensus_seq
 from .params import CallParams
 from .realign import perform_realign
 from .repeats import get_repeat_count, get_ref_repeat_count
@@ -35,7 +35,9 @@ from .snvs import (
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
-from .types import VCFContigFormat, AssignMethod, AssignMethodWithHP, ReadDict, ReadDictExtra, CalledSNV
+from .types import (
+    VCFContigFormat, AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
+)
 from .utils import idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed, calculate_seq_with_wildcards
 
 
@@ -500,7 +502,7 @@ def call_alleles_with_incorporated_snvs(
     rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
-) -> tuple[AssignMethod, Optional[tuple[dict, list[dict]]]]:
+) -> tuple[AssignMethod, Optional[tuple[dict, list[CalledSNV]]]]:
     assign_method: AssignMethod = "dist"
 
     # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
@@ -781,14 +783,13 @@ def call_locus(
     # ---
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
-) -> Optional[dict]:
+) -> Optional[LocusResult]:
     call_timer = datetime.now()
 
     # params de-structuring ------------
     consensus = params.consensus
     count_kmers = params.count_kmers
     flank_size = params.flank_size
-    log_level = params.log_level
     realign = params.realign
     respect_ref = params.respect_ref
     snv_min_base_qual = params.snv_min_base_qual
@@ -810,7 +811,7 @@ def call_locus(
     ref_seq: str = ""
     raised: bool = False
 
-    call_dict_base = {
+    locus_result: LocusResult = {
         "locus_index": t_idx,
         "contig": contig,
         "start": left_coord,
@@ -852,15 +853,15 @@ def call_locus(
         raised = True
 
     if raised:
-        return None  # don't even return call_dict_base, this locus has an invalid position
+        return None  # don't even return locus_result, this locus has an invalid position
 
     if len(ref_left_flank_seq) < params.flank_size or len(ref_right_flank_seq) < params.flank_size:
         logger_.warning(f"{locus_log_str} - skipping locus, reference flank size too small")
-        return call_dict_base
+        return locus_result
 
     if ref_left_flank_seq.endswith("N" * motif_size) or ref_right_flank_seq.startswith("N" * motif_size):
         logger_.warning(f"{locus_log_str} - skipping locus, reference has flanking N[...] sequence")
-        return call_dict_base
+        return locus_result
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
     #  - Replace flanking/ref TR sequences with adjusted sequences
@@ -897,7 +898,7 @@ def call_locus(
         local_search_range=ref_local_search_range,
         step_size=ref_step_size,
     )
-    call_dict_base["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
+    locus_result["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
 
     slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
 
@@ -913,11 +914,9 @@ def call_locus(
     left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
     right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
 
-    if not respect_ref:  # tag call_dict_base with adjusted start/end
-        call_dict_base.update({
-            "start_adj": left_coord_adj,
-            "end_adj": right_coord_adj,
-        })
+    if not respect_ref:  # tag locus_result with adjusted start/end
+        locus_result["start_adj"] = left_coord_adj
+        locus_result["end_adj"] = right_coord_adj
 
     ref_time = (datetime.now() - ref_timer).total_seconds()
 
@@ -947,7 +946,7 @@ def call_locus(
 
     if n_overlapping_reads > params.max_reads:
         logger_.warning(f"{locus_log_str} - skipping locus; too many overlapping reads")
-        return call_dict_base
+        return locus_result
 
     sorted_read_lengths = np.sort(read_lengths)
 
@@ -1148,7 +1147,7 @@ def call_locus(
             logger_.debug(f"{locus_log_str} - ref right flank:  {ref_right_flank_seq}")
             logger_.debug(f"{locus_log_str} - read right flank: {flank_right_seq}")
             return {
-                **call_dict_base,
+                **locus_result,
                 "peaks": None,
                 "read_peaks_called": False,
                 "time": (datetime.now() - call_timer).total_seconds(),
@@ -1167,7 +1166,7 @@ def call_locus(
                         f"{locus_log_str} - not calling locus due to >3 extremely poor-aligning reads (TR seq: "
                         f"{tr_read_seq_wc[:20]}...)")
                     return {
-                        **call_dict_base,
+                        **locus_result,
                         "peaks": None,
                         "read_peaks_called": False,
                         "time": (datetime.now() - call_timer).total_seconds(),
@@ -1224,7 +1223,7 @@ def call_locus(
 
                 phase_set_lock.release()
 
-                read_dict[rn]["hp"] = hp
+                read_dict[rn]["hp"] = hp  # not none inside this if-statement
                 read_dict[rn]["ps"] = ps_remapped
                 haplotags.add(hp)
                 haplotagged_reads_count += 1
@@ -1255,7 +1254,7 @@ def call_locus(
 
     n_reads_in_dict: int = len(read_dict)
 
-    call_dict_base.update({
+    locus_result.update({
         # TODO: alt anchors:
         **({"ref_start_anchor": ref_left_flank_seq[-1], "ref_seq": ref_seq} if consensus else {}),
         "reads": read_dict,
@@ -1265,7 +1264,7 @@ def call_locus(
     if n_reads_in_dict < params.min_reads:
         logger_.debug(f"{locus_log_str} - not enough reads to make a call ({n_reads_in_dict} < {params.min_reads})")
         return {
-            **call_dict_base,
+            **locus_result,
             "peaks": None,
             "read_peaks_called": False,
             "time": (datetime.now() - call_timer).total_seconds(),
@@ -1374,7 +1373,7 @@ def call_locus(
                 assign_method = am
                 if call_res is not None:
                     call_data = call_res[0]  # Call data dictionary
-                    call_dict_base["snvs"] = call_res[1]  # Called useful SNVs
+                    locus_result["snvs"] = call_res[1]  # Called useful SNVs
 
     single_or_dist_assign: bool = assign_method in ("single", "dist")
 
@@ -1513,16 +1512,13 @@ def call_locus(
         f"{locus_log_str} - got call: {call_val} (95% CIs: {call_95_cis_val}); peak assign method={assign_method}; "
         f"# reads={call_peak_n_reads}")
 
-    return {
-        **call_dict_base,
-        "assign_method": assign_method,
-        "call": call_val,
-        "call_95_cis": call_95_cis_val,
-        "call_99_cis": apply_or_none(_nested_ndarray_serialize, call_99_cis),
-        "peaks": peak_data,
-        "ps": call_ps,
-        # make typecheck happy above by checking all of these are not None (even though if call is false-y, all of them
-        # should be None and otherwise none of them should).
-        "read_peaks_called": read_peaks_called,
-        "time": call_time,
-    }
+    locus_result["assign_method"] = assign_method
+    locus_result["call"] = call_val
+    locus_result["call_95_cis"] = call_95_cis_val
+    locus_result["call_99_cis"] = apply_or_none(_nested_ndarray_serialize, call_99_cis)
+    locus_result["peaks"] = peak_data
+    locus_result["ps"] = call_ps
+    locus_result["read_peaks_called"] = read_peaks_called
+    locus_result["time"] = call_time
+
+    return locus_result

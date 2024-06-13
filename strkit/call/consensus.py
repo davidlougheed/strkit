@@ -1,16 +1,14 @@
 import logging
 from random import choice
 from strkit_rust_ext import best_representatives as _best_representatives, consensus_seq as _consensus_seq
-from typing import Iterable, Literal, Optional, Sequence
+from typing import Iterable, Optional, Sequence
+
+from .types import ConsensusMethod
 
 __all__ = [
-    "ConsensusMethod",
     "best_representative",
     "consensus_seq",
 ]
-
-
-ConsensusMethod = Literal["single", "poa", "best_rep"]
 
 
 def best_representative(seqs: Sequence[str]) -> Optional[str]:
