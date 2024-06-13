@@ -5,13 +5,21 @@ from numpy.typing import NDArray
 
 
 __all__ = [
+    "VCFContigFormat",
+    "AssignMethod",
+    "AssignMethodWithHP",
     "ReadDict",
     "ReadDictExtra",
-    "CandidateSNV",
     "CalledSNV",
 ]
 
 # TODO: py3.10: new Required[] TypedDict structuring
+
+
+VCFContigFormat = Literal["chr", "num", "acc", ""]
+
+AssignMethod = Literal["dist", "snv", "snv+dist", "single"]
+AssignMethodWithHP = AssignMethod | Literal["hp"]
 
 
 class _ReadDictBase(TypedDict):
@@ -58,12 +66,6 @@ class ReadDictExtra(TypedDict, total=False):
     snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
     # Intermediate result: tuple of bases/qualities for the set of SNVs across all reads
     snv_bases: tuple[tuple[str, int], ...]
-
-
-class CandidateSNV(TypedDict):
-    id: str
-    ref: str
-    alts: tuple[str, ...]
 
 
 class _CalledSNVBase(TypedDict):

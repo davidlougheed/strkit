@@ -38,7 +38,7 @@ from .snvs import (
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
-from .types import ReadDict, ReadDictExtra, CalledSNV
+from .types import VCFContigFormat, AssignMethod, AssignMethodWithHP, ReadDict, ReadDictExtra, CalledSNV
 from .utils import idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed
 
 
@@ -514,8 +514,8 @@ def call_alleles_with_incorporated_snvs(
     rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
-) -> tuple[Literal["dist", "snv", "snv+dist", "single"], Optional[tuple[dict, list[dict]]]]:
-    assign_method: Literal["dist", "snv", "snv+dist", "single"] = "dist"
+) -> tuple[AssignMethod, Optional[tuple[dict, list[dict]]]]:
+    assign_method: AssignMethod = "dist"
 
     # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
 
@@ -791,7 +791,7 @@ def call_locus(
     # ---
     snv_vcf_file: Optional[STRkitVCFReader] = None,
     snv_vcf_contigs: tuple[str, ...] = (),
-    snv_vcf_file_format: Literal["chr", "num", "acc", ""] = "",
+    snv_vcf_file_format: VCFContigFormat = "",
     # ---
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
@@ -1310,7 +1310,7 @@ def call_locus(
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, ReadDict], ...] = tuple(read_dict.items())
 
-    assign_method: Literal["dist", "snv", "snv+dist", "single", "hp"] = "dist"
+    assign_method: AssignMethodWithHP = "dist"
     if n_alleles < 2:
         assign_method = "single"
 

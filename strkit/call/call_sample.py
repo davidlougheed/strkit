@@ -24,6 +24,7 @@ from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
 from .params import CallParams
 from .output import output_json_report, output_tsv as output_tsv_fn, build_vcf_header, output_contig_vcf_lines
+from .types import VCFContigFormat
 from .utils import get_new_seed
 
 __all__ = [
@@ -44,7 +45,7 @@ PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE = 1000
 get_locus_index = itemgetter("locus_index")
 
 
-def get_vcf_contig_format(snv_vcf_contigs: list[str]) -> Literal["chr", "num", "acc", ""]:
+def get_vcf_contig_format(snv_vcf_contigs: list[str]) -> VCFContigFormat:
     if not snv_vcf_contigs or snv_vcf_contigs[0].startswith("chr"):
         return "chr"
     elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
