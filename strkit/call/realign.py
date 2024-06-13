@@ -52,7 +52,7 @@ def realign_read(
     lg = create_process_logger(os.getpid(), log_level)
 
     # flipped: 'ref sequence' as query here, since it should in general be shorter (!)
-    pr = parasail.sg_dx_trace_scan_sat(
+    pr = parasail.sg_dx_trace_scan_16(
         # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
         ref_seq, query_seq, realign_indel_open_penalty, 0, dna_matrix)
 
@@ -65,7 +65,7 @@ def realign_read(
         f"Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
 
     matches = get_aligned_pair_matches(list(decode_cigar(pr.cigar.seq)), left_flank_coord, 0)
-    res: MatchedCoordPairList = (np.array(matches[1], dtype=np.uint64), np.array(matches[0], dtype=np.uint64))
+    res: MatchedCoordPairList = (matches[1], matches[0])
     return ret_q(res)
 
 
