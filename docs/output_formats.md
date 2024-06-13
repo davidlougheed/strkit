@@ -44,19 +44,17 @@ SNV calls, and STR consensus sequences.
 
 ## JSON report
 
-TODO
+Example report format:
 
 ```javascript
 {
   "sample_id": "HG002",
   "caller": {
     "name": "strkit",
-    "version": "0.12.0"
+    "version": "0.15.0"
   },
   "parameters": {
-    "read_files": [
-      "HG002.SequelII.ccs.phased.40x.chr4.bam"
-    ],
+    "read_files": "HG002.SequelII.ccs.phased.40x.chr4.bam",
     "reference_file": "/Users/davidlougheed/git/gt-poc/hg38.analysisSet.fa.gz",
     "min_reads": 4,
     "min_allele_reads": 2,
@@ -67,8 +65,8 @@ TODO
     "realign": true,
     "hq": true,
     "snv_vcf": "00-common_all.vcf.gz",
+    "snv_min_base_qual": 20,
     "targeted": false,
-    "fractional": false,
     "respect_ref": false,
     "count_kmers": "none",
     "consensus": true,
@@ -135,8 +133,8 @@ TODO
         "modal_n": 2,
         "n_reads": [20, 23],
         "seqs": [
-          "ACACACACACACACACACACACACACACA",
-          "ACACACACACACACACACACACACACACA"
+          ["ACACACACACACACACACACACACACACA", "poa"],
+          ["ACACACACACACACACACACACACACACA", "poa"]
         ]
       },
       "read_peaks_called": true,
@@ -150,4 +148,16 @@ TODO
 
 ## VCF
 
-TODO
+VCF format fields (i.e., for each variant sample entry):
+
+* `AD`: Read depth for each allele
+* `DP`: Total read depth
+* `GT`: Genotype
+* `MC`: Motif copy number for each allele
+* `PS`: Phase set
+* `PM`: Peak-calling method (`dist`/`single`/`snv+dist`/`snv`/`hp`)
+
+VCF info. fields (i.e., for each variant record):
+
+* `MOTIF`: Motif sequence
+* `REFMC`: Motif copy number in the reference genome
