@@ -64,10 +64,10 @@ You may need to install the [Rust toolchain](https://www.rust-lang.org/tools/ins
 to compile the `strkit_rust_ext` wheels, although prebuilt wheels for this module are available
 for some platforms.
 
-On Digital Research Alliance of Canada/Compute Canada clusters, this involves loading a module:
+On Digital Research Alliance of Canada/Compute Canada clusters, this involves loading a few modules:
 
 ```bash
-module load rust/1.76.0
+module load rust/1.76.0 clang/17.0.6 python/3.11 scipy-stack/2023b parasail/2.6.2
 python -m pip install strkit
 ```
 
