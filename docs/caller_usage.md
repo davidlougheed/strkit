@@ -16,11 +16,12 @@
   **Default:** 70
 * `--realign` or `-a`: Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners
   may soft-clip around large insertions, e.g. with an expansion (I've noticed this with *pbmm2*/*minimap2*). 
-  Currently recommended **for HiFi only**, since this step aggressively filters out realignments with many mismatches 
-  or small indels. Enabling this slows down calling, so it may not be suitable for a very large catalog of STRs.
+  Currently recommended **for HiFi or ONT duplex only**, since this step aggressively filters out realignments with many 
+  mismatches or small indels. Enabling this slows down calling, so it may not be suitable for a very large catalog of 
+  tandem repeats.
 * `--hq`: Whether to treat provided reads as "high quality", i.e., fairly close to the actual true sequence. Used when 
   detecting expansions, to skip a smoothing filter that may ignore disparate, rare expansion-like read counts.
-  Use for CCS reads or similar data (e.g., accurate nanopore sequences) ONLY! **Default:** off
+  Use for CCS reads or similar data (e.g., duplex nanopore data) ONLY! **Default:** off
 * `--use-hp`: Whether to incorporate `HP` tags from a haplotagged alignment file. This should speed up runtime and 
   will potentially improve calling results. **This flag is experimental, and has not been tested extensively.**
 * `--incorporate-snvs [path]` or `--snv [path]`: A path to a VCF with SNVs to incorporate into the calling process and 

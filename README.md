@@ -114,8 +114,8 @@ long read data should still work.
   * Whole-genome and targeted genotyping modes to adjust this re-weighting.
 * Incorporation of single-nucleotide variation (SNVs) for better and faster calling plus 
   additional downstream analysis possibilities.
-  * Recommended for **HiFi data only**. In my testing, this worsens runtime and call quality for 
-    ONT-UL data, but speeds up the tool and improves call quality for HiFi data. 
+  * Recommended for **HiFi data and ONT duplex data only**. In my testing, this worsens runtime and call quality for 
+    ONT ultra-long-read data, but speeds up the tool and improves call quality for HiFi/ONT duplex data. 
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
@@ -125,7 +125,7 @@ long read data should still work.
 ```bash
 strkit call \
   path/to/read/file.bam \  # [REQUIRED] One indexed read file (BAM/CRAM)
-  --hq \  # If using PacBio HiFi reads, enable this to get better genotyping & more robust expansion detection
+  --hq \  # If using PacBio HiFi or ONT duplex reads, enable this to get better genotyping & more robust expansion detection
   --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
