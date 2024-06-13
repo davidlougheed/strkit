@@ -338,11 +338,10 @@ def add_cv_parser_args(al_parser):
 def add_vs_parser_args(vs_parser):
     vs_parser.add_argument("align_file", type=str, help="Alignment file to visualize.")
     vs_parser.add_argument(
-        "--align-indices",
+        "--align-index",
         nargs="*",
         type=str,
-        help="Index/indices for alignment file to visualize. If specified, the number of arguments must match the "
-             "number of given alignment files.")
+        help="Index for alignment file to visualize.")
     vs_parser.add_argument(
         "--ref", type=str, default="hg38",
         help="Reference genome code used for visualization and calls. Default: hg38")
