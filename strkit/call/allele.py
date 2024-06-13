@@ -145,7 +145,7 @@ def fit_gmm(
     return g
 
 
-class CallDict(TypedDict):
+class BaseCallDict(TypedDict):
     call: Union[NDArray[np.int32], NDArray[np.float_]]
     call_95_cis: Union[NDArray[np.int32], NDArray[np.float_]]  # 2D arrays
     call_99_cis: Union[NDArray[np.int32], NDArray[np.float_]]  # 2D arrays
@@ -153,6 +153,10 @@ class CallDict(TypedDict):
     peak_weights: NDArray[np.float_]
     peak_stdevs: NDArray[np.float_]
     modal_n_peaks: int
+
+
+class CallDict(BaseCallDict, total=False):
+    ps: int
 
 
 def make_read_weights(read_weights: Optional[Iterable[float]], num_reads: int) -> NDArray[np.float_]:
