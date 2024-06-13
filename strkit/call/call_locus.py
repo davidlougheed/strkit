@@ -524,8 +524,6 @@ def call_alleles_with_incorporated_snvs(
     read_dict_items_with_at_least_one_snv: list[tuple[str, ReadDict]] = []
     read_dict_items_with_no_snvs: list[tuple[str, ReadDict]] = []
 
-    print_snvs = False
-
     # TODO: Check that we don't have disjoint groups - how would we actually ascertain this?
     #  - each read as a set; merge sets when there is overlap, make sure we have 1 set at the end
 
@@ -555,10 +553,6 @@ def call_alleles_with_incorporated_snvs(
             read_dict_items_with_no_snvs.append(read_item)
 
         read["snvu"] = read_useful_snv_bases  # Store read-level 'useful' SNVs
-
-        if print_snvs:
-            print(
-                rn, f"\t{read['cn']:.0f}", "\t", read_useful_snv_bases, n_non_blank_hq_read_useful_snv_bases)
 
     n_reads_with_many_snvs: int = len(read_dict_items_with_many_snvs)
     n_reads_with_at_least_one_snv: int = len(read_dict_items_with_at_least_one_snv)
