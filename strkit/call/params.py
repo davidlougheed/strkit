@@ -136,6 +136,6 @@ class CallParams:
             "count_kmers": self.count_kmers,
             "consensus": self.consensus,
             "log_level": self.log_level,
-            "Seed": self.seed,
+            "seed": self.seed,
             "processes": self.processes,
         }
