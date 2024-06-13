@@ -67,12 +67,12 @@ def get_call_data(i: int):
 
 
 @app.route("/align_file")
-def get_align_file(i: int):
+def get_align_file():
     return send_file(app.config["PARAMS"]["align_file"], conditional=True)
 
 
 @app.route("/align_index")
-def get_align_index_file(i: int):
+def get_align_index_file():
     return send_file(app.config["PARAMS"]["align_index"], conditional=True)
 
 
