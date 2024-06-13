@@ -117,7 +117,7 @@ class LocusResult(BaseLocusResult, total=False):
 
     ref_cn: int
 
-    ps: int | None
+    ps: Optional[int]
     peaks: Optional[PeakData]
     read_peaks_called: bool
     time: float
