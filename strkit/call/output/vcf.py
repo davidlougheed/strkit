@@ -8,6 +8,7 @@ from typing import Optional
 from strkit.utils import cat_strs, is_none
 from ..allele import get_n_alleles
 from ..params import CallParams
+from ..utils import idx_0_getter
 
 __all__ = [
     "build_vcf_header",
@@ -107,7 +108,7 @@ def output_contig_vcf_lines(
         n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
 
         res_peaks = result["peaks"] or {}
-        peak_seqs = res_peaks.get("seqs", ())
+        peak_seqs: list[str] = list(map(idx_0_getter, res_peaks.get("seqs", [])))
         if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
             logger.error(f"Encountered None in results[{result_idx}].peaks.seqs: {peak_seqs}")
             continue
