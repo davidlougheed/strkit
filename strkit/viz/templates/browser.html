@@ -229,7 +229,8 @@
             searchResponses = sr.results;
             // noinspection JSUnresolvedVariable
             const res = sr.results.map(r =>
-                `<li onclick="handleSearchResultClick(${r.i})">${r.contig}:${r.start}-${r.end}`).join("");
+                `<li onclick="${r.disabled ? "" : "handleSearchResultClick(${r.i})"}"
+                     class="${r.disabled ? "disabled" : ""}">${r.contig}:${r.start}-${r.end}`).join("");
             searchResponseList.innerHTML = res || "<em>No results found.</em>";
         };
 
@@ -288,7 +289,7 @@
             console.debug("call data", callData);
 
             /** @type number[] */
-            const cns = Object.values(callData.reads).map(read => read.cn);
+            const cns = Object.values(callData.reads ?? {}).map(read => read.cn);
             const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
 
             // Add histogram
@@ -669,6 +670,7 @@
             position: absolute;
             top: 18px;
             right: 0;
+            z-index: 100;
             padding: 8px 0;
             list-style: none;
             min-width: 14em;
@@ -684,6 +686,11 @@
         #search-responses li {
             cursor: pointer;
             padding: 4px 8px;
+        }
+        #search-responses li.disabled {
+            cursor: not-allowed;
+            padding: 4px 8px;
+            color: #999;
         }
         #search-responses li:hover {
             background-color: #F0F0F0;

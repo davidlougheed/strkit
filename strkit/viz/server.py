@@ -42,7 +42,13 @@ def get_loci():
 
     return {
         "results": list(map(
-            lambda x: {"i": x[0], "contig": x[1]["contig"], "start": x[1]["start"], "end": x[1]["end"]},
+            lambda x: {
+                "i": x[0],
+                "contig": x[1]["contig"],
+                "start": x[1]["start"],
+                "end": x[1]["end"],
+                "disabled": x[1]["call"] is None,
+            },
             res)),
     }
 
