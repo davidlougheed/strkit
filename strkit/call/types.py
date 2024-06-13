@@ -19,7 +19,7 @@ __all__ = [
 VCFContigFormat = Literal["chr", "num", "acc", ""]
 
 AssignMethod = Literal["dist", "snv", "snv+dist", "single"]
-AssignMethodWithHP = AssignMethod | Literal["hp"]
+AssignMethodWithHP = Union[AssignMethod, Literal["hp"]]
 
 
 class _ReadDictBase(TypedDict):

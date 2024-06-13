@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import functools
 import logging
-import multiprocessing as mp
 import multiprocessing.managers as mmg
 import numpy as np
 import operator
-import queue
-import time
 import threading
 
 from collections import Counter
@@ -17,20 +14,20 @@ from pysam import FastaFile
 from sklearn.cluster import AgglomerativeClustering
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, Optional, Union
+from typing import Iterable, Optional, Union
 
 from strkit_rust_ext import (
     get_pairs_and_tr_read_coords, STRkitBAMReader, STRkitAlignedSegment, STRkitVCFReader, CandidateSNVs
 )
 
 from strkit.call.allele import CallDict, call_alleles
-from strkit.utils import cat_strs, apply_or_none
+from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
 from .cigar import decode_cigar_np
 from .consensus import ConsensusMethod, consensus_seq
 from .params import CallParams
-from .realign import realign_read
+from .realign import perform_realign
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .snvs import (
     SNV_GAP_CHAR,
@@ -39,7 +36,7 @@ from .snvs import (
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
 from .types import VCFContigFormat, AssignMethod, AssignMethodWithHP, ReadDict, ReadDictExtra, CalledSNV
-from .utils import idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed
+from .utils import idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed, calculate_seq_with_wildcards
 
 
 __all__ = [
@@ -81,17 +78,6 @@ cn_getter = operator.itemgetter("cn")
 weight_getter = operator.itemgetter("w")
 not_snv_out_of_range_char = functools.partial(operator.ne, SNV_OUT_OF_RANGE_CHAR)
 eq_0 = functools.partial(operator.eq, 0)
-
-
-@functools.cache
-def _mask_low_q_base(base_and_qual: tuple[str, int]) -> str:
-    return base_and_qual[0] if base_and_qual[1] > base_wildcard_threshold else "X"
-
-
-def calculate_seq_with_wildcards(qs: str, quals: Optional[NDArray[np.uint8]]) -> str:
-    if quals is None:
-        return qs  # No quality information, so don't do anything
-    return cat_strs(map(_mask_low_q_base, zip(qs, quals)))
 
 
 def get_read_coords_from_matched_pairs(
@@ -1028,40 +1014,21 @@ def call_locus(
             # Run the realignment in a separate process, to give us a timeout mechanism.
             # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
 
-            q: mp.Queue = mp.Queue()
-            proc = mp.Process(target=realign_read, daemon=False, kwargs=dict(
-                # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-                ref_seq=ref_total_seq,  # TODO: with the plus 1, really?
-                query_seq=calculate_seq_with_wildcards(qs, fqqs),
-                left_flank_coord=left_flank_coord,
-                flank_size=flank_size,
-                rn=rn,
-                t_idx=t_idx,
-                always_realign=force_realign,
-                q=q,
-                log_level=log_level,
-            ))
-            proc.start()
-            pairs_new = None
-            try:
-                pairs_new = q.get(timeout=realign_timeout)
-                proc.join()
-            except queue.Empty:
-                logger_.warning(
-                    f"{locus_log_str} - experienced timeout while re-aligning read {rn}. Reverting to initial "
-                    f"alignment.")
-                proc.terminate()
-                time.sleep(0.1)  # wait a little for the process to terminate
-            finally:
-                wait_count: int = 0
-                while proc.is_alive():
-                    logger_.warning(f"{locus_log_str} - realign job has still not exited. Waiting 0.5 seconds...")
-                    time.sleep(0.5)
-                    wait_count += 1
-                    if wait_count > 5:
-                        logger_.fatal(f"{locus_log_str} - realign job never exited. Terminating...")
-                        exit(1)
-                proc.close()
+            pairs_new = perform_realign(
+                t_idx,
+                left_flank_coord,
+                ref_total_seq,
+                rn,
+                qs,
+                fqqs,
+                # ---
+                params,
+                realign_timeout,
+                force_realign,
+                # ---
+                logger_,
+                locus_log_str,
+            )
 
             if pairs_new is not None:
                 q_coords, r_coords = pairs_new
