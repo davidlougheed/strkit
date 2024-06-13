@@ -71,6 +71,7 @@ Example report format:
     "count_kmers": "none",
     "consensus": true,
     "log_level": 10,
+    "seed": 1234,
     "processes": 1
   },
   "runtime": 8.628772,
