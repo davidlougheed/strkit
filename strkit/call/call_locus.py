@@ -117,8 +117,8 @@ def get_read_coords_from_matched_pairs(
     # ------------------------------------------------------------------------------------------------------------------
 
     for i in range(lhs + 1, len(q_coords)):
-        query_coord = q_coords[i]
-        ref_coord = r_coords[i]
+        query_coord = q_coords[i].item()
+        ref_coord = r_coords[i].item()
 
         # Skip gaps on either side to find mapped flank indices
         if ref_coord < left_coord:
