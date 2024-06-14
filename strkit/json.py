@@ -9,6 +9,7 @@ def dumps_indented(v: Serializable) -> bytes:
 
 
 __all__ = [
+    "Serializable",
     "json",
     "dumps_indented",
 ]

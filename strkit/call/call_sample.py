@@ -23,7 +23,14 @@ from .allele import get_n_alleles
 from .call_locus import call_locus
 from .non_daemonic_pool import NonDaemonicPool
 from .params import CallParams
-from .output import output_json_report, output_tsv as output_tsv_fn, build_vcf_header, output_contig_vcf_lines
+from .output import (
+    output_json_report_header,
+    output_json_report_results,
+    output_json_report_footer,
+    output_tsv as output_tsv_fn,
+    build_vcf_header,
+    output_contig_vcf_lines,
+)
 from .types import VCFContigFormat, LocusResult
 from .utils import get_new_seed
 
@@ -269,13 +276,6 @@ def call_sample(
     # Seed the random number generator if a seed is provided, for replicability
     rng: np.random.Generator = np.random.default_rng(seed=params.seed)
 
-    # If we're outputting a VCF, open the file and write the header
-    sample_id_str = params.sample_id or "sample"
-    vf: Optional[pysam.VariantFile] = None
-    if vcf_path is not None:
-        vh = build_vcf_header(sample_id_str, params.reference_file)
-        vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
-
     manager: mmg.SyncManager = mp.Manager()
     locus_queue = manager.Queue()  # TODO: one queue per contig?
 
@@ -319,15 +319,25 @@ def call_sample(
 
     logger.info(f"Loaded {num_loci} loci")
 
+    # ---
+
+    # If we're outputting JSON, write the header
+    if json_path is not None:
+        output_json_report_header(params, contig_set, json_path, indent_json)
+
+    # If we're outputting a VCF, open the file and write the header
+    sample_id_str = params.sample_id or "sample"
+    vf: Optional[pysam.VariantFile] = None
+    if vcf_path is not None:
+        vh = build_vcf_header(sample_id_str, params.reference_file)
+        vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
+
+    # ---
+
     is_single_processed = params.processes == 1
 
     if not is_single_processed:
         logger.info(f"Using {params.processes} workers")
-
-    should_keep_all_results_in_mem = json_path is not None
-
-    # Only populated if we're outputting JSON; otherwise, we don't want to keep everything in memory at once.
-    all_results: list[dict] = []
 
     pool_class = mpd.Pool if is_single_processed else NonDaemonicPool
     finish_event = mp.Event()
@@ -378,8 +388,9 @@ def call_sample(
             is_single_processed,
         )
 
+        n_contigs_processed: int = 0
         qsize: int = locus_queue.qsize()
-        while qsize > 0:
+        while qsize > 0:  # should have one loop iteration per contig
             jobs = [p.apply_async(locus_worker, (i + 1, *job_args)) for i in range(params.processes)]
 
             # Write results
@@ -420,12 +431,12 @@ def call_sample(
                                 if k in {"means", "weights", "stdevs", "n_reads", "kmers", "seqs"}:  # peak/list keys
                                     r["peaks"][k].reverse()
 
-            if should_keep_all_results_in_mem:
-                all_results.extend(results)
-
             #  - write partial results to stdout if we're writing a stdout TSV
             if output_tsv:
                 output_tsv_fn(results, has_snv_vcf=params.snv_vcf is not None)
+
+            if json_path is not None:
+                output_json_report_results(results, n_contigs_processed == len(contig_set) - 1, json_path, indent_json)
 
             #  - write partial results to VCF if we're writing a VCF - this must be a whole contig's worth of calls, or
             #    at least the catalog's perception of a whole contig (i.e., all regions from one contig)
@@ -441,6 +452,9 @@ def call_sample(
             phase_set_synonymous.clear()
             phase_set_remap.clear()
             snv_genotype_cache.clear()
+
+            #  - mark that we've processed another contig (equivalent to a batch):
+            n_contigs_processed += 1
 
             #  - check that we're progressing:
 
@@ -460,11 +474,4 @@ def call_sample(
     logger.info(f"Finished STR genotyping in {time_taken.total_seconds():.1f}s")
 
     if json_path:
-        output_json_report(
-            params,
-            time_taken,
-            contig_set,
-            all_results,
-            json_path,
-            indent_json,
-        )
+        output_json_report_footer(time_taken, json_path, indent_json)
