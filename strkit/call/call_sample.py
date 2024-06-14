@@ -434,7 +434,7 @@ def call_sample(
                         if r.get("peaks"):
                             for k in r["peaks"]:
                                 if k in {"means", "weights", "stdevs", "n_reads", "kmers", "seqs"}:  # peak/list keys
-                                    r["peaks"][k].reverse()
+                                    r["peaks"][k] = r["peaks"][k][::-1]
 
             #  - write partial results to stdout if we're writing a stdout TSV
             if output_tsv:
