@@ -17,7 +17,7 @@ import traceback
 from datetime import datetime
 from operator import itemgetter
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
-from typing import Literal, Optional
+from typing import Iterable, Literal, Optional
 
 from .allele import get_n_alleles
 from .call_locus import call_locus
@@ -218,9 +218,10 @@ def progress_worker(
             n_seconds = (datetime.now() - start_time).total_seconds()
             loci_per_second = processed_loci / n_seconds
             est_time_remaining = ((num_loci - processed_loci) / loci_per_second) if loci_per_second else float("inf")
-            lg.info(f"{sample_id}: processed {processed_loci}/{num_loci} loci ({processed_loci/num_loci*100:.1f}%) in "
-                    f"{n_seconds:.1f} seconds (~{processed_loci/n_seconds:.0f} l/s; est. time remaining: "
-                    f"{est_time_remaining:.0f}s)")
+            lg.info(
+                f"{sample_id}: processed {processed_loci}/{num_loci} loci ({processed_loci / num_loci * 100:.1f}%) in "
+                f"{n_seconds:.1f} seconds (~{processed_loci / n_seconds:.0f} l/s; est. time remaining: "
+                f"{est_time_remaining:.0f}s)")
         except NotImplementedError:
             pass
 
@@ -251,9 +252,13 @@ def progress_worker(
     _log()
 
 
-def parse_loci_bed(loci_file: str):
+def parse_loci_bed(loci_file: str) -> Iterable[tuple[str, ...]]:
     with open(loci_file, "r") as tf:
-        yield from (tuple(line.split("\t")) for line in (s.strip() for s in tf) if line and not line.startswith("#"))
+        yield from (
+            tuple(line.split("\t"))
+            for line in (s.strip() for s in tf)
+            if line and not line.startswith("#")  # skip blank lines and comment lines
+        )
 
 
 def call_sample(
