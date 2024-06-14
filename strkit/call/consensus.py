@@ -39,7 +39,7 @@ def _run_best_representative(seqs: list[str], logger: logging.Logger) -> Optiona
 
 
 def consensus_seq(
-    seqs: Iterable[str], logger: logging.Logger, max_poa_length: int
+    seqs: Iterable[str], logger: logging.Logger, max_mdn_poa_length: int
 ) -> Optional[tuple[str, ConsensusMethod]]:
     # Return a stringified, gapless version of the column-wise mode for the MSA
     # If the consensus fails, try a best-representative strategy instead. If that fails, something's gone wrong...
@@ -52,7 +52,7 @@ def consensus_seq(
         return seqs_l[0], "single"
 
     seqs_l.sort()
-    if any(s > max_poa_length for s in map(len, seqs_l)):
+    if len(seqs_l[len(seqs_l) // 2]) > max_mdn_poa_length:
         return _run_best_representative(seqs_l, logger)
 
     res: Optional[str] = _consensus_seq(seqs_l)

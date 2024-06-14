@@ -72,7 +72,8 @@ many_realigns_threshold = 2
 significant_clip_threshold = 100
 significant_clip_snv_take_in = 250
 
-max_poa_length = 5000  # maximum number of bases before we can't use POA for consensus anymore due to performance
+# maximum median number of bases before we can't use POA for consensus anymore due to performance:
+max_mdn_poa_length = 5000
 
 
 # property getters & other partials
@@ -1475,7 +1476,7 @@ def call_locus(
                     lambda a: consensus_seq(
                         map(lambda rr: read_dict_extra[rr]["_tr_seq"], a),
                         logger_,
-                        max_poa_length=max_poa_length,
+                        max_mdn_poa_length=max_mdn_poa_length,
                     ),
                     allele_reads,
                 )
