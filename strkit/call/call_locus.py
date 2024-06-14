@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from pysam import FastaFile
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.mixture import GaussianMixture
 
 from numpy.typing import NDArray
 from typing import Iterable, Optional, Union
@@ -1439,15 +1440,21 @@ def call_locus(
                 stdevs += 0.00001
 
             sd_dist = np.abs((peaks - cn) / stdevs)
-            weighted_dist = np.abs(((peaks - cn) / stdevs) * weights)
 
-            # Hack: if both peaks are 1 stdev away, pretend we aren't sure and fill in whichever allele has less
-            peak: int = (
-                # bool to int conversion: 1 if we add to allele_reads[1]
-                int(len(allele_reads[0]) > len(allele_reads[1]))
-                if call_modal_n == 2 and np.all(sd_dist < roughly_equiv_stdev_dist)
-                else np.argmin(weighted_dist).item()
-            )
+            peak: int
+            if call_modal_n == 2 and np.all(sd_dist < roughly_equiv_stdev_dist):
+                # Hack: if both peaks are 1 stdev away, pretend we aren't sure and fill in whichever allele has less
+                peak = int(len(allele_reads[0]) > len(allele_reads[1]))
+            else:
+                # Create an already-fitted Gaussian mixture instance and use it to predict the peak
+
+                g: GaussianMixture = GaussianMixture(n_components=call_modal_n, covariance_type="spherical")
+                g.means_ = peaks.reshape(-1, 1)
+                g.covariances_ = stdevs ** 2
+                g.weights_ = weights
+                g.precisions_cholesky_ = 1.0 / stdevs
+
+                peak = g.predict([[cn]])[0].item()
 
             allele_reads[peak].append(r)
             rd["p"] = peak
