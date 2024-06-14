@@ -339,9 +339,11 @@ def call_alleles(
     median_idx = allele_samples.shape[1] // 2  #
     medians_of_means = allele_samples[:, median_idx]
     medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
-    peak_weights = allele_weight_samples[:, median_idx]
+    peak_weights = allele_weight_samples[:, median_idx].flatten()
     peak_stdevs = allele_stdev_samples[:, median_idx]
     modal_n_peaks: int = statistics.mode(sample_peaks).item()
+
+    peak_weights /= peak_weights.sum()  # re-normalize weights
 
     return {
         "call": medians_of_means_final.flatten(),
@@ -349,7 +351,7 @@ def call_alleles(
         "call_99_cis": allele_cis_99,
 
         "peaks": medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
-        "peak_weights": peak_weights.flatten(),
+        "peak_weights": peak_weights,
         "peak_stdevs": peak_stdevs.flatten(),
         # TODO: should be ok to use this, because resample gets put at end, vertically (3rd allele in a 3-ploid case)
         #  so taking the first 2 alleles still works in terms of stdev/mean estimates? I think?
