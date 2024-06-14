@@ -11,7 +11,7 @@ from statistics import mean
 from statsmodels.stats.multitest import multipletests
 
 from strkit.constants import CHROMOSOMES
-from strkit.json import json, dumps_indented
+from strkit.json import dumps, dumps_indented
 from strkit.logger import get_main_logger
 from strkit.utils import cat_strs, cis_overlap
 
@@ -567,7 +567,7 @@ class MIResult:
         }
 
         if json_path == "stdout":
-            sys.stdout.buffer.write(json.dumps(obj))
+            sys.stdout.buffer.write(dumps(obj))
             sys.stdout.write("\n")
             sys.stdout.flush()
             return

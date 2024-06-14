@@ -1482,9 +1482,9 @@ def call_locus(
             )
 
     peak_data = {
-        "means": call_peaks.tolist(),  # from np.ndarray
-        "weights": call_weights.tolist(),  # from np.ndarray
-        "stdevs": call_stdevs.tolist(),  # from np.ndarray
+        "means": call_peaks,
+        "weights": call_weights,
+        "stdevs": call_stdevs,
         "modal_n": call_modal_n,
         "n_reads": call_peak_n_reads,
         **({"kmers": list(map(dict, peak_kmers))} if count_kmers in ("peak", "both") else {}),

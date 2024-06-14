@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Callable, Literal
 
 from strkit import __version__
-from strkit.json import Serializable, dumps_indented, json
+from strkit.json import Serializable, dumps, dumps_indented
 
 from ..params import CallParams
 from ..types import LocusResult
@@ -16,7 +16,7 @@ __all__ = [
 
 
 def _get_dfn(indent_json: bool) -> Callable[[Serializable], bytes]:
-    return dumps_indented if indent_json else json.dumps
+    return dumps_indented if indent_json else dumps
 
 
 def _write_bytes(b: bytes, json_path: str, mode: Literal["wb", "ab"]):
@@ -73,7 +73,7 @@ def output_json_report_results(results: tuple[LocusResult, ...], is_last: bool, 
 
 
 def output_json_report_footer(time_taken: timedelta, json_path: str, indent_json: bool):
-    runtime_bytes = json.dumps(time_taken.total_seconds())
+    runtime_bytes = dumps(time_taken.total_seconds())
     if indent_json:
         footer_bytes = b'\n  ],\n  "runtime": ' + runtime_bytes + b'\n}\n'
     else:
