@@ -65,6 +65,8 @@ max_bad_reads: int = 3
 
 base_wildcard_threshold = 3
 
+min_hp_read_coverage: int = 8  # TODO: parametrize
+
 roughly_equiv_stdev_dist = 1
 
 force_realign = False
@@ -1278,11 +1280,7 @@ def call_locus(
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, ReadDict], ...] = tuple(read_dict.items())
 
-    assign_method: AssignMethodWithHP = "dist"
-    if n_alleles < 2:
-        assign_method = "single"
-
-    min_hp_read_coverage: int = 8  # TODO: parametrize
+    assign_method: AssignMethodWithHP = "single" if n_alleles == 1 else "dist"
 
     # Realigns are missing significant amounts of flanking information since the realignment only uses a portion of the
     # reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
