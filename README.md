@@ -163,7 +163,6 @@ If you want to output a full call report, you can use the `--json output-file.js
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
 labels, and some other information that isn't included in the normal TSV file. If you want this
 file to be indented and human-readable, use the `--indent-json` flag in addition to `--json ...`.
-Note that **memory usage will be higher** when JSON output is enabled.
 
 If you want to output a VCF file (STRs and SNVs if called; currently not phased), use the
 `--vcf ...` argument. If you pass `--vcf stdout`, the VCF will be written to `stdout` instead of a 
