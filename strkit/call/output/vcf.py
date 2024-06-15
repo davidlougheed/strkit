@@ -2,6 +2,7 @@ import functools
 import logging
 import pathlib
 import pysam
+
 from os.path import commonprefix
 from typing import Optional
 
@@ -123,10 +124,10 @@ def output_contig_vcf_lines(
         call = result["call"]
 
         seq_alleles_raw: tuple[Optional[str], ...] = (ref_seq, *(seq_alts or (None,))) if call is not None else (".",)
-        seq_alleles: list[str] = [ref_start_anchor + ref_seq[:common_suffix_idx]]
+        seq_alleles: list[str] = [ref_start_anchor + (ref_seq[:common_suffix_idx] if common_suffix_idx else ref_seq)]
 
         if call is not None and seq_alts:
-            seq_alleles.extend(ref_start_anchor + a[:common_suffix_idx] for a in seq_alts)
+            seq_alleles.extend(ref_start_anchor + (a[:common_suffix_idx] if common_suffix_idx else a) for a in seq_alts)
         else:
             seq_alleles.append(".")
 
