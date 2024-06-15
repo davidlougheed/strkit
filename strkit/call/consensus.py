@@ -45,11 +45,22 @@ def consensus_seq(
     # If the consensus fails, try a best-representative strategy instead. If that fails, something's gone wrong...
 
     seqs_l = list(seqs)
+    n_seqs = len(seqs_l)
 
-    if len(seqs_l) == 0:
+    if n_seqs == 0:
         return None
     elif len(set(seqs_l)) == 1:
         return seqs_l[0], "single"
+
+    n_blanks = seqs_l.count("")
+
+    if n_blanks >= round(n_seqs / 2):
+        # blanks make up majority, so blank is the consensus
+        return "", "best_rep"
+    elif n_blanks > 0:
+        # blanks make up minority, so filter them out for consensus
+        seqs_l = [s for s in seqs_l if s != ""]
+        n_seqs -= n_blanks
 
     seqs_l.sort()
     if len(seqs_l[len(seqs_l) // 2]) > max_mdn_poa_length:
