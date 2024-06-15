@@ -1437,10 +1437,9 @@ def call_locus(
                 # Hack: add small value to stdevs if we are exactly sure to make the below code work okay
                 stdevs += 0.00001
 
-            sd_dist = np.abs((peaks - cn) / stdevs)
-
+            # np.abs((peaks - cn) / stdevs) is copy number distance from each peak, in # standard deviations
             peak: int
-            if call_modal_n == 2 and np.all(sd_dist < roughly_equiv_stdev_dist):
+            if call_modal_n == 2 and np.all(np.abs((peaks - cn) / stdevs) < roughly_equiv_stdev_dist):
                 # Hack: if both peaks are 1 stdev away, pretend we aren't sure and fill in whichever allele has less
                 peak = int(len(allele_reads[0]) > len(allele_reads[1]))
             else:
@@ -1450,6 +1449,7 @@ def call_locus(
                 g.means_ = peaks.reshape(-1, 1)
                 g.covariances_ = stdevs ** 2
                 g.weights_ = weights
+                # see https://github.com/scikit-learn/scikit-learn/blob/1.5.0/sklearn/mixture/_gaussian_mixture.py#L347
                 g.precisions_cholesky_ = 1.0 / stdevs
 
                 peak = g.predict([[cn]])[0].item()
