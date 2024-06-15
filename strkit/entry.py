@@ -110,7 +110,7 @@ def add_call_parser_args(call_parser):
         "--max-reads",
         type=int,
         default=250,
-        help="Maximum number of supporting reads before a locus is skipped.")
+        help="Maximum number of supporting reads to use for a locus. Additional reads will be ignored.")
 
     # Min PHRED score of 13 for 95% confidence avg. in bases; although this may be over-estimated in ONT.
     # TODO: cite overest. and put a note in README.
