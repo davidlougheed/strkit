@@ -8,7 +8,7 @@
 * `--min-reads ##`: Minimum number of supporting reads needed to make a call. **Default:** 4
 * `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
   **Default:** 2
-* `--max-reads ##`: Maximum number of supporting reads before a locus is skipped. **Default:** 250
+* `--max-reads ##`: Maximum number of supporting reads to use for calling a locus. **Default:** 250
 * `--min-avg-phred ##`: Minimum average PHRED score for relevant bases (flanking region + tandem repeat).
   Read segments with average PHRED scores below this (common with a threshold of ~13 and ONT Ultra Long reads, 
   for example) will be skipped. **Default:** 13

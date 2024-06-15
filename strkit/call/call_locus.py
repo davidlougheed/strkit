@@ -948,9 +948,8 @@ def call_locus(
 
     logger_.debug(f"{locus_log_str} - got {n_overlapping_reads} overlapping aligned segments")
 
-    if n_overlapping_reads > params.max_reads:
-        logger_.warning(f"{locus_log_str} - skipping locus; too many overlapping reads")
-        return locus_result
+    if n_overlapping_reads > params.max_reads:  # TODO: sample across full set instead?
+        logger_.warning(f"{locus_log_str} - locus has excess reads, using the first {params.max_reads}; misalignment?")
 
     sorted_read_lengths = np.sort(read_lengths)
 
