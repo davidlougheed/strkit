@@ -1128,15 +1128,15 @@ def call_locus(
         read_offset_frac_from_starting_guess += new_offset_from_starting_count / max(read_cn, 1)
         rc_time = (datetime.now() - rc_timer).total_seconds()
 
-        logger_.debug(
-            f"{locus_log_str} - {rn} | start={read_sc}, o.f.={read_offset_frac_from_starting_guess:.4f} | "
-            f"rct={rc_time}s, cn={read_cn}, s={read_cn_score}")
-
         if n_read_cn_iters >= max_rc_iters:
             logger_.debug(f"{locus_log_str} - locus repeat counting exceeded maximum # iterations ({n_read_cn_iters})")
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
+
+        logger_.debug(
+            f"{locus_log_str} - {rn} | start={read_sc}, of={read_offset_frac_from_starting_guess:.4f} | "
+            f"rct={rc_time}s, cn={read_cn}, s={read_cn_score}[{read_adj_score}]")
 
         if rc_time >= really_bad_read_alignment_time:
             logger_.debug(
