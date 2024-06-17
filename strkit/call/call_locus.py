@@ -56,7 +56,6 @@ default_ref_max_iters: int = 250
 ref_max_iters_to_be_slow: int = 100
 
 max_rc_iters = 50
-min_read_score = 0.9  # TODO: parametrize
 # TODO: Parametrize - if very low alignment or very slow, then "bad read"
 extremely_low_read_adj_score: float = 0.1  # fraction
 bad_read_alignment_time: int = 15  # seconds
@@ -796,6 +795,7 @@ def call_locus(
     flank_size = params.flank_size
     realign = params.realign
     respect_ref = params.respect_ref
+    min_read_align_score = params.min_read_align_score
     snv_min_base_qual = params.snv_min_base_qual
     # ----------------------------------
 
@@ -1141,7 +1141,7 @@ def call_locus(
         if rc_time >= really_bad_read_alignment_time:
             logger_.debug(
                 f"{locus_log_str} - not calling locus due to a pathologically-poorly-aligning read ({rn}; "
-                f"repeat count alignment scored {read_adj_score:.2f} < {min_read_score}; get_repeat_count time: "
+                f"repeat count alignment scored {read_adj_score:.2f} < {min_read_align_score}; get_repeat_count time: "
                 f"{rc_time:.3f}s; # get_repeat_count iters: {n_read_cn_iters}; {motif=}; {ref_cn=})")
             logger_.debug(f"{locus_log_str} - ref left flank:  {ref_left_flank_seq}")
             logger_.debug(f"{locus_log_str} - read left flank: {flank_left_seq}")
@@ -1156,10 +1156,10 @@ def call_locus(
                 "time": (datetime.now() - call_timer).total_seconds(),
             }
 
-        if read_adj_score < min_read_score:
+        if read_adj_score < min_read_align_score:
             logger_.debug(
                 f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
-                f"{min_read_score}; get_repeat_count time: {rc_time:.3f}s; # get_repeat_count iters: "
+                f"{min_read_align_score}; get_repeat_count time: {rc_time:.3f}s; # get_repeat_count iters: "
                 f"{n_read_cn_iters})")
 
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:

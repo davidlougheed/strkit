@@ -12,6 +12,8 @@
 * `--min-avg-phred ##`: Minimum average PHRED score for relevant bases (flanking region + tandem repeat).
   Read segments with average PHRED scores below this (common with a threshold of ~13 and ONT Ultra Long reads, 
   for example) will be skipped. **Default:** 13
+* `--min-read-align-score #.#`: Minimum normalized read alignment score (fractional; `0.0` to `1.0`) needed to include a 
+  read in a call.  A good value for pure tandem repeats is 0.9. A good value for much more lenient genotyping is ~0.4.
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
 * `--realign` or `-a`: Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners

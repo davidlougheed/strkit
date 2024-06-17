@@ -120,6 +120,16 @@ def add_call_parser_args(call_parser):
         default=13,
         help="Minimum average PHRED score for relevant (flanking + TR) bases required for a read to be used.")
 
+    # Minimum read alignment score (fractional) to include a read in calling.
+    call_parser.add_argument(
+        "--min-read-align-score", "--mras",
+        type=float,
+        default=0.9,
+        help=(
+            "Minimum read alignment score (fractional) to include a read in calling. A good value for pure tandem "
+            "repeats is 0.9. A good value for more lenient genotyping is ~0.4."
+        ))
+
     call_parser.add_argument(
         "--flank-size",
         type=int,
