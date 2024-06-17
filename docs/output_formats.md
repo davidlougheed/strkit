@@ -151,12 +151,14 @@ Example report format:
 
 VCF format fields (i.e., for each variant sample entry):
 
-* `AD`: Read depth for each allele (STR + SNV)
-* `DP`: Total read depth (STR + SNV)
-* `GT`: Genotype (STR + SNV)
-* `MC`: Motif copy number for each allele (STR only)
-* `PS`: Phase set (STR + SNV)
-* `PM`: Peak-calling method (`dist`/`single`/`snv+dist`/`snv`/`hp`; STR only)
+* `AD`: Read depth for each allele
+* `DP`: Total read depth
+* `DPS`: Total read depth; only supporting reads (for calls with incorporated SNVs mainly; STR calls only)
+* `GT`: Genotype
+* `MC`: Motif copy number for each allele (STR calls only)
+* `MCCI`: Motif copy number 95% confidence intervals for each allele (STR calls only)
+* `PS`: Phase set
+* `PM`: Peak-calling method (`dist`/`single`/`snv+dist`/`snv`/`hp`; STR calls only)
 
 VCF info. fields (i.e., for each STR variant record; not present for SNV records):
 

@@ -51,8 +51,10 @@ def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader
     # Set up basic VCF formats
     vh.formats.add("AD", ".", "Integer", "Read depth for each allele")
     vh.formats.add("DP", 1, "Integer", "Read depth")
+    vh.formats.add("DPS", 1, "Integer", "Read depth (supporting reads only)")
     vh.formats.add("GT", 1, "String", "Genotype")
     vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
+    vh.formats.add("MCCI", ".", "String", "Motif copy number 95% confidence interval for each allele")
     vh.formats.add("PS", 1, "Integer", "Phase set")
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
 
@@ -108,6 +110,7 @@ def output_contig_vcf_lines(
 
         n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
 
+        res_reads = result["reads"]
         res_peaks = result["peaks"] or {}
         peak_seqs: list[str] = list(map(idx_0_getter, res_peaks.get("seqs", [])))
         if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
@@ -122,6 +125,7 @@ def output_contig_vcf_lines(
         common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
 
         call = result["call"]
+        call_95_cis = result["call_95_cis"]
 
         seq_alleles_raw: tuple[Optional[str], ...] = (ref_seq, *(seq_alts or (None,))) if call is not None else (".",)
         seq_alleles: list[str] = [ref_start_anchor + (ref_seq[:common_suffix_idx] if common_suffix_idx else ref_seq)]
@@ -148,10 +152,13 @@ def output_contig_vcf_lines(
         if am := result.get("assign_method"):
             vr.samples[sample_id]["PM"] = am
 
+        vr.samples[sample_id]["DP"] = len(res_reads)
+
         if call is not None and res_peaks:
-            vr.samples[sample_id]["DP"] = sum(res_peaks["n_reads"])
+            vr.samples[sample_id]["DPS"] = sum(res_peaks["n_reads"])
             vr.samples[sample_id]["AD"] = tuple(res_peaks["n_reads"])
             vr.samples[sample_id]["MC"] = tuple(map(int, call))
+            vr.samples[sample_id]["MCCI"] = tuple(f"{x[0]}-{x[1]}" for x in call_95_cis)
 
             ps = result["ps"]
 
@@ -186,8 +193,6 @@ def output_contig_vcf_lines(
                     stop=snv_pos + 1,
                     alleles=snv_alleles,
                 )
-
-                # TODO: write "rcs" for sample SNV genotypes - list of #reads per allele
 
                 snv_vr.samples[sample_id]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
                 snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
