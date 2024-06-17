@@ -58,7 +58,7 @@ def _array_as_int(n: Union[NDArray[np.int_], NDArray[np.float_]]) -> NDArray[np.
     return np.rint(n).astype(np.int32)
 
 
-def _calculate_cis(samples, ci: str = Literal["95", "99"]) -> Union[NDArray[np.int32], NDArray[np.float_]]:
+def _calculate_cis(samples, ci: str = Literal["95", "99"]) -> NDArray[np.int32]:
     percentiles = np.percentile(
         samples, CI_PERCENTILE_RANGES[ci], axis=1, method="interpolated_inverted_cdf"
     ).transpose()
