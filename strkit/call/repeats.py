@@ -1,9 +1,11 @@
 import parasail
 
 from functools import lru_cache
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
-from .align_matrix import dna_matrix, indel_penalty, match_score
+from strkit_rust_ext import get_repeat_count as _get_repeat_count
+
+from .align_matrix import dna_matrix, indel_penalty
 from .utils import idx_1_getter
 
 __all__ = [
@@ -67,75 +69,9 @@ def get_repeat_count(
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
     step_size: int = 1,
 ) -> tuple[tuple[int, int], int, int]:
-
-    db_seq_profile: parasail.Profile = parasail.profile_create_sat(
-        f"{flank_left_seq}{tr_seq}{flank_right_seq}", dna_matrix)
-
-    max_init_score = (len(motif) * start_count + len(flank_left_seq) + len(flank_right_seq)) * match_score
-    start_score = score_candidate(db_seq_profile, motif, start_count, flank_left_seq, flank_right_seq)
-
-    score_diff = abs(start_score - max_init_score) / max_init_score
-
-    if score_diff < 0.05:  # TODO: parametrize
-        # If we're very close to the maximum, explore less.
-        local_search_range = 1
-        step_size = 1
-    elif score_diff < 0.1 and local_search_range > 2:
-        local_search_range = 2
-        step_size = 1
-
-    explored_sizes: set[int] = {start_count}
-    best_size: int = start_count
-    best_score: int = start_score
-    n_explored: int = 1
-    to_explore: list[tuple[int, Literal[-1, 1]]] = [(start_count - 1, -1), (start_count + 1, 1)]
-
-    while to_explore and n_explored < max_iters:
-        size_to_explore, direction = to_explore.pop()
-        if size_to_explore < 0:
-            continue
-
-        skip_search: bool = step_size > local_search_range  # whether we're skipping small areas for a faster search
-
-        best_size_this_round: Optional[int] = None
-        best_score_this_round: int = -99999999999
-
-        start_size = max(size_to_explore - (local_search_range if (direction == -1 or skip_search) else 0), 0)
-        end_size = size_to_explore + (local_search_range if (direction == 1 or skip_search) else 0)
-
-        for i in range(start_size, end_size + 1):
-            if i not in explored_sizes:
-                # Generate a candidate TR tract by copying the provided motif 'i' times & score it
-                # Separate this from the .get() to postpone computation to until we need it
-                explored_sizes.add(i)
-                i_score = score_candidate(db_seq_profile, motif, i, flank_left_seq, flank_right_seq)
-
-                if best_size_this_round is None or i_score > best_score_this_round:
-                    best_size_this_round = i
-                    best_score_this_round = i_score
-
-                n_explored += 1
-
-        if best_size_this_round:
-            # If this round is the best we've got so far, update the record size/score for the final return
-            if best_score_this_round > best_score:
-                best_size = best_size_this_round
-                best_score = best_score_this_round
-
-                if local_search_range > 1 and abs(best_score - max_init_score) / max_init_score < 0.05:
-                    # reduce search range as we approach an optimum
-                    local_search_range = 1
-
-            if (best_size_this_round > size_to_explore and
-                    (new_rc := best_size_this_round + step_size) not in explored_sizes):
-                if new_rc >= 0:
-                    to_explore.append((new_rc, 1))
-            elif (best_size_this_round < size_to_explore and
-                  (new_rc := best_size_this_round - step_size) not in explored_sizes):
-                if new_rc >= 0:
-                    to_explore.append((new_rc, -1))
-
-    return (best_size, best_score), n_explored, best_size - start_count
+    return _get_repeat_count(
+        start_count, tr_seq, flank_left_seq, flank_right_seq, motif, max_iters, local_search_range, step_size
+    )
 
 
 def get_ref_repeat_count(
