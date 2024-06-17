@@ -63,6 +63,8 @@
   helpful. **Default:** TSV output on
 * `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 
   Useful for replicability.
+* `--log-level [level]`: Log level. Value must be of `error`, `warning`, `info`, and `debug`. Be careful with the 
+  `debug` log level, as it can produce gigabytes of logs for a large run. **Default:** `info`.
 
 
 ## Usage on HPC machines
