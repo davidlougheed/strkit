@@ -907,7 +907,7 @@ def call_locus(
     slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
 
     logger_.debug(
-        f"{locus_log_str} - got ref. copy number: {ref_cn} ({l_offset=}; {r_offset=}; iters={r_n_is})")
+        f"{locus_log_str} - {ref_cn=} (l.o.={l_offset}; r.o.={r_offset}; #i={r_n_is})")
 
     if slow_ref_count:
         logger_.warning(f"{locus_log_str} - slow reference copy number counting ({motif=}; {ref_cn=}; iters={r_n_is})")
@@ -1129,8 +1129,8 @@ def call_locus(
         rc_time = (datetime.now() - rc_timer).total_seconds()
 
         logger_.debug(
-            f"{locus_log_str} - {rn} | start: {read_sc}, offset frac.: {read_offset_frac_from_starting_guess:.4f} | "
-            f"rc time: {rc_time}, copy number: {read_cn}, score: {read_cn_score}")
+            f"{locus_log_str} - {rn} | start={read_sc}, o.f.={read_offset_frac_from_starting_guess:.4f} | "
+            f"rct={rc_time}s, cn={read_cn}, s={read_cn_score}")
 
         if n_read_cn_iters >= max_rc_iters:
             logger_.debug(f"{locus_log_str} - locus repeat counting exceeded maximum # iterations ({n_read_cn_iters})")

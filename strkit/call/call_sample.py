@@ -133,7 +133,7 @@ def locus_worker(
         # String representation of locus for logging purposes
         locus_log_str: str = (
             f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: "
-            f"{contig}:{left_coord}-{right_coord}"
+            f"{contig}:{left_coord}-{right_coord} [{motif}]"
         )
 
         lg.debug(f"{locus_log_str} - working on locus")
