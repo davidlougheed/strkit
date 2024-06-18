@@ -114,8 +114,8 @@ long read data should still work.
   * Whole-genome and targeted genotyping modes to adjust this re-weighting.
 * Incorporation of single-nucleotide variation (SNVs) for better and faster calling plus 
   additional downstream analysis possibilities.
-  * Recommended for **HiFi data and ONT duplex data only**. In my testing, this worsens runtime and call quality for 
-    ONT ultra-long-read data, but speeds up the tool and improves call quality for HiFi/ONT duplex data. 
+  * Recommended for **HiFi data and ONT R10 data only**. In my testing, this worsens runtime and call quality for 
+    ONT ultra-long-read data, but speeds up the tool and improves call quality for HiFi/ONT R10 data. 
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
