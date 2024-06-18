@@ -14,7 +14,6 @@ import threading
 import time
 import traceback
 
-from datetime import datetime
 from operator import itemgetter
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
 from typing import Iterable, Literal, Optional
@@ -196,7 +195,7 @@ def locus_worker(
 
 def progress_worker(
     sample_id: Optional[str],
-    start_time: datetime,
+    start_time: float,
     log_level: int,
     locus_queue: mp.Queue,
     locus_counter: mmg.ValueProxy,
@@ -215,7 +214,7 @@ def progress_worker(
     def _log():
         try:
             processed_loci = int(locus_counter.get())
-            n_seconds = (datetime.now() - start_time).total_seconds()
+            n_seconds = time.perf_counter() - start_time
             loci_per_second = processed_loci / n_seconds
             est_time_remaining = ((num_loci - processed_loci) / loci_per_second) if loci_per_second else float("inf")
             lg.info(
@@ -272,7 +271,7 @@ def call_sample(
     logger = get_main_logger()
 
     # Start the call timer
-    start_time = datetime.now()
+    start_time = time.perf_counter()
 
     logger.info(
         f"Starting STR genotyping; sample={params.sample_id}, hq={params.hq}, targeted={params.targeted}, "
@@ -474,9 +473,9 @@ def call_sample(
         finish_event.set()
         progress_job.join()
 
-    time_taken = datetime.now() - start_time
+    time_taken = time.perf_counter() - start_time
 
-    logger.info(f"Finished STR genotyping in {time_taken.total_seconds():.1f}s")
+    logger.info(f"Finished STR genotyping in {time_taken:.1f}s")
 
     if json_path:
         output_json_report_footer(time_taken, json_path, indent_json)

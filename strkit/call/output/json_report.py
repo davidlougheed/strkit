@@ -1,5 +1,4 @@
 import sys
-from datetime import timedelta
 from typing import Callable, Literal
 
 from strkit import __version__
@@ -72,8 +71,8 @@ def output_json_report_results(results: tuple[LocusResult, ...], is_last: bool, 
     _write_bytes(results_bytes, json_path, "ab")
 
 
-def output_json_report_footer(time_taken: timedelta, json_path: str, indent_json: bool):
-    runtime_bytes = dumps(time_taken.total_seconds())
+def output_json_report_footer(time_taken: float, json_path: str, indent_json: bool):
+    runtime_bytes = dumps(time_taken)
     if indent_json:
         footer_bytes = b'\n  ],\n  "runtime": ' + runtime_bytes + b'\n}\n'
     else:
