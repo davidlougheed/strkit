@@ -23,6 +23,8 @@ __all__ = [
 
 min_realign_score_ratio: float = 0.95  # TODO: parametrize
 realign_indel_open_penalty: int = 7  # TODO: parametrize
+max_ref_len_for_same_proc: int = 1200  # TODO: parametrize
+max_read_len_for_same_proc: int = 20000  # TODO: parametrize
 
 
 MatchedCoordPairList = tuple[NDArray[np.uint64], NDArray[np.uint64]]
@@ -37,7 +39,7 @@ def realign_read(
     rn: str,
     t_idx: int,
     always_realign: bool,
-    q: Optional[mp.Queue] = None,  # TODO: why was this optional, again...
+    q: Optional[mp.Queue],
     log_level: int = logging.WARNING,
 ) -> MatchedCoordPairListOrNone:
     # Have to re-attach logger in separate process I guess
@@ -84,11 +86,25 @@ def perform_realign(
     logger_: logging.Logger,
     locus_log_str: str,
 ) -> MatchedCoordPairListOrNone:
+    qs_wc = calculate_seq_with_wildcards(qs, fqqs)
+
+    ref_seq_len = len(ref_total_seq)
+    qs_len = len(qs_wc)
+
+    if ref_seq_len <= max_ref_len_for_same_proc and qs_len <= max_read_len_for_same_proc:
+        # Don't start process for short realigns, since then process startup dominates the total time taken
+        # TODO: more robust solution; realign worker somehow? How to do timeout?
+        return realign_read(
+            ref_total_seq, qs_wc, left_flank_coord, params.flank_size, rn, t_idx, force_realign, None, params.log_level
+        )
+
+    t = time.time()
+
     q: mp.Queue = mp.Queue()
     proc = mp.Process(target=realign_read, daemon=False, kwargs=dict(
         # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
         ref_seq=ref_total_seq,  # TODO: with the plus 1, really?
-        query_seq=calculate_seq_with_wildcards(qs, fqqs),
+        query_seq=qs_wc,
         left_flank_coord=left_flank_coord,
         flank_size=params.flank_size,
         rn=rn,
@@ -115,9 +131,12 @@ def perform_realign(
             logger_.warning(f"{locus_log_str} - realign job has still not exited. Waiting 0.5 seconds...")
             time.sleep(0.5)
             wait_count += 1
-            if wait_count > 5:
+            if wait_count > 30:
                 logger_.fatal(f"{locus_log_str} - realign job never exited. Terminating...")
                 exit(1)
         proc.close()
+
+    logger_.debug(
+        f"{locus_log_str} - {rn}: long realign job completed in {time.time() - t:.4f}s ({ref_seq_len=}, {qs_len=})")
 
     return pairs_new
