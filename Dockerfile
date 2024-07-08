@@ -14,6 +14,6 @@ RUN sh ./rustup-init.sh -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN pip install -U pip
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir -v .
 
 CMD [ "strkit" ]
