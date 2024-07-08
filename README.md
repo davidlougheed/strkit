@@ -1,10 +1,14 @@
 # STRkit - short tandem repeat genotyping with long reads
 
 [![PyPI version](https://badge.fury.io/py/strkit.svg)](https://badge.fury.io/py/strkit)
+[![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.12689906.svg)](https://doi.org/10.5281/zenodo.12689906)
 
 STRkit is a short tandem repeat (STR) genotyping and analysis toolkit for long read sequencing data, especially 
 PacBio HiFi data. The STRkit software package is written in Python and is available in the PyPI package registry or as
 a Docker container.
+
+If you use STRkit in published work in its current state, please cite the version you use via 
+[Zenodo DOI](https://zenodo.org/records/12689906).
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
