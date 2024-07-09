@@ -30,6 +30,13 @@ __all__ = [
 #     ("CIRB", ".", "Integer", "Confidence interval around RB"),
 # )
 
+VCF_INFO_VT = "VT"
+VCF_INFO_MOTIF = "MOTIF"
+VCF_INFO_REFMC = "REFMC"
+
+VT_STR = "str"
+VT_SNV = "snv"
+
 
 def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader:
     vh = pysam.VariantHeader()  # automatically sets VCF version to 4.2
@@ -46,7 +53,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader
         rf.close()
 
     # Add CNV:TR alt type (symbolic allele: tandem repeat)
-    vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")
+    # vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")
 
     # Set up basic VCF formats
     vh.formats.add("AD", ".", "Integer", "Read depth for each allele")
@@ -59,8 +66,9 @@ def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
 
     # Set up VCF info fields
-    vh.info.add("MOTIF", 1, "String", "Motif string")
-    vh.info.add("REFMC", 1, "Integer", "Motif copy number in the reference genome")
+    vh.info.add(VCF_INFO_VT, 1, "String", "Variant record type (str/snv)")
+    vh.info.add(VCF_INFO_MOTIF, 1, "String", "Motif string")
+    vh.info.add(VCF_INFO_REFMC, 1, "Integer", "Motif copy number in the reference genome")
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
@@ -143,8 +151,9 @@ def output_contig_vcf_lines(
             alleles=seq_alleles,
         )
 
-        vr.info["MOTIF"] = result["motif"]
-        vr.info["REFMC"] = result["ref_cn"]
+        vr.info[VCF_INFO_VT] = VT_STR
+        vr.info[VCF_INFO_MOTIF] = result["motif"]
+        vr.info[VCF_INFO_REFMC] = result["ref_cn"]
 
         vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if call is not None and seqs \
             else _blank_entry(n_alleles)
@@ -186,13 +195,15 @@ def output_contig_vcf_lines(
                     logger.error(f"Error while writing VCF: SNV ({snv_id}) at {contig}:{snv_pos+1} has no alts")
                     continue
 
-                snv_vr = variant_file.new_record(
+                snv_vr: pysam.VariantRecord = variant_file.new_record(
                     contig=contig,
                     id=snv_id,
                     start=snv_pos,
                     stop=snv_pos + 1,
                     alleles=snv_alleles,
                 )
+
+                snv_vr.info[VCF_INFO_VT] = VT_SNV
 
                 snv_vr.samples[sample_id]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
                 snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])

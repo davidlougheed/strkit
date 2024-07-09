@@ -162,5 +162,6 @@ VCF format fields (i.e., for each variant sample entry):
 
 VCF info. fields (i.e., for each STR variant record; not present for SNV records):
 
+* `VT`: Variant record type (`str` or `snv`)
 * `MOTIF`: Motif sequence
 * `REFMC`: Motif copy number in the reference genome
