@@ -31,17 +31,19 @@ class StraglrCalculator(BaseCalculator):
 
             locus = tuple(line[:3])
 
-            orig_motif = self._loci_dict.get(locus)
+            k = (line[0], int(line[1]), int(line[2]))
+
+            orig_motif = next(iter(self.get_loci_overlapping(*k)), None)
             orig_motif = orig_motif[-1] if orig_motif else None
 
             if not orig_motif:
                 continue
 
-            if self.should_exclude_locus(locus):
+            if self.should_exclude_locus(*k):
                 continue
 
             if cr:
-                cr.seen_locus(locus[0], int(locus[1]), int(locus[2]))
+                cr.seen_locus(*k)
 
             # Transform the genotypes into something that is consistent across individuals,
             # using the file with the list of loci.

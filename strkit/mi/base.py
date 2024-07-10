@@ -6,20 +6,19 @@ from pathlib import Path
 from typing import Any, Optional
 
 from strkit.logger import get_main_logger
+from .intervals import (
+    LociDictOfDict,
+    LociDictOfList,
+    build_loci_dict_of_dict_from_file,
+    build_loci_dict_of_list_from_file,
+    overlapping_loci_dict_of_dict,
+    overlapping_loci_dict_of_list,
+)
 from .result import MIContigResult, MIResult
 
 __all__ = [
     "BaseCalculator",
 ]
-
-
-def _line_filter_fn(s: str) -> bool:
-    """
-    Filter function to skip blank lines and comments
-    :param s: line of a file
-    :return: whether the line is not blank and is not a comment
-    """
-    return s and not s.startswith("#")
 
 
 # noinspection PyUnusedLocal
@@ -55,10 +54,10 @@ class BaseCalculator(ABC):
         self._father_id: Optional[str] = father_id
 
         self._loci_file: Optional[str] = loci_file
-        self._loci_dict = self._make_loci_dict()
+        self._loci_dict: LociDictOfDict = build_loci_dict_of_dict_from_file(loci_file)
 
         self._exclude_file: Optional[str] = exclude_file
-        self._exclude_set = self._make_exclude_set()
+        self._exclude_dict: LociDictOfList = build_loci_dict_of_list_from_file(exclude_file)
 
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
@@ -84,25 +83,11 @@ class BaseCalculator(ABC):
     def mt_corr(self) -> str:
         return self._mt_corr
 
-    def _make_loci_dict(self) -> dict[tuple[str, str, str], list[str, ...]]:
-        if not self._loci_file:
-            return {}
+    def get_loci_overlapping(self, contig: str, start: int, end: int) -> list[tuple[int, int, list[str]]]:
+        return overlapping_loci_dict_of_dict(contig, start, end, self._loci_dict)
 
-        with open(self._loci_file, "r") as lf:
-            return {
-                tuple(d[:3]): d[3:]
-                for d in map(lambda line: line.split("\t"), filter(_line_filter_fn, map(str.strip, lf)))
-            }
-
-    def _make_exclude_set(self) -> set[tuple[str, str, str]]:
-        if not self._exclude_file:
-            return set()
-
-        with open(self._exclude_file, "r") as lf:
-            return set(map(lambda line: tuple(line.split("\t")[:3]), filter(_line_filter_fn, map(str.strip, lf))))
-
-    def should_exclude_locus(self, locus: tuple[str, str, str]) -> bool:
-        return locus in self._exclude_set
+    def should_exclude_locus(self, contig: str, start: int, end: int) -> bool:
+        return any(True for _ in overlapping_loci_dict_of_list(contig, start, end, self._exclude_dict))
 
     @abstractmethod
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:

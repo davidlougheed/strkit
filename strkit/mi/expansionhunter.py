@@ -50,15 +50,15 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
 
             # TODO: Handle sex chromosomes
 
+            k = (contig, cv.pos, cv.stop)
+
             # Check to make sure call is present in TRF BED file, if it is specified
-            bed_k = (contig, str(cv.pos), str(cv.stop))
-            if self._loci_file and self._loci_dict and bed_k not in self._loci_dict:
+            # Check to make sure the locus is not excluded via overlap with exclude BED
+            if ((self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k))
+                    or self.should_exclude_locus(*k)):
                 continue
 
-            if self.should_exclude_locus(bed_k):
-                continue
-
-            cr.seen_locus(contig, cv.pos, cv.stop)
+            cr.seen_locus(*k)
 
             if mv is None or fv is None:
                 # Variant isn't found in at least one of the parents, so we can't do anything with it.

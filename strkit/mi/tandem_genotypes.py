@@ -49,20 +49,17 @@ class TandemGenotypesCalculator(BaseCalculator):
                 if locus_data[0] != contig:
                     continue
 
-                bed_k = lookup[:3]
+                k = (contig, int(lookup[1]), int(lookup[2]))
 
                 # Check to make sure call is present in TRF BED file, if it is specified
-                if self._loci_file and self._loci_dict and bed_k not in self._loci_dict:
+                if self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k):
                     continue
 
                 # noinspection PyTypeChecker
-                if self.should_exclude_locus(bed_k):
+                if self.should_exclude_locus(*k):
                     continue
 
-                locus_start = int(lookup[1])
-                locus_end = int(lookup[2])
-
-                cr.seen_locus(contig, locus_start, locus_end)
+                cr.seen_locus(*k)
 
                 # Check to make sure call is present in all trio individuals
                 if lookup not in mother_calls or lookup not in father_calls:
@@ -76,8 +73,8 @@ class TandemGenotypesCalculator(BaseCalculator):
 
                 cr.append(MILocusData(
                     contig=contig,
-                    start=locus_start,
-                    end=locus_end,
+                    start=k[1],
+                    end=k[2],
                     motif=lookup[3],
 
                     child_gt=int_tuple(child_calls),

@@ -6,7 +6,7 @@ from strkit.json import json
 
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
-from ..utils import int_tuple, float_tuple, parse_cis
+from ..utils import int_tuple, parse_cis
 
 __all__ = [
     "StrKitCalculator",
@@ -19,8 +19,6 @@ STRKIT_TSV_CALL_95_CI_INDEX = 7
 
 
 class StrKitCalculator(BaseCalculator):
-    fractional = False
-
     @staticmethod
     def get_contigs_from_fh(fh) -> set[str]:
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
@@ -36,13 +34,10 @@ class StrKitCalculator(BaseCalculator):
 
     @staticmethod
     def make_calls_dict(ph, contig):
-        tuple_conv = float_tuple if StrKitCalculator.fractional else int_tuple
-        dtype = float if StrKitCalculator.fractional else int
-
         return {
             tuple(line[:4]): (
-                tuple_conv(line[STRKIT_TSV_CALL_INDEX].split("|")),
-                parse_cis(line[STRKIT_TSV_CALL_95_CI_INDEX].split("|"), dtype=dtype),
+                int_tuple(line[STRKIT_TSV_CALL_INDEX].split("|")),
+                parse_cis(line[STRKIT_TSV_CALL_95_CI_INDEX].split("|")),
                 None  # parse_cis(line[-1:].split("|")),
             )
             for line in (pv.strip().split("\t") for pv in ph)
@@ -50,9 +45,6 @@ class StrKitCalculator(BaseCalculator):
         }
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        tuple_conv = float_tuple if StrKitCalculator.fractional else int_tuple
-        dtype = float if StrKitCalculator.fractional else int
-
         cr = MIContigResult(includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
@@ -74,8 +66,11 @@ class StrKitCalculator(BaseCalculator):
 
                 lookup = tuple(locus_data[:4])
 
+                start = int(locus_data[1])
+                end = int(locus_data[2])
+
                 # Check to make sure call is present in TRF BED file, if it is specified
-                if self._loci_file and self._loci_dict and lookup[:3] not in self._loci_dict:
+                if self._loci_file and self._loci_dict and not self.get_loci_overlapping(contig, start, end):
                     continue
 
                 # Check to make sure call is present in all trio individuals
@@ -97,11 +92,11 @@ class StrKitCalculator(BaseCalculator):
                     end=int(lookup[2]),
                     motif=lookup[3],
 
-                    child_gt=tuple_conv(calls),
+                    child_gt=int_tuple(calls),
                     mother_gt=m_gt,
                     father_gt=f_gt,
 
-                    child_gt_95_ci=parse_cis(locus_data[STRKIT_TSV_CALL_95_CI_INDEX].split("|"), dtype=dtype),
+                    child_gt_95_ci=parse_cis(locus_data[STRKIT_TSV_CALL_95_CI_INDEX].split("|")),
                     mother_gt_95_ci=m_gt_95_ci,
                     father_gt_95_ci=f_gt_95_ci,
 
@@ -109,9 +104,9 @@ class StrKitCalculator(BaseCalculator):
                     # mother_gt_99_ci=m_gt_99_ci,
                     # father_gt_99_ci=f_gt_99_ci,
 
-                    reference_copies=dtype(locus_data[4]),
+                    reference_copies=int(locus_data[4]),
 
-                    decimal=StrKitCalculator.fractional,
+                    decimal=False,
                 ))
 
         return cr
@@ -171,16 +166,12 @@ class StrKitJSONCalculator(BaseCalculator):
 
     @staticmethod
     def make_calls_dict(report: dict, contig: str):
-        fractional = report["parameters"]["fractional"]
-        tuple_conv = float_tuple if fractional else int_tuple
-        dtype = float if fractional else int
-
         return {
             (res["contig"], res["start"], res["end"], res["motif"]): (
-                tuple_conv(res["call"]),
-                tuple(map(lambda x: tuple(map(dtype, x)), res["call_95_cis"])),
+                int_tuple(res["call"]),
+                tuple(map(lambda x: tuple(map(int, x)), res["call_95_cis"])),
                 None,  # Placeholder for 99% CI
-                StrKitJSONCalculator.get_read_counts(res, dtype=dtype),
+                StrKitJSONCalculator.get_read_counts(res, dtype=int),
             )
             for res in report["results"]
             if res["contig"] == contig and res["call"] is not None
@@ -188,11 +179,6 @@ class StrKitJSONCalculator(BaseCalculator):
 
     def calculate_contig(self, contig: str) -> MIContigResult:
         c_report = self._cache["child_data"]
-
-        fractional = c_report["parameters"].get("fractional", False)
-
-        tuple_conv = float_tuple if fractional else int_tuple
-        dtype = float if fractional else int
 
         cr = MIContigResult(includes_95_ci=True)
 
@@ -210,17 +196,17 @@ class StrKitJSONCalculator(BaseCalculator):
             locus_end = res["end"]
 
             lookup = (contig, locus_start, locus_end, res["motif"])
-            # noinspection PyTypeChecker
-            locus_lookup: tuple[str, str, str] = tuple(map(str, lookup[:3]))
+
+            k = (contig, int(locus_start), int(locus_end))
 
             # Check to make sure call is present in TRF BED file, if it is specified
-            if self._loci_file and self._loci_dict and locus_lookup not in self._loci_dict:
+            if self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k):
                 continue
 
-            if self.should_exclude_locus(locus_lookup):
+            if self.should_exclude_locus(*k):
                 continue
 
-            cr.seen_locus(contig, locus_start, locus_end)
+            cr.seen_locus(*k)
 
             # Check to make sure call is present in all trio individuals
             if lookup not in mother_data or lookup not in father_data:
@@ -233,7 +219,7 @@ class StrKitJSONCalculator(BaseCalculator):
                 # Failed call
                 continue
 
-            call = tuple_conv(res["call"])
+            call = int_tuple(res["call"])
 
             cr.append(MILocusData(
                 contig=lookup[0],
@@ -241,11 +227,11 @@ class StrKitJSONCalculator(BaseCalculator):
                 end=locus_end,
                 motif=lookup[3],
 
-                child_gt=tuple_conv(call),
+                child_gt=int_tuple(call),
                 mother_gt=m_gt,
                 father_gt=f_gt,
 
-                child_gt_95_ci=tuple(map(lambda x: tuple(map(dtype, x)), res["call_95_cis"])),
+                child_gt_95_ci=tuple(map(lambda x: tuple(map(int, x)), res["call_95_cis"])),
                 mother_gt_95_ci=m_gt_95_ci,
                 father_gt_95_ci=f_gt_95_ci,
 
@@ -253,13 +239,13 @@ class StrKitJSONCalculator(BaseCalculator):
                 # mother_gt_99_ci=m_gt_99_ci,
                 # father_gt_99_ci=f_gt_99_ci,
 
-                child_read_counts=StrKitJSONCalculator.get_read_counts(res, dtype=dtype),
+                child_read_counts=StrKitJSONCalculator.get_read_counts(res, dtype=int),
                 mother_read_counts=m_rcs,
                 father_read_counts=f_rcs,
 
-                reference_copies=dtype(res["ref_cn"]),
+                reference_copies=int(res["ref_cn"]),
 
-                decimal=fractional,
+                decimal=False,
 
                 test_to_perform=self.test_to_perform,
             ))
