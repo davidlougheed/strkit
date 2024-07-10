@@ -28,14 +28,14 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
         #  - CIs are "proper" - not inverted or weird
 
         for cv in cvf.fetch(contig):
-            mv = next(mvf.fetch(contig, cv.pos, cv.pos + 1), None)  # TODO: Do we need to add one
-            fv = next(fvf.fetch(contig, cv.pos, cv.pos + 1), None)  # TODO: Do we need to add one
+            mv = next(mvf.fetch(contig, cv.start, cv.stop), None)  # TODO: Do we need to add one
+            fv = next(fvf.fetch(contig, cv.start, cv.stop), None)  # TODO: Do we need to add one
 
             # TODO: Handle sex chromosomes
 
             # Check to make sure call is present in TRF BED file, if it is specified
-            k1 = (contig, cv.pos, cv.stop)
-            k2 = (contig, cv.pos - 1, cv.stop)
+            k1 = (contig, cv.start, cv.stop)
+            k2 = (contig, cv.start + 1, cv.stop + 1)
             if (self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k1)
                     and not self.get_loci_overlapping(*k2)):
                 continue

@@ -45,12 +45,12 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
         #  - CIs are "proper" - not inverted or weird
 
         for cv in cvf.fetch(contig):
-            mv = next(mvf.fetch(contig, cv.pos, cv.pos + 1), None)  # TODO: Do we need to add one
-            fv = next(fvf.fetch(contig, cv.pos, cv.pos + 1), None)  # TODO: Do we need to add one
+            mv = next(mvf.fetch(contig, cv.start, cv.stop), None)
+            fv = next(fvf.fetch(contig, cv.start, cv.stop), None)
 
             # TODO: Handle sex chromosomes
 
-            k = (contig, cv.pos, cv.stop)
+            k = (contig, cv.start, cv.stop)
 
             # Check to make sure call is present in TRF BED file, if it is specified
             # Check to make sure the locus is not excluded via overlap with exclude BED
