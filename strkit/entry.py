@@ -379,7 +379,7 @@ def _exec_mi(p_args) -> None:
     from strkit.mi.gangstr import GangSTRCalculator
     from strkit.mi.repeathmm import RepeatHMMCalculator
     from strkit.mi.straglr import StraglrCalculator
-    from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator
+    from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator, StrKitVCFCalculator
     from strkit.mi.tandem_genotypes import TandemGenotypesCalculator
 
     calc_classes: dict[str, Type[BaseCalculator]] = {
@@ -389,6 +389,7 @@ def _exec_mi(p_args) -> None:
         c.CALLER_STRAGLR: StraglrCalculator,
         c.CALLER_STRKIT: StrKitCalculator,
         c.CALLER_STRKIT_JSON: StrKitJSONCalculator,
+        c.CALLER_STRKIT_VCF: StrKitVCFCalculator,
         c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
     }
 
