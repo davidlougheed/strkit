@@ -373,7 +373,9 @@ class MILocusData:
 
 
 class MIContigResult:
-    def __init__(self, includes_95_ci: bool = False, includes_99_ci: bool = False):
+    def __init__(self, contig: str, includes_95_ci: bool = False, includes_99_ci: bool = False):
+        self._contig = contig
+
         self._loci_data: list[MILocusData] = []
         self._includes_95_ci: bool = includes_95_ci
         self._includes_99_ci: bool = includes_99_ci
@@ -383,6 +385,10 @@ class MIContigResult:
 
     def seen_locus(self, contig: str, start: int, end: int):
         self._seen_loci.add((contig, start, end))
+
+    @property
+    def contig(self) -> str:
+        return self._contig
 
     @property
     def n_loci_seen(self) -> int:
@@ -434,7 +440,7 @@ class MIContigResult:
         yield from self._loci_data
 
     def __str__(self):
-        return f"<MIContigResult #loci={len(self._loci_data)}>"
+        return f"<MIContigResult contig={self._contig} #loci={len(self._loci_data)}>"
 
 
 class MIResult:

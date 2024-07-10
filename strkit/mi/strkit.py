@@ -45,7 +45,7 @@ class StrKitCalculator(BaseCalculator):
         }
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        cr = MIContigResult(includes_95_ci=True)
+        cr = MIContigResult(contig, includes_95_ci=True)
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
@@ -180,7 +180,7 @@ class StrKitJSONCalculator(BaseCalculator):
     def calculate_contig(self, contig: str) -> MIContigResult:
         c_report = self._cache["child_data"]
 
-        cr = MIContigResult(includes_95_ci=True)
+        cr = MIContigResult(contig, includes_95_ci=True)
 
         mother_data = self.make_calls_dict(self._cache["mother_data"], contig)
         self._logger.debug(f"loaded materal calls for {contig}")

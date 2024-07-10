@@ -32,7 +32,7 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
         return self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        cr = MIContigResult(includes_95_ci=True)
+        cr = MIContigResult(contig, includes_95_ci=True)
 
         mvf = pysam.VariantFile(str(self._mother_call_file))
         fvf = pysam.VariantFile(str(self._father_call_file))

@@ -116,7 +116,7 @@ class BaseCalculator(ABC):
 
     @abstractmethod
     def calculate_contig(self, contig: str) -> MIContigResult:
-        return MIContigResult()
+        return MIContigResult(contig)
 
     def calculate(self, included_contigs: set) -> Optional[MIResult]:
         res: float = 0

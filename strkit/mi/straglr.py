@@ -68,7 +68,7 @@ class StraglrCalculator(BaseCalculator):
             return mc, fc, cc
 
     def calculate_contig(self, contig: str):
-        cr = MIContigResult()
+        cr = MIContigResult(contig)
 
         with open(self._mother_call_file, "r") as mh:
             mother_calls = self.make_calls_dict(mh, contig)

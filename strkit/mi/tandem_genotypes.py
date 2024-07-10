@@ -33,7 +33,7 @@ class TandemGenotypesCalculator(BaseCalculator):
             return mc, fc, cc
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        cr = MIContigResult()
+        cr = MIContigResult(contig)
 
         with open(self._mother_call_file) as mh:
             mother_calls = self.make_calls_dict(mh, contig)
