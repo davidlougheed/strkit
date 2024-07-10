@@ -28,8 +28,8 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
         #  - CIs are "proper" - not inverted or weird
 
         for cv in cvf.fetch(contig):
-            mv = next(mvf.fetch(contig, cv.start, cv.stop), None)  # TODO: Do we need to add one
-            fv = next(fvf.fetch(contig, cv.start, cv.stop), None)  # TODO: Do we need to add one
+            mv = next(mvf.fetch(contig, cv.start, cv.stop), None)
+            fv = next(fvf.fetch(contig, cv.start, cv.stop), None)
 
             # TODO: Handle sex chromosomes
 
