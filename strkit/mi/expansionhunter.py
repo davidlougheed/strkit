@@ -52,10 +52,7 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
 
             k = (contig, cv.start, cv.stop)
 
-            # Check to make sure call is present in TRF BED file, if it is specified
-            # Check to make sure the locus is not excluded via overlap with exclude BED
-            if ((self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k))
-                    or self.should_exclude_locus(*k)):
+            if self.should_skip_locus(*k):
                 continue
 
             cr.seen_locus(*k)

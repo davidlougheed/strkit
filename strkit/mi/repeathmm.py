@@ -55,10 +55,7 @@ class RepeatHMMCalculator(BaseCalculator):
                 k = (contig, locus_start, locus_end)
 
                 # Check to make sure call is present in TRF BED file, if it is specified
-                if self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k):
-                    continue
-
-                if self.should_exclude_locus(*k):
+                if self.should_skip_locus(*k):
                     continue
 
                 cr.seen_locus(*k)

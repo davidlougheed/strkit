@@ -89,6 +89,14 @@ class BaseCalculator(ABC):
     def should_exclude_locus(self, contig: str, start: int, end: int) -> bool:
         return any(True for _ in overlapping_loci_dict_of_list(contig, start, end, self._exclude_dict))
 
+    def should_skip_locus(self, contig: str, start: int, end: int) -> bool:
+        # Check to make sure call is present in TRF BED file, if it is specified
+        # Check to make sure the locus is not excluded via overlap with exclude BED
+        return (
+            (self._loci_file and self._loci_dict and not self.get_loci_overlapping(contig, start, end))
+            or self.should_exclude_locus(contig, start, end)
+        )
+
     @abstractmethod
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
         return set(), set(), set()

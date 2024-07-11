@@ -72,8 +72,7 @@ class StrKitCalculator(BaseCalculator):
                 start = int(locus_data[1])
                 end = int(locus_data[2])
 
-                # Check to make sure call is present in TRF BED file, if it is specified
-                if self._loci_file and self._loci_dict and not self.get_loci_overlapping(contig, start, end):
+                if self.should_skip_locus(contig, start, end):
                     continue
 
                 # Check to make sure call is present in all trio individuals
@@ -203,10 +202,7 @@ class StrKitJSONCalculator(BaseCalculator):
             k = (contig, int(locus_start), int(locus_end))
 
             # Check to make sure call is present in TRF BED file, if it is specified
-            if self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k):
-                continue
-
-            if self.should_exclude_locus(*k):
+            if self.should_skip_locus(*k):
                 continue
 
             cr.seen_locus(*k)
@@ -282,14 +278,12 @@ class StrKitVCFCalculator(BaseCalculator, VCFCalculatorMixin):
             # TODO: Handle sex chromosomes
 
             # Check to make sure call is present in TRF BED file, if it is specified
-            if ((self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k))
-                    or self.should_exclude_locus(*k)):
+            if self.should_skip_locus(*k):
                 continue
 
             cr.seen_locus(*k)
 
             if mv is None or fv is None:
-                print("!!", k, list(mvf.fetch(*k)))
                 # Variant isn't found in at least one of the parents, so we can't do anything with it.
                 # TODO: We need to actually check calls, and check with sample ID, not just assume
                 continue

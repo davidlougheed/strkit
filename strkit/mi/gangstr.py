@@ -36,11 +36,8 @@ class GangSTRCalculator(BaseCalculator, VCFCalculatorMixin):
             # Check to make sure call is present in TRF BED file, if it is specified
             k1 = (contig, cv.start, cv.stop)
             k2 = (contig, cv.start + 1, cv.stop + 1)
-            if (self._loci_file and self._loci_dict and not self.get_loci_overlapping(*k1)
-                    and not self.get_loci_overlapping(*k2)):
-                continue
 
-            if self.should_exclude_locus(*k1) or self.should_exclude_locus(*k2):
+            if self.should_skip_locus(*k1) or self.should_skip_locus(*k2):
                 continue
 
             cr.seen_locus(*k1)
