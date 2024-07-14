@@ -57,7 +57,7 @@ class StraglrCalculator(BaseCalculator):
 
         return calls
 
-    def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
+    def _get_sample_contigs(self) -> tuple[set, set, set]:
         with open(self._mother_call_file, "r") as mvf, open(self._father_call_file, "r") as fvf, \
                 open(self._child_call_file, "r") as cvf:
 

@@ -17,8 +17,12 @@ from .intervals import (
 from .result import MIContigResult, MIResult
 
 __all__ = [
+    "SEX_CHROMOSOMES",
     "BaseCalculator",
 ]
+
+
+SEX_CHROMOSOMES = {"chrX", "X", "chrY", "Y"}  # TODO: proper parametrization
 
 
 # noinspection PyUnusedLocal
@@ -98,7 +102,7 @@ class BaseCalculator(ABC):
         )
 
     @abstractmethod
-    def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
+    def _get_sample_contigs(self) -> tuple[set, set, set]:
         return set(), set(), set()
 
     def get_trio_contigs(self, include_sex_chromosomes: bool = False) -> set:
@@ -106,7 +110,7 @@ class BaseCalculator(ABC):
 
         contig_set = mc.intersection(fc).intersection(cc)
 
-        if include_sex_chromosomes:
+        if include_sex_chromosomes:  # TODO: proper parametrization
             if "Y" in cc:
                 contig_set = contig_set.union({"X", "Y"})
             elif "chrY" in cc:
@@ -115,6 +119,8 @@ class BaseCalculator(ABC):
                 contig_set = contig_set.union({"X"})
             elif "chrX" in cc:
                 contig_set = contig_set.union({"chrX"})
+        else:
+            contig_set = contig_set.difference(SEX_CHROMOSOMES)
 
         if self._loci_dict:
             # Limit contig set to only contigs which are in the locus dictionary if one is specified.

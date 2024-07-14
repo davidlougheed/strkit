@@ -26,7 +26,7 @@ class StrKitCalculator(BaseCalculator):
     def get_contigs_from_fh(fh) -> set[str]:
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
 
-    def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
+    def _get_sample_contigs(self) -> tuple[set, set, set]:
         with open(self._mother_call_file, "r") as mvf:
             mc = self.get_contigs_from_fh(mvf)
         with open(self._father_call_file, "r") as fvf:
