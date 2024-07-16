@@ -75,15 +75,15 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
             # TODO: Handle missing samples gracefully
             # TODO: Handle wrong formatted VCFs gracefully
 
-            motif = cv.info["MOTIFS"].split(",")[0]
+            motif = cv.info["MOTIFS"][0]
 
             cs = cv.samples[self._child_id or 0]
             ms = mv.samples[self._mother_id or 0]
             fs = fv.samples[self._father_id or 0]
 
-            cs_reps = tuple(sorted(zip(cs["AL"].split(","), cs["ALLR"].split(",")), key=lambda x: x[0]))
-            ms_reps = tuple(sorted(zip(ms["AL"].split(","), ms["ALLR"].split(",")), key=lambda x: x[0]))
-            fs_reps = tuple(sorted(zip(fs["AL"].split(","), fs["ALLR"].split(",")), key=lambda x: x[0]))
+            cs_reps = tuple(sorted(zip(cs["AL"], cs["ALLR"]), key=lambda x: x[0]))
+            ms_reps = tuple(sorted(zip(ms["AL"], ms["ALLR"]), key=lambda x: x[0]))
+            fs_reps = tuple(sorted(zip(fs["AL"], fs["ALLR"]), key=lambda x: x[0]))
 
             c_gt, c_gt_95_ci = _unzip_gt(cs_reps, len(motif))
             m_gt, m_gt_95_ci = _unzip_gt(ms_reps, len(motif))
