@@ -11,6 +11,7 @@ __all__ = [
     "apply_or_none",
     "int_tuple",
     "float_tuple",
+    "parse_ci",
     "parse_cis",
     "cis_overlap",
     "sign",
@@ -34,8 +35,15 @@ def float_tuple(x: Iterable) -> tuple[float, ...]:
     return tuple(map(float, x))
 
 
-def parse_cis(cis, commas=False, dtype=int):
-    return tuple(map(lambda ci: tuple(map(dtype, ci.split("," if commas else "-"))), cis))
+def parse_ci(ci: str, commas=False, dtype=int) -> Union[tuple[int, int], tuple[float, float]]:
+    ci_s = ci.split("," if commas else "-")
+    return dtype(ci_s[0]), dtype(ci_s[1])
+
+
+def parse_cis(
+    cis: Iterable[str], commas=False, dtype=int
+) -> Union[tuple[tuple[int, ...], ...], tuple[tuple[float, ...], ...]]:
+    return tuple(map(lambda ci: parse_ci(ci, commas, dtype), cis))
 
 
 def cis_overlap(ci1, ci2) -> bool:

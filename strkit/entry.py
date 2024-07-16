@@ -381,6 +381,7 @@ def _exec_mi(p_args) -> None:
     from strkit.mi.straglr import StraglrCalculator
     from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator, StrKitVCFCalculator
     from strkit.mi.tandem_genotypes import TandemGenotypesCalculator
+    from strkit.mi.trgt import TRGTCalculator
 
     calc_classes: dict[str, Type[BaseCalculator]] = {
         c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
@@ -391,6 +392,7 @@ def _exec_mi(p_args) -> None:
         c.CALLER_STRKIT_JSON: StrKitJSONCalculator,
         c.CALLER_STRKIT_VCF: StrKitVCFCalculator,
         c.CALLER_TANDEM_GENOTYPES: TandemGenotypesCalculator,
+        c.CALLER_TRGT: TRGTCalculator,
     }
 
     caller = p_args.caller.lower()
