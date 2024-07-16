@@ -101,6 +101,8 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
                 child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
+
+                decimal=True,
             ))
 
         return cr
