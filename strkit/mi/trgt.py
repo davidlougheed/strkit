@@ -37,7 +37,7 @@ def _unzip_gt(
                 tuple(map(lambda x: x / motif_len, parse_ci(vals[1][1]))),
             ),
         )
-    except ValueError:
+    except (ValueError, TypeError):
         return (None, None), (None, None)
 
 
