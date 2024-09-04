@@ -248,7 +248,12 @@ def call_alleles_with_gmm(
     read_weights = np.fromiter(map(weight_getter, rdvs), dtype=np.float_)
     read_weights /= read_weights.sum()  # Normalize to probabilities
 
-    logger_.debug(f"{locus_log_str} - assigning alleles using {assign_method} method with {read_cns.shape[0]} reads")
+    logger_.debug(
+        "%s - assigning alleles using %s method with %d reads",
+        locus_log_str,
+        assign_method,
+        int(read_cns.shape[0]),
+    )
 
     return call_alleles(
         read_cns, (),
@@ -407,7 +412,7 @@ def _determine_snv_call_phase_set(
                 snv_genotype_cache[snv_id] = (snv["call"], call_phase_set)
                 snv_id_list.append(snv_id)
 
-            logger_.debug(f"{locus_log_str} - assigned new phase set {call_phase_set} to SNVs {snv_id_list}")
+            logger_.debug("%s - assigned new phase set %d to SNVs %s", locus_log_str, call_phase_set, snv_id_list)
 
             return call_phase_set
 
@@ -574,20 +579,31 @@ def call_alleles_with_incorporated_snvs(
 
     if n_reads_with_no_snvs:
         logger_.debug(
-            f"{locus_log_str} - will discard {n_reads_with_no_snvs}/{n_reads_in_dict} reads with no high-quality SNV "
-            f"data")
+            "%s - will discard %d/%d reads with no high-quality SNV data",
+            locus_log_str, n_reads_with_no_snvs, n_reads_with_many_snvs
+        )
 
     # Otherwise, we can use the SNV data --------------------------------------
 
     if pure_snv_peak_assignment:
         # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
-        logger_.debug(f"{locus_log_str} - haplotyping purely using SNVs ({n_useful_snvs=}, {n_reads_with_many_snvs=})")
+        logger_.debug(
+            "%s - haplotyping purely using SNVs (n_useful_snvs=%d, n_reads_with_many_snvs=%d)",
+           locus_log_str,
+            n_useful_snvs,
+            n_reads_with_many_snvs,
+        )
         assign_method = "snv"
     else:
         # We have enough SNVs in lots of reads, so we can phase using a combined metric
         logger_.debug(
-            f"{locus_log_str} - haplotyping using combined STR-SNV metric ("
-            f"{n_useful_snvs=}, {n_reads_with_at_least_one_snv=}, {n_reads_in_dict=})")
+            f"%s - haplotyping using combined STR-SNV metric ("
+            f"n_useful_snvs=%d, n_reads_with_at_least_one_snv=%d, n_reads_in_dict=%d)",
+            locus_log_str,
+            n_useful_snvs,
+            n_reads_with_at_least_one_snv,
+            n_reads_in_dict,
+        )
         # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
         assign_method = "snv+dist"
 
@@ -626,7 +642,7 @@ def call_alleles_with_incorporated_snvs(
 
         cluster_reads.append(crs)
 
-    logger_.debug(f"{locus_log_str} - using {assign_method=}, got {cns=}")
+    logger_.debug("%s - using assign_method=%s, got cns=%s", locus_log_str, assign_method, cns)
 
     cdd: list[CallDict] = []
 
@@ -746,8 +762,11 @@ def call_alleles_with_incorporated_snvs(
 
 def debug_log_flanking_seq(logger_: logging.Logger, locus_log_str: str, rn: str, realigned: bool):
     logger_.debug(
-        f"{locus_log_str} - skipping read {rn}: could not get sufficient flanking sequence"
-        f"{' (post-realignment)' if realigned else ''}")
+        f"%s - skipping read %s: could not get sufficient flanking sequence"
+        f"{' (post-realignment)' if realigned else ''}",
+        locus_log_str,
+        rn,
+    )
 
 
 def _ndarray_serialize(x: Iterable) -> list[Union[int, np.int_]]:
@@ -849,22 +868,24 @@ def call_locus(
         ref_seq = ref_total_seq[ref_seq_offset_l:ref_seq_offset_r]
     except IndexError:
         logger_.warning(
-            f"{locus_log_str} - skipping locus, coordinates out of range in provided reference FASTA for region "
-            f"{ref_contig} with flank size {params.flank_size}: [{left_flank_coord}, {right_flank_coord}]")
+            "%s - skipping locus, coordinates out of range in provided reference FASTA for region %s with flank size "
+            "%d: [%d, %d]",
+            locus_log_str, ref_contig, flank_size, left_flank_coord, right_flank_coord,
+        )
         raised = True
     except ValueError:
-        logger_.error(f"{locus_log_str} - skipping locus., invalid region '{ref_contig}' for provided reference FASTA")
+        logger_.error("%s - skipping locus., invalid region '%s' for provided reference FASTA", locus_log_str, contig)
         raised = True
 
     if raised:
         return None  # don't even return locus_result, this locus has an invalid position
 
-    if len(ref_left_flank_seq) < params.flank_size or len(ref_right_flank_seq) < params.flank_size:
-        logger_.warning(f"{locus_log_str} - skipping locus, reference flank size too small")
+    if len(ref_left_flank_seq) < flank_size or len(ref_right_flank_seq) < flank_size:
+        logger_.warning("%s - skipping locus, reference flank size too small", locus_log_str)
         return locus_result
 
     if ref_left_flank_seq.endswith("N" * motif_size) or ref_right_flank_seq.startswith("N" * motif_size):
-        logger_.warning(f"{locus_log_str} - skipping locus, reference has flanking N[...] sequence")
+        logger_.warning("%s - skipping locus, reference has flanking N[...] sequence", locus_log_str)
         return locus_result
 
     # Get reference repeat count by our method, so we can calculate offsets from reference
@@ -907,10 +928,14 @@ def call_locus(
     slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
 
     logger_.debug(
-        f"{locus_log_str} - {ref_cn=} (l.o.={l_offset}; r.o.={r_offset}; #i={r_n_is})")
+        "%s - ref_cn=%d (l.o.=%d; r.o.=%d; #i=%s)", locus_log_str, ref_cn, l_offset, r_offset, r_n_is
+    )
 
     if slow_ref_count:
-        logger_.warning(f"{locus_log_str} - slow reference copy number counting ({motif=}; {ref_cn=}; iters={r_n_is})")
+        logger_.warning(
+            "%s - slow reference copy number counting (motif=%s; ref_cn=%d; iters=%s)",
+            locus_log_str, motif, ref_cn, r_n_is
+        )
 
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
     # more spaces in which an indel could end up), adjust our coordinates to match.
@@ -934,6 +959,7 @@ def call_locus(
     read_lengths: NDArray[np.uint]
     chimeric_read_status: dict[str, int]
 
+    min_reads: int = params.min_reads
     max_reads: int = params.max_reads
 
     (
@@ -946,10 +972,10 @@ def call_locus(
     ) = bf.get_overlapping_segments_and_related_data(
         read_contig, left_flank_coord, right_flank_coord, max_reads, logger_, locus_log_str)
 
-    logger_.debug(f"{locus_log_str} - got {n_overlapping_reads} overlapping aligned segments")
+    logger_.debug("%s - got %d overlapping aligned segments", locus_log_str, n_overlapping_reads)
 
-    if n_overlapping_reads > params.max_reads:  # TODO: sample across full set instead?
-        logger_.warning(f"{locus_log_str} - locus has excess reads, using the first {params.max_reads}; misalignment?")
+    if n_overlapping_reads > max_reads:  # TODO: sample across full set instead?
+        logger_.warning("%s - locus has excess reads, using the first %d; misalignment?", locus_log_str, max_reads)
 
     sorted_read_lengths = np.sort(read_lengths)
 
@@ -1084,7 +1110,12 @@ def call_locus(
         qqs = fqqs[left_flank_end:right_flank_start]
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < (min_avg_phred := params.min_avg_phred):  # TODO: check flank?
             logger_.debug(
-                f"{locus_log_str} - skipping read {rn} due to low average base quality ({m_qqs:.2f} < {min_avg_phred})")
+                "%s - skipping read %s due to low average base quality (%.2f < %d)",
+                locus_log_str,
+                rn,
+                m_qqs,
+                min_avg_phred,
+            )
             continue
 
         # -----
@@ -1129,26 +1160,48 @@ def call_locus(
         rc_time = time.perf_counter() - rc_timer
 
         if n_read_cn_iters >= max_rc_iters:
-            logger_.debug(f"{locus_log_str} - locus repeat counting exceeded maximum # iterations ({n_read_cn_iters})")
+            logger_.debug(
+                "%s - locus repeat counting exceeded maximum # iterations (%d)",
+                locus_log_str,
+                n_read_cn_iters,
+            )
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
 
         logger_.debug(
-            f"{locus_log_str} - {rn} | start={read_sc}, of={read_offset_frac_from_starting_guess:.4f} | "
-            f"rct={rc_time}s, cn={read_cn}, s={read_cn_score}[{read_adj_score}]")
+            "%s - %s | start=%d, of=%.4f | rct=%fs, cn=%d, s=%d[%f]",
+            locus_log_str,
+            rn,
+            read_sc,
+            read_offset_frac_from_starting_guess,
+            rc_time,
+            read_cn,
+            read_cn_score,
+            read_adj_score,
+        )
 
         if rc_time >= really_bad_read_alignment_time:
             logger_.debug(
-                f"{locus_log_str} - not calling locus due to a pathologically-poorly-aligning read ({rn}; "
-                f"repeat count alignment scored {read_adj_score:.2f} < {min_read_align_score}; get_repeat_count time: "
-                f"{rc_time:.3f}s; # get_repeat_count iters: {n_read_cn_iters}; {motif=}; {ref_cn=})")
-            logger_.debug(f"{locus_log_str} - ref left flank:  {ref_left_flank_seq}")
-            logger_.debug(f"{locus_log_str} - read left flank: {flank_left_seq}")
-            logger_.debug(f"{locus_log_str} - ref TR seq (:500):  {ref_seq[:500]} (len={len(ref_seq)})")
-            logger_.debug(f"{locus_log_str} - read TR seq (:500): {tr_read_seq_wc[:500]} (len={len(tr_read_seq_wc)})")
-            logger_.debug(f"{locus_log_str} - ref right flank:  {ref_right_flank_seq}")
-            logger_.debug(f"{locus_log_str} - read right flank: {flank_right_seq}")
+                "%s - not calling locus due to a pathologically-poorly-aligning read (%s; repeat count alignment "
+                "scored %.2f < %f; get_repeat_count time: %.3fs; # get_repeat_count iters: %d; motif=%s; ref_cn=%d)",
+                locus_log_str,
+                rn,
+                read_adj_score,
+                min_read_align_score,
+                rc_time,
+                n_read_cn_iters,
+                motif,
+                ref_cn,
+            )
+            logger_.debug("%s - ref left flank:     %s", locus_log_str, ref_left_flank_seq)
+            logger_.debug("%s - read left flank:    %s", locus_log_str, flank_left_seq)
+            logger_.debug("%s - ref TR seq (:500):  %s (len=%d)", locus_log_str, ref_seq[:500], len(ref_seq))
+            logger_.debug(
+                "%s - read TR seq (:500): %s (len=%d)", locus_log_str, tr_read_seq_wc[:500], len(tr_read_seq_wc)
+            )
+            logger_.debug("%s - ref right flank:  %s", locus_log_str, ref_right_flank_seq)
+            logger_.debug("%s - read right flank: %s", locus_log_str, flank_right_seq)
             return {
                 **locus_result,
                 "peaks": None,
@@ -1158,16 +1211,24 @@ def call_locus(
 
         if read_adj_score < min_read_align_score:
             logger_.debug(
-                f"{locus_log_str} - skipping read {rn} (repeat count alignment scored {read_adj_score:.2f} < "
-                f"{min_read_align_score}; get_repeat_count time: {rc_time:.3f}s; # get_repeat_count iters: "
-                f"{n_read_cn_iters})")
+                "%s - skipping read %s (repeat count alignment scored %.2f < %f; get_repeat_count time: %.3fs; "
+                "# get_repeat_count iters: %d)",
+                locus_log_str,
+                rn,
+                read_adj_score,
+                min_read_align_score,
+                rc_time,
+                n_read_cn_iters,
+            )
 
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
                 n_extremely_poor_scoring_reads += 1
                 if n_extremely_poor_scoring_reads > max_bad_reads:
                     logger_.debug(
-                        f"{locus_log_str} - not calling locus due to >3 extremely poor-aligning reads (TR seq: "
-                        f"{tr_read_seq_wc[:20]}...)")
+                        "%s - not calling locus due to >3 extremely poor-aligning reads (TR seq: %s...)",
+                        locus_log_str,
+                        tr_read_seq_wc[:20],
+                    )
                     return {
                         **locus_result,
                         "peaks": None,
@@ -1184,8 +1245,12 @@ def call_locus(
             # Fatal
             # TODO: Just skip this locus
             logger_.error(
-                f"{locus_log_str} - something strange happened; could not find an encompassing read where one should "
-                f"be guaranteed. TR length with flank: {tr_len_w_flank}; read lengths: {sorted_read_lengths}")
+                f"%s - something strange happened; could not find an encompassing read where one should be "
+                f"guaranteed. TR length with flank: %d; read lengths: %s",
+                locus_log_str,
+                tr_len_w_flank,
+                sorted_read_lengths,
+            )
             exit(1)
 
         mean_containing_size = read_len if params.targeted else np.mean(sorted_read_lengths[partition_idx:]).item()
@@ -1264,8 +1329,10 @@ def call_locus(
     })
 
     # Check now if we don't have enough reads to make a call. We can still return some read-level information!
-    if n_reads_in_dict < params.min_reads:
-        logger_.debug(f"{locus_log_str} - not enough reads to make a call ({n_reads_in_dict} < {params.min_reads})")
+    if n_reads_in_dict < min_reads:
+        logger_.debug(
+            "%s - not enough reads to make a call (%d < %d)", locus_log_str, n_reads_in_dict, min_reads
+        )
         return {
             **locus_result,
             "peaks": None,
@@ -1311,15 +1378,25 @@ def call_locus(
                 call_data = call_res
         else:
             logger_.debug(
-                f"{locus_log_str} - not enough HP/PS tags for incorporation; one of {haplotagged_reads_count} < "
-                f"{min_hp_read_coverage}, top PS {top_ps and top_ps[0][1]} < {min_hp_read_coverage}, or "
-                f"{len(haplotags)} != {n_alleles}")
+                "%s - not enough HP/PS tags for incorporation; one of %d < %d, top PS %s < %d, or %d != %d",
+                locus_log_str,
+                haplotagged_reads_count,
+                min_hp_read_coverage,
+                top_ps and top_ps[0][1],
+                min_hp_read_coverage,
+                len(haplotags),
+                n_alleles,
+            )
 
     if should_incorporate_snvs and assign_method != "hp":
         if realign_count >= many_realigns_threshold or have_rare_realigns:
             logger_.warning(
-                f"{locus_log_str} - cannot use SNVs; one of {realign_count=} >= {many_realigns_threshold} or "
-                f"{have_rare_realigns=}")
+                "%s - cannot use SNVs; one of realign_count=%d >= %d or have_rare_realigns=%s",
+                locus_log_str,
+                realign_count,
+                many_realigns_threshold,
+                have_rare_realigns,
+            )
 
         else:
             # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
@@ -1344,7 +1421,7 @@ def call_locus(
             )
 
             if not useful_snvs:
-                logger_.debug(f"{locus_log_str} - no useful SNVs")
+                logger_.debug("%s - no useful SNVs", locus_log_str)
             else:
                 am, call_res = call_alleles_with_incorporated_snvs(
                     contig=contig,
@@ -1381,7 +1458,12 @@ def call_locus(
 
     allele_time = time.perf_counter() - allele_start_time
 
-    logger_.debug(f"{locus_log_str} - finished assigning alleles using {assign_method} method: took {allele_time:.4f}s")
+    logger_.debug(
+        "%s - finished assigning alleles using %s method: took %.4fs",
+        locus_log_str,
+        assign_method,
+        allele_time,
+    )
 
     # Extract data from call_data --------------------------------------------------------------------------------------
 
@@ -1467,7 +1549,7 @@ def call_locus(
 
         if any(map(eq_0, call_peak_n_reads)):
             # TODO: This shouldn't happen, but it does occasionally - why?
-            logger_.warning(f"{locus_log_str} - found empty allele, nullifying call results")
+            logger_.warning("%s - found empty allele, nullifying call results", locus_log_str)
 
             call_data = {}
             call = None
@@ -1504,9 +1586,19 @@ def call_locus(
 
     if call_time > CALL_WARN_TIME:
         logger_.warning(
-            f"{locus_log_str} - locus total call time exceeded {CALL_WARN_TIME}s; {n_reads_in_dict} reads took "
-            f"{call_time}s ({motif_size=}, {motif=}, {call=}, {assign_method=} | {ref_time=:.4f}s, "
-            f"{allele_time=:.4f}s, {assign_time=:.4f}s)")
+            f"%s - locus total call time exceeded {CALL_WARN_TIME}s; %d reads took %fs (motif_size=%d, motif=%s, "
+            f"call=%s, assign_method=%s | ref_time=%.4fs, allele_time=%.4fs, assign_time=%.4fs)",
+            locus_log_str,
+            n_reads_in_dict,
+            call_time,
+            motif_size,
+            motif,
+            call,
+            assign_method,
+            ref_time,
+            allele_time,
+            assign_time,
+        )
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
 
@@ -1514,8 +1606,13 @@ def call_locus(
     call_95_cis_val = apply_or_none(_nested_ndarray_serialize, call_95_cis)
 
     logger_.debug(
-        f"{locus_log_str} - got call: {call_val} (95% CIs: {call_95_cis_val}); peak assign method={assign_method}; "
-        f"# reads={call_peak_n_reads}")
+        "%s - got call: %s (95%% CIs: %s); peak assign method=%s; # reads=%s",
+        locus_log_str,
+        call_val,
+        call_95_cis_val,
+        assign_method,
+        call_peak_n_reads,
+    )
 
     locus_result["assign_method"] = assign_method
     locus_result["call"] = call_val
