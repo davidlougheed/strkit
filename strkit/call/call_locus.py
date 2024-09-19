@@ -18,7 +18,12 @@ from numpy.typing import NDArray
 from typing import Iterable, Optional, Union
 
 from strkit_rust_ext import (
-    get_pairs_and_tr_read_coords, STRkitBAMReader, STRkitAlignedSegment, STRkitVCFReader, CandidateSNVs
+    CandidateSNVs,
+    consensus_seq,
+    get_pairs_and_tr_read_coords,
+    STRkitBAMReader,
+    STRkitAlignedSegment,
+    STRkitVCFReader,
 )
 
 from strkit.call.allele import CallDict, call_alleles
@@ -26,7 +31,6 @@ from strkit.utils import apply_or_none
 
 from .align_matrix import match_score
 from .cigar import decode_cigar_np
-from .consensus import consensus_seq
 from .params import CallParams
 from .realign import perform_realign
 from .repeats import get_repeat_count, get_ref_repeat_count
@@ -1560,9 +1564,9 @@ def call_locus(
             call_seqs.extend(
                 map(
                     lambda a: consensus_seq(
-                        map(lambda rr: read_dict_extra[rr]["_tr_seq"], a),
+                        list(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)),
                         logger_,
-                        max_mdn_poa_length=max_mdn_poa_length,
+                        max_mdn_poa_length,
                     ),
                     allele_reads,
                 )
