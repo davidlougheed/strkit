@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from typing import Optional
 
 from .align_matrix import match_score, dna_matrix
-from .cigar import decode_cigar, get_aligned_pair_matches
+from .cigar import decode_cigar_np, get_aligned_pair_matches
 from .params import CallParams
 from .utils import calculate_seq_with_wildcards
 
@@ -66,7 +66,7 @@ def realign_read(
         f"Realigned {rn} in locus {t_idx}{' (due to soft clipping)' if not always_realign else ''}: scored {pr.score}; "
         f"Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
 
-    matches = get_aligned_pair_matches(list(decode_cigar(pr.cigar.seq)), left_flank_coord, 0)
+    matches = get_aligned_pair_matches(list(decode_cigar_np(pr.cigar.seq)), left_flank_coord, 0)
     res: MatchedCoordPairList = (matches[1], matches[0])
     return ret_q(res)
 
