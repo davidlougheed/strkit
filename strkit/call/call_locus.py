@@ -496,7 +496,10 @@ def _determine_snv_call_phase_set(
 
 
 def _agg_clust_alleles_by_dm(n_alleles: int, dm: NDArray[np.float_]) -> tuple[NDArray[np.int_], tuple[int, ...]]:
-    c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average").fit(dm)
+    # fit without validation for performance improvement
+    # noinspection PyProtectedMember
+    c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average")._fit(dm)
+
     # cluster labels, cluster indices
     # noinspection PyUnresolvedReferences
     return c.labels_, tuple(range(n_alleles))
