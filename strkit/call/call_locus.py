@@ -1328,10 +1328,10 @@ def call_locus(
             cigar_first_op = cigar_tuples[0]
             cigar_last_op = cigar_tuples[-1]
 
-            read_dict_extra[rn]["sig_clip_left"] = (
+            read_extra_entry["sig_clip_left"] = (
                 cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
-            read_dict_extra[rn]["sig_clip_right"] = (
-                    cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
+            read_extra_entry["sig_clip_right"] = (
+                cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
 
             # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
             read_q_coords[rn] = q_coords
