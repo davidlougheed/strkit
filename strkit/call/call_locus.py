@@ -606,7 +606,7 @@ def call_alleles_with_incorporated_snvs(
         # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
         logger_.debug(
             "%s - haplotyping purely using SNVs (n_useful_snvs=%d, n_reads_with_many_snvs=%d)",
-           locus_log_str,
+            locus_log_str,
             n_useful_snvs,
             n_reads_with_many_snvs,
         )
