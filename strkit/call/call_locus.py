@@ -494,6 +494,13 @@ def _determine_snv_call_phase_set(
         return call_phase_set
 
 
+def _agg_clust_alleles_by_dm(n_alleles: int, dm: NDArray[np.float_]) -> tuple[NDArray[np.int_], tuple[int, ...]]:
+    c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average").fit(dm)
+    # cluster labels, cluster indices
+    # noinspection PyUnresolvedReferences
+    return c.labels_, tuple(range(n_alleles))
+
+
 def call_alleles_with_incorporated_snvs(
     contig: str,
     n_alleles: int,
@@ -620,13 +627,8 @@ def call_alleles_with_incorporated_snvs(
         n_reads_with_at_least_one_snv, read_dict_items_with_at_least_one_snv, pure_snv_peak_assignment, n_useful_snvs,
         snv_quality_threshold=snv_quality_threshold)
 
-    # Cluster reads together using the distance matrix, which incorporates
-    # SNV and possibly copy number information.
-    c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average").fit(dm)
-
-    # noinspection PyUnresolvedReferences
-    cluster_labels = c.labels_
-    cluster_indices = tuple(range(n_alleles))
+    # Cluster reads together using the distance matrix, which incorporates SNV and possibly copy number information.
+    cluster_labels, cluster_indices = _agg_clust_alleles_by_dm(n_alleles, dm)
 
     cluster_reads: list[tuple[ReadDict, ...]] = []
     cns: Union[list[list[int]], list[list[float]]] = []
