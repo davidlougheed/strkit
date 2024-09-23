@@ -129,8 +129,7 @@ def fit_gmm(
         #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
         #   sharing in the worst case where it represents just one allele
         if n_components > 2 or (n_components == 2 and (not hq or (
-                means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0],
-                                                                 small_allele_min)))):
+                means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0], small_allele_min)))):
             mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_components))
         else:
             mw_filter_2 = means_and_weights[1, :] > FLOAT_32_EPSILON
