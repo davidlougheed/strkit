@@ -66,7 +66,7 @@ def realign_read(
         f"Realigned {rn} in locus {t_idx}{' (due to soft clipping)' if not always_realign else ''}: scored {pr.score}; "
         f"Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
 
-    matches = get_aligned_pair_matches(list(decode_cigar_np(pr.cigar.seq)), left_flank_coord, 0)
+    matches = get_aligned_pair_matches(decode_cigar_np(pr.cigar.seq), left_flank_coord, 0)
     res: MatchedCoordPairList = (matches[1], matches[0])
     return ret_q(res)
 

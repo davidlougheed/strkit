@@ -34,7 +34,7 @@ __all__ = [
     "call_alleles",
 ]
 
-RepeatCounts = Union[list[int], tuple[int, ...], list[float], tuple[float, ...], NDArray[np.int_], NDArray[np.float_]]
+RepeatCounts = Union[list[int], tuple[int, ...], NDArray[np.int_]]
 
 
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles
@@ -165,8 +165,8 @@ def make_read_weights(read_weights: Optional[Iterable[float]], num_reads: int) -
 
 
 def call_alleles(
-    repeats_fwd: RepeatCounts,
-    repeats_rev: RepeatCounts,
+    repeats_fwd: NDArray[np.int32],
+    repeats_rev: NDArray[np.int32],
     read_weights_fwd: Optional[Iterable[float]],
     read_weights_rev: Optional[Iterable[float]],
     params: CallParams,
@@ -179,19 +179,16 @@ def call_alleles(
     logger_: logging.Logger,
     debug_str: str,
 ) -> Optional[CallDict]:
-    fwd_strand_reads = np.array(repeats_fwd)
-    rev_strand_reads = np.array(repeats_rev)
-
-    fwd_len = fwd_strand_reads.shape[0]
-    rev_len = rev_strand_reads.shape[0]
+    fwd_len = repeats_fwd.shape[0]
+    rev_len = repeats_rev.shape[0]
 
     fwd_strand_weights = make_read_weights(read_weights_fwd, fwd_len)
     rev_strand_weights = make_read_weights(read_weights_rev, rev_len)
 
-    assert fwd_strand_reads.shape == fwd_strand_weights.shape
-    assert rev_strand_reads.shape == rev_strand_weights.shape
+    assert repeats_fwd.shape == fwd_strand_weights.shape
+    assert repeats_rev.shape == rev_strand_weights.shape
 
-    combined_reads = np.concatenate((fwd_strand_reads, rev_strand_reads), axis=None)
+    combined_reads = np.concatenate((repeats_fwd, repeats_rev), axis=None)
     combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
     combined_len = combined_reads.shape[-1]
 
@@ -236,14 +233,14 @@ def call_alleles(
         # (if we've passed the coverage threshold)
 
         fwd_strand_samples = rng.choice(
-            fwd_strand_reads,
+            repeats_fwd,
             size=(params.num_bootstrap, target_length),
             replace=True,
             p=fwd_strand_weights,
         )
 
         rev_strand_samples = rng.choice(
-            rev_strand_reads,
+            repeats_rev,
             size=(params.num_bootstrap, target_length),
             replace=True,
             p=rev_strand_weights,

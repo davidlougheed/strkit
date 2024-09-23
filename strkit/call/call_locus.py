@@ -51,6 +51,7 @@ __all__ = [
     "call_locus",
 ]
 
+EMPTY_NP_ARRAY = np.array([])
 
 # TODO: Parameterize
 CALL_WARN_TIME = 3  # seconds
@@ -250,7 +251,7 @@ def call_alleles_with_gmm(
 ) -> CallDict | dict:
     # Dicts are ordered in Python; very nice :)
     rdvs = tuple(read_dict.values())
-    read_cns = np.fromiter(map(cn_getter, rdvs), dtype=np.int_)
+    read_cns = np.fromiter(map(cn_getter, rdvs), dtype=np.int32)
     read_weights = np.fromiter(map(weight_getter, rdvs), dtype=np.float_)
     read_weights /= read_weights.sum()  # Normalize to probabilities
 
@@ -262,7 +263,7 @@ def call_alleles_with_gmm(
     )
 
     return call_alleles(
-        read_cns, (),
+        read_cns, EMPTY_NP_ARRAY,
         read_weights, (),
         params=params,
         min_reads=params.min_reads,
@@ -290,7 +291,7 @@ def call_alleles_with_haplotags(
     n_alleles: int = len(haplotags)
 
     hp_reads: list[tuple[ReadDict, ...]] = []
-    cns: Union[list[list[int]], list[list[float]]] = []
+    cns: list[NDArray[np.int32]] = []
     c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
 
     for hi, hp in enumerate(haplotags):
@@ -300,7 +301,7 @@ def call_alleles_with_haplotags(
             if r.get("hp") == hp and r.get("ps") == ps_id)
 
         # Calculate copy number set
-        cns.append(list(map(cn_getter, crs)))
+        cns.append(np.fromiter(map(cn_getter, crs), dtype=np.int32))
 
         # Calculate weights array
         ws = np.fromiter(map(weight_getter, crs), dtype=np.float_)
@@ -312,7 +313,7 @@ def call_alleles_with_haplotags(
 
     for hi, hp in enumerate(haplotags):
         cc: Optional[CallDict] = call_alleles(
-            cns[hi], (),  # Don't bother separating by strand for now...
+            cns[hi], EMPTY_NP_ARRAY,  # Don't bother separating by strand for now...
             c_ws[hi], (),
             params=params,
             min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
@@ -631,8 +632,8 @@ def call_alleles_with_incorporated_snvs(
     cluster_labels, cluster_indices = _agg_clust_alleles_by_dm(n_alleles, dm)
 
     cluster_reads: list[tuple[ReadDict, ...]] = []
-    cns: Union[list[list[int]], list[list[float]]] = []
-    c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
+    cns: list[NDArray[np.int32]] = []
+    c_ws: list[NDArray[np.float_]] = []
 
     for ci in cluster_indices:
         # Find reads for cluster
@@ -642,7 +643,7 @@ def call_alleles_with_incorporated_snvs(
         )
 
         # Calculate copy number set
-        cns.append(list(map(cn_getter, crs)))
+        cns.append(np.fromiter(map(cn_getter, crs), dtype=np.int32))
 
         # Calculate weights array
         ws = np.fromiter(map(weight_getter, crs), dtype=np.float_)
@@ -656,7 +657,7 @@ def call_alleles_with_incorporated_snvs(
 
     for ci in cluster_indices:
         cc: Optional[CallDict] = call_alleles(
-            cns[ci], (),  # Don't bother separating by strand for now...
+            cns[ci], EMPTY_NP_ARRAY,  # Don't bother separating by strand for now...
             c_ws[ci], (),
             params,
             min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
@@ -1032,7 +1033,7 @@ def call_locus(
         qs: str = segment.query_sequence
 
         fqqs: NDArray[np.uint8] = segment.query_qualities
-        cigar_tuples: list[tuple[int, int]] = list(decode_cigar_np(segment.raw_cigar))
+        cigar_tuples: NDArray[np.uint32] = decode_cigar_np(segment.raw_cigar)
 
         realigned: bool = False
 
