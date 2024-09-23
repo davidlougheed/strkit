@@ -825,6 +825,7 @@ def call_locus(
     realign = params.realign
     respect_ref = params.respect_ref
     targeted = params.targeted
+    min_avg_phred = params.min_avg_phred
     min_read_align_score = params.min_read_align_score
     snv_min_base_qual = params.snv_min_base_qual
     use_hp = params.use_hp
@@ -1122,9 +1123,8 @@ def call_locus(
             debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
             continue
 
-        # we can fit PHRED scores in uint8
         qqs = fqqs[left_flank_end:right_flank_start]
-        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < (min_avg_phred := params.min_avg_phred):  # TODO: check flank?
+        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
             logger_.debug(
                 "%s - skipping read %s due to low average base quality (%.2f < %d)",
                 locus_log_str,
