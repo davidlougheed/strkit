@@ -3,7 +3,7 @@ import logging
 import pathlib
 import pysam
 
-from os.path import commonprefix
+# from os.path import commonprefix
 from typing import Optional
 
 from strkit.utils import cat_strs, is_none
@@ -120,26 +120,47 @@ def output_contig_vcf_lines(
 
         res_reads = result["reads"]
         res_peaks = result["peaks"] or {}
+
         peak_seqs: list[str] = list(map(idx_0_getter, res_peaks.get("seqs", [])))
+        peak_start_anchor_seqs: list[str] = list(map(idx_0_getter, res_peaks.get("start_anchor_seqs", [])))
+
         if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
             logger.error(f"Encountered None in results[{result_idx}].peaks.seqs: {peak_seqs}")
             continue
 
+        if any(map(is_none, peak_start_anchor_seqs)):  # Occurs when no consensus for one of the peaks
+            logger.error(f"Encountered None in results[{result_idx}].peaks.start_anchor_seqs: {peak_start_anchor_seqs}")
+            continue
+
         seqs = tuple(map(str.upper, peak_seqs))
+        seqs_with_anchors = tuple(zip(seqs, tuple(map(str.upper, peak_start_anchor_seqs))))
+
         if 0 < len(seqs) < n_alleles:
             seqs = tuple([seqs[0]] * n_alleles)
+            seqs_with_anchors = tuple([seqs_with_anchors[0]] * n_alleles)
 
-        seq_alts = sorted(set(filter(lambda c: c != ref_seq, seqs)))
-        common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
+        seq_alts = sorted(
+            set(filter(lambda c: not (c[0] == ref_seq and c[1] == ref_start_anchor), seqs_with_anchors)),
+            key=lambda x: x[0]
+        )
+
+        # common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
 
         call = result["call"]
         call_95_cis = result["call_95_cis"]
 
-        seq_alleles_raw: tuple[Optional[str], ...] = (ref_seq, *(seq_alts or (None,))) if call is not None else (".",)
-        seq_alleles: list[str] = [ref_start_anchor + (ref_seq[:common_suffix_idx] if common_suffix_idx else ref_seq)]
+        seq_alleles_raw: tuple[Optional[str], ...] = (
+            ((ref_seq, ref_start_anchor), *(seq_alts or (None,)))
+            if call is not None
+            else ()
+        )
 
+        # seq_alleles: list[str] = [ref_start_anchor + (ref_seq[:common_suffix_idx] if common_suffix_idx else ref_seq)]
+        seq_alleles: list[str] = [ref_start_anchor + ref_seq]
         if call is not None and seq_alts:
-            seq_alleles.extend(ref_start_anchor + (a[:common_suffix_idx] if common_suffix_idx else a) for a in seq_alts)
+            # seq_alleles.extend(a[1] + (a[0][:common_suffix_idx] if common_suffix_idx else a[0]) for a in seq_alts)
+            # If we have a complete deletion, including the anchor, use a symbolic allele meaning "upstream deletion"
+            seq_alleles.extend((a[1] + a[0] if a[1] or a[0] else "*") for a in seq_alts)
         else:
             seq_alleles.append(".")
 
@@ -155,8 +176,12 @@ def output_contig_vcf_lines(
         vr.info[VCF_INFO_MOTIF] = result["motif"]
         vr.info[VCF_INFO_REFMC] = result["ref_cn"]
 
-        vr.samples[sample_id]["GT"] = tuple(map(seq_alleles_raw.index, seqs)) if call is not None and seqs \
+        vr.samples[sample_id]["GT"] = (
+            tuple(map(seq_alleles_raw.index, seqs_with_anchors))
+            if call is not None and seqs
             else _blank_entry(n_alleles)
+        )
+        del seq_alleles_raw
 
         if am := result.get("assign_method"):
             vr.samples[sample_id]["PM"] = am

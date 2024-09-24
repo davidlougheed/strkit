@@ -633,6 +633,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Cluster reads together using the distance matrix, which incorporates SNV and possibly copy number information.
     cluster_labels, cluster_indices = _agg_clust_alleles_by_dm(n_alleles, dm)
+    del dm
 
     cluster_reads: list[tuple[ReadDict, ...]] = []
     cns: list[NDArray[np.int32]] = []
@@ -1276,6 +1277,17 @@ def call_locus(
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
         read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
 
+        # ---
+
+        read_start_anchor: str = ""
+        if consensus:
+            anchor_pair_idx, anchor_pair_found = find_pair_by_ref_pos(r_coords, left_coord_adj - 1, 0)
+            if anchor_pair_found:
+                read_start_anchor = qs[q_coords[anchor_pair_idx]:left_flank_end]
+            # otherwise, leave as blank - anchor base deleted
+
+        # ---
+
         crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
         read_dict[rn] = read_dict_entry = {
             "s": "-" if segment.is_reverse else "+",
@@ -1288,7 +1300,7 @@ def call_locus(
         read_dict_extra[rn] = read_extra_entry = {
             "_ref_start": segment_start,
             "_ref_end": segment_end,
-            **({"_tr_seq": tr_read_seq} if consensus else {}),
+            **({"_start_anchor": read_start_anchor, "_tr_seq": tr_read_seq} if consensus else {}),
         }
 
         # Reads can show up more than once - TODO - cache this information across loci
@@ -1342,8 +1354,7 @@ def call_locus(
     n_reads_in_dict: int = len(read_dict)
 
     locus_result.update({
-        # TODO: alt anchors:
-        **({"ref_start_anchor": ref_left_flank_seq[-1], "ref_seq": ref_seq} if consensus else {}),
+        **({"ref_start_anchor": ref_left_flank_seq[-1].upper(), "ref_seq": ref_seq} if consensus else {}),
         "reads": read_dict,
     })
 
@@ -1506,7 +1517,10 @@ def call_locus(
     # don't know how re-sampling has occurred.
     call_peak_n_reads: list[int] = []
     peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
+
     call_seqs: list[tuple[str, ConsensusMethod]] = []
+    call_anchor_seqs: list[tuple[str, ConsensusMethod]] = []
+
     if read_peaks_called := call_modal_n and call_modal_n <= 2:
         peaks: NDArray[np.float_] = call_peaks[:call_modal_n]
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
@@ -1576,16 +1590,18 @@ def call_locus(
             call_99_cis = None
 
         if call_data and consensus:
-            call_seqs.extend(
-                map(
+            def _consensi_for_key(k: str):
+                return map(
                     lambda a: consensus_seq(
-                        list(map(lambda rr: read_dict_extra[rr]["_tr_seq"], a)),
+                        list(map(lambda rr: read_dict_extra[rr][k], a)),
                         logger_,
                         max_mdn_poa_length,
                     ),
                     allele_reads,
                 )
-            )
+
+            call_seqs.extend(_consensi_for_key("_tr_seq"))
+            call_anchor_seqs.extend(_consensi_for_key("_start_anchor"))
 
     peak_data = {
         "means": call_peaks,
@@ -1594,7 +1610,7 @@ def call_locus(
         "modal_n": call_modal_n,
         "n_reads": call_peak_n_reads,
         **({"kmers": list(map(dict, peak_kmers))} if count_kmers in ("peak", "both") else {}),
-        **({"seqs": call_seqs} if consensus else {}),
+        **({"seqs": call_seqs, "start_anchor_seqs": call_anchor_seqs} if consensus else {}),
     } if call_data else None
 
     assign_time = time.perf_counter() - assign_start_time

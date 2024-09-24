@@ -58,7 +58,10 @@ class ReadDictExtra(TypedDict, total=False):
     _ref_start: int  # Read start in ref coordinates
     _ref_end: int  # Read end in ref coordinates
 
-    _tr_seq: str  # Tandem repeat sequence... only added if consensus is being calculated
+    # BEGIN: only added if consensus is being calculated
+    _start_anchor: str  # Left anchor for calculated allele sequence (usually 1 base)
+    _tr_seq: str  # Tandem repeat sequence
+    # END: only added if consensus is being calculated
 
     # Below are only added if SNVs are being incorporated:
 
