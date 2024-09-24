@@ -115,10 +115,10 @@ def locus_worker(
         try:
             td = locus_queue.get_nowait()
             if td is None:  # Kill signal
-                lg.debug(f"worker {worker_id} finished current contig: {current_contig}")
+                lg.debug(f"worker %d finished current contig: %s", worker_id, current_contig)
                 break
         except queue.Empty:
-            lg.debug(f"worker {worker_id} encountered queue.Empty")
+            lg.debug(f"worker %d encountered queue.Empty", worker_id)
             break
 
         t_idx, contig, left_coord, right_coord, motif, n_alleles, locus_seed = td
@@ -132,7 +132,7 @@ def locus_worker(
             f"{contig}:{left_coord}-{right_coord} [{motif}]"
         )
 
-        lg.debug(f"{locus_log_str} - working on locus")
+        lg.debug("%s - working on locus", locus_log_str)
 
         try:
             res = call_locus(
