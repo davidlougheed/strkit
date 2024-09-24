@@ -132,7 +132,7 @@ def output_contig_vcf_lines(
             logger.error(f"Encountered None in results[{result_idx}].peaks.start_anchor_seqs: {peak_start_anchor_seqs}")
             continue
 
-        seqs = tuple(map(str.upper, peak_seqs))
+        seqs: tuple[str, ...] = tuple(map(str.upper, peak_seqs))
         seqs_with_anchors = tuple(zip(seqs, tuple(map(str.upper, peak_start_anchor_seqs))))
 
         if 0 < len(seqs) < n_alleles:
