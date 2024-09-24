@@ -45,9 +45,6 @@ PROFILE_LOCUS_CALLS: bool = False
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
 ACCESSION_PATTERN = re.compile(r"^NC_\d+")
 
-SNV_GENOTYPE_CACHE_MAX_SIZE = 1000
-PHASE_SET_SYNONYMOUS_CACHE_MAX_SIZE = 1000
-
 get_locus_index = itemgetter("locus_index")
 
 
