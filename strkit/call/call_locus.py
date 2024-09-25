@@ -15,7 +15,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
 
 from numpy.typing import NDArray
-from typing import Iterable, Optional, Union
+from typing import Iterable, Literal, Optional, Union
 
 from strkit_rust_ext import (
     CandidateSNVs,
@@ -1085,7 +1085,7 @@ def call_locus(
             )
 
             if pairs_new is not None:
-                q_coords, r_coords = pairs_new
+                q_coords, r_coords = pairs_new  # q_coords is no longer None
                 realigned = True
                 realign_count += 1
 
@@ -1102,7 +1102,13 @@ def call_locus(
                         r_coords=r_coords,
                     )
 
-        if q_coords is None:
+                # equivalent to the below check of `coords_or_none is None` - if realign happens, but the flank
+                # boundaries cannot be extracted from the alignment, we skip this read.
+                if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
+                    debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
+                    continue
+
+        if q_coords is None:  # if realign was not attempted, or was attempted but was not successful
             if left_flank_coord < segment_start or right_flank_coord > segment_end:
                 # Cannot find pair for LHS flank start or RHS flank end;
                 # early-continue before we load pairs since that step is slow
@@ -1122,15 +1128,12 @@ def call_locus(
                     qs,
                 )
 
-            if coords_or_none is None:  # -1 in one of the flank coords
+            if coords_or_none is None:
+                # -1 in one of the flank coords - equivalent to the check for -1 values in the realign block above.
                 debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
                 continue
 
             q_coords, r_coords = coords_or_none
-
-        if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
-            debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
-            continue
 
         qqs = fqqs[left_flank_end:right_flank_start]
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
