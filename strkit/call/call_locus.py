@@ -1590,7 +1590,7 @@ def call_locus(
             call_99_cis = None
 
         if call_data and consensus:
-            def _consensi_for_key(k: str):
+            def _consensi_for_key(k: Literal["_tr_seq", "_start_anchor"]):
                 return map(
                     lambda a: consensus_seq(
                         list(map(lambda rr: read_dict_extra[rr][k], a)),
