@@ -782,6 +782,11 @@ def debug_log_flanking_seq(logger_: logging.Logger, locus_log_str: str, rn: str,
     )
 
 
+def _calc_motif_size_kmers(tr_read_seq_wc: str, tr_len: int, motif_size: int):
+    for i in range(tr_len - motif_size + 1):
+        yield tr_read_seq_wc[i:i + motif_size]
+
+
 def _ndarray_serialize(x: Iterable) -> list[Union[int, np.int_]]:
     return list(map(round, x))
 
@@ -1159,7 +1164,7 @@ def call_locus(
 
         if count_kmers != "none":
             read_kmers.clear()
-            read_kmers.update(tr_read_seq_wc[i:i+motif_size] for i in range(0, tr_len - motif_size + 1))
+            read_kmers.update(_calc_motif_size_kmers(tr_read_seq_wc, tr_len, motif_size))
 
         rc_timer = time.perf_counter()
         # Set initial integer copy number guess based on aligned TR size, plus the previous read offset (how much the
