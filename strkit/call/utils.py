@@ -1,4 +1,3 @@
-import bisect
 import numpy as np
 import operator
 
@@ -27,7 +26,7 @@ neq_blank = partial(operator.ne, "")
 
 def find_pair_by_ref_pos(r_coords: NDArray[np.uint64], target: int, start_left: int = 0) -> tuple[int, bool]:
     n_pairs: int = len(r_coords)
-    idx = bisect.bisect_left(r_coords, target, start_left, n_pairs)
+    idx = start_left + np.searchsorted(r_coords[start_left:], target)
     return idx, idx < n_pairs and r_coords[idx] == target
 
 
