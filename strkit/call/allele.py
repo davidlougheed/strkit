@@ -84,19 +84,32 @@ def na_length_list(n_alleles: int):
     return [list() for _ in range(n_alleles)]
 
 
+GMMInitParamsMethod = Literal["kmeans", "k-means++"]
+
+
+def make_fitted_gmm(n_components: int, sample_rs: NDArray, init_params: GMMInitParamsMethod, rng: np.random.Generator):
+    return GaussianMixture(
+        n_components=n_components,
+        init_params=init_params,
+        covariance_type="spherical",
+        n_init=N_GM_INIT,
+        random_state=get_new_seed(rng),
+    ).fit(sample_rs)
+
+
 def fit_gmm(
     rng: np.random.Generator,
-    sample: np.array,
+    sample: NDArray,
     n_alleles: int,
     allele_filter: float,
     hq: bool,
     gm_filter_factor: int,
-    init_params: Literal["kmeans", "k-means++"] = "k-means++",  # TODO: parameterize outside
+    init_params: GMMInitParamsMethod = "k-means++",  # TODO: parameterize outside
 ) -> Optional[object]:
     sample_rs = sample.reshape(-1, 1)
     g: Optional[object] = None
 
-    n_components = n_alleles
+    n_components: int = n_alleles
     while n_components > 0:
         if n_components == 1:  # Don't need to do the full fit for a single peak, just calculate the parameters
             # I've confirmed this gives an ~identical result to fitting a GMM with one parameter.
@@ -106,13 +119,7 @@ def fit_gmm(
             fake_g.covariances_ = np.array([[np.var(sample_rs)]])
             return fake_g
 
-        g = GaussianMixture(
-            n_components=n_components,
-            init_params=init_params,
-            covariance_type="spherical",
-            n_init=N_GM_INIT,
-            random_state=get_new_seed(rng),
-        ).fit(sample_rs)
+        g = make_fitted_gmm(n_components, sample_rs, init_params, rng)
 
         # noinspection PyUnresolvedReferences
         means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
