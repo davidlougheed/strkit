@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-import heapq
 import logging
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
 import multiprocessing.managers as mmg
-import numpy as np
-import os
-import pysam
-import queue
 import re
-import threading
 import time
-import traceback
 
-from operator import itemgetter
+from heapq import merge as heapq_merge
 from multiprocessing.synchronize import Event as EventClass  # For type hinting
+from numpy.random import Generator as NPRandomGenerator, default_rng as np_default_rng
+from operator import itemgetter
+from pysam import VariantFile as PySamVariantFile
+from queue import Empty as QueueEmpty
+from threading import Lock
 from typing import Iterable, Literal, Optional
 
 from .allele import get_n_alleles
@@ -63,13 +61,13 @@ def locus_worker(
     worker_id: int,
     params: CallParams,
     locus_queue: mp.Queue,
-    locus_counter_lock: threading.Lock,
+    locus_counter_lock: Lock,
     locus_counter: mmg.ValueProxy,
-    phase_set_lock: threading.Lock,
+    phase_set_lock: Lock,
     phase_set_counter: mmg.ValueProxy,
     phase_set_remap: mmg.DictProxy,
     phase_set_synonymous: mmg.DictProxy,
-    snv_genotype_update_lock: threading.Lock,
+    snv_genotype_update_lock: Lock,
     snv_genotype_cache: mmg.DictProxy,
     is_single_processed: bool,
 ) -> list[LocusResult]:
@@ -80,7 +78,8 @@ def locus_worker(
     else:
         pr = None
 
-    import pysam as p
+    from os import getpid
+    from pysam import FastaFile, VariantFile
     from strkit_rust_ext import STRkitBAMReader, STRkitVCFReader
 
     lg: logging.Logger
@@ -89,16 +88,16 @@ def locus_worker(
         lg = get_main_logger()
     else:
         from strkit.logger import create_process_logger
-        lg = create_process_logger(os.getpid(), params.log_level)
+        lg = create_process_logger(getpid(), params.log_level)
 
     sample_id = params.sample_id
 
-    ref = p.FastaFile(params.reference_file)
+    ref = FastaFile(params.reference_file)
     bf = STRkitBAMReader(params.read_file, params.reference_file)
 
     snv_vcf_contigs: list[str] = []
     if params.snv_vcf:
-        with p.VariantFile(params.snv_vcf) as snv_vcf_file:
+        with VariantFile(params.snv_vcf) as snv_vcf_file:
             snv_vcf_contigs.extend(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
 
     vcf_file_format: Literal["chr", "num", "acc", ""] = get_vcf_contig_format(snv_vcf_contigs)
@@ -117,7 +116,7 @@ def locus_worker(
             if td is None:  # Kill signal
                 lg.debug(f"worker %d finished current contig: %s", worker_id, current_contig)
                 break
-        except queue.Empty:
+        except QueueEmpty:
             lg.debug(f"worker %d encountered queue.Empty", worker_id)
             break
 
@@ -165,6 +164,7 @@ def locus_worker(
             )
 
         except Exception as e:
+            import traceback
             res = None
             lg.error(f"{locus_log_str} - encountered exception while genotyping ({t_idx=}, {n_alleles=}): {repr(e)}")
             lg.error(f"{locus_log_str} - {traceback.format_exc()}")
@@ -199,14 +199,14 @@ def progress_worker(
     num_loci: int,
     event: EventClass,
 ):
-    import os
+    from os import nice as os_nice, getpid
     try:
-        os.nice(20)
+        os_nice(20)
     except (AttributeError, OSError):
         pass
 
     from strkit.logger import create_process_logger
-    lg = create_process_logger(os.getpid(), log_level)
+    lg = create_process_logger(getpid(), log_level)
 
     def _log():
         try:
@@ -275,7 +275,7 @@ def call_sample(
         f"HP={params.use_hp}, SNVs={params.snv_vcf is not None}; seed={params.seed}")
 
     # Seed the random number generator if a seed is provided, for replicability
-    rng: np.random.Generator = np.random.default_rng(seed=params.seed)
+    rng: NPRandomGenerator = np_default_rng(seed=params.seed)
 
     manager: mmg.SyncManager = mp.Manager()
     locus_queue = manager.Queue()  # TODO: one queue per contig?
@@ -328,10 +328,10 @@ def call_sample(
 
     # If we're outputting a VCF, open the file and write the header
     sample_id_str = params.sample_id or "sample"
-    vf: Optional[pysam.VariantFile] = None
+    vf: Optional[PySamVariantFile] = None
     if vcf_path is not None:
         vh = build_vcf_header(sample_id_str, params.reference_file)
-        vf = pysam.VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
+        vf = PySamVariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 
     # ---
 

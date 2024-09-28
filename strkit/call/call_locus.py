@@ -1357,6 +1357,10 @@ def call_locus(
             read_q_coords[rn] = q_coords
             read_r_coords[rn] = r_coords
 
+        # Manually clean up large numpy arrays after we're done stashing them in read_q_coords/read_r_coords
+        del q_coords
+        del r_coords
+
     # End of first read loop -------------------------------------------------------------------------------------------
 
     n_reads_in_dict: int = len(read_dict)
@@ -1439,14 +1443,13 @@ def call_locus(
         else:
             # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
 
-            # Second read loop occurs in this function
-            ref_cache: str = ref.fetch(contig, left_most_coord, right_most_coord + 1).upper()
-
             useful_snvs: list[tuple[int, int]] = process_read_snvs_for_locus_and_calculate_useful_snvs(
                 left_coord_adj,
                 right_coord_adj,
                 left_most_coord,
-                ref_cache,
+                # Reference sequence - don't assign to a variable to avoid keeping a large amount of data around until
+                # the GC arises from slumber.
+                ref.fetch(contig, left_most_coord, right_most_coord + 1).upper(),
                 read_dict_extra,
                 read_q_coords,
                 read_r_coords,
@@ -1488,6 +1491,10 @@ def call_locus(
                 if call_res is not None:
                     call_data = call_res[0]  # Call data dictionary
                     locus_result["snvs"] = call_res[1]  # Called useful SNVs
+
+    # We're done with read_q_coords and read_r_coords - free them early
+    del read_q_coords
+    del read_r_coords
 
     single_or_dist_assign: bool = assign_method in ("single", "dist")
 
@@ -1610,6 +1617,9 @@ def call_locus(
 
             call_seqs.extend(_consensi_for_key("_tr_seq"))
             call_anchor_seqs.extend(_consensi_for_key("_start_anchor"))
+
+    # We're done with read dict extra, delete early
+    del read_dict_extra
 
     peak_data = {
         "means": call_peaks,
