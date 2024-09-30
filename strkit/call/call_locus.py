@@ -1443,6 +1443,7 @@ def call_locus(
         else:
             # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
 
+            # Second read loop occurs in this function
             useful_snvs: list[tuple[int, int]] = process_read_snvs_for_locus_and_calculate_useful_snvs(
                 left_coord_adj,
                 right_coord_adj,
