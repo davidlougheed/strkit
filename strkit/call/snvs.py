@@ -133,7 +133,8 @@ def call_and_filter_useful_snvs(
         snv_call_set = set(call)
 
         if not skipped and len(snv_call_set) == 1:
-            logger_.warning(f"{locus_log_str} - for SNV position {u_ref}: got degenerate call {call} from {peak_counts=}")
+            logger_.warning(
+                f"{locus_log_str} - for SNV position {u_ref}: got degenerate call {call} from {peak_counts=}")
             skipped = True
 
         snv_rec = candidate_snvs.get(u_ref)
