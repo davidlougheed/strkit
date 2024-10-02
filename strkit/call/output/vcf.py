@@ -1,6 +1,7 @@
 import functools
 import logging
 
+from collections import Counter
 # from os.path import commonprefix
 from pathlib import Path
 from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
@@ -62,6 +63,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
     vh.formats.add("GT", 1, "String", "Genotype")
     vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
     vh.formats.add("MCCI", ".", "String", "Motif copy number 95% confidence interval for each allele")
+    vh.formats.add("MCRL", ".", "String", "Read-level motif copy numbers for each allele")
     vh.formats.add("PS", 1, "Integer", "Phase set")
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
 
@@ -193,6 +195,22 @@ def output_contig_vcf_lines(
             vr.samples[sample_id]["AD"] = tuple(res_peaks["n_reads"])
             vr.samples[sample_id]["MC"] = tuple(map(int, call))
             vr.samples[sample_id]["MCCI"] = tuple(f"{x[0]}-{x[1]}" for x in call_95_cis)
+
+            # Produces a histogram-like format for read-level copy numbers
+            # e.g., for two alleles with 8 and 9 copy-number respectively, we may get: 7:1|8:10|9:1,8:2|9:12
+            vr.samples[sample_id]["MCRL"] = tuple(
+                "|".join(
+                    map(
+                        lambda pair: ":".join(map(str, pair)),
+                        sorted(
+                            Counter(
+                                map(lambda r: r["cn"], filter(lambda r: r.get("p") == pi, res_reads.values()))
+                            ).items()
+                        )
+                    )
+                )
+                for pi in range(res_peaks["modal_n"])
+            )
 
             ps = result["ps"]
 
