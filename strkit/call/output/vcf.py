@@ -1,9 +1,9 @@
 import functools
 import logging
-import pathlib
-import pysam
 
 # from os.path import commonprefix
+from pathlib import Path
+from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
 from typing import Optional
 
 from strkit.utils import cat_strs, is_none
@@ -38,14 +38,14 @@ VT_STR = "str"
 VT_SNV = "snv"
 
 
-def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader:
-    vh = pysam.VariantHeader()  # automatically sets VCF version to 4.2
+def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
+    vh = VariantHeader()  # automatically sets VCF version to 4.2
 
     # Add an absolute path to the reference genome
-    vh.add_meta("reference", f"file://{str(pathlib.Path(reference_file).resolve().absolute())}")
+    vh.add_meta("reference", f"file://{str(Path(reference_file).resolve().absolute())}")
 
     # Add all contigs from the reference genome file + lengths
-    rf = pysam.FastaFile(reference_file)
+    rf = FastaFile(reference_file)
     try:
         for contig in rf.references:
             vh.contigs.add(contig, length=rf.get_reference_length(contig))
@@ -80,7 +80,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> pysam.VariantHeader
     return vh
 
 
-def _vr_pos_key(vr: pysam.VariantRecord) -> int:
+def _vr_pos_key(vr: VariantRecord) -> int:
     return vr.pos
 
 
@@ -96,11 +96,11 @@ def _blank_entry(n_alleles: int) -> tuple[None, ...]:
 def output_contig_vcf_lines(
     params: CallParams,
     sample_id: str,
-    variant_file: pysam.VariantFile,
+    variant_file: VariantFile,
     results: tuple[dict, ...],
     logger: logging.Logger,
 ):
-    variant_records: list[pysam.VariantRecord] = []
+    variant_records: list[VariantRecord] = []
 
     # has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
     snvs_written: set[str] = set()
@@ -166,7 +166,7 @@ def output_contig_vcf_lines(
 
         start = result.get("start_adj", start) - len(ref_start_anchor)
 
-        vr: pysam.VariantRecord = variant_file.new_record(
+        vr: VariantRecord = variant_file.new_record(
             contig=contig,
             start=start,
             alleles=seq_alleles,
@@ -220,7 +220,7 @@ def output_contig_vcf_lines(
                     logger.error(f"Error while writing VCF: SNV ({snv_id}) at {contig}:{snv_pos+1} has no alts")
                     continue
 
-                snv_vr: pysam.VariantRecord = variant_file.new_record(
+                snv_vr: VariantRecord = variant_file.new_record(
                     contig=contig,
                     id=snv_id,
                     start=snv_pos,
