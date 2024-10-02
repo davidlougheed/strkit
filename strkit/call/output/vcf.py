@@ -5,12 +5,12 @@ from collections import Counter
 # from os.path import commonprefix
 from pathlib import Path
 from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
-from typing import Optional
+from typing import Iterable, Optional
 
 from strkit.utils import cat_strs, is_none
 from ..allele import get_n_alleles
 from ..params import CallParams
-from ..utils import idx_0_getter
+from ..utils import idx_0_getter, cn_getter
 
 __all__ = [
     "build_vcf_header",
@@ -37,6 +37,11 @@ VCF_INFO_REFMC = "REFMC"
 
 VT_STR = "str"
 VT_SNV = "snv"
+
+
+def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
+    # noinspection PyTypeChecker
+    return map(str.upper, x)
 
 
 def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
@@ -134,8 +139,8 @@ def output_contig_vcf_lines(
             logger.error(f"Encountered None in results[{result_idx}].peaks.start_anchor_seqs: {peak_start_anchor_seqs}")
             continue
 
-        seqs: tuple[str, ...] = tuple(map(str.upper, peak_seqs))
-        seqs_with_anchors = tuple(zip(seqs, tuple(map(str.upper, peak_start_anchor_seqs))))
+        seqs: tuple[str, ...] = tuple(iter_to_upper(peak_seqs))
+        seqs_with_anchors = tuple(zip(seqs, tuple(iter_to_upper(peak_start_anchor_seqs))))
 
         if 0 < len(seqs) < n_alleles:
             seqs = tuple([seqs[0]] * n_alleles)
@@ -143,7 +148,7 @@ def output_contig_vcf_lines(
 
         seq_alts = sorted(
             set(filter(lambda c: not (c[0] == ref_seq and c[1] == ref_start_anchor), seqs_with_anchors)),
-            key=lambda x: x[0]
+            key=idx_0_getter
         )
 
         # common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
@@ -204,7 +209,7 @@ def output_contig_vcf_lines(
                         lambda pair: ":".join(map(str, pair)),
                         sorted(
                             Counter(
-                                map(lambda r: r["cn"], filter(lambda r: r.get("p") == pi, res_reads.values()))
+                                map(cn_getter, filter(lambda r: r.get("p") == pi, res_reads.values()))
                             ).items()
                         )
                     )

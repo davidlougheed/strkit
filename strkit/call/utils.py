@@ -10,6 +10,7 @@ from ..utils import cat_strs
 __all__ = [
     "idx_0_getter",
     "idx_1_getter",
+    "cn_getter",
     "neq_blank",
     "find_pair_by_ref_pos",
     "normalize_contig",
@@ -19,8 +20,10 @@ __all__ = [
 ]
 
 
+# index/property getters and other partials
 idx_0_getter = operator.itemgetter(0)
 idx_1_getter = operator.itemgetter(1)
+cn_getter = operator.itemgetter("cn")
 neq_blank = partial(operator.ne, "")
 
 

@@ -44,7 +44,9 @@ from .snvs import (
 from .types import (
     VCFContigFormat, AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
 )
-from .utils import idx_0_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed, calculate_seq_with_wildcards
+from .utils import (
+    idx_0_getter, cn_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed, calculate_seq_with_wildcards
+)
 
 
 __all__ = [
@@ -85,7 +87,6 @@ max_mdn_poa_length = 5000
 
 
 # property getters & other partials
-cn_getter = operator.itemgetter("cn")
 weight_getter = operator.itemgetter("w")
 not_snv_out_of_range_char = functools.partial(operator.ne, SNV_OUT_OF_RANGE_CHAR)
 eq_0 = functools.partial(operator.eq, 0)
