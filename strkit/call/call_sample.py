@@ -397,7 +397,7 @@ def call_sample(
             # Write results
             #  - gather the process-specific results for combining
             #  - merge sorted result lists into single sorted list for the current contig
-            results: tuple[LocusResult, ...] = tuple(heapq.merge(*(j.get() for j in jobs), key=get_locus_index))
+            results: tuple[LocusResult, ...] = tuple(heapq_merge(*(j.get() for j in jobs), key=get_locus_index))
             del jobs
 
             #  - fix-up phase sets based on phase_set_synonymous
