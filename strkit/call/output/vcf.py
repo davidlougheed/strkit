@@ -101,7 +101,7 @@ def output_contig_vcf_lines(
     variant_file: VariantFile,
     results: tuple[dict, ...],
     logger: logging.Logger,
-):
+) -> None:
     variant_records: list[VariantRecord] = []
 
     # has_at_least_one_snv_set = next((r.get("snvs") is not None for r in results), None) is not None
