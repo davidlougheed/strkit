@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
-import pysam
+
+from pysam import VariantFile
+from pysam.libcbcf import VariantRecordSample
 
 from strkit.json import json
 
@@ -247,6 +249,7 @@ class StrKitJSONCalculator(BaseCalculator):
                 decimal=False,
 
                 test_to_perform=self.test_to_perform,
+                sig_level=self.sig_level,
             ))
 
         return cr
@@ -256,12 +259,30 @@ class StrKitVCFCalculator(BaseCalculator, VCFCalculatorMixin):
     def _get_sample_contigs(self, include_sex_chromosomes: bool = False) -> tuple[set, set, set]:
         return self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
 
+    @staticmethod
+    def get_peak_cns_from_vcf_line(sample_record: VariantRecordSample):
+        res = []
+
+        for enc_peak in sample_record["MCRL"]:
+            peak = []
+            for cn_r in enc_peak.split("|"):
+                cn, cn_c = cn_r.split("x")
+                peak.extend([int(cn)] * int(cn_c))
+
+            res.append(tuple(peak))
+
+        if len(res) == 1:
+            # Split one peak into two
+            return res[0][:len(res) // 2], res[0][len(res) // 2:]
+
+        return tuple(res)
+
     def calculate_contig(self, contig: str) -> MIContigResult:
         cr = MIContigResult(contig, includes_95_ci=True)
 
-        mvf = pysam.VariantFile(str(self._mother_call_file))
-        fvf = pysam.VariantFile(str(self._father_call_file))
-        cvf = pysam.VariantFile(str(self._child_call_file))
+        mvf = VariantFile(str(self._mother_call_file))
+        fvf = VariantFile(str(self._father_call_file))
+        cvf = VariantFile(str(self._child_call_file))
 
         # We want all common loci, so loop through the child and then look for the loci in the parent calls
 
@@ -325,6 +346,15 @@ class StrKitVCFCalculator(BaseCalculator, VCFCalculatorMixin):
                 child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
 
                 reference_copies=cv.info["REFMC"],
+
+                # ---- for de novo mutation detection:
+
+                child_read_counts=StrKitVCFCalculator.get_peak_cns_from_vcf_line(cs),
+                mother_read_counts=StrKitVCFCalculator.get_peak_cns_from_vcf_line(ms),
+                father_read_counts=StrKitVCFCalculator.get_peak_cns_from_vcf_line(fs),
+
+                test_to_perform=self.test_to_perform,
+                sig_level=self.sig_level,
             ))
 
         return cr

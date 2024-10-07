@@ -408,7 +408,7 @@ def _exec_mi(p_args) -> None:
         raise ParamError(f"Unknown or unimplemented caller '{caller}'")
 
     test_to_perform = p_args.test
-    if caller != c.CALLER_STRKIT_JSON and test_to_perform != "none":
+    if caller not in (c.CALLER_STRKIT_JSON, c.CALLER_STRKIT_VCF) and test_to_perform != "none":
         raise ParamError(f"Caller '{caller}' does not support inheritance tests.")
 
     child_file = getattr(p_args, "child-calls")  # First call file is not optional
