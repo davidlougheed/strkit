@@ -158,9 +158,9 @@ VCF format fields (i.e., for each variant sample entry):
 * `MC`: Motif copy number for each allele (STR calls only)
 * `MCCI`: Motif copy number 95% confidence intervals for each allele (STR calls only)
 * `MCRL`: Read-level copy number histogram for each allele. Allele entries are comma-delimited, and copy numbers within 
-  an allele's read-set are pipe (`|`)-delimited. For example, for two alleles with 8 and 9 copy-number respectively, we 
-  may get `7:1|8:10|9:1,8:2|9:12` — the first allele has one 7-copy read, ten 8-copy reads, and one 9-copy read. The 
-  second allele has two 8-copy reads and twelve 9-copy reads.
+  an allele's read-set are pipe (`|`)-delimited and formatted as `[copy number]x[reads]`. For example, for two alleles 
+  with 8 and 9 copy-number respectively, we may get `7x1|8x10|9x1,8x2|9x12` — the first allele has one 7-copy read, ten 
+  8-copy reads, and one 9-copy read. The second allele has two 8-copy reads and twelve 9-copy reads.
 * `PS`: Phase set
 * `PM`: Peak-calling method (`dist`/`single`/`snv+dist`/`snv`/`hp`; STR calls only)
 

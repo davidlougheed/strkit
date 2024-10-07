@@ -202,11 +202,11 @@ def output_contig_vcf_lines(
             vr.samples[sample_id]["MCCI"] = tuple(f"{x[0]}-{x[1]}" for x in call_95_cis)
 
             # Produces a histogram-like format for read-level copy numbers
-            # e.g., for two alleles with 8 and 9 copy-number respectively, we may get: 7:1|8:10|9:1,8:2|9:12
+            # e.g., for two alleles with 8 and 9 copy-number respectively, we may get: 7x1|8x10|9x1,8x2|9x12
             vr.samples[sample_id]["MCRL"] = tuple(
                 "|".join(
                     map(
-                        lambda pair: ":".join(map(str, pair)),
+                        lambda pair: "x".join(map(str, pair)),
                         sorted(
                             Counter(
                                 map(cn_getter, filter(lambda r: r.get("p") == pi, res_reads.values()))
