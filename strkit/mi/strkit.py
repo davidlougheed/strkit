@@ -272,8 +272,8 @@ class StrKitVCFCalculator(BaseCalculator, VCFCalculatorMixin):
             res.append(tuple(peak))
 
         if len(res) == 1:
-            # Split one peak into two
-            return res[0][:len(res) // 2], res[0][len(res) // 2:]
+            # Split one peak into two, interleaving reads between the two peaks
+            return res[0][::2], res[0][1::2]
 
         return tuple(res)
 
