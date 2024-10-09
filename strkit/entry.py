@@ -272,7 +272,7 @@ def add_mi_parser_args(mi_parser):
 
     mi_parser.add_argument(
         "--only-phased",
-        type="store_true",
+        action="store_true",
         help="Whether to only compare phasing-supported (SNVs, haplotags) STR loci. Available for strkit-vcf only.",
     )
 
