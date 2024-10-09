@@ -703,6 +703,7 @@ class MIResult:
 
                 *((str(locus.p_value),) if self._test_to_perform != "none" else ()),
                 *((str(locus.adj_p_value),) if self._test_to_perform != "none" and self._mt_corr != "none" else ()),
+                *((str(locus.mutation_from),) if self._test_to_perform != "none" else ()),
             )) + "\n"
         return res
 
