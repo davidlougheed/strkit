@@ -248,6 +248,8 @@ def add_mi_parser_args(mi_parser):
         help="Bin width for generated MI histograms.")
     # -----------------------------------------------------------------------------------
 
+    # Test-related arguments ------------------------------------------------------------
+
     mi_parser.add_argument(
         "--test",
         nargs="?",
@@ -256,7 +258,7 @@ def add_mi_parser_args(mi_parser):
         const="x2",
         choices=("none", "x2", "wmw", "wmw-gt"),
         help="Perform statistical chi-squared (by default) or Wilcoxon-Mann-Whitney tests to detect de novo mutation "
-             "in trios. Available for strkit-json only.")
+             "in trios. Available for strkit-json and strkit-vcf only.")
 
     mi_parser.add_argument(
         "--sig-level",
