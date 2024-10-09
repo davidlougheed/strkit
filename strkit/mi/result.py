@@ -104,6 +104,8 @@ class MILocusData:
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
 
+        self._logger = logger or get_main_logger()
+
         # --- begin de novo mutation-related fields/initialization ---
         self._p_value = None
         self._adj_p_value = None
@@ -112,8 +114,6 @@ class MILocusData:
         if test_to_perform != "none" and (de_novo_res := self.de_novo_test(test_to_perform, sig_level)):
             self._p_value, self._most_likely_config, self._mutation_from = de_novo_res
         # --- end de novo mutation-related fields/initialization ---
-
-        self._logger = logger or get_main_logger()
 
     @property
     def contig(self) -> str:
