@@ -45,6 +45,7 @@ class BaseCalculator(ABC):
         test_to_perform: str = "none",
         sig_level: float = 0.05,
         mt_corr: str = "none",
+        only_phased: bool = False,
 
         debug: bool = False,
         logger: Optional[logging.Logger] = None,
@@ -69,6 +70,7 @@ class BaseCalculator(ABC):
         self._test_to_perform: str = test_to_perform
         self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr
+        self._only_phased: bool = only_phased
 
         self._debug: bool = debug
         self._logger: logging.Logger = logger or get_main_logger()

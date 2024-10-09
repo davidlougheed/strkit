@@ -336,6 +336,10 @@ class StrKitVCFCalculator(BaseCalculator, VCFCalculatorMixin):
                 # None call in VCF, skip this call
                 continue
 
+            if self._only_phased and ("PS" not in cs or "PS" not in ms or "PS" not in fs):
+                # No phasing support across trio, and we're only looking at phased loci --> skip this call
+                continue
+
             cr.append(MILocusData(
                 contig=contig,
                 start=cv.pos,

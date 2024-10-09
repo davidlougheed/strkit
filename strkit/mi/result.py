@@ -60,6 +60,8 @@ class MILocusData:
         end: int,
         motif: str,
 
+        *,
+
         child_gt, mother_gt, father_gt,
         child_gt_95_ci=None, mother_gt_95_ci=None, father_gt_95_ci=None,
         child_gt_99_ci=None, mother_gt_99_ci=None, father_gt_99_ci=None,
@@ -83,13 +85,15 @@ class MILocusData:
         self._motif = motif
 
         self._child_gt = child_gt
-        self._mother_gt = mother_gt
-        self._father_gt = father_gt
         self._child_gt_95_ci = child_gt_95_ci
-        self._mother_gt_95_ci = mother_gt_95_ci
-        self._father_gt_95_ci = father_gt_95_ci
         self._child_gt_99_ci = child_gt_99_ci
+
+        self._mother_gt = mother_gt
+        self._mother_gt_95_ci = mother_gt_95_ci
         self._mother_gt_99_ci = mother_gt_99_ci
+
+        self._father_gt = father_gt
+        self._father_gt_95_ci = father_gt_95_ci
         self._father_gt_99_ci = father_gt_99_ci
 
         self._child_read_counts: OptionalReadCounts = child_read_counts
@@ -107,11 +111,14 @@ class MILocusData:
         self._logger = logger or get_main_logger()
 
         # --- begin de novo mutation-related fields/initialization ---
+        self._test_to_perform: str = test_to_perform
+        self._sig_level: float = sig_level
+
         self._p_value = None
         self._adj_p_value = None
         self._most_likely_config: Optional[ParentInheritanceConfig] = None
         self._mutation_from: MutationFrom = "none"
-        if test_to_perform != "none" and (de_novo_res := self.de_novo_test(test_to_perform, sig_level)):
+        if test_to_perform != "none" and (de_novo_res := self.de_novo_test()):
             self._p_value, self._most_likely_config, self._mutation_from = de_novo_res
         # --- end de novo mutation-related fields/initialization ---
 
@@ -279,6 +286,7 @@ class MILocusData:
 
     @staticmethod
     def _mutation_from_mat_pat_p_vals(mat_p: float, pat_p: float, unadj_sig_level: float) -> MutationFrom:
+        # TODO: this is not a particularly statistically rigourous way of doing this, more of just a hack.
         if mat_p < unadj_sig_level and pat_p < unadj_sig_level:
             return "both"
         elif mat_p < unadj_sig_level:
@@ -309,9 +317,10 @@ class MILocusData:
 
         return respects_mi_strict, respects_mi_pm1, respects_mi_95_ci, respects_mi_99_ci
 
-    def de_novo_test(
-        self, test: str, unadj_sig_level: float
-    ) -> Optional[tuple[float, ParentInheritanceConfig, MutationFrom]]:
+    def de_novo_test(self) -> Optional[tuple[float, ParentInheritanceConfig, MutationFrom]]:
+        test = self._test_to_perform
+        unadj_sig_level = self._sig_level
+
         most_likely_p_val: float = 0.0
         most_likely_config: ParentInheritanceConfig = PARENT_INHERITANCE_CONFIGS[0]
 

@@ -271,6 +271,12 @@ def add_mi_parser_args(mi_parser):
         ))
 
     mi_parser.add_argument(
+        "--only-phased",
+        type="store_true",
+        help="Whether to only compare phasing-supported (SNVs, haplotags) STR loci. Available for strkit-vcf only.",
+    )
+
+    mi_parser.add_argument(
         "--mt-corr",
         type=str,
         choices=(
@@ -413,6 +419,10 @@ def _exec_mi(p_args) -> None:
     if caller not in (c.CALLER_STRKIT_JSON, c.CALLER_STRKIT_VCF) and test_to_perform != "none":
         raise ParamError(f"Caller '{caller}' does not support inheritance tests.")
 
+    only_phased = p_args.only_phased
+    if caller != c.CALLER_STRKIT_VCF and only_phased:
+        raise ParamError(f"Caller '{caller}' does not support --only-phased.")
+
     child_file = getattr(p_args, "child-calls")  # First call file is not optional
     mother_file = getattr(p_args, "mother-calls", None)
     father_file = getattr(p_args, "father-calls", None)
@@ -443,6 +453,7 @@ def _exec_mi(p_args) -> None:
         test_to_perform=test_to_perform,
         sig_level=p_args.sig_level,
         mt_corr=p_args.mt_corr,
+        only_phased=only_phased,
 
         debug=p_args.debug,
     )
