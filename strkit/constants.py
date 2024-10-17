@@ -19,6 +19,7 @@ __all__ = [
 
 CALLER_EXPANSIONHUNTER = "expansionhunter"
 CALLER_HIPSTR = "hipstr"
+CALLER_LONGTR = "longtr"
 CALLER_GANGSTR = "gangstr"
 CALLER_REPEATHMM = "repeathmm"
 CALLER_STRAGLR = "straglr"

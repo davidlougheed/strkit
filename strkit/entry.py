@@ -385,6 +385,7 @@ def _exec_mi(p_args) -> None:
     from strkit.mi.base import BaseCalculator
     from strkit.mi.expansionhunter import ExpansionHunterCalculator
     from strkit.mi.gangstr import GangSTRCalculator
+    from strkit.mi.longtr import LongTRCalculator
     from strkit.mi.repeathmm import RepeatHMMCalculator
     from strkit.mi.straglr import StraglrCalculator
     from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator, StrKitVCFCalculator
@@ -394,6 +395,7 @@ def _exec_mi(p_args) -> None:
     calc_classes: dict[str, Type[BaseCalculator]] = {
         c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
         c.CALLER_GANGSTR: GangSTRCalculator,
+        c.CALLER_LONGTR: LongTRCalculator,
         c.CALLER_REPEATHMM: RepeatHMMCalculator,
         c.CALLER_STRAGLR: StraglrCalculator,
         c.CALLER_STRKIT: StrKitCalculator,
@@ -406,8 +408,8 @@ def _exec_mi(p_args) -> None:
     caller = p_args.caller.lower()
 
     trf_bed_file = getattr(p_args, "trf_bed") or None
-    if trf_bed_file is None and caller == c.CALLER_STRAGLR:
-        raise ParamError("Using `strkit mi` with Straglr requires that the --trf-bed flag is used.")
+    if trf_bed_file is None and caller in (c.CALLER_LONGTR, c.CALLER_STRAGLR):
+        raise ParamError(f"Using `strkit mi` with the '{caller}' caller requires that the --trf-bed flag is used.")
 
     exclude_bed_file = p_args.exclude_loci_bed or None
 
