@@ -261,6 +261,9 @@ class StrKitVCFCalculator(BaseCalculator, VCFCalculatorMixin):
 
     @staticmethod
     def get_peak_cns_from_vcf_line(sample_record: VariantRecordSample):
+        if "MCRL" not in sample_record:
+            return None
+
         res = []
 
         for enc_peak in sample_record["MCRL"]:
@@ -351,7 +354,8 @@ class StrKitVCFCalculator(BaseCalculator, VCFCalculatorMixin):
 
                 reference_copies=cv.info["REFMC"],
 
-                # ---- for de novo mutation detection:
+                # ---- for de novo mutation detection (this function returns None if MCRL is not in the VCF FORMAT for
+                #      the samples; i.e., with older STRkit versions):
 
                 child_read_counts=StrKitVCFCalculator.get_peak_cns_from_vcf_line(cs),
                 mother_read_counts=StrKitVCFCalculator.get_peak_cns_from_vcf_line(ms),
