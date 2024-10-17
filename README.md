@@ -124,7 +124,7 @@ long read data should still work.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
 
-#### Usage: *(see all parameters: [Advanced caller usage and configuration](./docs/caller_usage.md))
+#### Usage: *(see all parameters: [Advanced caller usage and configuration](./docs/caller_usage.md))*
 
 ```bash
 strkit call \
