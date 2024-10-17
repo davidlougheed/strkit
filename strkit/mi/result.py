@@ -38,15 +38,17 @@ PARENT_INHERITANCE_CONFIGS: tuple[ParentInheritanceConfig, ...] = (
 )
 
 INHERITANCE_CONFIGS: tuple[InheritanceConfig, ...] = (
-    (0, 1, 0, 0),  # allele 0 maternal, allele 1 paternal, maternal 0 allele, paternal 0 allele
-    (0, 1, 0, 1),  # allele 0 maternal, allele 1 paternal, maternal 0 allele, paternal 1 allele
-    (0, 1, 1, 0),  # allele 0 maternal, allele 1 paternal, maternal 1 allele, paternal 0 allele
-    (0, 1, 1, 1),  # allele 0 maternal, allele 1 paternal, maternal 1 allele, paternal 1 allele
+    # First allele from mother, second from father
+    (0, 1, 0, 0),  # allele 0 from maternal, allele 1 from paternal, maternal 0 allele, paternal 0 allele
+    (0, 1, 0, 1),  # allele 0 from maternal, allele 1 from paternal, maternal 0 allele, paternal 1 allele
+    (0, 1, 1, 0),  # allele 0 from maternal, allele 1 from paternal, maternal 1 allele, paternal 0 allele
+    (0, 1, 1, 1),  # allele 0 from maternal, allele 1 from paternal, maternal 1 allele, paternal 1 allele
 
-    (1, 0, 0, 0),  # allele 1 maternal, allele 0 paternal, maternal 0 allele, paternal 0 allele
-    (1, 0, 0, 1),  # allele 1 maternal, allele 0 paternal, maternal 0 allele, paternal 1 allele
-    (1, 0, 1, 0),  # allele 1 maternal, allele 0 paternal, maternal 1 allele, paternal 0 allele
-    (1, 0, 1, 1),  # allele 1 maternal, allele 0 paternal, maternal 1 allele, paternal 1 allele
+    # First allele from father, second from mother
+    (1, 0, 0, 0),  # allele 1 from maternal, allele 0 from paternal, maternal 0 allele, paternal 0 allele
+    (1, 0, 0, 1),  # allele 1 from maternal, allele 0 from paternal, maternal 0 allele, paternal 1 allele
+    (1, 0, 1, 0),  # allele 1 from maternal, allele 0 from paternal, maternal 1 allele, paternal 0 allele
+    (1, 0, 1, 1),  # allele 1 from maternal, allele 0 from paternal, maternal 1 allele, paternal 1 allele
 )
 
 MutationFrom = Literal["none", "?", "mat", "pat", "both"]
