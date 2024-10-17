@@ -22,7 +22,7 @@ setup(
         "scikit-learn>=1.2.1,<1.5",
         "scipy>=1.10,<1.14",
         "statsmodels>=0.14.0,<0.15",
-        "strkit_rust_ext==0.16.0",
+        "strkit_rust_ext==0.16.1",
     ],
 
     description="A toolkit for analyzing variation in short(ish) tandem repeats.",
