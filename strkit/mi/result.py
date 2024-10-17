@@ -234,16 +234,8 @@ class MILocusData:
         t = self._decimal_threshold
 
         return any((
-            # First hypothesis: first allele from mother, second from father
-            abs(c_gt[0] - m_gt[0]) < t and abs(c_gt[1] - f_gt[0]) < t,
-            abs(c_gt[0] - m_gt[0]) < t and abs(c_gt[1] - f_gt[1]) < t,
-            abs(c_gt[0] - m_gt[1]) < t and abs(c_gt[1] - f_gt[0]) < t,
-            abs(c_gt[0] - m_gt[1]) < t and abs(c_gt[1] - f_gt[1]) < t,
-
-            abs(c_gt[1] - m_gt[0]) < t and abs(c_gt[0] - f_gt[0]) < t,
-            abs(c_gt[1] - m_gt[0]) < t and abs(c_gt[0] - f_gt[1]) < t,
-            abs(c_gt[1] - m_gt[1]) < t and abs(c_gt[0] - f_gt[0]) < t,
-            abs(c_gt[1] - m_gt[1]) < t and abs(c_gt[0] - f_gt[1]) < t,
+            abs(c_gt[ic[0]] - m_gt[ic[2]]) < t and abs(c_gt[ic[1]] - f_gt[ic[3]]) < t
+            for ic in INHERITANCE_CONFIGS
         ))
 
     def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen: float) -> Optional[bool]:
