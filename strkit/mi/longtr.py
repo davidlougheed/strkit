@@ -24,6 +24,8 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
 
         # We want all common loci, so loop through the child and then look for the loci in the parent calls
 
+        print(self._loci_dict)
+
         for cv in cvf.fetch(contig):
             mv = next(mvf.fetch(contig, cv.start, cv.stop), None)
             fv = next(fvf.fetch(contig, cv.start, cv.stop), None)
@@ -33,6 +35,7 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
             k = (contig, cv.start, cv.stop)
 
             if self.should_skip_locus(*k):
+                print("should skip", k)
                 continue
 
             cr.seen_locus(*k)
