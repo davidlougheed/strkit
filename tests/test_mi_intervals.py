@@ -32,4 +32,4 @@ def test_loci_dict_of_dict(contig: str, start: int, end: int, nr: int):
 @pytest.mark.parametrize("contig,start,end,nr", BED_CASES)
 def test_loci_dict_of_list(contig: str, start: int, end: int, nr: int):
     d = build_loci_dict_of_list_from_file(TEST_LOCI)
-    assert len(tuple(overlapping_loci_dict_of_list(contig, start, end, d))) == nr
+    assert len(tuple(overlapping_loci_dict_of_list(contig, start, end, d, False))) == nr

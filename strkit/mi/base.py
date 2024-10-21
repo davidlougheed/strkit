@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Optional
@@ -63,6 +64,7 @@ class BaseCalculator(ABC):
 
         self._loci_file: Optional[str] = loci_file
         self._loci_dict: LociDictOfDict = build_loci_dict_of_dict_from_file(loci_file)
+        self._loci_dict_cache_key: str = str(uuid.uuid4())
         if self._loci_file is not None:
             self._logger.debug("Built loci dict of size %d", sum(len(loc) for loc in self._loci_dict.values()))
 
@@ -93,17 +95,19 @@ class BaseCalculator(ABC):
     def mt_corr(self) -> str:
         return self._mt_corr
 
-    def get_loci_overlapping(self, contig: str, start: int, end: int) -> list[tuple[int, int, list[str]]]:
-        return overlapping_loci_dict_of_dict(contig, start, end, self._loci_dict)
+    def get_loci_overlapping(
+        self, contig: str, start: int, end: int, first_only: bool
+    ) -> list[tuple[int, int, list[str]]]:
+        return overlapping_loci_dict_of_dict(contig, start, end, self._loci_dict,  first_only, dict_cache_key=self._loci_dict_cache_key)
 
     def should_exclude_locus(self, contig: str, start: int, end: int) -> bool:
-        return any(True for _ in overlapping_loci_dict_of_list(contig, start, end, self._exclude_dict))
+        return any(True for _ in overlapping_loci_dict_of_list(contig, start, end, self._exclude_dict, True))
 
     def should_skip_locus(self, contig: str, start: int, end: int) -> bool:
         # Check to make sure call is present in TRF BED file, if it is specified
         # Check to make sure the locus is not excluded via overlap with exclude BED
         return (
-            (self._loci_file and self._loci_dict and not self.get_loci_overlapping(contig, start, end))
+            (self._loci_file and self._loci_dict and not self.get_loci_overlapping(contig, start, end, True))
             or self.should_exclude_locus(contig, start, end)
         )
 

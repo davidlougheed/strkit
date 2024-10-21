@@ -53,7 +53,7 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
             # TODO: Handle wrong formatted VCFs gracefully
 
             # Need to dig up original motif from the locus file - thus, the original locus file is required.
-            motif: Optional[str] = next(iter(self.get_loci_overlapping(*k)), (None,))[-1]
+            motif: Optional[str] = next(iter(self.get_loci_overlapping(k[0], k[1], k[2], True)), (None,))[-1]
             if not motif:
                 continue
 

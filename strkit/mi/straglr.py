@@ -33,7 +33,7 @@ class StraglrCalculator(BaseCalculator):
 
             k = (line[0], int(line[1]), int(line[2]))
 
-            orig_motif = next(iter(self.get_loci_overlapping(*k)), None)
+            orig_motif = next(iter(self.get_loci_overlapping(k[0], k[1], k[2], True)), None)
             orig_motif = orig_motif[-1] if orig_motif else None
 
             if not orig_motif:

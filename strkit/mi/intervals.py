@@ -56,15 +56,26 @@ def build_loci_dict_of_list_from_file(loci_path: Optional[Union[str, Path]]) -> 
     return res
 
 
+_overlapping_dict_cache = {}
+
+
 def overlapping_loci_dict_of_dict(
-    contig: str, start: int, end: int, d: LociDictOfDict
+    contig: str, start: int, end: int, d: LociDictOfDict, first_only: bool = False, dict_cache_key: Optional[str] = None
 ) -> list[tuple[int, int, list[str]]]:
     if contig not in d:
         return []
 
-    c_dict = d[contig]
-    c_keys = tuple(c_dict.keys())
-    c_lhs = tuple(map(lambda k: k[0], c_keys))
+    global _overlapping_dict_cache
+
+    if dict_cache_key in _overlapping_dict_cache:
+        c_dict, c_keys, c_lhs = _overlapping_dict_cache[dict_cache_key]
+    else:
+        c_dict = d[contig]
+        c_keys = tuple(c_dict.keys())
+        c_lhs = tuple(map(lambda k: k[0], c_keys))
+        if dict_cache_key is not None:
+            _overlapping_dict_cache[dict_cache_key] = c_dict, c_keys, c_lhs
+
     i = bisect.bisect_left(c_lhs, end)  # use _left since end is exclusive
 
     possible_overlaps = c_keys[:i]
@@ -74,11 +85,15 @@ def overlapping_loci_dict_of_dict(
     for ov in possible_overlaps:
         if start < ov[1]:  # end is exclusive
             acc.append((ov[0], ov[1], c_dict[ov]))
+            if first_only:
+                break
 
     return acc
 
 
-def overlapping_loci_dict_of_list(contig: str, start: int, end: int, d: LociDictOfList) -> Iterable[tuple[int, int]]:
+def overlapping_loci_dict_of_list(
+    contig: str, start: int, end: int, d: LociDictOfList, first_only: bool
+) -> Iterable[tuple[int, int]]:
     if contig not in d:
         yield from ()
         return
@@ -87,4 +102,8 @@ def overlapping_loci_dict_of_list(contig: str, start: int, end: int, d: LociDict
     c_lhs = tuple(map(lambda k: k[0], c_ints))
     i = bisect.bisect_left(c_lhs, end)  # use _left since end is exclusive
 
-    yield from ((ov[0], ov[1]) for ov in c_ints[:i] if start < ov[1])
+    for ov in c_ints[:i]:
+        if start < ov[1]:
+            yield ov[0], ov[1]
+            if first_only:
+                break
