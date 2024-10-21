@@ -161,6 +161,11 @@ class BaseCalculator(ABC):
             n_total += len(contig_result)
             output_loci.extend(nm)
 
+            self._logger.info(
+                "Finished processing contig %s. Current value: %.2f, ±1: %.2f",
+                contig_result.contig, res / n_total * 100, res_pm1 / n_total * 100,
+            )
+
         if n_total == 0:
             self._logger.warning("No common loci found")
             return None
