@@ -154,7 +154,10 @@ class BaseCalculator(ABC):
         contig_results = []
         output_loci = []
 
-        for contig_result in map(self.calculate_contig, included_contigs):
+        for contig in sorted(included_contigs):
+            self._logger.info("Processing contig %s", contig)
+
+            contig_result = self.calculate_contig(contig)
             contig_results.append(contig_result)
             r, nm = contig_result.process_loci(calculate_non_matching=self.test_to_perform == "none")
             value, value_pm1, value_95_ci, value_99_ci = r

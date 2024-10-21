@@ -21,8 +21,6 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
         return contigs
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        self._logger.debug(f"Calculating contig: %s", contig)
-
         cr = MIContigResult(contig)
 
         mvf = pysam.VariantFile(str(self._mother_call_file))
