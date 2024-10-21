@@ -50,6 +50,9 @@ class BaseCalculator(ABC):
         debug: bool = False,
         logger: Optional[logging.Logger] = None,
     ):
+        self._debug: bool = debug
+        self._logger: logging.Logger = logger or get_main_logger()
+
         self._child_call_file: Path = child_call_file
         self._mother_call_file: Path = mother_call_file
         self._father_call_file: Path = father_call_file
@@ -60,9 +63,13 @@ class BaseCalculator(ABC):
 
         self._loci_file: Optional[str] = loci_file
         self._loci_dict: LociDictOfDict = build_loci_dict_of_dict_from_file(loci_file)
+        if self._loci_file is not None:
+            self._logger.debug("Built loci dict of size %d", len(self._loci_dict))
 
         self._exclude_file: Optional[str] = exclude_file
         self._exclude_dict: LociDictOfList = build_loci_dict_of_list_from_file(exclude_file)
+        if self._exclude_file is not None:
+            self._logger.debug("Built exclude dict of size %d", len(self._loci_dict))
 
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
@@ -71,9 +78,6 @@ class BaseCalculator(ABC):
         self._sig_level: float = sig_level
         self._mt_corr: str = mt_corr
         self._only_phased: bool = only_phased
-
-        self._debug: bool = debug
-        self._logger: logging.Logger = logger or get_main_logger()
 
         self._cache: dict[str, Any] = {}
 
@@ -127,6 +131,8 @@ class BaseCalculator(ABC):
         if self._loci_dict:
             # Limit contig set to only contigs which are in the locus dictionary if one is specified.
             contig_set = contig_set.intersection({k[0] for k in self._loci_dict})
+
+        self._logger.debug("Got %d intersection trio contigs", len(contig_set))
 
         return contig_set
 

@@ -14,11 +14,14 @@ __all__ = ["LongTRCalculator"]
 class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
     def _get_sample_contigs(self) -> tuple[set, set, set]:
         contigs = self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
-        self._logger.debug(f"Got trio contigs: %s", contigs)
+        self._logger.debug(
+            "Got trio contigs - child: %d, mother: %d, father: %d",
+            contigs[2], contigs[0], contigs[1],
+        )
         return contigs
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        self._logger.debug(f"Calculating contig: {contig}")
+        self._logger.debug(f"Calculating contig: %s", contig)
 
         cr = MIContigResult(contig)
 
