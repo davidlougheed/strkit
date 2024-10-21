@@ -27,8 +27,6 @@ def build_loci_dict_of_dict_from_file(loci_path: Optional[Union[str, Path]]) -> 
 
     with open(loci_path, "r") as lf:
         for line in filter(_line_filter_fn, map(str.strip, lf)):
-            print(line)
-
             ls = line.split("\t")
 
             contig, ss, es = ls[:3]
