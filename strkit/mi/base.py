@@ -130,7 +130,9 @@ class BaseCalculator(ABC):
 
         if self._loci_dict:
             # Limit contig set to only contigs which are in the locus dictionary if one is specified.
+            print(contig_set)
             contig_set = contig_set.intersection({k[0] for k in self._loci_dict})
+            print({k[0] for k in self._loci_dict})
 
         self._logger.debug("Got %d intersection trio contigs", len(contig_set))
 
