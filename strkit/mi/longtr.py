@@ -16,7 +16,7 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
         contigs = self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
         self._logger.debug(
             "Got trio contigs - child: %d, mother: %d, father: %d",
-            contigs[2], contigs[0], contigs[1],
+            len(contigs[2]), len(contigs[0]), len(contigs[1]),
         )
         return contigs
 
