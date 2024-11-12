@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import pysam
 
-from typing import Optional
-
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
 from .vcf_utils import VCFCalculatorMixin
@@ -37,7 +35,10 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
 
             k = (contig, cv.start, cv.stop)
 
-            if self.should_skip_locus(*k):
+            overlapping = self.get_loci_overlapping(k[0], k[1], k[2], True)
+
+            if self.should_skip_locus(k[0], k[1], k[2], cached_overlapping=overlapping):
+                self._logger.debug(f"Skipping locus {k}: no overlap with BED")
                 continue
 
             cr.seen_locus(*k)
@@ -45,16 +46,16 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
             if mv is None or fv is None:
                 # Variant isn't found in at least one of the parents, so we can't do anything with it.
                 # TODO: We need to actually check calls, and check with sample ID, not just assume
+                self._logger.debug(f"Skipping locus {k}: mv or fv is None")
                 continue
 
             # TODO: Handle missing samples gracefully
             # TODO: Handle wrong formatted VCFs gracefully
 
             # Need to dig up original motif from the locus file - thus, the original locus file is required.
-            motif: Optional[str] = next(
-                iter(self.get_loci_overlapping(k[0], k[1], k[2], True)), ((None,),)
-            )[-1][0]
+            motif: str = overlapping[0][-1][0]
             if not motif:
+                self._logger.debug(f"Skipping locus {k}: motif is false-y")
                 continue
 
             motif_len = len(motif)
