@@ -64,9 +64,15 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
             ms = mv.samples[self._mother_id or 0]
             fs = fv.samples[self._father_id or 0]
 
-            c_gt = tuple(sorted(len(cv.alleles[g]) / motif_len for g in cs["GT"])) if None not in cs["GT"] else None
-            m_gt = tuple(sorted(len(mv.alleles[g]) / motif_len for g in ms["GT"])) if None not in ms["GT"] else None
-            f_gt = tuple(sorted(len(fv.alleles[g]) / motif_len for g in fs["GT"])) if None not in fs["GT"] else None
+            c_gt = (
+                tuple(sorted(round(len(cv.alleles[g]) / motif_len) for g in cs["GT"])) if None not in cs["GT"] else None
+            )
+            m_gt = (
+                tuple(sorted(round(len(mv.alleles[g]) / motif_len) for g in ms["GT"])) if None not in ms["GT"] else None
+            )
+            f_gt = (
+                tuple(sorted(round(len(fv.alleles[g]) / motif_len) for g in fs["GT"])) if None not in fs["GT"] else None
+            )
 
             if c_gt is None or m_gt is None or f_gt is None:
                 # None call in VCF, skip this call
@@ -79,8 +85,6 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
                 motif=motif,
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
-
-                decimal=True,
             ))
 
         return cr
