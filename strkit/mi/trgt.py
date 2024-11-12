@@ -23,18 +23,18 @@ def _parse_allele(a: Union[int, str, None]) -> int | None:
 def _unzip_gt(
     vals, motif_len: int
 ) -> Union[
-    tuple[tuple[float, ...], tuple[tuple[float, ...], tuple[float, ...]]],
+    tuple[tuple[int, ...], tuple[tuple[int, ...], tuple[int, ...]]],
     tuple[tuple[None, None], tuple[None, None]],
 ]:
     try:
         return (
             (
-                _parse_allele(vals[0][0]) / motif_len,
-                _parse_allele(vals[1][0]) / motif_len,
+                round(_parse_allele(vals[0][0]) / motif_len),
+                round(_parse_allele(vals[1][0]) / motif_len),
             ),
             (
-                tuple(map(lambda x: x / motif_len, parse_ci(vals[0][1]))),
-                tuple(map(lambda x: x / motif_len, parse_ci(vals[1][1]))),
+                tuple(map(lambda x: round(x / motif_len), parse_ci(vals[0][1]))),
+                tuple(map(lambda x: round(x / motif_len), parse_ci(vals[1][1]))),
             ),
         )
     except (ValueError, TypeError):
@@ -101,8 +101,6 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
                 child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
-
-                decimal=True,
             ))
 
         return cr
