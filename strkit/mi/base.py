@@ -66,12 +66,20 @@ class BaseCalculator(ABC):
         self._loci_dict: LociDictOfDict = build_loci_dict_of_dict_from_file(loci_file)
         self._loci_dict_cache_key: str = str(uuid.uuid4())
         if self._loci_file is not None:
-            self._logger.debug("Built loci dict of size %d", sum(len(loc) for loc in self._loci_dict.values()))
+            self._logger.debug(
+                "Built loci dict of size %d with contigs %s",
+                sum(len(loc) for loc in self._loci_dict.values()),
+                tuple(self._loci_dict.keys()),
+            )
 
         self._exclude_file: Optional[str] = exclude_file
         self._exclude_dict: LociDictOfList = build_loci_dict_of_list_from_file(exclude_file)
         if self._exclude_file is not None:
-            self._logger.debug("Built exclude dict of size %d", len(self._loci_dict))
+            self._logger.debug(
+                "Built exclude dict of size %d with contigs %s",
+                len(self._loci_dict),
+                tuple(self._exclude_dict.keys()),
+            )
 
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
