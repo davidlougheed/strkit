@@ -107,23 +107,30 @@ class BaseCalculator(ABC):
         self, contig: str, start: int, end: int, first_only: bool
     ) -> list[tuple[int, int, list[str]]]:
         return overlapping_loci_dict_of_dict(
-            contig, start, end, self._loci_dict,  first_only, dict_cache_key=self._loci_dict_cache_key
+            contig, start, end, self._loci_dict, first_only, dict_cache_key=self._loci_dict_cache_key
         )
 
     def should_exclude_locus(self, contig: str, start: int, end: int) -> bool:
         return any(True for _ in overlapping_loci_dict_of_list(contig, start, end, self._exclude_dict, True))
 
-    def should_skip_locus(self, contig: str, start: int, end: int, cached_overlapping: Optional[list] = None) -> bool:
+    def should_skip_locus(
+        self, contig: str, start: int, end: int, cached_overlapping: Optional[list] = None
+    ) -> str | None:
+        # Returns either a reason string (if yes) or None (=== no)
+
         # Check to make sure call is present in TRF BED file, if it is specified
         # Check to make sure the locus is not excluded via overlap with exclude BED
-        return (
-            (
-                self._loci_file
-                and self._loci_dict
-                and not (cached_overlapping or self.get_loci_overlapping(contig, start, end, True))
-            )
-            or self.should_exclude_locus(contig, start, end)
-        )
+
+        if not self._loci_file or not self._loci_dict:
+            return None
+
+        if not (cached_overlapping or self.get_loci_overlapping(contig, start, end, True)):
+            return "no overlapping loci"
+
+        if self.should_exclude_locus(contig, start, end):
+            return "should_exclude_locus returned True"
+
+        return None
 
     @abstractmethod
     def _get_sample_contigs(self) -> tuple[set, set, set]:

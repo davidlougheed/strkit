@@ -37,8 +37,8 @@ class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
 
             overlapping = self.get_loci_overlapping(k[0], k[1], k[2], True)
 
-            if self.should_skip_locus(k[0], k[1], k[2], cached_overlapping=overlapping):
-                self._logger.debug(f"Skipping locus {k}: no overlap with BED")
+            if r := self.should_skip_locus(k[0], k[1], k[2], cached_overlapping=overlapping):
+                self._logger.debug(f"Skipping locus {k}: {r}")
                 continue
 
             cr.seen_locus(*k)
