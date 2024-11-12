@@ -67,14 +67,16 @@ def overlapping_loci_dict_of_dict(
 
     global _overlapping_dict_cache
 
-    if dict_cache_key in _overlapping_dict_cache:
-        c_dict, c_keys, c_lhs = _overlapping_dict_cache[dict_cache_key]
+    full_cache_key = f"{dict_cache_key}--{contig}"
+
+    if full_cache_key in _overlapping_dict_cache:
+        c_dict, c_keys, c_lhs = _overlapping_dict_cache[full_cache_key]
     else:
         c_dict = d[contig]
         c_keys = tuple(c_dict.keys())
         c_lhs = tuple(map(lambda k: k[0], c_keys))
-        if dict_cache_key is not None:
-            _overlapping_dict_cache[dict_cache_key] = c_dict, c_keys, c_lhs
+        if full_cache_key is not None:
+            _overlapping_dict_cache[full_cache_key] = c_dict, c_keys, c_lhs
 
     i = bisect.bisect_left(c_lhs, end)  # use _left since end is exclusive
 
