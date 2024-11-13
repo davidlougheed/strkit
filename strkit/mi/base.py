@@ -115,7 +115,7 @@ class BaseCalculator(ABC):
 
     def should_skip_locus(
         self, contig: str, start: int, end: int, cached_overlapping: Optional[list] = None
-    ) -> str | None:
+    ) -> Optional[str]:
         # Returns either a reason string (if yes) or None (=== no)
 
         # Check to make sure call is present in TRF BED file, if it is specified

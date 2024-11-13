@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pysam
 
-from typing import Union
+from typing import Optional, Union
 
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
@@ -12,7 +12,7 @@ from ..utils import parse_cis
 __all__ = ["ExpansionHunterCalculator"]
 
 
-def _parse_allele(a: Union[int, str, None]) -> int | None:
+def _parse_allele(a: Union[int, str, None]) -> Optional[int]:
     if isinstance(a, str):
         if a == ".":
             return None
