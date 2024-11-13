@@ -27,25 +27,26 @@ class StraglrCalculator(BaseCalculator):
             line = pv.strip().split("\t")
 
             if line[0] != contig:
+                if calls:
+                    # assume ordered BED; break after we've collected all calls for the contig
+                    break
                 continue
 
             locus = tuple(line[:3])
 
             k = (line[0], int(line[1]), int(line[2]))
 
-            orig_motif: Optional[tuple[int, int, list[str]]] = next(
-                iter(self.get_loci_overlapping(k[0], k[1], k[2], True)), None
-            )
-            orig_motif: Optional[str] = orig_motif[-1][0] if orig_motif else None
+            overlapping = self.get_loci_overlapping(k[0], k[1], k[2], True)
 
-            if not orig_motif:
-                continue
-
-            if self.should_exclude_locus(*k):
+            if self.should_skip_locus(k[0], k[1], k[2], cached_overlapping=overlapping):
                 continue
 
             if cr:
                 cr.seen_locus(*k)
+
+            orig_motif: str = overlapping[0][-1][0]
+            if not orig_motif:  # false-y/blank
+                continue
 
             # Transform the genotypes into something that is consistent across individuals,
             # using the file with the list of loci.
