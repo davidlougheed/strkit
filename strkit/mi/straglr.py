@@ -38,7 +38,8 @@ class StraglrCalculator(BaseCalculator):
 
             overlapping = self.get_loci_overlapping(k[0], k[1], k[2], True)
 
-            if self.should_skip_locus(k[0], k[1], k[2], cached_overlapping=overlapping):
+            if r := self.should_skip_locus(k[0], k[1], k[2], cached_overlapping=overlapping):
+                self._logger.debug(f"Skipping locus {k}: {r}")
                 continue
 
             if cr:
@@ -46,6 +47,7 @@ class StraglrCalculator(BaseCalculator):
 
             orig_motif: str = overlapping[0][-1][0]
             if not orig_motif:  # false-y/blank
+                self._logger.debug(f"Skipping locus {k}: motif is false-y")
                 continue
 
             # Transform the genotypes into something that is consistent across individuals,
