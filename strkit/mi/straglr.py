@@ -34,8 +34,8 @@ class StraglrCalculator(BaseCalculator):
             k = (line[0], int(line[1]), int(line[2]))
 
             orig_motif: Optional[tuple[int, int, list[str]]] = next(
-                iter(self.get_loci_overlapping(k[0], k[1], k[2], True)), (None,)
-            )[0]
+                iter(self.get_loci_overlapping(k[0], k[1], k[2], True)), None
+            )
             orig_motif: Optional[str] = orig_motif[-1][0] if orig_motif else None
 
             if not orig_motif:
