@@ -190,8 +190,8 @@ class BaseCalculator(ABC):
             output_loci.extend(nm)
 
             self._logger.info(
-                "Finished processing contig %s. Current value: %.2f, ±1: %.2f",
-                contig_result.contig, res / n_total * 100, res_pm1 / n_total * 100,
+                "Finished processing contig %s. Current value: %.2f, ±1: %.2f, n_total: %d",
+                contig_result.contig, res / n_total * 100, res_pm1 / n_total * 100, n_total,
             )
 
         if n_total == 0:
