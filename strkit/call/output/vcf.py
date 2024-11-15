@@ -69,6 +69,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
     vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
     vh.formats.add("MCCI", ".", "String", "Motif copy number 95% confidence interval for each allele")
     vh.formats.add("MCRL", ".", "String", "Read-level motif copy numbers for each allele")
+    vh.formats.add("NSNV", 1, "Integer", "Number of supporting SNVs for the STR peak-call")
     vh.formats.add("PS", 1, "Integer", "Phase set")
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
 
@@ -193,6 +194,11 @@ def output_contig_vcf_lines(
         if am := result.get("assign_method"):
             vr.samples[sample_id]["PM"] = am
 
+        str_snvs = result.get("snvs", ())
+        if str_snvs:
+            # Record number of support SNVs for the locus
+            vr.samples[sample_id]["NSNV"] = len(str_snvs)
+
         vr.samples[sample_id]["DP"] = len(res_reads)
 
         if call is not None and res_peaks:
@@ -228,7 +234,7 @@ def output_contig_vcf_lines(
                 logger.error(f"Received bad PS value while writing VCF record at {contig}:{start} - {ps}")
                 ps = None
 
-            for snv in result.get("snvs", ()):
+            for snv in str_snvs:
                 snv_id = snv["id"]
                 if snv_id in snvs_written:
                     continue
