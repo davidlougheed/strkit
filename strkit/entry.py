@@ -213,10 +213,10 @@ def add_mi_parser_args(mi_parser):
     mi_parser.add_argument("--contig", type=str, help="Specifies a specific contig to process (optional).")
 
     mi_parser.add_argument(
-        "--trf-bed",
+        "--motif-bed", "--trf-bed",
         type=str,
-        help="Specifies a TRF-derived BED file with all called loci and motifs (required for Straglr, since it doesn't "
-             "respect the original motifs given to it.)")
+        help="Specifies a BED file with all called loci and motifs (required for LongTR and Straglr, since they don't "
+             "contain information about the original locus motif.)")
 
     mi_parser.add_argument(
         "--exclude-loci-bed", "-e",
@@ -407,9 +407,9 @@ def _exec_mi(p_args) -> None:
 
     caller = p_args.caller.lower()
 
-    trf_bed_file = getattr(p_args, "trf_bed") or None
-    if trf_bed_file is None and caller in (c.CALLER_LONGTR, c.CALLER_STRAGLR):
-        raise ParamError(f"Using `strkit mi` with the '{caller}' caller requires that the --trf-bed flag is used.")
+    motif_bed_file = getattr(p_args, "motif_bed") or None
+    if motif_bed_file is None and caller in (c.CALLER_LONGTR, c.CALLER_STRAGLR):
+        raise ParamError(f"Using `strkit mi` with the '{caller}' caller requires that the --motif-bed flag is used.")
 
     exclude_bed_file = p_args.exclude_loci_bed or None
 
@@ -447,7 +447,7 @@ def _exec_mi(p_args) -> None:
         mother_id=mother_id,
         father_id=father_id,
 
-        loci_file=trf_bed_file,
+        loci_file=motif_bed_file,
         exclude_file=exclude_bed_file,
 
         widen=getattr(p_args, "widen", 0) or 0,
