@@ -154,6 +154,13 @@ def get_ref_repeat_count(
         l_offset = rev_top_res[1][1]
         r_offset = fwd_top_res[1][1]
 
+        if l_offset >= len(flank_left_seq):
+            # don't do anything weird if we're removing the entire flank sequence
+            # TODO: this can be caused by NNNNNNN - see chr5:139453668-139454525 in GRCh38
+            l_offset = 0
+        if r_offset >= len(flank_right_seq):
+            r_offset = 0  # same here
+
         if l_offset > 0:
             tr_seq = flank_left_seq[-1*l_offset:] + tr_seq  # first, move a chunk of the left flank to the TR seq
             flank_left_seq = flank_left_seq[:-1*l_offset]  # then, remove that chunk from the left flank
