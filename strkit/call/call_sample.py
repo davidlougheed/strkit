@@ -393,11 +393,13 @@ def call_sample(
         qsize: int = locus_queue.qsize()
         while qsize > 0:  # should have one loop iteration per contig
             jobs = [p.apply_async(locus_worker, (i + 1, *job_args)) for i in range(params.processes)]
+            # jobs = [locus_worker(i + 1, *job_args) for i in range(params.processes)]
 
             # Write results
             #  - gather the process-specific results for combining
             #  - merge sorted result lists into single sorted list for the current contig
             results: tuple[LocusResult, ...] = tuple(heapq_merge(*(j.get() for j in jobs), key=get_locus_index))
+            # results: tuple[LocusResult, ...] = tuple(heapq_merge(*jobs, key=get_locus_index))
             del jobs
 
             #  - fix-up phase sets based on phase_set_synonymous
