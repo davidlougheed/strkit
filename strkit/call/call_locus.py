@@ -598,7 +598,7 @@ def call_alleles_with_incorporated_snvs(
     if n_reads_with_no_snvs:
         logger_.debug(
             "%s - will discard %d/%d reads with no high-quality SNV data",
-            locus_log_str, n_reads_with_no_snvs, n_reads_with_many_snvs
+            locus_log_str, n_reads_with_no_snvs, n_reads_in_dict
         )
 
     # Otherwise, we can use the SNV data --------------------------------------
