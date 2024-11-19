@@ -512,7 +512,7 @@ def call_alleles_with_incorporated_snvs(
     params: CallParams,
     read_dict: dict[str, ReadDict],
     read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
-    read_dict_extra: dict[str, dict],
+    read_dict_extra: dict[str, ReadDictExtra],
     n_reads_in_dict: int,  # We could derive this again, but we already have before...
     useful_snvs: list[tuple[int, int]],
     candidate_snvs: CandidateSNVs,
