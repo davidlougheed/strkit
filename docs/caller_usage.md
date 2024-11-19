@@ -48,6 +48,10 @@
 * `--consensus` or `-c`: Turn on consensus calculation for alleles. This adds runtime, but gives a better idea of STR 
   structure and is useful for comparing alleles beyond copy number. If `--vcf` is set, this option is forced on. 
   **Default:** off
+* `--vcf-anchor-size`: Number of bases upstream (5') of the tandem repeat to include in the VCF output. This can include
+  small indels, and having a size above `1` may be beneficial or detrimental to the use case at hand, but is nice for 
+  benchmarking and in case of slight misalignment. This is clamped to being in the range of `[1, flank_size]`.
+  **Default:** 5
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*

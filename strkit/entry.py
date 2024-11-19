@@ -177,6 +177,12 @@ def add_call_parser_args(call_parser):
         type=str,
         help="Path to write VCF-formatted calls to. STR alleles are currently formatted symbolically rather than as "
              "consensus sequences.")
+    call_parser.add_argument(
+        "--vcf-anchor-size",
+        type=int,
+        default=5,
+        help="Size of upstream sequence (including potential small upstream variants) to include in VCF output "
+             "consensus sequences.")
     # End VCF output arguments -----------------------------------------------------------------------------------------
 
     call_parser.add_argument(

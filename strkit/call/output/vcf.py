@@ -2,7 +2,7 @@ import functools
 import logging
 
 from collections import Counter
-# from os.path import commonprefix
+from os.path import commonprefix
 from pathlib import Path
 from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
 from typing import Iterable, Optional
@@ -34,6 +34,7 @@ __all__ = [
 VCF_INFO_VT = "VT"
 VCF_INFO_MOTIF = "MOTIF"
 VCF_INFO_REFMC = "REFMC"
+VCF_INFO_ANCH = "ANCH"
 
 VT_STR = "str"
 VT_SNV = "snv"
@@ -63,6 +64,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
 
     # Set up basic VCF formats
     vh.formats.add("AD", ".", "Integer", "Read depth for each allele")
+    vh.formats.add("ANCL", ".", "Integer", "Anchor length for each allele, five-prime of TR sequence")
     vh.formats.add("DP", 1, "Integer", "Read depth")
     vh.formats.add("DPS", 1, "Integer", "Read depth (supporting reads only)")
     vh.formats.add("GT", 1, "String", "Genotype")
@@ -77,6 +79,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
     vh.info.add(VCF_INFO_VT, 1, "String", "Variant record type (str/snv)")
     vh.info.add(VCF_INFO_MOTIF, 1, "String", "Motif string")
     vh.info.add(VCF_INFO_REFMC, 1, "Integer", "Motif copy number in the reference genome")
+    vh.info.add(VCF_INFO_ANCH, 1, "Integer", "Five-prime anchor size")
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
@@ -140,19 +143,32 @@ def output_contig_vcf_lines(
             logger.error(f"Encountered None in results[{result_idx}].peaks.start_anchor_seqs: {peak_start_anchor_seqs}")
             continue
 
+        peak_start_anchor_seqs_upper = tuple(iter_to_upper(peak_start_anchor_seqs))
+        common_anchor_prefix = commonprefix([ref_start_anchor, *peak_start_anchor_seqs_upper])
+        # anchor_offset = how many bases we can cut off from the front of the anchor
+        # since they're shared between all alleles.
+        #  - we need to leave one base as an anchor for VCF compliance though, thus the min(...)
+        anchor_offset = min(len(common_anchor_prefix), params.vcf_anchor_size - 1)
+
+        ref_start_anchor = ref_start_anchor[anchor_offset:]
+        ref_seq_with_anchor = ref_start_anchor + ref_seq
+
         seqs: tuple[str, ...] = tuple(iter_to_upper(peak_seqs))
-        seqs_with_anchors = tuple(zip(seqs, tuple(iter_to_upper(peak_start_anchor_seqs))))
+        seqs_with_anchors: list[tuple[str, str]] = list(
+            zip(seqs, map(lambda a: a[anchor_offset:], peak_start_anchor_seqs_upper))
+        )
 
         if 0 < len(seqs) < n_alleles:
             seqs = tuple([seqs[0]] * n_alleles)
-            seqs_with_anchors = tuple([seqs_with_anchors[0]] * n_alleles)
+            seqs_with_anchors = [seqs_with_anchors[0]] * n_alleles
 
         seq_alts = sorted(
-            set(filter(lambda c: not (c[0] == ref_seq and c[1] == ref_start_anchor), seqs_with_anchors)),
+            set(filter(lambda c: not (c[1] + c[0] == ref_seq_with_anchor), seqs_with_anchors)),
             key=idx_0_getter
         )
 
-        # common_suffix_idx = -1 * len(commonprefix(tuple(map(_reversed_str, (ref_seq, *seqs)))))
+        # If there's no anchor variation, we will use the last base for a compact representation.
+        # Otherwise, we include the full VCF anchor sized-sequence.  TODO: common prefix strip
 
         call = result["call"]
         call_95_cis = result["call_95_cis"]
@@ -163,12 +179,15 @@ def output_contig_vcf_lines(
             else ()
         )
 
-        # seq_alleles: list[str] = [ref_start_anchor + (ref_seq[:common_suffix_idx] if common_suffix_idx else ref_seq)]
-        seq_alleles: list[str] = [ref_start_anchor + ref_seq]
+        seq_alleles: list[str] = [ref_seq_with_anchor]
+
         if call is not None and seq_alts:
-            # seq_alleles.extend(a[1] + (a[0][:common_suffix_idx] if common_suffix_idx else a[0]) for a in seq_alts)
             # If we have a complete deletion, including the anchor, use a symbolic allele meaning "upstream deletion"
-            seq_alleles.extend((a[1] + a[0] if a[1] or a[0] else "*") for a in seq_alts)
+            for alt_tr_seq, alt_anchor in seq_alts:
+                if not alt_tr_seq and not alt_anchor:
+                    seq_alleles.append("*")
+                    continue
+                seq_alleles.append(alt_anchor + alt_tr_seq)
         else:
             seq_alleles.append(".")
 
@@ -183,13 +202,13 @@ def output_contig_vcf_lines(
         vr.info[VCF_INFO_VT] = VT_STR
         vr.info[VCF_INFO_MOTIF] = result["motif"]
         vr.info[VCF_INFO_REFMC] = result["ref_cn"]
+        vr.info[VCF_INFO_ANCH] = params.vcf_anchor_size - anchor_offset
 
         vr.samples[sample_id]["GT"] = (
             tuple(map(seq_alleles_raw.index, seqs_with_anchors))
             if call is not None and seqs
             else _blank_entry(n_alleles)
         )
-        del seq_alleles_raw
 
         if am := result.get("assign_method"):
             vr.samples[sample_id]["PM"] = am
@@ -206,6 +225,8 @@ def output_contig_vcf_lines(
             vr.samples[sample_id]["AD"] = tuple(res_peaks["n_reads"])
             vr.samples[sample_id]["MC"] = tuple(map(int, call))
             vr.samples[sample_id]["MCCI"] = tuple(f"{x[0]}-{x[1]}" for x in call_95_cis)
+
+            vr.samples[sample_id]["ANCL"] = tuple(len(ar[1]) for ar in seq_alleles_raw if ar is not None)
 
             # Produces a histogram-like format for read-level copy numbers
             # e.g., for two alleles with 8 and 9 copy-number respectively, we may get: 7x1|8x10|9x1,8x2|9x12

@@ -839,6 +839,7 @@ def call_locus(
     min_read_align_score = params.min_read_align_score
     snv_min_base_qual = params.snv_min_base_qual
     use_hp = params.use_hp
+    vcf_anchor_size = params.vcf_anchor_size
     # ----------------------------------
 
     rng = np.random.default_rng(seed=seed)
@@ -1290,9 +1291,13 @@ def call_locus(
 
         read_start_anchor: str = ""
         if consensus:
-            anchor_pair_idx, anchor_pair_found = find_pair_by_ref_pos(r_coords, left_coord_adj - 1, 0)
-            if anchor_pair_found:
-                read_start_anchor = qs[q_coords[anchor_pair_idx]:left_flank_end]
+            for anchor_offset in range(vcf_anchor_size, 0, -1):
+                # start from largest - want to include small indels if they appear immediately upstream
+                read_start_anchor = flank_left_seq
+                anchor_pair_idx, anchor_pair_found = find_pair_by_ref_pos(r_coords, left_coord_adj - anchor_offset, 0)
+                if anchor_pair_found:
+                    read_start_anchor = qs[q_coords[anchor_pair_idx]:left_flank_end]
+                    break
             # otherwise, leave as blank - anchor base deleted
 
         # ---
@@ -1367,7 +1372,8 @@ def call_locus(
     n_reads_in_dict: int = len(read_dict)
 
     locus_result.update({
-        **({"ref_start_anchor": ref_left_flank_seq[-1].upper(), "ref_seq": ref_seq} if consensus else {}),
+        # **({"ref_start_anchor": ref_left_flank_seq[-1].upper(), "ref_seq": ref_seq} if consensus else {}),
+        **({"ref_start_anchor": ref_left_flank_seq[-vcf_anchor_size:].upper(), "ref_seq": ref_seq} if consensus else {}),
         "reads": read_dict,
     })
 

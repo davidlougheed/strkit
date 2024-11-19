@@ -36,6 +36,7 @@ class CallParams:
         respect_ref: bool = False,
         count_kmers: str = "none",  # "none" | "peak" | "read"
         consensus: bool = False,
+        vcf_anchor_size: int = 5,
         # ---
         log_level: int = logging.WARNING,
         seed: Optional[int] = None,
@@ -61,6 +62,7 @@ class CallParams:
         self.respect_ref: bool = respect_ref
         self.count_kmers: str = count_kmers
         self.consensus: bool = consensus
+        self.vcf_anchor_size: int = vcf_anchor_size
         # ---
         self.log_level: int = log_level
         self.seed: Optional[int] = seed
@@ -112,6 +114,7 @@ class CallParams:
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
             consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
+            vcf_anchor_size=min(max(p_args.vcf_anchor_size, 1), p_args.flank_size),
             # ---
             log_level=log_levels[p_args.log_level],
             seed=p_args.seed,
@@ -139,6 +142,7 @@ class CallParams:
             "respect_ref": self.respect_ref,
             "count_kmers": self.count_kmers,
             "consensus": self.consensus,
+            "vcf_anchor_size": self.vcf_anchor_size,
             "log_level": self.log_level,
             "seed": self.seed,
             "processes": self.processes,
