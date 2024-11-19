@@ -1421,10 +1421,11 @@ def call_locus(
                 call_data = call_res
         else:
             logger_.debug(
-                "%s - not enough HP/PS tags for incorporation; one of %d < %d, top PS %s < %d, or %d != %d",
+                "%s - not enough HP/PS tags for incorporation; one of %d < %d, top PS %s %d < %d, or #{HP} %d != %d",
                 locus_log_str,
                 haplotagged_reads_count,
                 min_hp_read_coverage,
+                top_ps and top_ps[0][0],
                 top_ps and top_ps[0][1],
                 min_hp_read_coverage,
                 len(haplotags),
