@@ -1550,7 +1550,7 @@ def call_locus(
             # Need latter term for peaks that we overwrite if we revert to "dist" assignment:
             if not single_or_dist_assign:
                 if (rp := rd.get("p")) is not None:
-                    # Already has a peak from using SNV data; add it to the right allele_reads list.
+                    # Already has a peak from using HP or SNV data; add it to the right allele_reads list.
                     allele_reads[rp].append(r)
 
                     if count_kmers in ("peak", "both"):
