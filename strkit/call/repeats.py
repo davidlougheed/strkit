@@ -81,6 +81,7 @@ def get_ref_repeat_count(
     flank_right_seq: str,
     motif: str,
     ref_size: int,
+    vcf_anchor_size: int,
     max_iters: int,
     respect_coords: bool = False,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
@@ -154,7 +155,7 @@ def get_ref_repeat_count(
         l_offset = rev_top_res[1][1]
         r_offset = fwd_top_res[1][1]
 
-        if l_offset >= len(flank_left_seq):
+        if l_offset >= len(flank_left_seq) - vcf_anchor_size:
             # don't do anything weird if we're removing the entire flank sequence
             # TODO: this can be caused by NNNNNNN - see chr5:139453668-139454525 in GRCh38
             l_offset = 0

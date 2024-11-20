@@ -878,6 +878,7 @@ def call_locus(
         ref_right_flank_seq,
         motif,
         ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
+        vcf_anchor_size=vcf_anchor_size,  # guarantee we still have some flanking stuff left to anchor with
         max_iters=ref_max_iters,
         respect_coords=respect_ref,
         local_search_range=ref_local_search_range,
