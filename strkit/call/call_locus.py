@@ -1293,7 +1293,6 @@ def call_locus(
         if consensus:
             for anchor_offset in range(vcf_anchor_size, 0, -1):
                 # start from largest - want to include small indels if they appear immediately upstream
-                read_start_anchor = flank_left_seq
                 anchor_pair_idx, anchor_pair_found = find_pair_by_ref_pos(r_coords, left_coord_adj - anchor_offset, 0)
                 if anchor_pair_found:
                     read_start_anchor = qs[q_coords[anchor_pair_idx]:left_flank_end]
