@@ -1150,15 +1150,15 @@ def call_locus(
 
         # -----
 
-        # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop any expansion sequences
-        # from accidentally being included in the flanking region; e.g. if the insert gets mapped onto bases outside
-        # the definition coordinates.
+        # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop relatively distant
+        # expansion sequences from accidentally being included in the flanking region; e.g. if the insert gets mapped
+        # onto bases outside the definition coordinates.  TODO: better to do something else here?
         # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
         # contain a correctly-sized sequence.
 
         # TODO: wildcards in flanking region too?
-        flank_left_seq: str = qs[left_flank_start:left_flank_end][:flank_size+10]
-        flank_right_seq: str = qs[right_flank_start:right_flank_end][-(flank_size+10):]
+        flank_left_seq: str = qs[left_flank_start:left_flank_end][-1*(flank_size+10):]
+        flank_right_seq: str = qs[right_flank_start:right_flank_end][:flank_size+10]
 
         tr_len: int = right_flank_start - left_flank_end  # i.e., len(tr_read_seq)
         flank_len: int = len(flank_left_seq) + len(flank_right_seq)
