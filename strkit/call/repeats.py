@@ -49,7 +49,9 @@ def score_ref_boundaries(
     r_fwd = parasail.sg_qe_scan_profile_sat(db_seq_profile, ext_r_seq, indel_penalty, indel_penalty)
     r_adj = r_fwd.end_query + 1 - len(flank_left_seq) - ref_size  # Amount to tweak boundary on the right side by
 
-    ext_l_seq = f"{tr_candidate}{flank_right_seq[max(r_adj, 0):]}"[::-1]  # reverse
+    # Used to be flank_right_seq[max(r_adj, 0):] but I think that adjustment makes this score worse than it should and
+    # wasn't valid, since what matters is the delta over the limit...
+    ext_l_seq = f"{tr_candidate}{flank_right_seq}"[::-1]  # reverse
 
     r_rev = parasail.sg_qe_scan_profile_sat(db_seq_rev_profile, ext_l_seq, indel_penalty, indel_penalty)
     l_adj = r_rev.end_query + 1 - len(flank_right_seq) - ref_size  # Amount to tweak boundary on the left side by
