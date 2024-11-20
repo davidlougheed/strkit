@@ -20,6 +20,7 @@ from typing import Iterable, Literal, Optional, Union
 from strkit_rust_ext import (
     CandidateSNVs,
     consensus_seq,
+    get_read_coords_from_matched_pairs,
     get_pairs_and_tr_read_coords,
     STRkitBAMReader,
     STRkitAlignedSegment,
@@ -90,71 +91,6 @@ max_mdn_poa_length = 5000
 weight_getter = operator.itemgetter("w")
 not_snv_out_of_range_char = functools.partial(operator.ne, SNV_OUT_OF_RANGE_CHAR)
 eq_0 = functools.partial(operator.eq, 0)
-
-
-def get_read_coords_from_matched_pairs(
-    left_flank_coord: int,
-    left_coord: int,
-    right_coord: int,
-    right_flank_coord: int,
-    motif: str,
-    motif_size: int,
-    query_seq: str,
-    q_coords: NDArray[np.uint64],
-    r_coords: NDArray[np.uint64],
-) -> tuple[int, int, int, int]:
-    left_flank_end = -1
-    right_flank_start = -1
-    right_flank_end = -1
-
-    last_idx = -1
-
-    # Skip gaps on either side to find mapped flank indices
-
-    # Binary search for left flank start -------------------------------------------------------------------------------
-    lhs, found = find_pair_by_ref_pos(r_coords, left_flank_coord)
-
-    # lhs now contains the index for the closest starting coordinate to left_flank_coord
-
-    if not found and (lhs == 0 or lhs == len(r_coords)):
-        # Completely out of bounds; either right at the start or inserting after the end
-        return -1, -1, -1, -1
-
-    if not found:
-        # Choose pair to the left of where we'd insert the pair to maintain sorted order, since we want the closest
-        # starting coordinate to left_flank_coord which gives us enough flanking material.
-        lhs -= 1
-
-    left_flank_start = q_coords[lhs].item()
-    # ------------------------------------------------------------------------------------------------------------------
-
-    for i in range(lhs + 1, len(q_coords)):
-        query_coord = q_coords[i].item()
-        ref_coord = r_coords[i].item()
-
-        # Skip gaps on either side to find mapped flank indices
-        if ref_coord < left_coord:
-            # Coordinate here is exclusive - we don't want to include a gap between the flanking region and
-            # the STR; if we include the left-most base of the STR, we will have a giant flanking region which
-            # will include part of the tandem repeat itself.
-            left_flank_end = query_coord + 1  # Add 1 to make it exclusive
-        elif ref_coord >= right_coord and (
-                # Reached end of TR region and haven't set end of TR region yet, or there was an indel with the motif
-                # in it right after we finished due to a subtle mis-alignment - this can be seen in the HTT alignments
-                # in bc1018
-                # TODO: do the same thing for the left side
-                right_flank_start == -1 or
-                (query_coord - last_idx >= motif_size and (ref_coord - right_coord <= motif_size * 2) and
-                 query_seq[last_idx:query_coord].count(motif) / ((query_coord - last_idx) / motif_size) >= 0.5)
-        ):
-            right_flank_start = query_coord
-        elif ref_coord >= right_flank_coord:
-            right_flank_end = query_coord
-            break
-
-        last_idx = query_coord
-
-    return left_flank_start, left_flank_end, right_flank_start, right_flank_end
 
 
 def calculate_read_distance(
