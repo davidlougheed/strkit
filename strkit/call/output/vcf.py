@@ -164,7 +164,7 @@ def output_contig_vcf_lines(
 
         seq_alts = sorted(
             set(filter(lambda c: not (c[1] + c[0] == ref_seq_with_anchor), seqs_with_anchors)),
-            key=idx_0_getter
+            key=lambda c: c[1] + c[0]
         )
 
         # If there's no anchor variation, we will use the last base for a compact representation.
