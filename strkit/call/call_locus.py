@@ -1289,15 +1289,18 @@ def call_locus(
 
         # ---
 
+        # it would be nice to do this with the coord pairs instead - but we don't have a great way then of finding a
+        # coord that works for both the ref and every read without doing another iteration.
         read_start_anchor: str = ""
         if consensus:
             for anchor_offset in range(vcf_anchor_size, 0, -1):
-                # start from largest - want to include small indels if they appear immediately upstream
+                # start from largest - want to include small indels in query if they appear immediately upstream
                 anchor_pair_idx, anchor_pair_found = find_pair_by_ref_pos(r_coords, left_coord_adj - anchor_offset, 0)
                 if anchor_pair_found:
                     read_start_anchor = qs[q_coords[anchor_pair_idx]:left_flank_end]
                     break
-            # otherwise, leave as blank - anchor base deleted
+                # otherwise, there's an indel in ref - so we shrink the anchor size
+            # if nothing worked, leave as blank - anchor base deleted
 
         # ---
 
