@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import logging
 import multiprocessing as mp
 import multiprocessing.dummy as mpd
@@ -270,6 +271,7 @@ def call_sample(
     # Start the call timer
     start_time = time.perf_counter()
 
+    logger.info(f"strkit_rust_ext version: {importlib.metadata.version('strkit_rust_ext')}")
     logger.info(
         f"Starting STR genotyping; sample={params.sample_id}, hq={params.hq}, targeted={params.targeted}, "
         f"HP={params.use_hp}, SNVs={params.snv_vcf is not None}; seed={params.seed}")
