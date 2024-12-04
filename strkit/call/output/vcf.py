@@ -146,7 +146,7 @@ def output_contig_vcf_lines(
         peak_start_anchor_seqs_upper = tuple(iter_to_upper(peak_start_anchor_seqs))
         common_anchor_prefix = commonprefix([ref_start_anchor, *peak_start_anchor_seqs_upper])
         # anchor_offset = how many bases we can cut off from the front of the anchor
-        # since they're shared between all alleles.
+        # since they're shared between all alleles - yields a more compact representation.
         #  - we need to leave one base as an anchor for VCF compliance though, thus the min(...)
         anchor_offset = min(len(common_anchor_prefix), params.vcf_anchor_size - 1)
 
@@ -166,9 +166,6 @@ def output_contig_vcf_lines(
             set(filter(lambda c: not (c[1] + c[0] == ref_seq_with_anchor), seqs_with_anchors)),
             key=lambda c: c[1] + c[0]
         )
-
-        # If there's no anchor variation, we will use the last base for a compact representation.
-        # Otherwise, we include the full VCF anchor sized-sequence.  TODO: common prefix strip
 
         call = result["call"]
         call_95_cis = result["call_95_cis"]
