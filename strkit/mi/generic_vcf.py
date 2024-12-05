@@ -6,10 +6,10 @@ from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
 from .vcf_utils import VCFCalculatorMixin
 
-__all__ = ["LongTRCalculator"]
+__all__ = ["GenericVCFLengthCalculator"]
 
 
-class LongTRCalculator(BaseCalculator, VCFCalculatorMixin):
+class GenericVCFLengthCalculator(BaseCalculator, VCFCalculatorMixin):
     def _get_sample_contigs(self) -> tuple[set, set, set]:
         contigs = self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
         self._logger.debug(

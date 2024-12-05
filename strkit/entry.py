@@ -391,7 +391,7 @@ def _exec_mi(p_args) -> None:
     from strkit.mi.base import BaseCalculator
     from strkit.mi.expansionhunter import ExpansionHunterCalculator
     from strkit.mi.gangstr import GangSTRCalculator
-    from strkit.mi.longtr import LongTRCalculator
+    from strkit.mi.generic_vcf import GenericVCFLengthCalculator
     from strkit.mi.repeathmm import RepeatHMMCalculator
     from strkit.mi.straglr import StraglrCalculator
     from strkit.mi.strkit import StrKitCalculator, StrKitJSONCalculator, StrKitVCFCalculator
@@ -401,7 +401,8 @@ def _exec_mi(p_args) -> None:
     calc_classes: dict[str, Type[BaseCalculator]] = {
         c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
         c.CALLER_GANGSTR: GangSTRCalculator,
-        c.CALLER_LONGTR: LongTRCalculator,
+        c.CALLER_GENERIC_VCF_AL: GenericVCFLengthCalculator,
+        c.CALLER_LONGTR: GenericVCFLengthCalculator,
         c.CALLER_REPEATHMM: RepeatHMMCalculator,
         c.CALLER_STRAGLR: StraglrCalculator,
         c.CALLER_STRKIT: StrKitCalculator,
