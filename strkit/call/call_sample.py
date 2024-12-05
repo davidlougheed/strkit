@@ -293,7 +293,10 @@ def call_sample(
         contig = t[0]
 
         n_alleles: Optional[int] = get_n_alleles(2, params.sex_chroms, contig)
-        if n_alleles is None:  # Sex chromosome, but we don't have a specified sex chromosome karyotype
+        if (
+            n_alleles is None  # Sex chromosome, but we don't have a specified sex chromosome karyotype
+            or n_alleles == 0  # Don't have this chromosome, e.g., Y chromosome for an XX individual
+        ):
             last_contig = contig
             continue  # --> skip the locus
 
