@@ -282,6 +282,14 @@ def call_sample(
     manager: mmg.SyncManager = mp.Manager()
     locus_queue = manager.Queue()  # TODO: one queue per contig?
 
+    # Cache get_n_alleles calls for contigs
+    contig_n_alleles: dict[str, Optional[int]] = {}
+
+    def _get_contig_n_alleles(ctg: str):
+        if ctg not in contig_n_alleles:
+            contig_n_alleles[ctg] = get_n_alleles(2, params.sex_chroms, contig)
+        return contig_n_alleles[ctg]
+
     # Add all loci from the BED file to the queue, allowing each job
     # to pull from the queue as it becomes freed up to do so.
     num_loci: int = 0
@@ -292,7 +300,7 @@ def call_sample(
     for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
         contig = t[0]
 
-        n_alleles: Optional[int] = get_n_alleles(2, params.sex_chroms, contig)
+        n_alleles: Optional[int] = _get_contig_n_alleles(contig)
         if (
             n_alleles is None  # Sex chromosome, but we don't have a specified sex chromosome karyotype
             or n_alleles == 0  # Don't have this chromosome, e.g., Y chromosome for an XX individual
