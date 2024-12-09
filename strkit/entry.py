@@ -401,7 +401,7 @@ def _exec_mi(p_args) -> None:
     calc_classes: dict[str, Type[BaseCalculator]] = {
         c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
         c.CALLER_GANGSTR: GangSTRCalculator,
-        c.CALLER_GENERIC_VCF_AL: GenericVCFLengthCalculator,
+        c.CALLER_GENERIC_VCF: GenericVCFLengthCalculator,
         c.CALLER_LONGTR: GenericVCFLengthCalculator,
         c.CALLER_REPEATHMM: RepeatHMMCalculator,
         c.CALLER_STRAGLR: StraglrCalculator,

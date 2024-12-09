@@ -15,7 +15,7 @@ from strkit.json import dumps, dumps_indented
 from strkit.logger import get_main_logger
 from strkit.utils import cat_strs, cis_overlap
 
-from typing import Generator, Iterable, Literal, Optional, Union
+from typing import Generator, Iterable, Literal, Optional, Union, TypedDict
 
 __all__ = [
     "MILocusData",
@@ -23,6 +23,10 @@ __all__ = [
     "MIResult",
 ]
 
+
+IntGenotype = tuple[int, int]
+StrGenotype = tuple[str, str]
+IntOrStrGenotype = Union[IntGenotype, StrGenotype]
 
 OptionalReadCounts = Optional[tuple[tuple[int, ...], tuple[int, ...]]]
 
@@ -54,6 +58,42 @@ INHERITANCE_CONFIGS: tuple[InheritanceConfig, ...] = (
 MutationFrom = Literal["none", "?", "mat", "pat", "both"]
 
 
+class RespectsMIResult(TypedDict):
+    # from copy number / approximate copy number
+    strict: bool
+    pm1: bool
+    ci_95: Optional[bool]
+    ci_99: Optional[bool]
+    # from sequence
+    seq: Optional[bool]
+    sl: Optional[bool]
+    sl_pm1: Optional[bool]
+
+
+class RespectsMIContigResult(TypedDict):
+    # from copy number / approximate copy number
+    strict: int
+    pm1: int
+    ci_95: Optional[int]
+    ci_99: Optional[int]
+    # from sequence
+    seq: Optional[int]
+    sl: Optional[int]
+    sl_pm1: Optional[int]
+
+
+class RespectsMIFinalResult(TypedDict):
+    # from copy number / approximate copy number
+    strict: float
+    pm1: float
+    ci_95: Optional[float]
+    ci_99: Optional[float]
+    # from sequence
+    seq: Optional[float]
+    sl: Optional[float]
+    sl_pm1: Optional[float]
+
+
 class MILocusData:
     def __init__(
         self,
@@ -67,6 +107,10 @@ class MILocusData:
         child_gt, mother_gt, father_gt,
         child_gt_95_ci=None, mother_gt_95_ci=None, father_gt_95_ci=None,
         child_gt_99_ci=None, mother_gt_99_ci=None, father_gt_99_ci=None,
+
+        child_seq_gt: Optional[tuple[str, str]] = None,
+        mother_seq_gt: Optional[tuple[str, str]] = None,
+        father_seq_gt: Optional[tuple[str, str]] = None,
 
         child_read_counts: OptionalReadCounts = None,
         mother_read_counts: OptionalReadCounts = None,
@@ -89,14 +133,17 @@ class MILocusData:
         self._child_gt = child_gt
         self._child_gt_95_ci = child_gt_95_ci
         self._child_gt_99_ci = child_gt_99_ci
+        self._child_seq_gt = child_seq_gt
 
         self._mother_gt = mother_gt
         self._mother_gt_95_ci = mother_gt_95_ci
         self._mother_gt_99_ci = mother_gt_99_ci
+        self._mother_seq_gt = mother_seq_gt
 
         self._father_gt = father_gt
         self._father_gt_95_ci = father_gt_95_ci
         self._father_gt_99_ci = father_gt_99_ci
+        self._father_seq_gt = father_seq_gt
 
         self._child_read_counts: OptionalReadCounts = child_read_counts
         self._child_read_counts_flattened: Optional[np.ndarray] = (
@@ -222,7 +269,7 @@ class MILocusData:
         return self._mutation_from
 
     @staticmethod
-    def _respects_strict_ci(c_gt, m_gt, f_gt) -> bool:
+    def _respects_strict_ci(c_gt: IntOrStrGenotype, m_gt: IntOrStrGenotype, f_gt: IntOrStrGenotype) -> bool:
         # First hypothesis: first allele from mother, second from father
         # Second hypothesis: first allele from father, first from mother
         return any((
@@ -278,6 +325,15 @@ class MILocusData:
             self._logger.error(f"Encountered invalid child confidence intervals: {c_gt_ci} ({e})")
             return None
 
+    def _respects_mi_pm1(self, c_gt: IntGenotype, m_gt: IntGenotype, f_gt: IntGenotype) -> bool:
+        # cannot be None, enforce this with return typing override
+        return self._respects_mi_ci(
+            ((c_gt[0] - 1, c_gt[0] + 1), (c_gt[1] - 1, c_gt[1] + 1)),
+            ((m_gt[0], m_gt[0]), (m_gt[1], m_gt[1])),
+            ((f_gt[0], f_gt[0]), (f_gt[1], f_gt[1])),
+            widen=0.0,
+        )
+
     @staticmethod
     def _mutation_from_mat_pat_p_vals(mat_p: float, pat_p: float, unadj_sig_level: float) -> MutationFrom:
         # TODO: this is not a particularly statistically rigourous way of doing this, more of just a hack.
@@ -290,16 +346,11 @@ class MILocusData:
         else:
             return "?"
 
-    def respects_mi(self, widen: Optional[float] = None) -> tuple[bool, bool, Optional[bool], Optional[bool]]:
+    def respects_mi(self, widen: Optional[float] = None) -> RespectsMIResult:
         fn = self._respects_decimal_ci if self._decimal else MILocusData._respects_strict_ci
         respects_mi_strict = fn(self._child_gt, self._mother_gt, self._father_gt)
 
-        respects_mi_pm1 = self._respects_mi_ci(
-            ((self._child_gt[0] - 1, self._child_gt[0] + 1), (self._child_gt[1] - 1, self._child_gt[1] + 1)),
-            ((self._mother_gt[0], self._mother_gt[0]), (self._mother_gt[1], self._mother_gt[1])),
-            ((self._father_gt[0], self._father_gt[0]), (self._father_gt[1], self._father_gt[1])),
-            widen=0.0,
-        )
+        respects_mi_pm1 = self._respects_mi_pm1(self._child_gt, self._mother_gt, self._father_gt)
 
         respects_mi_95_ci = self._respects_mi_ci(
             self._child_gt_95_ci, self._mother_gt_95_ci, self._father_gt_95_ci,
@@ -309,7 +360,30 @@ class MILocusData:
             self._child_gt_99_ci, self._mother_gt_99_ci, self._father_gt_99_ci,
             widen=self._widen if widen is None else widen)
 
-        return respects_mi_strict, respects_mi_pm1, respects_mi_95_ci, respects_mi_99_ci
+        respects_mi_seq = None
+        respects_mi_sl = None
+        respects_mi_sl_pm1 = None
+        cs = self._child_seq_gt
+        ms = self._mother_seq_gt
+        fs = self._father_seq_gt
+
+        if cs and ms and fs:
+            respects_mi_seq = self._respects_strict_ci(cs, ms, fs)
+            c_gt_sl = (len(cs[0]), len(cs[1]))
+            m_gt_sl = (len(ms[0]), len(ms[1]))
+            f_gt_sl = (len(fs[0]), len(fs[1]))
+            respects_mi_sl = self._respects_strict_ci(c_gt_sl, m_gt_sl, f_gt_sl)
+            respects_mi_sl_pm1 = self._respects_mi_pm1(c_gt_sl, m_gt_sl, f_gt_sl)
+
+        return {
+            "strict": respects_mi_strict,
+            "pm1": respects_mi_pm1,
+            "ci_95": respects_mi_95_ci,
+            "ci_99": respects_mi_99_ci,
+            "seq": respects_mi_seq,
+            "sl": respects_mi_sl,
+            "sl_pm1": respects_mi_sl_pm1,
+        }
 
     def de_novo_test(self) -> Optional[tuple[float, ParentInheritanceConfig, MutationFrom]]:
         test = self._test_to_perform
@@ -458,12 +532,15 @@ class MILocusData:
 
 
 class MIContigResult:
-    def __init__(self, contig: str, includes_95_ci: bool = False, includes_99_ci: bool = False):
+    def __init__(
+        self, contig: str, includes_95_ci: bool = False, includes_99_ci: bool = False, includes_seq: bool = False
+    ):
         self._contig = contig
 
         self._loci_data: list[MILocusData] = []
         self._includes_95_ci: bool = includes_95_ci
         self._includes_99_ci: bool = includes_99_ci
+        self._includes_seq: bool = includes_seq
 
         self._seen_loci: set[tuple[str, int, int]] = set()
         self._seen_loci_lengths: list[int] = []
@@ -491,29 +568,43 @@ class MIContigResult:
     def process_loci(
         self,
         calculate_non_matching: bool = True,
-    ) -> tuple[tuple[int, int, Optional[int], Optional[int]], list[MILocusData]]:
+    ) -> tuple[RespectsMIContigResult, list[MILocusData]]:
         value = 0
         value_pm1 = 0
         value_95_ci = 0 if self._includes_95_ci else None
         value_99_ci = 0 if self._includes_99_ci else None
+        value_seq = 0 if self._includes_seq else None
+        value_sl = 0 if self._includes_seq else None
+        value_sl_pm1 = 0 if self._includes_seq else None
         non_matching = []
 
         for locus in self._loci_data:
             r = locus.respects_mi()
 
-            if calculate_non_matching and not any(r[:2]):
+            if calculate_non_matching and not (r["strict"] or r["pm1"]):
                 # TODO: Custom ability to choose level...
                 non_matching.append(locus)
 
-            r_strict, r_pm1, r_95ci, r_99ci = r
-            value += r_strict
-            value_pm1 += r_pm1
-            if self._includes_95_ci and r_95ci is not None:
-                value_95_ci += r_95ci
-            if self._includes_99_ci and r_99ci is not None:
-                value_99_ci += r_99ci
+            value += r["strict"]
+            value_pm1 += r["pm1"]
+            if self._includes_95_ci and (r_95 := r["ci_95"]) is not None:
+                value_95_ci += r_95
+            if self._includes_99_ci and (r_99 := r["ci_99"]) is not None:
+                value_99_ci += r_99
+            if self._includes_seq:
+                value_seq += r["seq"]
+                value_sl += r["sl"]
+                value_sl_pm1 += r["sl_pm1"]
 
-        return (value, value_pm1, value_95_ci, value_99_ci), non_matching
+        return {
+            "strict": value,
+            "pm1": value_pm1,
+            "ci_95": value_95_ci,
+            "ci_99": value_99_ci,
+            "seq": value_seq,
+            "sl": value_sl,
+            "sl_pm1": value_sl_pm1,
+        }, non_matching
 
     def __bool__(self):
         return True  # Otherwise, it goes to len() which gives False if it's empty
@@ -531,10 +622,7 @@ class MIContigResult:
 class MIResult:
     def __init__(
         self,
-        mi_value: float,
-        mi_value_pm1: float,
-        mi_value_95_ci: Optional[float],
-        mi_value_99_ci: Optional[float],
+        mi_result: RespectsMIFinalResult,
         contig_results: Iterable[MIContigResult],
         output_loci: list[MILocusData],
         widen: float = 0,
@@ -543,10 +631,7 @@ class MIResult:
         mt_corr: str = "none",
         logger: Optional[logging.Logger] = None,
     ):
-        self.mi_value: float = mi_value
-        self.mi_value_pm1: float = mi_value_pm1
-        self.mi_value_95_ci: Optional[float] = mi_value_95_ci
-        self.mi_value_99_ci: Optional[float] = mi_value_99_ci
+        self.mi_result: RespectsMIFinalResult = mi_result
         self._contig_results: tuple[MIContigResult, ...] = tuple(contig_results)
         self._output_loci: list[MILocusData] = output_loci
         self.widen: float = widen
@@ -608,7 +693,7 @@ class MIResult:
         self._output_loci = new_output_loci
 
     def as_csv_row(self, sep=",") -> str:
-        return f"{self.mi_value}{sep}{self.mi_value_95_ci}{sep}{self.mi_value_99_ci}\n"
+        return f"{self.mi_result['strict']}{sep}{self.mi_result['ci_95']}{sep}{self.mi_result['ci_99']}\n"
 
     @staticmethod
     def _res_str(res: Union[float, int]) -> str:
@@ -627,27 +712,23 @@ class MIResult:
 
         # get 95% CI from standard error, which we estimate from Bernoulli distribution of resulting percentage
 
+        def _mi_entry(v: Optional[float]):
+            if v is None:
+                return None
+            return {
+                "val": v,
+                "est_std_err": self._std_err_for_bernoulli(v),
+                "est_95_ci": self._estimate_ci_for_bernoulli(v),
+            }
+
         obj = {
-            "mi": {
-                "val": self.mi_value,
-                "est_std_err": self._std_err_for_bernoulli(self.mi_value),
-                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value),
-            },
-            "mi_pm1": {
-                "val": self.mi_value_pm1,
-                "est_std_err": self._std_err_for_bernoulli(self.mi_value_pm1),
-                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value_pm1),
-            },
-            "mi_95": {
-                "val": self.mi_value_95_ci,
-                "est_std_err": self._std_err_for_bernoulli(self.mi_value_95_ci),
-                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value_95_ci),
-            } if self.mi_value_95_ci else None,
-            "mi_99": {
-                "val": self.mi_value_99_ci,
-                "est_std_err": self._std_err_for_bernoulli(self.mi_value_99_ci),
-                "est_95_ci": self._estimate_ci_for_bernoulli(self.mi_value_99_ci),
-            } if self.mi_value_99_ci else None,
+            "mi": _mi_entry(self.mi_result["strict"]),
+            "mi_pm1": _mi_entry(self.mi_result["pm1"]),
+            "mi_95": _mi_entry(self.mi_result["ci_95"]),
+            "mi_99": _mi_entry(self.mi_result["ci_99"]),
+            "mi_seq": _mi_entry(self.mi_result["seq"]),
+            "mi_sl": _mi_entry(self.mi_result["sl"]),
+            "mi_sl_pm1": _mi_entry(self.mi_result["sl_pm1"]),
 
             "n_loci_trio_called": sum((len(lr) for lr in self.contig_results)),
             "n_loci_total": self._n_loci_seen,
@@ -713,15 +794,27 @@ class MIResult:
     def __str__(self):
         widen_str = "" if self.widen < 0.00001 else f"; widened {self.widen * 100:.1f}%"
         header = ["MI%", "MI% (±1)"]
-        mi_vals = [self.mi_value, self.mi_value_pm1]
+        mi_vals = [self.mi_result["strict"], self.mi_result["pm1"]]
 
-        if self.mi_value_95_ci:
+        if mi_95 := self.mi_result["ci_95"]:
             header.append(f"MI% (95% CI{widen_str})")
-            mi_vals.append(self.mi_value_95_ci)
+            mi_vals.append(mi_95)
 
-        if self.mi_value_99_ci:
+        if mi_99 := self.mi_result["ci_99"]:
             header.append(f"MI% (99% CI{widen_str})")
-            mi_vals.append(self.mi_value_99_ci)
+            mi_vals.append(mi_99)
+
+        if mi_seq := self.mi_result["seq"]:
+            header.append(f"MI% (seq)")
+            mi_vals.append(mi_seq)
+
+        if mi_sl := self.mi_result["sl"]:
+            header.append(f"MI% (seqlen)")
+            mi_vals.append(mi_sl)
+
+        if mi_sl_pm1 := self.mi_result["sl_pm1"]:
+            header.append(f"MI% (seqlen±1)")
+            mi_vals.append(mi_sl_pm1)
 
         header_str = cat_strs(h.ljust(14) for h in header)
         mi_vals_str = cat_strs(map(lambda m: f"{m*100:.2f}".ljust(14), mi_vals))
@@ -738,10 +831,17 @@ class MIResult:
         bins = np.arange(0, max((locus.end - locus.start) for locus in loci) + bin_width, bin_width).tolist()
         hist = []
 
-        vals_strict_by_bin = [[] for _ in bins]
-        vals_pm1_by_bin = [[] for _ in bins]
-        vals_95_ci_by_bin = [[] for _ in bins]
-        vals_99_ci_by_bin = [[] for _ in bins]
+        def _mk_empty():
+            return [[] for _ in bins]
+
+        vals_strict_by_bin = _mk_empty()
+        vals_pm1_by_bin = _mk_empty()
+        vals_95_ci_by_bin = _mk_empty()
+        vals_99_ci_by_bin = _mk_empty()
+        vals_seq_by_bin = _mk_empty()
+        vals_sl_by_bin = _mk_empty()
+        vals_sl_pm1_by_bin = _mk_empty()
+
         bin_totals = [0] * len(bins)
 
         for locus_len in self._seen_loci_lengths:
@@ -749,23 +849,32 @@ class MIResult:
                 bin_totals[bin_idx] += 1
 
         for locus in loci:
-            r_strict, r_pm1, r_95ci, r_99ci = locus.respects_mi()
+            r = locus.respects_mi()
 
             locus_len = locus.end - locus.start
             locus_bin_idx = locus_len // bin_width
 
-            vals_strict_by_bin[locus_bin_idx].append(int(r_strict))
-            vals_pm1_by_bin[locus_bin_idx].append(int(r_pm1))
-            if r_95ci is not None:
-                vals_95_ci_by_bin[locus_bin_idx].append(int(r_95ci))
-            if r_99ci is not None:
-                vals_99_ci_by_bin[locus_bin_idx].append(int(r_99ci))
+            vals_strict_by_bin[locus_bin_idx].append(int(r["strict"]))
+            vals_pm1_by_bin[locus_bin_idx].append(int(r["pm1"]))
+            if r["ci_95"] is not None:
+                vals_95_ci_by_bin[locus_bin_idx].append(int(r["ci_95"]))
+            if r["ci_99"] is not None:
+                vals_99_ci_by_bin[locus_bin_idx].append(int(r["ci_99"]))
+            if r["seq"] is not None:
+                vals_seq_by_bin[locus_bin_idx].append(int(r["seq"]))
+            if r["sl"] is not None:
+                vals_sl_by_bin[locus_bin_idx].append(int(r["sl"]))
+            if r["sl_pm1"] is not None:
+                vals_sl_pm1_by_bin[locus_bin_idx].append(int(r["sl_pm1"]))
 
         for i in range(len(bins)):
             vsb = vals_strict_by_bin[i]
             vpm1b = vals_pm1_by_bin[i]
             v95b = vals_95_ci_by_bin[i] if vals_95_ci_by_bin else None
             v99b = vals_99_ci_by_bin[i] if vals_95_ci_by_bin else None
+            vseq = vals_seq_by_bin[i] if vals_seq_by_bin else None
+            vsl = vals_sl_by_bin[i] if vals_sl_by_bin else None
+            vsl_pm1 = vals_sl_pm1_by_bin[i] if vals_sl_pm1_by_bin else None
 
             hist.append({
                 "bin": bins[i],
@@ -775,6 +884,9 @@ class MIResult:
                 "mi_pm1": mean(vpm1b) if vpm1b else None,
                 "mi_95": mean(v95b) if v95b else None,
                 "mi_99": mean(v99b) if v99b else None,
+                "mi_seq": mean(vseq) if vseq else None,
+                "mi_sl": mean(vsl) if vsl else None,
+                "mi_sl_pm1": mean(vsl_pm1) if vsl_pm1 else None,
             })
 
         return hist, bins

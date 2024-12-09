@@ -46,7 +46,7 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
         return self.get_contigs_from_files(self._mother_call_file, self._father_call_file, self._child_call_file)
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        cr = MIContigResult(contig, includes_95_ci=True)
+        cr = MIContigResult(contig, includes_95_ci=True, includes_seq=True)
 
         mvf = pysam.VariantFile(str(self._mother_call_file))
         fvf = pysam.VariantFile(str(self._father_call_file))
@@ -93,6 +93,10 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
                 # None call in VCF, skip this call
                 continue
 
+            c_seq_gt = tuple(sorted((cv.alleles[g] for g in cs["GT"]), key=len)) if None not in cs["GT"] else None
+            m_seq_gt = tuple(sorted((mv.alleles[g] for g in ms["GT"]), key=len)) if None not in ms["GT"] else None
+            f_seq_gt = tuple(sorted((fv.alleles[g] for g in fs["GT"]), key=len)) if None not in fs["GT"] else None
+
             cr.append(MILocusData(
                 contig=contig,
                 start=cv.pos,
@@ -101,6 +105,7 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
                 child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
+                child_seq_gt=c_seq_gt, mother_seq_gt=m_seq_gt, father_seq_gt=f_seq_gt,
             ))
 
         return cr

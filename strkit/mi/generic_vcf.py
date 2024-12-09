@@ -19,7 +19,7 @@ class GenericVCFLengthCalculator(BaseCalculator, VCFCalculatorMixin):
         return contigs
 
     def calculate_contig(self, contig: str) -> MIContigResult:
-        cr = MIContigResult(contig)
+        cr = MIContigResult(contig, includes_seq=True)
 
         mvf = pysam.VariantFile(str(self._mother_call_file))
         fvf = pysam.VariantFile(str(self._father_call_file))
@@ -64,15 +64,12 @@ class GenericVCFLengthCalculator(BaseCalculator, VCFCalculatorMixin):
             ms = mv.samples[self._mother_id or 0]
             fs = fv.samples[self._father_id or 0]
 
-            c_gt = (
-                tuple(sorted(round(len(cv.alleles[g]) / motif_len) for g in cs["GT"])) if None not in cs["GT"] else None
-            )
-            m_gt = (
-                tuple(sorted(round(len(mv.alleles[g]) / motif_len) for g in ms["GT"])) if None not in ms["GT"] else None
-            )
-            f_gt = (
-                tuple(sorted(round(len(fv.alleles[g]) / motif_len) for g in fs["GT"])) if None not in fs["GT"] else None
-            )
+            c_seq_gt = tuple(sorted((cv.alleles[g] for g in cs["GT"]), key=len)) if None not in cs["GT"] else None
+            c_gt = tuple(round(len(a) / motif_len) for a in c_seq_gt) if c_seq_gt is not None else None
+            m_seq_gt = tuple(sorted((mv.alleles[g] for g in ms["GT"]), key=len)) if None not in ms["GT"] else None
+            m_gt = tuple(round(len(a) / motif_len) for a in m_seq_gt) if m_seq_gt is not None else None
+            f_seq_gt = tuple(sorted((fv.alleles[g] for g in fs["GT"]), key=len)) if None not in fs["GT"] else None
+            f_gt = tuple(round(len(a) / motif_len) for a in f_seq_gt) if f_seq_gt is not None else None
 
             if c_gt is None or m_gt is None or f_gt is None:
                 # None call in VCF, skip this call
@@ -85,6 +82,7 @@ class GenericVCFLengthCalculator(BaseCalculator, VCFCalculatorMixin):
                 motif=motif,
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
+                child_seq_gt=c_seq_gt, mother_seq_gt=m_seq_gt, father_seq_gt=f_seq_gt,
             ))
 
         return cr

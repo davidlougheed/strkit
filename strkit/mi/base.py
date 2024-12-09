@@ -4,7 +4,7 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from strkit.logger import get_main_logger
 from .intervals import (
@@ -165,11 +165,21 @@ class BaseCalculator(ABC):
     def calculate_contig(self, contig: str) -> MIContigResult:
         return MIContigResult(contig)
 
+    @staticmethod
+    def _updated_mi_res(res: Optional[float], v: Union[int, float, None]) -> Optional[float]:
+        return None if v is None else ((res or 0) + v)
+
     def calculate(self, included_contigs: set) -> Optional[MIResult]:
+        # copy number
         res: float = 0
         res_pm1: float = 0
         res_95_ci: Optional[float] = None
         res_99_ci: Optional[float] = None
+        # sequence
+        res_seq: Optional[float] = None
+        res_sl: Optional[float] = None
+        res_sl_pm1: Optional[float] = None
+
         n_total: int = 0
 
         contig_results = []
@@ -180,12 +190,23 @@ class BaseCalculator(ABC):
 
             contig_result = self.calculate_contig(contig)
             contig_results.append(contig_result)
+
             r, nm = contig_result.process_loci(calculate_non_matching=self.test_to_perform == "none")
-            value, value_pm1, value_95_ci, value_99_ci = r
-            res += value
-            res_pm1 += value_pm1
-            res_95_ci = None if value_95_ci is None else ((res_95_ci or 0) + value_95_ci)
-            res_99_ci = None if value_99_ci is None else ((res_99_ci or 0) + value_99_ci)
+
+            value_95_ci = r["ci_95"]
+            value_99_ci = r["ci_99"]
+            value_seq = r["seq"]
+            value_sl = r["sl"]
+            value_sl_pm1 = r["sl_pm1"]
+
+            res += r["strict"]
+            res_pm1 += r["pm1"]
+            res_95_ci = self._updated_mi_res(res_95_ci, value_95_ci)
+            res_99_ci = self._updated_mi_res(res_99_ci, value_99_ci)
+            res_seq = self._updated_mi_res(res_seq, value_seq)
+            res_sl = self._updated_mi_res(res_sl, value_sl)
+            res_sl_pm1 = self._updated_mi_res(res_sl_pm1, value_sl_pm1)
+
             n_total += len(contig_result)
             output_loci.extend(nm)
 
@@ -202,12 +223,20 @@ class BaseCalculator(ABC):
         res_pm1 /= n_total
         res_95_ci = None if res_95_ci is None else (res_95_ci / n_total)
         res_99_ci = None if res_99_ci is None else (res_99_ci / n_total)
+        res_seq = None if res_seq is None else (res_seq / n_total)
+        res_sl = None if res_sl is None else (res_sl / n_total)
+        res_sl_pm1 = None if res_sl is None else (res_sl_pm1 / n_total)
 
         mi_res = MIResult(
-            res,
-            res_pm1,
-            res_95_ci,
-            res_99_ci,
+            {
+                "strict": res,
+                "pm1": res_pm1,
+                "ci_95": res_95_ci,
+                "ci_99": res_99_ci,
+                "seq": res_seq,
+                "sl": res_sl,
+                "sl_pm1": res_sl_pm1,
+            },
             contig_results,
             output_loci,
             self._widen,
