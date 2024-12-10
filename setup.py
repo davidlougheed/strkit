@@ -12,7 +12,7 @@ setup(
     name="strkit",
     version=version,
 
-    python_requires="~=3.9",
+    python_requires="~=3.10",
     install_requires=[
         "Flask>=2.2.5,<3.1",
         "orjson>=3.9.15,<4",
@@ -32,6 +32,9 @@ setup(
     url="https://github.com/davidlougheed/strkit",
     license="GPLv3",
     classifiers=[
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: POSIX",

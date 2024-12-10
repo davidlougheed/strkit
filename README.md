@@ -57,7 +57,7 @@ Used under the terms of the ISC license.
 
 ### Via PyPI
 
-STRkit requires Python 3.9+ and can be installed from PyPI via `pip` 
+STRkit requires Python 3.10+ and can be installed from PyPI via `pip` 
 with the following command:
 
 ```bash
