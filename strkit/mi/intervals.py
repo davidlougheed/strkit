@@ -2,6 +2,8 @@ import bisect
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
+from strkit.utils import idx_1_getter
+
 
 def _line_filter_fn(s: str) -> bool:
     """
@@ -80,17 +82,20 @@ def overlapping_loci_dict_of_dict(
 
     i = bisect.bisect_left(c_lhs, end)  # use _left since end is exclusive
 
-    possible_overlaps = c_keys[:i]
+    # now sort by [1] (possible overlap end), which should be (almost!) sorted already.
+    # then, we can get only entries where start < ov[1] via bisect (finding ov[1] <= start and skipping them).
+    possible_overlaps = sorted(c_keys[:i], key=idx_1_getter)
+    j = bisect.bisect_right(possible_overlaps, start, key=idx_1_getter)  # bisect right because exclusive
+    possible_overlaps = possible_overlaps[j:]
 
     acc: list[tuple[int, int, list[str]]] = []
 
     for ov in possible_overlaps:
-        if start < ov[1]:  # end is exclusive
-            acc.append((ov[0], ov[1], c_dict[ov]))
-            if first_only:
-                break
+        acc.append((ov[0], ov[1], c_dict[ov]))
+        if first_only:
+            break
 
-    return acc
+    return sorted(acc, key=idx_0_getter)
 
 
 def overlapping_loci_dict_of_list(
