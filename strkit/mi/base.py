@@ -210,10 +210,23 @@ class BaseCalculator(ABC):
             n_total += len(contig_result)
             output_loci.extend(nm)
 
-            self._logger.info(
-                "Finished processing contig %s. Current value: %.2f, ±1: %.2f, n_total: %d",
-                contig_result.contig, res / n_total * 100, res_pm1 / n_total * 100, n_total,
+            logger_fmt = "Finished processing contig %s; n_total=%d. Current value: %.2f%%, ±1: %.2f%%"
+            logger_args = [contig_result.contig, n_total, res / n_total * 100, res_pm1 / n_total * 100]
+
+            extras = (
+                (res_95_ci, "95% CI"),
+                (res_99_ci, "99% CI"),
+                (res_seq, "seq"),
+                (res_sl, "s.l."),
+                (res_sl_pm1, "s.l.±1"),
             )
+
+            for val, fmt_txt in extras:
+                if val is not None:
+                    logger_fmt += f", {fmt_txt}: %.2f%%"
+                    logger_args.append(val / n_total * 100)
+
+            self._logger.info(logger_fmt, *logger_args)
 
         if n_total == 0:
             self._logger.warning("No common loci found")
