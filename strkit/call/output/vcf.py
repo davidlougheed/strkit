@@ -7,10 +7,10 @@ from pathlib import Path
 from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
 from typing import Iterable, Optional
 
-from strkit.utils import cat_strs, is_none
+from strkit.utils import cat_strs, is_none, idx_0_getter
 from ..allele import get_n_alleles
 from ..params import CallParams
-from ..utils import idx_0_getter, cn_getter
+from ..utils import cn_getter
 
 __all__ = [
     "build_vcf_header",
@@ -170,7 +170,7 @@ def output_contig_vcf_lines(
         call = result["call"]
         call_95_cis = result["call_95_cis"]
 
-        seq_alleles_raw: tuple[Optional[str], ...] = (
+        seq_alleles_raw: tuple[str | None, ...] = (
             ((ref_seq, ref_start_anchor), *(seq_alts or (None,)))
             if call is not None
             else ()

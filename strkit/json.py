@@ -1,5 +1,4 @@
 import orjson as json
-from typing import Union
 
 
 __all__ = [
@@ -10,7 +9,7 @@ __all__ = [
 ]
 
 
-Serializable = Union[dict, list, tuple, str, int, float]
+Serializable = dict | list | tuple | str | int | float
 
 
 def dumps(v: Serializable) -> bytes:

@@ -1,8 +1,8 @@
 import bisect
 from pathlib import Path
-from typing import Iterable, Optional, Union
+from typing import Iterable
 
-from strkit.utils import idx_1_getter
+from strkit.utils import idx_0_getter, idx_1_getter
 
 
 def _line_filter_fn(s: str) -> bool:
@@ -21,7 +21,7 @@ LociDictOfDict = dict[str, dict[tuple[int, int], list[str]]]
 LociDictOfList = dict[str, list[tuple[int, int]]]
 
 
-def build_loci_dict_of_dict_from_file(loci_path: Optional[Union[str, Path]]) -> LociDictOfDict:
+def build_loci_dict_of_dict_from_file(loci_path: str | Path | None) -> LociDictOfDict:
     if not loci_path:
         return {}
 
@@ -41,7 +41,7 @@ def build_loci_dict_of_dict_from_file(loci_path: Optional[Union[str, Path]]) -> 
     return res
 
 
-def build_loci_dict_of_list_from_file(loci_path: Optional[Union[str, Path]]) -> LociDictOfList:
+def build_loci_dict_of_list_from_file(loci_path: str | Path | None) -> LociDictOfList:
     if not loci_path:
         return {}
 
@@ -62,7 +62,7 @@ _overlapping_dict_cache = {}
 
 
 def overlapping_loci_dict_of_dict(
-    contig: str, start: int, end: int, d: LociDictOfDict, first_only: bool = False, dict_cache_key: Optional[str] = None
+    contig: str, start: int, end: int, d: LociDictOfDict, first_only: bool = False, dict_cache_key: str | None = None
 ) -> list[tuple[int, int, list[str]]]:
     if contig not in d:
         return []

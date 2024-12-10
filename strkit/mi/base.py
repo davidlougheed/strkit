@@ -4,7 +4,7 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 from strkit.logger import get_main_logger
 from .intervals import (
@@ -34,12 +34,12 @@ class BaseCalculator(ABC):
         mother_call_file: Path,
         father_call_file: Path,
 
-        child_id: Optional[str] = None,
-        mother_id: Optional[str] = None,
-        father_id: Optional[str] = None,
+        child_id: str | None = None,
+        mother_id: str | None = None,
+        father_id: str | None = None,
 
-        loci_file: Optional[str] = None,
-        exclude_file: Optional[str] = None,
+        loci_file: str | None = None,
+        exclude_file: str | None = None,
 
         widen: float = 0,
 
@@ -49,7 +49,7 @@ class BaseCalculator(ABC):
         only_phased: bool = False,
 
         debug: bool = False,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         self._debug: bool = debug
         self._logger: logging.Logger = logger or get_main_logger()
@@ -58,11 +58,11 @@ class BaseCalculator(ABC):
         self._mother_call_file: Path = mother_call_file
         self._father_call_file: Path = father_call_file
 
-        self._child_id: Optional[str] = child_id
-        self._mother_id: Optional[str] = mother_id
-        self._father_id: Optional[str] = father_id
+        self._child_id: str | None = child_id
+        self._mother_id: str | None = mother_id
+        self._father_id: str | None = father_id
 
-        self._loci_file: Optional[str] = loci_file
+        self._loci_file: str | None = loci_file
         self._loci_dict: LociDictOfDict = build_loci_dict_of_dict_from_file(loci_file)
         self._loci_dict_cache_key: str = str(uuid.uuid4())
         if self._loci_file is not None:
@@ -72,7 +72,7 @@ class BaseCalculator(ABC):
                 tuple(self._loci_dict.keys()),
             )
 
-        self._exclude_file: Optional[str] = exclude_file
+        self._exclude_file: str | None = exclude_file
         self._exclude_dict: LociDictOfList = build_loci_dict_of_list_from_file(exclude_file)
         if self._exclude_file is not None:
             self._logger.debug(
@@ -114,8 +114,8 @@ class BaseCalculator(ABC):
         return any(True for _ in overlapping_loci_dict_of_list(contig, start, end, self._exclude_dict, True))
 
     def should_skip_locus(
-        self, contig: str, start: int, end: int, cached_overlapping: Optional[list] = None
-    ) -> Optional[str]:
+        self, contig: str, start: int, end: int, cached_overlapping: list | None = None
+    ) -> str | None:
         # Returns either a reason string (if yes) or None (=== no)
 
         # Check to make sure call is present in TRF BED file, if it is specified
@@ -166,19 +166,19 @@ class BaseCalculator(ABC):
         return MIContigResult(contig)
 
     @staticmethod
-    def _updated_mi_res(res: Optional[float], v: Union[int, float, None]) -> Optional[float]:
+    def _updated_mi_res(res: float | None, v: int | float | None) -> float | None:
         return None if v is None else ((res or 0) + v)
 
-    def calculate(self, included_contigs: set) -> Optional[MIResult]:
+    def calculate(self, included_contigs: set) -> MIResult | None:
         # copy number
         res: float = 0
         res_pm1: float = 0
-        res_95_ci: Optional[float] = None
-        res_99_ci: Optional[float] = None
+        res_95_ci: float | None = None
+        res_99_ci: float | None = None
         # sequence
-        res_seq: Optional[float] = None
-        res_sl: Optional[float] = None
-        res_sl_pm1: Optional[float] = None
+        res_seq: float | None = None
+        res_sl: float | None = None
+        res_sl_pm1: float | None = None
 
         n_total: int = 0
 

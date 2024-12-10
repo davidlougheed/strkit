@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from .base import BaseCalculator
 from .result import MILocusData, MIContigResult
 
@@ -15,7 +13,7 @@ class StraglrCalculator(BaseCalculator):
     def get_contigs_from_fh(fh) -> set:
         return {ls[0] for ls in (line.split("\t") for line in fh if not line.startswith("#"))}
 
-    def make_calls_dict(self, ph, contig, cr: Optional[MIContigResult] = None):
+    def make_calls_dict(self, ph, contig, cr: MIContigResult | None = None):
         # For reference, dicts are ordered in Python 3.7+ (guaranteed)
 
         calls = {}

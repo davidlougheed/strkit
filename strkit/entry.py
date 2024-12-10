@@ -5,7 +5,7 @@ import pathlib
 import os
 import sys
 
-from typing import Callable, Optional, Type
+from typing import Callable, Type
 
 import strkit.constants as c
 from strkit import __version__
@@ -420,7 +420,7 @@ def _exec_mi(p_args) -> None:
 
     exclude_bed_file = p_args.exclude_loci_bed or None
 
-    calc_class: Optional[Type[BaseCalculator]] = calc_classes.get(caller)
+    calc_class: Type[BaseCalculator] | None = calc_classes.get(caller)
     if not calc_class:
         raise ParamError(f"Unknown or unimplemented caller '{caller}'")
 
@@ -558,7 +558,7 @@ def _exec_viz_server(p_args):
     return 0
 
 
-def main(args: Optional[list[str]] = None) -> int:
+def main(args: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="A toolkit for analyzing variation in short(ish) tandem repeats.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)

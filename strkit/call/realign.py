@@ -7,7 +7,6 @@ import queue
 import time
 
 from numpy.typing import NDArray
-from typing import Optional
 
 from .align_matrix import match_score, dna_matrix
 from .cigar import decode_cigar_np, get_aligned_pair_matches
@@ -28,7 +27,7 @@ max_read_len_for_same_proc: int = 20000  # TODO: parametrize
 
 
 MatchedCoordPairList = tuple[NDArray[np.uint64], NDArray[np.uint64]]
-MatchedCoordPairListOrNone = Optional[MatchedCoordPairList]
+MatchedCoordPairListOrNone = MatchedCoordPairList | None
 
 
 def realign_read(
@@ -39,7 +38,7 @@ def realign_read(
     rn: str,
     t_idx: int,
     always_realign: bool,
-    q: Optional[mp.Queue],
+    q,  # mp.Queue | None
     log_level: int = logging.WARNING,
 ) -> MatchedCoordPairListOrNone:
     # Have to re-attach logger in separate process I guess

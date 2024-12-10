@@ -1,10 +1,9 @@
 import sys
-from typing import Union
 
 __all__ = ["output_tsv"]
 
 
-def _cn_to_str(cn: Union[int, float]) -> str:
+def _cn_to_str(cn: int | float) -> str:
     return f"{cn:.1f}" if isinstance(cn, float) else str(cn)
 
 

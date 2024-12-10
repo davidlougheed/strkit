@@ -1,6 +1,6 @@
 # import pysam
 import numpy as np
-from typing import Literal, Optional, TypedDict, Union
+from typing import Literal, TypedDict
 from numpy.typing import NDArray
 
 
@@ -22,14 +22,14 @@ __all__ = [
 VCFContigFormat = Literal["chr", "num", "acc", ""]
 
 AssignMethod = Literal["dist", "snv", "snv+dist", "single"]
-AssignMethodWithHP = Union[AssignMethod, Literal["hp"]]
+AssignMethodWithHP = AssignMethod | Literal["hp"]
 
 ConsensusMethod = Literal["single", "poa", "best_rep"]
 
 
 class _ReadDictBase(TypedDict):
     s: Literal["-", "+"]  # DNA strand alignment
-    cn: Union[int, float]  # Copy number
+    cn: int | float  # Copy number
     w: float  # Weight
 
 
@@ -108,10 +108,10 @@ class BaseLocusResult(TypedDict):
 
     motif: str
 
-    assign_method: Optional[AssignMethodWithHP]
-    call: Optional[list[int]]
-    call_95_cis: Optional[list[list[int]]]
-    call_99_cis: Optional[list[list[int]]]
+    assign_method: AssignMethodWithHP | None
+    call: list[int] | None
+    call_95_cis: list[list[int]] | None
+    call_99_cis: list[list[int]] | None
 
 
 class LocusResult(BaseLocusResult, total=False):
@@ -120,8 +120,8 @@ class LocusResult(BaseLocusResult, total=False):
 
     ref_cn: int
 
-    ps: Optional[int]
-    peaks: Optional[PeakData]
+    ps: int | None
+    peaks: PeakData | None
     read_peaks_called: bool
     time: float
 

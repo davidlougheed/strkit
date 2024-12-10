@@ -2,7 +2,6 @@ import logging
 import pathlib
 
 from pysam import AlignmentFile
-from typing import Optional
 
 from ..logger import log_levels
 
@@ -18,7 +17,7 @@ class CallParams:
         read_file: str,
         reference_file: str,
         loci_file: str,
-        sample_id: Optional[str],
+        sample_id: str | None,
         min_reads: int = 4,
         min_allele_reads: int = 2,
         max_reads: int = 250,
@@ -26,11 +25,11 @@ class CallParams:
         min_read_align_score: float = 0.9,
         num_bootstrap: int = 100,
         flank_size: int = 70,
-        sex_chroms: Optional[str] = None,
+        sex_chroms: str | None = None,
         realign: bool = False,
         hq: bool = False,
         use_hp: bool = False,
-        snv_vcf: Optional[pathlib.Path] = None,
+        snv_vcf: pathlib.Path | None = None,
         snv_min_base_qual: int = 20,
         targeted: bool = False,
         respect_ref: bool = False,
@@ -39,7 +38,7 @@ class CallParams:
         vcf_anchor_size: int = 5,
         # ---
         log_level: int = logging.WARNING,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         processes: int = 1,
     ):
         self.read_file: str = read_file
@@ -52,11 +51,11 @@ class CallParams:
         self.min_read_align_score: float = min_read_align_score
         self.num_bootstrap: int = num_bootstrap
         self.flank_size: int = flank_size
-        self.sex_chroms: Optional[str] = sex_chroms
+        self.sex_chroms: str | None = sex_chroms
         self.realign: bool = realign
         self.hq: bool = hq
         self.use_hp: bool = use_hp
-        self.snv_vcf: Optional[pathlib.Path] = snv_vcf
+        self.snv_vcf: pathlib.Path | None = snv_vcf
         self.snv_min_base_qual: int = snv_min_base_qual
         self.targeted: bool = targeted
         self.respect_ref: bool = respect_ref
@@ -65,7 +64,7 @@ class CallParams:
         self.vcf_anchor_size: int = vcf_anchor_size
         # ---
         self.log_level: int = log_level
-        self.seed: Optional[int] = seed
+        self.seed: int | None = seed
         self.processes: int = processes
 
         bf = AlignmentFile(read_file, reference_filename=reference_file)
@@ -74,7 +73,7 @@ class CallParams:
         bfh = bf.header.to_dict()
 
         sns: set[str] = {e.get("SM") for e in bfh.get("RG", ()) if e.get("SM")}
-        bam_sample_id: Optional[str] = None
+        bam_sample_id: str | None = None
 
         if len(sns) > 1:
             # Error or warning or what?
@@ -86,7 +85,7 @@ class CallParams:
         else:
             bam_sample_id = sns.pop()
 
-        self._sample_id_orig: Optional[str] = sample_id
+        self._sample_id_orig: str | None = sample_id
         self.sample_id = sample_id or bam_sample_id
 
     @classmethod

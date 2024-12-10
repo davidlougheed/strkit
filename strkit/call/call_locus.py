@@ -15,7 +15,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, Optional, Union
+from typing import Iterable, Literal
 
 from strkit_rust_ext import (
     CandidateSNVs,
@@ -28,7 +28,7 @@ from strkit_rust_ext import (
 )
 
 from strkit.call.allele import CallDict, call_alleles
-from strkit.utils import apply_or_none
+from strkit.utils import idx_0_getter, apply_or_none
 
 from .align_matrix import match_score
 from .cigar import decode_cigar_np
@@ -45,9 +45,7 @@ from .snvs import (
 from .types import (
     VCFContigFormat, AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
 )
-from .utils import (
-    idx_0_getter, cn_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed, calculate_seq_with_wildcards
-)
+from .utils import cn_getter, find_pair_by_ref_pos, normalize_contig, get_new_seed, calculate_seq_with_wildcards
 
 
 __all__ = [
@@ -224,12 +222,12 @@ def call_alleles_with_haplotags(
     # ---
     logger_: logging.Logger,
     locus_log_str: str,
-) -> Optional[dict]:
+) -> dict | None:
     n_alleles: int = len(haplotags)
 
     hp_reads: list[tuple[ReadDict, ...]] = []
     cns: list[NDArray[np.int32]] = []
-    c_ws: list[Union[NDArray[np.int_], NDArray[np.float_]]] = []
+    c_ws: list[NDArray[np.int_] | NDArray[np.float_]] = []
 
     for hi, hp in enumerate(haplotags):
         # Find reads for cluster
@@ -315,13 +313,13 @@ def _determine_snv_call_phase_set(
     # ---
     logger_: logging.Logger,
     locus_log_str: str,
-) -> Optional[int]:
+) -> int | None:
     # May mutate: cdd_ordered
 
     # We may need to re-order (flip) calls based on SNVs. Check each SNV to see if it's in the SNV genotype/phase-set
     # dictionary; otherwise, assign a phase set to all reads which have been used for peak calling here.
 
-    call_phase_set: Optional[int]
+    call_phase_set: int | None
 
     snv_pss_with_should_flip: list[tuple[int, bool]] = []
 
@@ -464,7 +462,7 @@ def call_alleles_with_incorporated_snvs(
     rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
-) -> tuple[AssignMethod, Optional[tuple[dict, list[CalledSNV]]]]:
+) -> tuple[AssignMethod, tuple[dict, list[CalledSNV]] | None]:
     assign_method: AssignMethod = "dist"
 
     # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
@@ -479,7 +477,7 @@ def call_alleles_with_incorporated_snvs(
 
     for read_item in read_dict_items:
         rn, read = read_item
-        snv_bases: Optional[tuple[tuple[str, int], ...]] = read_dict_extra[rn].get("snv_bases")
+        snv_bases: tuple[tuple[str, int], ...] | None = read_dict_extra[rn].get("snv_bases")
 
         if snv_bases is None:
             read_dict_items_with_no_snvs.append(read_item)
@@ -597,7 +595,7 @@ def call_alleles_with_incorporated_snvs(
     cdd: list[CallDict] = []
 
     for ci in cluster_indices:
-        cc: Optional[CallDict] = call_alleles(
+        cc: CallDict | None = call_alleles(
             cns[ci], EMPTY_NP_ARRAY,  # Don't bother separating by strand for now...
             c_ws[ci], (),
             params,
@@ -671,7 +669,7 @@ def call_alleles_with_incorporated_snvs(
     #  - cdd_ordered
     #  - called_useful_snvs
 
-    call_phase_set: Optional[int] = _determine_snv_call_phase_set(
+    call_phase_set: int | None = _determine_snv_call_phase_set(
         read_dict,
         cdd_ordered,
         called_useful_snvs,
@@ -724,11 +722,11 @@ def _calc_motif_size_kmers(tr_read_seq_wc: str, tr_len: int, motif_size: int):
         yield tr_read_seq_wc[i:i + motif_size]
 
 
-def _ndarray_serialize(x: Iterable) -> list[Union[int, np.int_]]:
+def _ndarray_serialize(x: Iterable) -> list[int | np.int_]:
     return list(map(round, x))
 
 
-def _nested_ndarray_serialize(x: Iterable) -> list[list[Union[int, np.int_]]]:
+def _nested_ndarray_serialize(x: Iterable) -> list[list[int | np.int_]]:
     return list(map(_ndarray_serialize, x))
 
 
@@ -755,13 +753,13 @@ def call_locus(
     logger_: logging.Logger,
     locus_log_str: str,
     # ---
-    snv_vcf_file: Optional[STRkitVCFReader] = None,
+    snv_vcf_file: STRkitVCFReader | None = None,
     snv_vcf_contigs: tuple[str, ...] = (),
     snv_vcf_file_format: VCFContigFormat = "",
     # ---
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
-) -> Optional[LocusResult]:
+) -> LocusResult | None:
     call_timer = time.perf_counter()
 
     # params de-structuring ------------
@@ -870,7 +868,7 @@ def call_locus(
             ref_max_iters = 50
             ref_local_search_range = 1
 
-    ref_cn: Union[int, float]
+    ref_cn: int | float
     (ref_cn, _), l_offset, r_offset, r_n_is, (ref_left_flank_seq, ref_seq, ref_right_flank_seq) = get_ref_repeat_count(
         ref_est_cn,
         ref_seq,
@@ -946,7 +944,7 @@ def call_locus(
 
     # Find candidate SNVs, if we're using SNV data
 
-    candidate_snvs: Optional[CandidateSNVs] = None  # Lookup dictionary for candidate SNVs by position
+    candidate_snvs: CandidateSNVs | None = None  # Lookup dictionary for candidate SNVs by position
     if n_overlapping_reads and should_incorporate_snvs and snv_vcf_file:
         # ^^ n_overlapping_reads check since otherwise we will have invalid left/right_most_coord
         candidate_snvs = snv_vcf_file.get_candidate_snvs(
@@ -991,8 +989,8 @@ def call_locus(
         right_flank_start = -1
         right_flank_end = -1
 
-        q_coords: Optional[NDArray[np.uint64]] = None
-        r_coords: Optional[NDArray[np.uint64]] = None
+        q_coords: NDArray[np.uint64] | None = None
+        r_coords: NDArray[np.uint64] | None = None
 
         # Soft-clipping in large insertions can result from mapping difficulties.
         # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it

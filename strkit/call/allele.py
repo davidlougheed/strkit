@@ -20,7 +20,7 @@ from sklearn.preprocessing import normalize
 from warnings import simplefilter
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, Optional, TypedDict, Union
+from typing import Iterable, Literal, TypedDict, Union
 
 import strkit.constants as cc
 
@@ -34,7 +34,7 @@ __all__ = [
     "call_alleles",
 ]
 
-RepeatCounts = Union[list[int], tuple[int, ...], NDArray[np.int_]]
+RepeatCounts = list[int] | tuple[int, ...] | NDArray[np.int_]
 
 
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles
@@ -54,7 +54,7 @@ CI_PERCENTILE_RANGES = {
 }
 
 
-def _array_as_int(n: Union[NDArray[np.int_], NDArray[np.float_]]) -> NDArray[np.int32]:
+def _array_as_int(n: NDArray[np.int_] | NDArray[np.float_]) -> NDArray[np.int32]:
     return np.rint(n).astype(np.int32)
 
 
@@ -65,7 +65,7 @@ def _calculate_cis(samples, ci: str = Literal["95", "99"]) -> NDArray[np.int32]:
     return _array_as_int(percentiles)
 
 
-def get_n_alleles(default_n_alleles: int, sample_sex_chroms: Optional[str], contig: str) -> Optional[int]:
+def get_n_alleles(default_n_alleles: int, sample_sex_chroms: str | None, contig: str) -> int | None:
     if contig in cc.M_CHROMOSOME_NAMES:
         return 1
 
@@ -105,9 +105,9 @@ def fit_gmm(
     hq: bool,
     gm_filter_factor: int,
     init_params: GMMInitParamsMethod = "k-means++",  # TODO: parameterize outside
-) -> Optional[object]:
+) -> object | None:
     sample_rs = sample.reshape(-1, 1)
-    g: Optional[object] = None
+    g: object | None = None
 
     n_components: int = n_alleles
     while n_components > 0:
@@ -165,7 +165,7 @@ class CallDict(BaseCallDict, total=False):
     ps: int
 
 
-def make_read_weights(read_weights: Optional[Iterable[float]], num_reads: int) -> NDArray[np.float_]:
+def make_read_weights(read_weights: Iterable[float] | None, num_reads: int) -> NDArray[np.float_]:
     return np.array(
         read_weights if read_weights is not None else np.array(([1/num_reads] * num_reads) if num_reads else []))
 
@@ -173,18 +173,18 @@ def make_read_weights(read_weights: Optional[Iterable[float]], num_reads: int) -
 def call_alleles(
     repeats_fwd: NDArray[np.int32],
     repeats_rev: NDArray[np.int32],
-    read_weights_fwd: Optional[Iterable[float]],
-    read_weights_rev: Optional[Iterable[float]],
+    read_weights_fwd: Iterable[float] | None,
+    read_weights_rev: Iterable[float] | None,
     params: CallParams,
     min_reads: int,
     n_alleles: int,
     separate_strands: bool,
     read_bias_corr_min: int,
     gm_filter_factor: int,
-    seed: Optional[int],
+    seed: int | None,
     logger_: logging.Logger,
     debug_str: str,
-) -> Optional[CallDict]:
+) -> CallDict | None:
     fwd_len = repeats_fwd.shape[0]
     rev_len = repeats_rev.shape[0]
 
@@ -268,7 +268,7 @@ def call_alleles(
 
     gmm_cache = {}
 
-    def _get_fitted_gmm(s: Union[NDArray[np.int_], NDArray[np.float_]]) -> Optional[object]:
+    def _get_fitted_gmm(s: NDArray[np.int_] | NDArray[np.float_]) -> object | None:
         if (s_t := s.tobytes()) not in gmm_cache:
             # Fit Gaussian mixture model to the resampled data
             gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.hq, gm_filter_factor)
@@ -282,7 +282,7 @@ def call_alleles(
     for i in range(params.num_bootstrap):
         sample = concat_samples[i, :]
 
-        g: Optional[object] = _get_fitted_gmm(sample)
+        g: object | None = _get_fitted_gmm(sample)
         if not g:
             # Could not fit any Gaussian mixture; skip this allele
             return None

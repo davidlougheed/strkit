@@ -1,12 +1,12 @@
 import parasail
 
 from functools import lru_cache
-from typing import Literal, Union
+from typing import Literal
 
 from strkit_rust_ext import get_repeat_count as _get_repeat_count
+from strkit.utils import idx_1_getter
 
 from .align_matrix import dna_matrix, indel_penalty
-from .utils import idx_1_getter
 
 __all__ = [
     "get_repeat_count",
@@ -88,7 +88,7 @@ def get_ref_repeat_count(
     respect_coords: bool = False,
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
     step_size: int = 1,
-) -> tuple[tuple[Union[int, float], int], int, int, tuple[int, int], tuple[str, str, str]]:
+) -> tuple[tuple[int | float, int], int, int, tuple[int, int], tuple[str, str, str]]:
     l_offset: int = 0
     r_offset: int = 0
 
@@ -104,16 +104,16 @@ def get_ref_repeat_count(
         to_explore: list[tuple[int, Literal[-1, 0, 1]]] = [
             (start_count - step_size, -1), (start_count + step_size, 1), (start_count, 0)]
 
-        fwd_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
-        rev_sizes_scores_adj: dict[Union[int, float], tuple[int, int]] = {}
+        fwd_sizes_scores_adj: dict[int | float, tuple[int, int]] = {}
+        rev_sizes_scores_adj: dict[int | float, tuple[int, int]] = {}
 
         while to_explore and n_offset_scores < max_iters:
             size_to_explore, direction = to_explore.pop()
             if size_to_explore < 0:
                 continue
 
-            fwd_scores: list[tuple[Union[float, int], tuple[int, int], int]] = []  # For right-side adjustment
-            rev_scores: list[tuple[Union[float, int], tuple[int, int], int]] = []  # For left-side adjustment
+            fwd_scores: list[tuple[float | int, tuple[int, int], int]] = []  # For right-side adjustment
+            rev_scores: list[tuple[float | int, tuple[int, int], int]] = []  # For left-side adjustment
 
             start_size = max(
                 size_to_explore - (local_search_range if (direction < 1 or step_size > local_search_range) else 0), 0)
@@ -136,7 +136,7 @@ def get_ref_repeat_count(
                 fwd_scores.append((i, fwd_rs, i))
                 rev_scores.append((i, rev_rs, i))
 
-            mv: tuple[Union[float, int], tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=idx_1_getter)
+            mv: tuple[float | int, tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=idx_1_getter)
             if mv[2] > size_to_explore and (
                     (new_rc := mv[2] + step_size) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
                 if new_rc >= 0:
@@ -147,9 +147,9 @@ def get_ref_repeat_count(
                     to_explore.append((new_rc, -1))
 
         # noinspection PyTypeChecker
-        fwd_top_res: tuple[Union[int, float], tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])
+        fwd_top_res: tuple[int | float, tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])
         # noinspection PyTypeChecker
-        rev_top_res: tuple[Union[int, float], tuple] = max(rev_sizes_scores_adj.items(), key=lambda x: x[1][0])
+        rev_top_res: tuple[int | float, tuple] = max(rev_sizes_scores_adj.items(), key=lambda x: x[1][0])
 
         # Ignore negative differences (contractions vs TRF definition), but follow expansions
         # TODO: Should we incorporate contractions? How would that work?

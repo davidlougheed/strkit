@@ -3,13 +3,10 @@ import operator
 
 from functools import cache, partial
 from numpy.typing import NDArray
-from typing import Optional
 
 from ..utils import cat_strs
 
 __all__ = [
-    "idx_0_getter",
-    "idx_1_getter",
     "cn_getter",
     "neq_blank",
     "find_pair_by_ref_pos",
@@ -21,8 +18,6 @@ __all__ = [
 
 
 # index/property getters and other partials
-idx_0_getter = operator.itemgetter(0)
-idx_1_getter = operator.itemgetter(1)
 cn_getter = operator.itemgetter("cn")
 neq_blank = partial(operator.ne, "")
 
@@ -50,7 +45,7 @@ def _mask_low_q_base(base_and_qual: tuple[str, int], base_wildcard_threshold: in
     return base_and_qual[0] if base_and_qual[1] > base_wildcard_threshold else "X"
 
 
-def calculate_seq_with_wildcards(qs: str, quals: Optional[NDArray[np.uint8]]) -> str:
+def calculate_seq_with_wildcards(qs: str, quals: NDArray[np.uint8] | None) -> str:
     if quals is None:
         return qs  # No quality information, so don't do anything
     return cat_strs(map(_mask_low_q_base, zip(qs, quals)))

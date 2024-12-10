@@ -15,7 +15,7 @@ from operator import itemgetter
 from pysam import VariantFile as PySamVariantFile
 from queue import Empty as QueueEmpty
 from threading import Lock
-from typing import Iterable, Literal, Optional
+from typing import Iterable, Literal
 
 from .allele import get_n_alleles
 from .call_locus import call_locus
@@ -108,7 +108,7 @@ def locus_worker(
 
     snv_vcf_reader = STRkitVCFReader(str(params.snv_vcf)) if params.snv_vcf else None
 
-    current_contig: Optional[str] = None
+    current_contig: str | None = None
     results: list[LocusResult] = []
 
     while True:
@@ -192,7 +192,7 @@ def locus_worker(
 
 
 def progress_worker(
-    sample_id: Optional[str],
+    sample_id: str | None,
     start_time: float,
     log_level: int,
     locus_queue: mp.Queue,
@@ -260,8 +260,8 @@ def parse_loci_bed(loci_file: str) -> Iterable[tuple[str, ...]]:
 
 def call_sample(
     params: CallParams,
-    json_path: Optional[str] = None,
-    vcf_path: Optional[str] = None,
+    json_path: str | None = None,
+    vcf_path: str | None = None,
     indent_json: bool = False,
     output_tsv: bool = True,
 ) -> None:
@@ -283,7 +283,7 @@ def call_sample(
     locus_queue = manager.Queue()  # TODO: one queue per contig?
 
     # Cache get_n_alleles calls for contigs
-    contig_n_alleles: dict[str, Optional[int]] = {}
+    contig_n_alleles: dict[str, int | None] = {}
 
     def _get_contig_n_alleles(ctg: str):
         if ctg not in contig_n_alleles:
@@ -295,12 +295,12 @@ def call_sample(
     num_loci: int = 0
     # Keep track of all contigs we are processing to speed up downstream Mendelian inheritance analysis.
     contig_set: set[str] = set()
-    last_contig: Optional[str] = None
+    last_contig: str | None = None
     last_none_append_n_loci: int = 0
     for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
         contig = t[0]
 
-        n_alleles: Optional[int] = _get_contig_n_alleles(contig)
+        n_alleles: int | None = _get_contig_n_alleles(contig)
         if (
             n_alleles is None  # Sex chromosome, but we don't have a specified sex chromosome karyotype
             or n_alleles == 0  # Don't have this chromosome, e.g., Y chromosome for an XX individual
@@ -341,7 +341,7 @@ def call_sample(
 
     # If we're outputting a VCF, open the file and write the header
     sample_id_str = params.sample_id or "sample"
-    vf: Optional[PySamVariantFile] = None
+    vf: PySamVariantFile | None = None
     if vcf_path is not None:
         vh = build_vcf_header(sample_id_str, params.reference_file)
         vf = PySamVariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)

@@ -2,12 +2,11 @@ import logging
 import multiprocessing.managers as mmg
 
 from collections import Counter
-from typing import Optional
 
 from strkit_rust_ext import get_read_snvs, process_read_snvs_for_locus_and_calculate_useful_snvs, CandidateSNVs
+from strkit.utils import idx_1_getter
 
 from .types import ReadDict, CalledSNV
-from .utils import idx_1_getter
 
 
 __all__ = [
@@ -63,7 +62,7 @@ def call_and_filter_useful_snvs(
     }
 
     for rn, read in read_dict.items():
-        p: Optional[int] = read.get("p")
+        p: int | None = read.get("p")
         if p is None:  # No peak; read wasn't used to call peaks
             continue
         for u_idx, (_, u_ref) in enumerate(useful_snvs):

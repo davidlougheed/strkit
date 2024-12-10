@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import pysam
 
-from typing import Optional, Union
-
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
 from .vcf_utils import VCFCalculatorMixin
@@ -12,7 +10,7 @@ from ..utils import parse_cis
 __all__ = ["ExpansionHunterCalculator"]
 
 
-def _parse_allele(a: Union[int, str, None]) -> Optional[int]:
+def _parse_allele(a: int | str | None) -> int | None:
     if isinstance(a, str):
         if a == ".":
             return None
@@ -20,7 +18,7 @@ def _parse_allele(a: Union[int, str, None]) -> Optional[int]:
     return a
 
 
-def _unzip_gt(vals) -> tuple[tuple[Union[int, float, None], ...], tuple[Union[int, float, None], ...]]:
+def _unzip_gt(vals) -> tuple[tuple[int | float | None, ...], tuple[int | float | None, ...]]:
     try:
         return (_parse_allele(vals[0][0]), _parse_allele(vals[1][0])), parse_cis((vals[0][1], vals[1][1]))
     except ValueError:

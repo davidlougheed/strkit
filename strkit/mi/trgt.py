@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import pysam
 
-from typing import Optional, Union
-
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
 from .vcf_utils import VCFCalculatorMixin
@@ -12,7 +10,7 @@ from ..utils import parse_ci
 __all__ = ["TRGTCalculator"]
 
 
-def _parse_allele(a: Union[int, str, None]) -> Optional[int]:
+def _parse_allele(a: int | str | None) -> int | None:
     if isinstance(a, str):
         if a == ".":
             return None
@@ -22,10 +20,7 @@ def _parse_allele(a: Union[int, str, None]) -> Optional[int]:
 
 def _unzip_gt(
     vals, motif_len: int
-) -> Union[
-    tuple[tuple[int, ...], tuple[tuple[int, ...], tuple[int, ...]]],
-    tuple[tuple[None, None], tuple[None, None]],
-]:
+) -> tuple[tuple[int, ...], tuple[tuple[int, ...], tuple[int, ...]]] | tuple[tuple[None, None], tuple[None, None]]:
     try:
         return (
             (

@@ -15,7 +15,7 @@ from strkit.json import dumps, dumps_indented
 from strkit.logger import get_main_logger
 from strkit.utils import cat_strs, cis_overlap
 
-from typing import Generator, Iterable, Literal, Optional, Union, TypedDict
+from typing import Generator, Iterable, Literal, TypedDict
 
 __all__ = [
     "MILocusData",
@@ -26,9 +26,9 @@ __all__ = [
 
 IntGenotype = tuple[int, int]
 StrGenotype = tuple[str, str]
-IntOrStrGenotype = Union[IntGenotype, StrGenotype]
+IntOrStrGenotype = IntGenotype | StrGenotype
 
-OptionalReadCounts = Optional[tuple[tuple[int, ...], tuple[int, ...]]]
+OptionalReadCounts = tuple[tuple[int, ...], tuple[int, ...]] | None
 
 ParentInheritanceConfig = tuple[Literal[0, 1], Literal[0, 1]]
 InheritanceConfig = tuple[Literal[0, 1], Literal[0, 1], Literal[0, 1], Literal[0, 1]]
@@ -62,36 +62,36 @@ class RespectsMIResult(TypedDict):
     # from copy number / approximate copy number
     strict: bool
     pm1: bool
-    ci_95: Optional[bool]
-    ci_99: Optional[bool]
+    ci_95: bool | None
+    ci_99: bool | None
     # from sequence
-    seq: Optional[bool]
-    sl: Optional[bool]
-    sl_pm1: Optional[bool]
+    seq: bool | None
+    sl: bool | None
+    sl_pm1: bool | None
 
 
 class RespectsMIContigResult(TypedDict):
     # from copy number / approximate copy number
     strict: int
     pm1: int
-    ci_95: Optional[int]
-    ci_99: Optional[int]
+    ci_95: int | None
+    ci_99: int | None
     # from sequence
-    seq: Optional[int]
-    sl: Optional[int]
-    sl_pm1: Optional[int]
+    seq: int | None
+    sl: int | None
+    sl_pm1: int | None
 
 
 class RespectsMIFinalResult(TypedDict):
     # from copy number / approximate copy number
     strict: float
     pm1: float
-    ci_95: Optional[float]
-    ci_99: Optional[float]
+    ci_95: float | None
+    ci_99: float | None
     # from sequence
-    seq: Optional[float]
-    sl: Optional[float]
-    sl_pm1: Optional[float]
+    seq: float | None
+    sl: float | None
+    sl_pm1: float | None
 
 
 class MILocusData:
@@ -108,9 +108,9 @@ class MILocusData:
         child_gt_95_ci=None, mother_gt_95_ci=None, father_gt_95_ci=None,
         child_gt_99_ci=None, mother_gt_99_ci=None, father_gt_99_ci=None,
 
-        child_seq_gt: Optional[tuple[str, str]] = None,
-        mother_seq_gt: Optional[tuple[str, str]] = None,
-        father_seq_gt: Optional[tuple[str, str]] = None,
+        child_seq_gt: tuple[str, str] | None = None,
+        mother_seq_gt: tuple[str, str] | None = None,
+        father_seq_gt: tuple[str, str] | None = None,
 
         child_read_counts: OptionalReadCounts = None,
         mother_read_counts: OptionalReadCounts = None,
@@ -123,7 +123,7 @@ class MILocusData:
         test_to_perform: str = "none",
         sig_level: float = 0.05,
 
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         self._contig = contig
         self._start = start
@@ -146,7 +146,7 @@ class MILocusData:
         self._father_seq_gt = father_seq_gt
 
         self._child_read_counts: OptionalReadCounts = child_read_counts
-        self._child_read_counts_flattened: Optional[np.ndarray] = (
+        self._child_read_counts_flattened: np.ndarray | None = (
             np.array([z for y in child_read_counts for z in y]) if child_read_counts else None)
         self._mother_read_counts: OptionalReadCounts = mother_read_counts
         self._father_read_counts: OptionalReadCounts = father_read_counts
@@ -165,7 +165,7 @@ class MILocusData:
 
         self._p_value = None
         self._adj_p_value = None
-        self._most_likely_config: Optional[ParentInheritanceConfig] = None
+        self._most_likely_config: ParentInheritanceConfig | None = None
         self._mutation_from: MutationFrom = "none"
         if test_to_perform != "none" and (de_novo_res := self.de_novo_test()):
             self._p_value, self._most_likely_config, self._mutation_from = de_novo_res
@@ -192,7 +192,7 @@ class MILocusData:
         return self._contig, str(self._start), str(self._end), self._motif
 
     @staticmethod
-    def _res_str(res: Union[float, int]) -> str:
+    def _res_str(res: float | int) -> str:
         return f"{res:.1f}" if isinstance(res, float) else str(res)
 
     @staticmethod
@@ -240,19 +240,19 @@ class MILocusData:
         return MILocusData._gt_str(self._father_gt_99_ci)
 
     @property
-    def reference_copies(self) -> Optional[int]:
+    def reference_copies(self) -> int | None:
         return self._reference_copies
 
     @property
-    def p_value(self) -> Optional[float]:
+    def p_value(self) -> float | None:
         return self._p_value
 
     @property
-    def adj_p_value(self) -> Optional[float]:
+    def adj_p_value(self) -> float | None:
         return self._adj_p_value
 
     @adj_p_value.setter
-    def adj_p_value(self, value: Optional[float]):
+    def adj_p_value(self, value: float | None):
         try:
             assert value is None or 0 <= value <= 1
         except AssertionError as e:
@@ -261,7 +261,7 @@ class MILocusData:
         self._adj_p_value = value
 
     @property
-    def most_likely_inheritance_config(self) -> Optional[InheritanceConfig]:
+    def most_likely_inheritance_config(self) -> InheritanceConfig | None:
         return self._most_likely_config
 
     @property
@@ -285,7 +285,7 @@ class MILocusData:
             for ic in INHERITANCE_CONFIGS
         ))
 
-    def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen: float) -> Optional[bool]:
+    def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen: float) -> bool | None:
         for x in (c_gt_ci, m_gt_ci, f_gt_ci):
             if x is None:
                 return None
@@ -346,7 +346,7 @@ class MILocusData:
         else:
             return "?"
 
-    def respects_mi(self, widen: Optional[float] = None) -> RespectsMIResult:
+    def respects_mi(self, widen: float | None = None) -> RespectsMIResult:
         fn = self._respects_decimal_ci if self._decimal else MILocusData._respects_strict_ci
         respects_mi_strict = fn(self._child_gt, self._mother_gt, self._father_gt)
 
@@ -385,7 +385,7 @@ class MILocusData:
             "sl_pm1": respects_mi_sl_pm1,
         }
 
-    def de_novo_test(self) -> Optional[tuple[float, ParentInheritanceConfig, MutationFrom]]:
+    def de_novo_test(self) -> tuple[float, ParentInheritanceConfig, MutationFrom] | None:
         test = self._test_to_perform
         unadj_sig_level = self._sig_level
 
@@ -629,7 +629,7 @@ class MIResult:
         test_to_perform: str = "none",
         sig_level: float = 0.05,
         mt_corr: str = "none",
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         self.mi_result: RespectsMIFinalResult = mi_result
         self._contig_results: tuple[MIContigResult, ...] = tuple(contig_results)
@@ -696,7 +696,7 @@ class MIResult:
         return f"{self.mi_result['strict']}{sep}{self.mi_result['ci_95']}{sep}{self.mi_result['ci_99']}\n"
 
     @staticmethod
-    def _res_str(res: Union[float, int]) -> str:
+    def _res_str(res: float | int) -> str:
         return f"{res:.1f}" if isinstance(res, float) else str(res)
 
     def _std_err_for_bernoulli(self, val: float) -> float:
@@ -712,7 +712,7 @@ class MIResult:
 
         # get 95% CI from standard error, which we estimate from Bernoulli distribution of resulting percentage
 
-        def _mi_entry(v: Optional[float]):
+        def _mi_entry(v: float | None):
             if v is None:
                 return None
             return {
