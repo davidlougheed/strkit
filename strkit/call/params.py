@@ -25,6 +25,8 @@ class CallParams:
         min_read_align_score: float = 0.9,
         num_bootstrap: int = 100,
         flank_size: int = 70,
+        skip_supplementary: bool = False,
+        skip_secondary: bool = False,
         sex_chroms: str | None = None,
         realign: bool = False,
         hq: bool = False,
@@ -51,6 +53,8 @@ class CallParams:
         self.min_read_align_score: float = min_read_align_score
         self.num_bootstrap: int = num_bootstrap
         self.flank_size: int = flank_size
+        self.skip_supplementary: bool = skip_supplementary
+        self.skip_secondary: bool = skip_secondary
         self.sex_chroms: str | None = sex_chroms
         self.realign: bool = realign
         self.hq: bool = hq
@@ -103,6 +107,8 @@ class CallParams:
             min_read_align_score=p_args.min_read_align_score,
             num_bootstrap=p_args.num_bootstrap,
             flank_size=p_args.flank_size,
+            skip_supplementary=p_args.skip_supplementary,
+            skip_secondary=p_args.skip_secondary,
             sex_chroms=p_args.sex_chr,
             realign=p_args.realign,
             hq=p_args.hq,
@@ -131,6 +137,8 @@ class CallParams:
             "min_read_align_score": self.min_read_align_score,
             "num_bootstrap": self.num_bootstrap,
             "flank_size": self.flank_size,
+            "skip_supplementary": self.skip_supplementary,
+            "skip_secondary": self.skip_secondary,
             "sample_id": self._sample_id_orig if as_inputted else self.sample_id,
             "realign": self.realign,
             "hq": self.hq,

@@ -247,7 +247,7 @@ def call_alleles_with_haplotags(
     cdd: list[CallDict] = []
 
     for hi, hp in enumerate(haplotags):
-        cc: Optional[CallDict] = call_alleles(
+        cc: CallDict | None = call_alleles(
             cns[hi], EMPTY_NP_ARRAY,  # Don't bother separating by strand for now...
             c_ws[hi], (),
             params=params,
@@ -928,8 +928,7 @@ def call_locus(
         chimeric_read_status,
         left_most_coord,
         right_most_coord,
-    ) = bf.get_overlapping_segments_and_related_data(
-        read_contig, left_flank_coord, right_flank_coord, max_reads, logger_, locus_log_str)
+    ) = bf.get_overlapping_segments_and_related_data(read_contig, left_flank_coord, right_flank_coord, locus_log_str)
 
     logger_.debug("%s - got %d overlapping aligned segments", locus_log_str, n_overlapping_reads)
 
@@ -1083,7 +1082,7 @@ def call_locus(
             )
             continue
 
-        # -----
+        # --------------------------------------------------------------------------------------------------------------
 
         # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop relatively distant
         # expansion sequences from accidentally being included in the flanking region; e.g. if the insert gets mapped

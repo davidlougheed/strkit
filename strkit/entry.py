@@ -137,6 +137,16 @@ def add_call_parser_args(call_parser):
         help="Number of bases around the locus to use for context.")
 
     call_parser.add_argument(
+        "--skip-supplementary", "--skip-supp",
+        action="store_true",
+        help="Whether to skip supplementary aligned reads.")
+
+    call_parser.add_argument(
+        "--skip-secondary", "--skip-sec",
+        action="store_true",
+        help="Whether to skip secondary aligned reads.")
+
+    call_parser.add_argument(
         "--processes", "-p",
         type=int,
         default=1,

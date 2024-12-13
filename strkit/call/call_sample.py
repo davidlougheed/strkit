@@ -94,7 +94,16 @@ def locus_worker(
     sample_id = params.sample_id
 
     ref = FastaFile(params.reference_file)
-    bf = STRkitBAMReader(params.read_file, params.reference_file)
+    bf = STRkitBAMReader(
+        params.read_file,
+        params.reference_file,
+        params.max_reads,
+        params.skip_supplementary,
+        params.skip_secondary,
+        params.use_hp,
+        lg,
+        params.log_level == logging.DEBUG,
+    )
 
     snv_vcf_contigs: list[str] = []
     if params.snv_vcf:
