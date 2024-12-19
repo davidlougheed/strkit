@@ -23,7 +23,7 @@ class CallParams:
         max_reads: int = 250,
         min_avg_phred: int = 13,
         min_read_align_score: float = 0.9,
-        max_rcn_iters: int = 200,
+        max_rcn_iters: int = 50,
         num_bootstrap: int = 100,
         flank_size: int = 70,
         skip_supplementary: bool = False,

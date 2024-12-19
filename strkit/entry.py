@@ -134,7 +134,7 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--max-rcn-iters", "--mrci",
         type=int,
-        default=200,
+        default=50,
         help=(
             "Maximum number of read copy-number counting iterations to perform. Loci which require a lot of "
             "iterations are probably impure tandem repeats, for which the resulting copy number will not be very "
