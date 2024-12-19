@@ -1109,6 +1109,7 @@ def call_locus(
         # Set initial integer copy number guess based on aligned TR size, plus the previous read offset (how much the
         # last guess was wrong by, as a delta.)
         read_sc = round(tr_len / motif_size)
+        print(round(read_offset_frac_from_starting_guess * read_sc))
         read_sc += round(read_offset_frac_from_starting_guess * read_sc)
         (read_cn, read_cn_score), n_read_cn_iters, new_offset_from_starting_count = get_repeat_count(
             start_count=max(read_sc, 0),
