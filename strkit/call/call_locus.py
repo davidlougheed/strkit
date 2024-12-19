@@ -62,7 +62,6 @@ realign_timeout = 5
 default_ref_max_iters: int = 250
 ref_max_iters_to_be_slow: int = 100
 
-max_rc_iters = 50
 # TODO: Parametrize - if very low alignment or very slow, then "bad read"
 extremely_low_read_adj_score: float = 0.1  # fraction
 bad_read_alignment_time: int = 15  # seconds
@@ -771,6 +770,7 @@ def call_locus(
     targeted = params.targeted
     min_avg_phred = params.min_avg_phred
     min_read_align_score = params.min_read_align_score
+    max_rcn_iters = params.max_rcn_iters
     snv_min_base_qual = params.snv_min_base_qual
     use_hp = params.use_hp
     vcf_anchor_size = params.vcf_anchor_size
@@ -1116,14 +1116,14 @@ def call_locus(
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
-            max_iters=max_rc_iters,
+            max_iters=max_rcn_iters,
         )
         # Update using +=, since if we use an offset that was correct, the new returned offset will be 0, so we really
         # want to keep the old offset, not set it to 0.
         read_offset_frac_from_starting_guess += new_offset_from_starting_count / max(read_cn, 1)
         rc_time = time.perf_counter() - rc_timer
 
-        if n_read_cn_iters >= max_rc_iters:
+        if n_read_cn_iters >= max_rcn_iters:
             logger_.debug(
                 "%s - locus repeat counting exceeded maximum # iterations (%d)",
                 locus_log_str,

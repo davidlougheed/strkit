@@ -130,6 +130,17 @@ def add_call_parser_args(call_parser):
             "repeats is 0.9. A good value for more lenient genotyping is ~0.4."
         ))
 
+    # Maximum read copy number counting iterations before terminating copy number counting.
+    call_parser.add_argument(
+        "--max-rcn-iters", "--mrci",
+        type=int,
+        default=50,
+        help=(
+            "Maximum number of read copy-number counting iterations to perform. Loci which require a lot of "
+            "iterations are probably impure tandem repeats, for which the resulting copy number will not be very "
+            "accurate anyway."
+        ))
+
     call_parser.add_argument(
         "--flank-size",
         type=int,

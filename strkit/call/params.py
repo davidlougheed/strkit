@@ -23,6 +23,7 @@ class CallParams:
         max_reads: int = 250,
         min_avg_phred: int = 13,
         min_read_align_score: float = 0.9,
+        max_rcn_iters: int = 50,
         num_bootstrap: int = 100,
         flank_size: int = 70,
         skip_supplementary: bool = False,
@@ -51,6 +52,7 @@ class CallParams:
         self.max_reads: int = max_reads
         self.min_avg_phred: int = min_avg_phred
         self.min_read_align_score: float = min_read_align_score
+        self.max_rcn_iters: int = max_rcn_iters
         self.num_bootstrap: int = num_bootstrap
         self.flank_size: int = flank_size
         self.skip_supplementary: bool = skip_supplementary
@@ -105,6 +107,7 @@ class CallParams:
             max_reads=p_args.max_reads,
             min_avg_phred=p_args.min_avg_phred,
             min_read_align_score=p_args.min_read_align_score,
+            max_rcn_iters=p_args.max_rcn_iters,
             num_bootstrap=p_args.num_bootstrap,
             flank_size=p_args.flank_size,
             skip_supplementary=p_args.skip_supplementary,
@@ -135,6 +138,7 @@ class CallParams:
             "max_reads": self.max_reads,
             "min_avg_phred": self.min_avg_phred,
             "min_read_align_score": self.min_read_align_score,
+            "max_rcn_iters": self.max_rcn_iters,
             "num_bootstrap": self.num_bootstrap,
             "flank_size": self.flank_size,
             "skip_supplementary": self.skip_supplementary,
