@@ -1125,8 +1125,9 @@ def call_locus(
 
         if n_read_cn_iters >= max_rcn_iters:
             logger_.debug(
-                "%s - locus repeat counting exceeded maximum # iterations (%d)",
+                "%s - %s: read repeat counting exceeded maximum # iterations (%d)",
                 locus_log_str,
+                rn,
                 n_read_cn_iters,
             )
 
@@ -1193,6 +1194,10 @@ def call_locus(
                         locus_log_str,
                         tr_read_seq_wc[:20],
                     )
+
+                    print(ref_seq)
+                    print(tr_read_seq_wc)
+
                     return {
                         **locus_result,
                         "peaks": None,
