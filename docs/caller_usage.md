@@ -13,7 +13,8 @@
   Read segments with average PHRED scores below this (common with a threshold of ~13 and ONT Ultra Long reads, 
   for example) will be skipped. **Default:** 13
 * `--min-read-align-score #.#`: Minimum normalized read alignment score (fractional; `0.0` to `1.0`) needed to include a 
-  read in a call.  A good value for pure tandem repeats is 0.9. A good value for much more lenient genotyping is ~0.4.
+  read in a call. A good value for pure tandem repeats is 0.9. A good value for much more lenient genotyping is anywhere
+  from 0.0-0.4. **Default:** 0.9
 * `--max-rcn-iters ##`: Maximum number of read copy-number counting iterations to perform. Loci which require a lot of
   iterations are probably impure tandem repeats, for which the resulting copy number will not be very accurate anyway.
   **Default:** 200
