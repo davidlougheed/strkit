@@ -1110,16 +1110,13 @@ def call_locus(
         # Set initial integer copy number guess based on aligned TR size, plus the previous read offset (how much the
         # last guess was wrong by, as a delta.)
         read_sc = round(tr_len / motif_size)
-        print(round(read_offset_frac_from_starting_guess * read_sc))
         if (read_sc_offset := round(read_offset_frac_from_starting_guess * read_sc)) < -1 * read_sc:
             # If our new guess is negative, it was probably a vastly different read, so we should ignore the offset
             # fraction and just use a new starting guess and start again with our offset.
-            read_offset_frac_from_starting_guess = 0
+            read_offset_frac_from_starting_guess = 0.0
         else:
             # Otherwise, use the offset.
             read_sc += read_sc_offset
-
-        print(read_sc)
 
         (read_cn, read_cn_score), n_read_cn_iters, new_offset_from_starting_count = get_repeat_count(
             start_count=read_sc,  # should always be >= 0 with above logic
@@ -1146,7 +1143,7 @@ def call_locus(
         read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
 
         logger_.debug(
-            "%s - %s | start=%d, of=%.4f | rct=%fs, cn=%d, s=%d[%f]",
+            "%s - %s | start=%d, of=%.4f | rct=%fs, cn=%d, s=%d[%f], i=%d",
             locus_log_str,
             rn,
             read_sc,
@@ -1155,6 +1152,7 @@ def call_locus(
             read_cn,
             read_cn_score,
             read_adj_score,
+            n_read_cn_iters,
         )
 
         if rc_time >= really_bad_read_alignment_time:
@@ -1206,8 +1204,6 @@ def call_locus(
                         locus_log_str,
                         tr_read_seq_wc[:20],
                     )
-
-                    print(tr_read_seq_wc)
 
                     return {
                         **locus_result,
