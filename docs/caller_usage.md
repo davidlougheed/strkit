@@ -16,6 +16,7 @@
   read in a call.  A good value for pure tandem repeats is 0.9. A good value for much more lenient genotyping is ~0.4.
 * `--max-rcn-iters ##`: Maximum number of read copy-number counting iterations to perform. Loci which require a lot of
   iterations are probably impure tandem repeats, for which the resulting copy number will not be very accurate anyway.
+  **Default:** 200
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
 * `--realign` or `-a`: Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners
