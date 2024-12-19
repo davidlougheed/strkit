@@ -1106,13 +1106,23 @@ def call_locus(
             read_kmers.update(_calc_motif_size_kmers(tr_read_seq_wc, tr_len, motif_size))
 
         rc_timer = time.perf_counter()
+
         # Set initial integer copy number guess based on aligned TR size, plus the previous read offset (how much the
         # last guess was wrong by, as a delta.)
         read_sc = round(tr_len / motif_size)
         print(round(read_offset_frac_from_starting_guess * read_sc))
-        read_sc += round(read_offset_frac_from_starting_guess * read_sc)
+        if (read_sc_offset := round(read_offset_frac_from_starting_guess * read_sc)) < -1 * read_sc:
+            # If our new guess is negative, it was probably a vastly different read, so we should ignore the offset
+            # fraction and just use a new starting guess and start again with our offset.
+            read_offset_frac_from_starting_guess = 0
+        else:
+            # Otherwise, use the offset.
+            read_sc += read_sc_offset
+
+        print(read_sc)
+
         (read_cn, read_cn_score), n_read_cn_iters, new_offset_from_starting_count = get_repeat_count(
-            start_count=max(read_sc, 0),
+            start_count=read_sc,  # should always be >= 0 with above logic
             tr_seq=tr_read_seq_wc,
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
@@ -1191,12 +1201,12 @@ def call_locus(
                 n_extremely_poor_scoring_reads += 1
                 if n_extremely_poor_scoring_reads > max_bad_reads:
                     logger_.debug(
-                        "%s - not calling locus due to >3 extremely poor-aligning reads (TR seq: %s...)",
+                        "%s - not calling locus due to >3 extremely poor-aligning reads (most recent read TR "
+                        "seq: %s...)",
                         locus_log_str,
                         tr_read_seq_wc[:20],
                     )
 
-                    print(ref_seq)
                     print(tr_read_seq_wc)
 
                     return {
