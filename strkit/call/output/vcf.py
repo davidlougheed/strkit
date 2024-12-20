@@ -5,7 +5,7 @@ from collections import Counter
 from os.path import commonprefix
 from pathlib import Path
 from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
-from typing import Iterable, Optional
+from typing import Iterable
 
 from strkit.utils import cat_strs, is_none, idx_0_getter
 from ..allele import get_n_alleles
@@ -64,7 +64,8 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
 
     # Set up basic VCF formats
     vh.formats.add("AD", ".", "Integer", "Read depth for each allele")
-    vh.formats.add("ANCL", ".", "Integer", "Anchor length for each allele, five-prime of TR sequence")
+    vh.formats.add("ANCL", ".", "Integer", "Anchor length for the ref and each alt, five-prime of TR sequence")
+    vh.formats.add("CONS", ".", "String", "Consensus methods used for each alt (single/poa/best_rep)")
     vh.formats.add("DP", 1, "Integer", "Read depth")
     vh.formats.add("DPS", 1, "Integer", "Read depth (supporting reads only)")
     vh.formats.add("GT", 1, "String", "Genotype")
@@ -132,7 +133,8 @@ def output_contig_vcf_lines(
         res_reads = result["reads"]
         res_peaks = result["peaks"] or {}
 
-        peak_seqs: list[str] = list(map(idx_0_getter, res_peaks.get("seqs", [])))
+        peak_seqs_and_methods = {(seq.upper() if seq else seq): method for seq, method in res_peaks.get("seqs", [])}
+        peak_seqs: tuple[str, ...] = tuple(peak_seqs_and_methods.keys())
         peak_start_anchor_seqs: list[str] = list(map(idx_0_getter, res_peaks.get("start_anchor_seqs", [])))
 
         if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
@@ -153,13 +155,12 @@ def output_contig_vcf_lines(
         ref_start_anchor = ref_start_anchor[anchor_offset:]
         ref_seq_with_anchor = ref_start_anchor + ref_seq
 
-        seqs: tuple[str, ...] = tuple(iter_to_upper(peak_seqs))
         seqs_with_anchors: list[tuple[str, str]] = list(
-            zip(seqs, map(lambda a: a[anchor_offset:], peak_start_anchor_seqs_upper))
+            zip(peak_seqs, map(lambda a: a[anchor_offset:], peak_start_anchor_seqs_upper))
         )
 
-        if 0 < len(seqs) < n_alleles:
-            seqs = tuple([seqs[0]] * n_alleles)
+        if 0 < len(peak_seqs) < n_alleles:
+            peak_seqs = tuple([peak_seqs[0]] * n_alleles)
             seqs_with_anchors = [seqs_with_anchors[0]] * n_alleles
 
         seq_alts = sorted(
@@ -203,7 +204,7 @@ def output_contig_vcf_lines(
 
         vr.samples[sample_id]["GT"] = (
             tuple(map(seq_alleles_raw.index, seqs_with_anchors))
-            if call is not None and seqs
+            if call is not None and peak_seqs
             else _blank_entry(n_alleles)
         )
 
@@ -224,6 +225,12 @@ def output_contig_vcf_lines(
             vr.samples[sample_id]["MCCI"] = tuple(f"{x[0]}-{x[1]}" for x in call_95_cis)
 
             vr.samples[sample_id]["ANCL"] = tuple(len(ar[1]) for ar in seq_alleles_raw if ar is not None)
+
+            # For each alt, mention which consensus method was used to obtain the sequence.
+            cons = tuple(
+                peak_seqs_and_methods[ar[0]] for ar in seq_alleles_raw[1:] if ar is not None
+            )
+            vr.samples[sample_id]["CONS"] = cons if cons else (".",)
 
             # Produces a histogram-like format for read-level copy numbers
             # e.g., for two alleles with 8 and 9 copy-number respectively, we may get: 7x1|8x10|9x1,8x2|9x12

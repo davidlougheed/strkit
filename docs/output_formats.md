@@ -152,6 +152,7 @@ Example report format:
 VCF format fields (i.e., for each variant sample entry):
 
 * `AD`: Read depth for each allele
+* `CONS`: Consensus methods used for each alt (`single`/`poa`/`best_rep`)
 * `DP`: Total read depth
 * `DPS`: Total read depth; only supporting reads (for calls with incorporated SNVs mainly; STR calls only)
 * `GT`: Genotype
