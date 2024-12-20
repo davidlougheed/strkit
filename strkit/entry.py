@@ -423,8 +423,9 @@ def _exec_mi(p_args) -> None:
         c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
         c.CALLER_GANGSTR: GangSTRCalculator,
         c.CALLER_GENERIC_VCF: GenericVCFLengthCalculator,
-        c.CALLER_LONGTR: GenericVCFLengthCalculator,
+        c.CALLER_LONGTR: GenericVCFLengthCalculator,  # Alias
         c.CALLER_REPEATHMM: RepeatHMMCalculator,
+        c.CALLER_STRDUST: GenericVCFLengthCalculator,  # Alias
         c.CALLER_STRAGLR: StraglrCalculator,
         c.CALLER_STRKIT: StrKitCalculator,
         c.CALLER_STRKIT_JSON: StrKitJSONCalculator,
