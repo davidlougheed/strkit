@@ -214,8 +214,8 @@ class BaseCalculator(ABC):
             logger_args = [contig_result.contig, n_total, res / n_total * 100, res_pm1 / n_total * 100]
 
             extras = (
-                (res_95_ci, "95% CI"),
-                (res_99_ci, "99% CI"),
+                (res_95_ci, "95%% CI"),
+                (res_99_ci, "99%% CI"),
                 (res_seq, "seq"),
                 (res_sl, "s.l."),
                 (res_sl_pm1, "s.l.±1"),
