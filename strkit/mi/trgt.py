@@ -76,21 +76,30 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
             ms = mv.samples[self._mother_id or 0]
             fs = fv.samples[self._father_id or 0]
 
-            cs_reps = tuple(sorted(zip(cs["AL"], cs["ALLR"]), key=lambda x: x[0]))
-            ms_reps = tuple(sorted(zip(ms["AL"], ms["ALLR"]), key=lambda x: x[0]))
-            fs_reps = tuple(sorted(zip(fs["AL"], fs["ALLR"]), key=lambda x: x[0]))
-
-            c_gt, c_gt_95_ci = _unzip_gt(cs_reps, len(motif))
-            m_gt, m_gt_95_ci = _unzip_gt(ms_reps, len(motif))
-            f_gt, f_gt_95_ci = _unzip_gt(fs_reps, len(motif))
-
-            if c_gt[0] is None or m_gt[0] is None or f_gt[0] is None:
+            if None in cs["GT"] or None in ms["GT"] or None in fs["GT"]:
                 # None call in VCF, skip this call
                 continue
 
-            c_seq_gt = tuple(sorted((cv.alleles[g] for g in cs["GT"]), key=len)) if None not in cs["GT"] else None
-            m_seq_gt = tuple(sorted((mv.alleles[g] for g in ms["GT"]), key=len)) if None not in ms["GT"] else None
-            f_seq_gt = tuple(sorted((fv.alleles[g] for g in fs["GT"]), key=len)) if None not in fs["GT"] else None
+            c_gt = tuple(sorted(int(m.split("_")[0]) for m in cs["MC"]))
+            m_gt = tuple(sorted(int(m.split("_")[0]) for m in ms["MC"]))
+            f_gt = tuple(sorted(int(m.split("_")[0]) for m in fs["MC"]))
+
+            # Uncomment to use allele length as motif copies:
+
+            # cs_reps = tuple(sorted(zip(cs["AL"], cs["ALLR"]), key=lambda x: x[0]))
+            # ms_reps = tuple(sorted(zip(ms["AL"], ms["ALLR"]), key=lambda x: x[0]))
+            # fs_reps = tuple(sorted(zip(fs["AL"], fs["ALLR"]), key=lambda x: x[0]))
+            #
+            # c_gt, c_gt_95_ci = _unzip_gt(cs_reps, len(motif))
+            # m_gt, m_gt_95_ci = _unzip_gt(ms_reps, len(motif))
+            # f_gt, f_gt_95_ci = _unzip_gt(fs_reps, len(motif))
+
+            # noinspection PyTypeChecker
+            c_seq_gt: tuple[str] | tuple[str, str] = tuple(sorted((cv.alleles[g] for g in cs["GT"]), key=len))
+            # noinspection PyTypeChecker
+            m_seq_gt: tuple[str] | tuple[str, str] = tuple(sorted((mv.alleles[g] for g in ms["GT"]), key=len))
+            # noinspection PyTypeChecker
+            f_seq_gt: tuple[str] | tuple[str, str] = tuple(sorted((fv.alleles[g] for g in fs["GT"]), key=len))
 
             cr.append(MILocusData(
                 contig=contig,
@@ -99,7 +108,8 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
                 motif=motif,
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
-                child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
+                # Uncomment to use allele length as motif copies 95% CI:
+                # child_gt_95_ci=c_gt_95_ci, mother_gt_95_ci=m_gt_95_ci, father_gt_95_ci=f_gt_95_ci,
                 child_seq_gt=c_seq_gt, mother_seq_gt=m_seq_gt, father_seq_gt=f_seq_gt,
             ))
 
