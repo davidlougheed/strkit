@@ -19,8 +19,8 @@ If you use STRkit in published work in its current state, please cite the versio
   created during graduate research by DL.
 * 2023+: (versions beyond `0.8.0a1`):
   * Portions &copy; DL and McGill University 2021-2023
-  * Portions &copy; McGill University 2024
-  * Portions &copy; DL 2024
+  * Portions &copy; McGill University 2024-2025
+  * Portions &copy; DL 2024-2025
 
 
 ### Notice
