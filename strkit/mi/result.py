@@ -18,6 +18,7 @@ from strkit.utils import cat_strs, cis_overlap
 from typing import Generator, Iterable, Literal, TypedDict
 
 __all__ = [
+    "MIKind",
     "MILocusData",
     "MIContigResult",
     "MIResult",
@@ -56,6 +57,8 @@ INHERITANCE_CONFIGS: tuple[InheritanceConfig, ...] = (
 )
 
 MutationFrom = Literal["none", "?", "mat", "pat", "both"]
+
+MIKind = Literal["strict", "pm1", "ci_95", "ci_99", "seq", "sl", "sl_pm1"]
 
 
 class RespectsMIResult(TypedDict):
@@ -567,6 +570,7 @@ class MIContigResult:
 
     def process_loci(
         self,
+        mismatch_out_mi: MIKind = "pm1",
         calculate_non_matching: bool = True,
     ) -> tuple[RespectsMIContigResult, list[MILocusData]]:
         value = 0
@@ -581,7 +585,8 @@ class MIContigResult:
         for locus in self._loci_data:
             r = locus.respects_mi()
 
-            if calculate_non_matching and not (r["strict"] or r["pm1"]):
+            rmt = r[mismatch_out_mi]
+            if calculate_non_matching and (rmt is not None and not rmt):
                 # TODO: Custom ability to choose level...
                 non_matching.append(locus)
 

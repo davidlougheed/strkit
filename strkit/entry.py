@@ -263,6 +263,15 @@ def add_mi_parser_args(mi_parser):
         action="store_true",
         help="If passed, no TSV call output will be written to stdout.")
 
+    mi_parser.add_argument(
+        "--mismatch-out-mi",
+        type=str,
+        choices=("strict", "pm1", "ci_95", "ci_99", "seq", "sl", "sl_pm1"),
+        default="pm1",
+        help="This parameter sets which type of Mendelian inheritance will be used to determine which "
+             "non-MI-respecting loci are output."
+    )
+
     # Histogram-related arguments -------------------------------------------------------
     mi_parser.add_argument(
         "--hist",
@@ -446,6 +455,8 @@ def _exec_mi(p_args) -> None:
     if not calc_class:
         raise ParamError(f"Unknown or unimplemented caller '{caller}'")
 
+    mismatch_out_mi = p_args.mismatch_out_mi
+
     test_to_perform = p_args.test
     if caller not in (c.CALLER_STRKIT_JSON, c.CALLER_STRKIT_VCF) and test_to_perform != "none":
         raise ParamError(f"Caller '{caller}' does not support inheritance tests.")
@@ -481,6 +492,7 @@ def _exec_mi(p_args) -> None:
 
         widen=getattr(p_args, "widen", 0) or 0,
 
+        mismatch_out_mi=mismatch_out_mi,
         test_to_perform=test_to_perform,
         sig_level=p_args.sig_level,
         mt_corr=p_args.mt_corr,

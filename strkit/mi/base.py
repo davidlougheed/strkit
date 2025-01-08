@@ -15,7 +15,7 @@ from .intervals import (
     overlapping_loci_dict_of_dict,
     overlapping_loci_dict_of_list,
 )
-from .result import MIContigResult, MIResult
+from .result import MIKind, MIContigResult, MIResult
 
 __all__ = [
     "SEX_CHROMOSOMES",
@@ -43,7 +43,8 @@ class BaseCalculator(ABC):
 
         widen: float = 0,
 
-        test_to_perform: str = "none",
+        mismatch_out_mi: MIKind = "pm1",
+        test_to_perform: str = "none",  # means mismatch_out_mi has no effect
         sig_level: float = 0.05,
         mt_corr: str = "none",
         only_phased: bool = False,
@@ -83,6 +84,8 @@ class BaseCalculator(ABC):
 
         self._decimal_threshold: float = 0.5
         self._widen: float = widen
+
+        self._mismatch_out_mi: MIKind = mismatch_out_mi
 
         self._test_to_perform: str = test_to_perform
         self._sig_level: float = sig_level
@@ -191,7 +194,9 @@ class BaseCalculator(ABC):
             contig_result = self.calculate_contig(contig)
             contig_results.append(contig_result)
 
-            r, nm = contig_result.process_loci(calculate_non_matching=self.test_to_perform == "none")
+            r, nm = contig_result.process_loci(
+                mismatch_out_mi=self._mismatch_out_mi, calculate_non_matching=self.test_to_perform == "none"
+            )
 
             value_95_ci = r["ci_95"]
             value_99_ci = r["ci_99"]
