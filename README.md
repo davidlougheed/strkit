@@ -65,8 +65,8 @@ python -m pip install strkit
 ```
 
 You may need to install the [Rust toolchain](https://www.rust-lang.org/tools/install)
-and a C compiler (e.g., `gcc`, `clang`) to compile the `strkit_rust_ext` wheel, although prebuilt 
-wheels for this module are available for some platforms. Compiling the wheel may take quite
+and a C compiler (e.g., `gcc`, `clang`), as well as `cmake`, to compile the `strkit_rust_ext` wheel, 
+although prebuilt wheels for this module are available for some platforms. Compiling the wheel may take quite
 a long time (in the tens of minutes).
 
 On Digital Research Alliance of Canada/Compute Canada clusters, this involves loading a few modules:
