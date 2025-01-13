@@ -1161,13 +1161,12 @@ def call_locus(
 
         if rc_time >= really_bad_read_alignment_time:
             logger_.debug(
-                "%s - not calling locus due to a pathologically-poorly-aligning read (%s; repeat count alignment "
-                "scored %.2f < %f; get_repeat_count time: %.3fs; # get_repeat_count iters: %d; motif=%s; ref_cn=%d)",
+                "%s - not calling locus due to a pathologically-poorly-aligning read (%s; get_repeat_count time "
+                "%.3fs > %.3f; # get_repeat_count iters: %d; motif=%s; ref_cn=%d)",
                 locus_log_str,
                 rn,
-                read_adj_score,
-                min_read_align_score,
                 rc_time,
+                really_bad_read_alignment_time,
                 n_read_cn_iters,
                 motif,
                 ref_cn,
@@ -1203,8 +1202,8 @@ def call_locus(
                 n_extremely_poor_scoring_reads += 1
                 if n_extremely_poor_scoring_reads > max_bad_reads:
                     logger_.debug(
-                        "%s - not calling locus due to >3 extremely poor-aligning reads (most recent read TR "
-                        "seq: %s...)",
+                        "%s - not calling locus due to >3 extremely poor-aligning reads (most recent read TR seq: "
+                        "%s...)",
                         locus_log_str,
                         tr_read_seq_wc[:20],
                     )
