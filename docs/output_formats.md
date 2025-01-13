@@ -165,7 +165,9 @@ VCF format fields (i.e., for each variant sample entry):
   an allele's read-set are pipe (`|`)-delimited and formatted as `[copy number]x[reads]`. For example, for two alleles 
   with 8 and 9 copy-number respectively, we may get `7x1|8x10|9x1,8x2|9x12` — the first allele has one 7-copy read, ten 
   8-copy reads, and one 9-copy read. The second allele has two 8-copy reads and twelve 9-copy reads.
-* `MMAS`: Mean model (candidate TR sequence) alignment score across reads, for this sample.
+* `MMAS`: Mean model (candidate TR sequence) alignment score across reads, for this sample. This score, relative to the
+  other locis' scores, represents how well a pure tandem repeat stretch with the catalogued motif and the determined 
+  copy number (e.g., `CAGCAGCAG`) aligns to the true sequence.
 * `PS`: Phase set
 * `PM`: Peak-calling method (`dist`/`single`/`snv+dist`/`snv`/`hp`; STR calls only)
 
