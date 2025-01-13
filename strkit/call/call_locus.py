@@ -1144,7 +1144,7 @@ def call_locus(
             )
 
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
-        read_adj_score: float = match_score if tr_len == 0 else read_cn_score / tr_len_w_flank
+        read_adj_score: float | None = None if tr_len == 0 else read_cn_score / tr_len_w_flank
 
         logger_.debug(
             "%s - %s | start=%d, of=%.4f | rct=%fs, cn=%d, s=%d[%f], i=%d",
@@ -1186,7 +1186,7 @@ def call_locus(
                 "time": time.perf_counter() - call_timer,
             }
 
-        if read_adj_score < min_read_align_score:
+        if read_adj_score is not None and read_adj_score < min_read_align_score:
             logger_.debug(
                 "%s - skipping read %s (repeat count alignment scored %.2f < %f; get_repeat_count time: %.3fs; "
                 "# get_repeat_count iters: %d)",
@@ -1258,6 +1258,7 @@ def call_locus(
             "s": "-" if segment.is_reverse else "+",
             "cn": read_cn,
             "w": read_weight,
+            "sc": read_adj_score,
             **({"realn": realigned} if realign and realigned else {}),
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
@@ -1496,6 +1497,9 @@ def call_locus(
     call_seqs: list[tuple[str, ConsensusMethod]] = []
     call_anchor_seqs: list[tuple[str, ConsensusMethod]] = []
 
+    # Also keep track of read model align scores to calculate the mean at the end
+    model_align_scores: list[float] = []
+
     if read_peaks_called := call_modal_n and call_modal_n <= 2:
         peaks: NDArray[np.float_] = call_peaks[:call_modal_n]
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
@@ -1504,6 +1508,9 @@ def call_locus(
         allele_reads: list[list[str]] = [list() for _ in range(call_modal_n)]
 
         for r, rd in read_dict_items:
+            if (rd_sc := rd["sc"]) is not None:
+                model_align_scores.append(rd_sc)
+
             # Need latter term for peaks that we overwrite if we revert to "dist" assignment:
             if not single_or_dist_assign:
                 if (rp := rd.get("p")) is not None:
@@ -1591,6 +1598,10 @@ def call_locus(
 
     assign_time = time.perf_counter() - assign_start_time
 
+    # Calculate mean model (candidate TR) alignment score --------------------------------------------------------------
+
+    mean_model_align_score: float = sum(model_align_scores) / len(model_align_scores) if model_align_scores else None
+
     # Calculate call time ----------------------------------------------------------------------------------------------
 
     call_time = time.perf_counter() - call_timer
@@ -1629,6 +1640,7 @@ def call_locus(
     locus_result["call"] = call_val
     locus_result["call_95_cis"] = call_95_cis_val
     locus_result["call_99_cis"] = apply_or_none(_nested_ndarray_serialize, call_99_cis)
+    locus_result["mean_model_align_score"] = mean_model_align_score
     locus_result["peaks"] = peak_data
     locus_result["ps"] = call_ps
     locus_result["read_peaks_called"] = read_peaks_called

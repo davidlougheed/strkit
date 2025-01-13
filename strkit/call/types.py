@@ -31,6 +31,7 @@ class _ReadDictBase(TypedDict):
     s: Literal["-", "+"]  # DNA strand alignment
     cn: int | float  # Copy number
     w: float  # Weight
+    sc: float | None  # Adjusted read model align score (None if TR is missing)
 
 
 class ReadDict(_ReadDictBase, total=False):
@@ -112,6 +113,9 @@ class BaseLocusResult(TypedDict):
     call: list[int] | None
     call_95_cis: list[list[int]] | None
     call_99_cis: list[list[int]] | None
+
+    # Mean model (candidate TR sequence) alignment score across reads.
+    mean_model_align_score: float | None
 
 
 class LocusResult(BaseLocusResult, total=False):

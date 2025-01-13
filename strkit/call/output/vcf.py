@@ -72,6 +72,7 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
     vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
     vh.formats.add("MCCI", ".", "String", "Motif copy number 95% confidence interval for each allele")
     vh.formats.add("MCRL", ".", "String", "Read-level motif copy numbers for each allele")
+    vh.formats.add("MMAS", 1, "Float", "Mean model (candidate TR sequence) alignment score across reads.")
     vh.formats.add("NSNV", 1, "Integer", "Number of supporting SNVs for the STR peak-call")
     vh.formats.add("PS", 1, "Integer", "Phase set")
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
@@ -217,6 +218,7 @@ def output_contig_vcf_lines(
             vr.samples[sample_id]["NSNV"] = len(str_snvs)
 
         vr.samples[sample_id]["DP"] = len(res_reads)
+        vr.samples[sample_id]["MMAS"] = result.get("mean_model_align_score")
 
         if call is not None and res_peaks:
             vr.samples[sample_id]["DPS"] = sum(res_peaks["n_reads"])
