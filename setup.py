@@ -16,11 +16,11 @@ setup(
     install_requires=[
         "Flask>=2.2.5,<3.1",
         "orjson>=3.9.15,<4",
-        "pysam>=0.19,<0.23",
+        "pysam>=0.19,<0.24",
         "numpy>=1.23.4,<1.27",
         "parasail>=1.2.4,<1.4",
         "scikit-learn>=1.2.1,<1.6",
-        "scipy>=1.10,<1.14",
+        "scipy>=1.10,<1.16",
         "statsmodels>=0.14.0,<0.15",
         "strkit_rust_ext==0.20.0",
     ],
