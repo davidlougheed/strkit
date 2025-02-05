@@ -128,20 +128,22 @@ long read data should still work.
 #### Usage: *(see all parameters: [Advanced caller usage and configuration](./docs/caller_usage.md))*
 
 ```bash
+# For the dbSNP VCF used below for SNV incorporation, see https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/
+# (00-common_all.vcf.gz)
+
 strkit call \
   path/to/read/file.bam \  # [REQUIRED] One indexed read file (BAM/CRAM)
   --hq \  # If using PacBio HiFi or ONT duplex reads, enable this to get better genotyping & more robust expansion detection
   --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
-  --incorporate-snvs path/to/dbsnp.vcf.gz \   # [RECOMMENDED FOR HIFI ONLY] If you want SNV calls to help phase STRs & speed up calling
-  --min-reads 4 \  # Minimum number of supporting reads needed to make a call
-  --min-allele-reads 2 \  # Minimum number of supporting reads needed to call a specific allele size 
-  --flank-size 70 \  # Size of the flanking region to use on either side of a region to properly anchor reads
-  --consensus \  # If this flag is set, consensus sequences are calculated for alleles. This increases runtime! 
+  --incorporate-snvs path/to/dbsnp/00-common_all.vcf.gz \   # If you want SNV calls to help phase STRs & speed up calling
+  --vcf my-calls.vcf \  # Calculate consensus sequences for alleles and output a VCF with call data
   --seed 183 \  # Fixed random number generator seed for replicability
   --processes 10  # Number of parallel processes to use; DEFAULT: 1
 ```
+
+##### REGARDING ALIGNMENTS
 
 Ideally, you should be using a read file aligned with parameters tuned for tandem repeats. 
 PacBio provides a 
@@ -156,6 +158,8 @@ If you want to **incorporate haplotagging from an alignment file (`HP` tags)** i
 process, which should speed up runtime and potentially improve calling results, you must pass 
 the `--use-hp` flag. **This flag is experimental, and has not been tested extensively.**
 
+##### REGARDING SNV INCORPORATION
+
 If you want to **incorporate SNV calling** into the process, which speeds up runtime and gives
 marginally better calling results, you must provide an indexed, `bgzip`-compressed SNV catalog 
 VCF which matches your reference genome. You can find dbSNP VCFs at
@@ -163,6 +167,8 @@ VCF which matches your reference genome. You can find dbSNP VCFs at
 The file for GRCh38 is called `00-common_all.vcf.gz` as of time of writing.
 **Note that this does not need to be an SNV call file for your sample, specifically**; just one 
 which has positions, reference/alternate alleles, and the `ID` field populated.
+
+##### REGARDING OUTPUT
 
 If you want to output a full call report, you can use the `--json output-file.json` argument to
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
@@ -173,16 +179,22 @@ If you want to output a VCF file (STRs and SNVs if called; currently not phased)
 `--vcf ...` argument. If you pass `--vcf stdout`, the VCF will be written to `stdout` instead of a 
 file.
 
-See the '[Caller catalog format & choosing a catalog](./docs/caller_catalog.md)' page for more on
-how to format a locus catalog or choose from existing available catalogs.
+For more information, see also documentation on the [Output formats](./docs/output_formats.md).
 
-Note that the reference genome must be BGZipped and indexed using `samtools faidx`:
+##### REGARDING REFERENCE GENOMES
+
+The reference genome provided must be BGZipped and indexed using `samtools faidx`:
 
 ```bash
 # Starting from a .fa:
 bgzip my-reference.fa  # Replaces .fa with a .fa.gz file
 samtools faidx my-reference.fa.gz  # Generates a .fai index file
 ```
+
+##### OTHER PARAMETERS
+
+See the '[Caller catalog format & choosing a catalog](./docs/caller_catalog.md)' page for more on
+how to format a locus catalog or choose from existing available catalogs.
 
 
 #### Further documentation on the STRkit caller, including output format:
