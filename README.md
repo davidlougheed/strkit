@@ -156,7 +156,7 @@ respectively. These should not add much performance overhead.
 
 If you want to **incorporate haplotagging from an alignment file (`HP` tags)** into the 
 process, which should speed up runtime and potentially improve calling results, you must pass 
-the `--use-hp` flag. **This flag is experimental, and has not been tested extensively.**
+the `--use-hp` flag.
 
 ##### REGARDING SNV INCORPORATION
 
