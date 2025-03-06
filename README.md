@@ -13,46 +13,6 @@ If you use STRkit in published work in its current state, please cite the versio
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
 
-## Copyright and License
-
-* 2021-2023: &copy; David Lougheed (DL) and McGill University 2021-2023 (versions up to and including `0.8.0a1`), 
-  created during graduate research by DL.
-* 2023+: (versions beyond `0.8.0a1`):
-  * Portions &copy; DL and McGill University 2021-2023
-  * Portions &copy; McGill University 2024-2025
-  * Portions &copy; DL 2024-2025
-
-
-### Notice
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-### Exceptions
-
-**Some exclusions to this license apply; specifically portions of 
-[`strkit/viz/templates/browser.html`](strkit/viz/templates/browser.html) and
-the STRkit logo files ([./docs/images/strkit_logo_small.png](./docs/images/strkit_logo_small.png)
-and [./strkit/viz/static/logo.png](./strkit/viz/static/logo.png).)**
-
-The STRkit logo is &copy; David Lougheed 2022, and was designed by Evelyn Lougheed. It is not licensed
-under the terms of the GPL 3.0; it is instead licensed under the terms of the 
-[CC BY-ND 4.0](https://creativecommons.org/licenses/by-nd/4.0/).
-
-Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
-Used under the terms of the ISC license.
-
-
 ## Installation
 
 ### Via PyPI
@@ -289,3 +249,43 @@ For other options and what they do, run `strkit mi` (with no other arguments) or
 
 **For more information on what kind of analyses can be done with this data**, see the
 [Trio analyses with STRkit](./docs/trio_analyses.md) page.
+
+
+## Copyright and License
+
+* 2021-2023: &copy; David Lougheed (DL) and McGill University 2021-2023 (versions up to and including `0.8.0a1`), 
+  created during graduate research by DL.
+* 2023+: (versions beyond `0.8.0a1`):
+  * Portions &copy; DL and McGill University 2021-2023
+  * Portions &copy; McGill University 2024-2025
+  * Portions &copy; DL 2024-2025
+
+
+### Notice
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+### Exceptions
+
+**Some exclusions to this license apply; specifically portions of 
+[`strkit/viz/templates/browser.html`](strkit/viz/templates/browser.html) and
+the STRkit logo files ([./docs/images/strkit_logo_small.png](./docs/images/strkit_logo_small.png)
+and [./strkit/viz/static/logo.png](./strkit/viz/static/logo.png).)**
+
+The STRkit logo is &copy; David Lougheed 2022, and was designed by Evelyn Lougheed. It is not licensed
+under the terms of the GPL 3.0; it is instead licensed under the terms of the 
+[CC BY-ND 4.0](https://creativecommons.org/licenses/by-nd/4.0/).
+
+Portions of `viz/templates/browser.html` copyright (C) 2021-2022  Observable, Inc.
+Used under the terms of the ISC license.
