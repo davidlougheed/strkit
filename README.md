@@ -85,7 +85,7 @@ long read data should still work.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
 
-#### Usage:*
+#### Usage:
 
 See all parameters and example usage with a Slurm cluster: 
 [Advanced caller usage and configuration](./docs/caller_usage.md)
