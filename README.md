@@ -90,17 +90,20 @@ long read data should still work.
 ```bash
 # For the dbSNP VCF used below for SNV incorporation, see https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/
 # (00-common_all.vcf.gz)
+#
+# "Accurate reads" here means HiFi / ONT R10 duplex reads, but in practice may also include ONT R10 simplex reads.
 
 strkit call \
   path/to/read/file.bam \  # [REQUIRED] One indexed read file (BAM/CRAM)
-  --hq \  # If using PacBio HiFi or ONT duplex reads, enable this to get better genotyping & more robust expansion detection
-  --realign \  # If using PacBio HiFi reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
+  --hq \  # If using accurate reads, enable this to get better genotyping & more robust expansion detection
+  --realign \  # If using accurate reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
-  --incorporate-snvs path/to/dbsnp/00-common_all.vcf.gz \   # If you want SNV calls to help phase STRs & speed up calling
+  --incorporate-snvs path/to/dbsnp/00-common_all.vcf.gz \   # If you want, specify a SNV catalogue to help phase STRs & speed up calling
   --vcf my-calls.vcf \  # Calculate consensus sequences for alleles and output a VCF with call data
   --seed 183 \  # Fixed random number generator seed for replicability
-  --processes 10  # Number of parallel processes to use; DEFAULT: 1
+  --processes 10 \  # Number of parallel processes to use; DEFAULT: 1
+  --no-tsv  # If VCF output is enabled as above, we don't need TSV genotype output to stdout (which is the default)
 ```
 
 ##### REGARDING ALIGNMENTS
@@ -108,11 +111,13 @@ strkit call \
 Ideally, you should be using a read file aligned with parameters tuned for tandem repeats. 
 PacBio provides a 
 [recommended workflow](https://github.com/PacificBiosciences/apps-scripts/tree/master/RepeatAnalysisTools)
-for CCS alignment in this scenario.
+for CCS alignment in this scenario. However, regular aligned readsets are fine and have been tested
+extensively.
 
-If you're using HiFi reads as input, **use the `--hq` and `--realign` options** to get better 
-genotype calculation and a greater proportion of reads incorporated into the computed genotypes, 
-respectively. These should not add much performance overhead.
+If you're using accurate long reads (e.g., HiFi, ONT R10 duplex) as input, **use the `--hq` and 
+`--realign` options** to get better genotype calculation and a greater proportion of reads 
+incorporated into the computed genotypes, respectively. These should not add much performance 
+overhead. *In practice, these options may also aid calling with slightly-less-accurate reads.*
 
 If you want to **incorporate haplotagging from an alignment file (`HP` tags)** into the 
 process, which should speed up runtime and potentially improve calling results, you must pass 
