@@ -85,7 +85,12 @@ long read data should still work.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
 
-#### Usage: *(see all parameters: [Advanced caller usage and configuration](./docs/caller_usage.md))*
+#### Usage:*
+
+See all parameters and example usage with a Slurm cluster: 
+[Advanced caller usage and configuration](./docs/caller_usage.md)
+
+##### EXAMPLE USAGE
 
 ```bash
 # For the dbSNP VCF used below for SNV incorporation, see https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/

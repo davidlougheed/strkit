@@ -94,7 +94,8 @@ with the `strkit` package installed, and ran a SLURM batch job which looks somet
 #SBATCH --account=rrg-xxxxx
 
 
-module load python/3.9
+module load StdEnv/2023
+module load python/3.11 scipy-stack/2023b parasail/2.6.2
 
 cd /home/xxxxx || exit
 source env/bin/activate
@@ -104,6 +105,8 @@ strkit call \
   --ref /path/to/ref.fa.gz \
   --processes 10 \
   --seed 342 \
+  --vcf sample.vcf \
+  --no-tsv \
   path/to/sample.bam
 
 deactivate
