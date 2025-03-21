@@ -57,4 +57,6 @@ Other researchers have done extensive work in identifying and cataloguing loci f
     1-based closed-interval coordinates**, and should be adjusted (subtracting 1 from all start coordinates) to 
     transform them into the 0-based half-open interval coordinates when using them with STRkit.
   * We have prepared a [catalog of disease-causing or disease-associated loci](../catalogs/pathogenic_assoc.hg38.tsv) 
-    for the `hg38` reference genome, based on the review research done by. It will be available soon (TO COME).
+    for the `hg38` reference genome, partially based on the review research done by Gall-Duncan *et al.* (2022), as well
+    as entries from the [STRipy database](https://stripy.org/database) 
+    (DOI: [10.1002/humu.24382](https://doi.org/10.1002/humu.24382)) and our own reading of other articles.
