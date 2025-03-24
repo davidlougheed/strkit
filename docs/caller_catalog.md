@@ -24,7 +24,10 @@ those produced from the TRF UCSC browser track, or for GangSTR, or for Straglr.
 
 Here are a few notes on catalogs:
 
-  * TODO: talk about expanding coordinates, TRF multiple for same TR, ...
+  * Coordinates are used to locate the STR locus in the reference genome, but may be slightly 
+    expanded to better encompass the entire locus.
+  * Be wary of using Tandem Repeats Finder output directly as a catalog, as it can output multiple
+    rows for the same locus, or define motifs in a "compound" fashion, e.g., `ATATAT` instead of `AT`.
   * Some disease expansions can contain multiple different motifs, 
     which may be not present in the reference genome at all (for example: 
     [CANVAS](https://pubmed.ncbi.nlm.nih.gov/31230722/), [BAFME2](https://www.nature.com/articles/s41467-019-12671-y)).
