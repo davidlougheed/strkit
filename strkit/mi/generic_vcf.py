@@ -28,12 +28,23 @@ class GenericVCFLengthCalculator(BaseCalculator, VCFCalculatorMixin):
         # We want all common loci, so loop through the child and then look for the loci in the parent calls
 
         for cv in cvf.fetch(contig):
-            mv = next(mvf.fetch(contig, cv.start, cv.stop), None)
-            fv = next(fvf.fetch(contig, cv.start, cv.stop), None)
+            # child variant start/end, as determined by the reference allele sequence
+            cv_start = cv.start
+            cv_stop = cv.stop
+
+            # hack for LongTR: if we override start/end in INFO, use those values as the true start/end in the context
+            # of the locus boundaries
+            if "START" in cv.info:
+                cv_start = int(cv.info["START"]) - 1
+                if "END" in cv.info:
+                    cv_stop = int(cv.info["END"])
+
+            mv = next(mvf.fetch(contig, cv_start, cv_stop), None)
+            fv = next(fvf.fetch(contig, cv_start, cv_stop), None)
 
             # TODO: Handle sex chromosomes
 
-            k = (contig, cv.start, cv.stop)
+            k = (contig, cv_start, cv_stop)
 
             overlapping = self.get_loci_overlapping(k[0], k[1], k[2], True)
 
@@ -77,11 +88,13 @@ class GenericVCFLengthCalculator(BaseCalculator, VCFCalculatorMixin):
 
             cr.append(MILocusData(
                 contig=contig,
-                start=cv.pos,
-                end=cv.stop,
+                start=cv_start,
+                end=cv_stop,
                 motif=motif,
 
                 child_gt=c_gt, mother_gt=m_gt, father_gt=f_gt,
+
+                # sequence may not line up with start/end if VCF record INFO START/END entries are used
                 child_seq_gt=c_seq_gt, mother_seq_gt=m_seq_gt, father_seq_gt=f_seq_gt,
             ))
 
