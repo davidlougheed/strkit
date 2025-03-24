@@ -81,7 +81,7 @@ class ExpansionHunterCalculator(BaseCalculator, VCFCalculatorMixin):
 
             cr.append(MILocusData(
                 contig=contig,
-                start=cv.pos,
+                start=cv.start,
                 end=cv.stop,
                 motif=cv.info["RU"],
 

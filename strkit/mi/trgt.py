@@ -103,7 +103,7 @@ class TRGTCalculator(BaseCalculator, VCFCalculatorMixin):
 
             cr.append(MILocusData(
                 contig=contig,
-                start=cv.pos,
+                start=cv.start,
                 end=cv.stop,
                 motif=motif,
 
