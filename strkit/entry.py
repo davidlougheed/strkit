@@ -252,6 +252,11 @@ def add_mi_parser_args(mi_parser):
              "right now (i.e., range calculations), just specific loci coordinates.")
 
     mi_parser.add_argument(
+        "--one-based-bed",
+        action="store_true",
+        help="If passed, the BED(s) will be treated as non-standard, with one-based coordinates.")
+
+    mi_parser.add_argument(
         "--json", "-j",
         type=str,
         help="Path to write a JSON-formatted Mendelian inheritance/error report to. If left blank, no JSON file will "
@@ -489,6 +494,7 @@ def _exec_mi(p_args) -> None:
 
         loci_file=motif_bed_file,
         exclude_file=exclude_bed_file,
+        one_based_loci=p_args.one_based_bed,
 
         widen=getattr(p_args, "widen", 0) or 0,
 

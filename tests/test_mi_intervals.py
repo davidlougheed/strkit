@@ -25,11 +25,11 @@ BED_CASES = [
 
 @pytest.mark.parametrize("contig,start,end,nr", BED_CASES)
 def test_loci_dict_of_dict(contig: str, start: int, end: int, nr: int):
-    d = build_loci_dict_of_dict_from_file(TEST_LOCI)
+    d = build_loci_dict_of_dict_from_file(TEST_LOCI, False)
     assert len(overlapping_loci_dict_of_dict(contig, start, end, d)) == nr
 
 
 @pytest.mark.parametrize("contig,start,end,nr", BED_CASES)
 def test_loci_dict_of_list(contig: str, start: int, end: int, nr: int):
-    d = build_loci_dict_of_list_from_file(TEST_LOCI)
+    d = build_loci_dict_of_list_from_file(TEST_LOCI, False)
     assert len(tuple(overlapping_loci_dict_of_list(contig, start, end, d, False))) == nr

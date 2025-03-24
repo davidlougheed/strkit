@@ -21,9 +21,14 @@ LociDictOfDict = dict[str, dict[tuple[int, int], list[str]]]
 LociDictOfList = dict[str, list[tuple[int, int]]]
 
 
-def build_loci_dict_of_dict_from_file(loci_path: str | Path | None) -> LociDictOfDict:
+def build_loci_dict_of_dict_from_file(loci_path: str | Path | None, one_based: bool) -> LociDictOfDict:
+    # Assumes standard BED format - 0-based, half-open intervals, unless one_based=True,
+    # in which case assume 1-based closed intervals and adjust to be 0-based half-closed.
+
     if not loci_path:
         return {}
+
+    start_adj = -1 * int(one_based)  # -1 if converting from 1-based closed to 0-based half-open, otherwise do nothing.
 
     res: LociDictOfDict = {}
 
@@ -36,24 +41,32 @@ def build_loci_dict_of_dict_from_file(loci_path: str | Path | None) -> LociDictO
             if contig not in res:
                 res[contig] = {}
 
-            res[contig][int(ss), int(es)] = ls[3:]
+            res[contig][int(ss) + start_adj, int(es)] = ls[3:]
 
     return res
 
 
-def build_loci_dict_of_list_from_file(loci_path: str | Path | None) -> LociDictOfList:
+def build_loci_dict_of_list_from_file(loci_path: str | Path | None, one_based: bool) -> LociDictOfList:
+    # Assumes standard BED format - 0-based, half-open intervals, unless one_based=True,
+    # in which case assume 1-based closed intervals and adjust to be 0-based half-closed.
+
     if not loci_path:
         return {}
+
+    start_adj = -1 * int(one_based)  # -1 if converting from 1-based closed to 0-based half-open, otherwise do nothing.
 
     res: dict[str, list[tuple[int, int]]] = {}
 
     with open(loci_path, "r") as lf:
         for line in filter(_line_filter_fn, map(str.strip, lf)):
             ls = line.split("\t")
-            contig = ls[0]
+
+            contig, ss, es = ls[:3]
+
             if contig not in res:
                 res[contig] = []
-            res[contig].append((int(ls[1]), int(ls[2])))
+
+            res[contig].append((int(ss) + start_adj, int(es)))
 
     return res
 

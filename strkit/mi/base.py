@@ -40,6 +40,7 @@ class BaseCalculator(ABC):
 
         loci_file: str | None = None,
         exclude_file: str | None = None,
+        one_based_loci: bool = False,
 
         widen: float = 0,
 
@@ -64,7 +65,7 @@ class BaseCalculator(ABC):
         self._father_id: str | None = father_id
 
         self._loci_file: str | None = loci_file
-        self._loci_dict: LociDictOfDict = build_loci_dict_of_dict_from_file(loci_file)
+        self._loci_dict: LociDictOfDict = build_loci_dict_of_dict_from_file(loci_file, one_based_loci)
         self._loci_dict_cache_key: str = str(uuid.uuid4())
         if self._loci_file is not None:
             self._logger.debug(
@@ -74,7 +75,7 @@ class BaseCalculator(ABC):
             )
 
         self._exclude_file: str | None = exclude_file
-        self._exclude_dict: LociDictOfList = build_loci_dict_of_list_from_file(exclude_file)
+        self._exclude_dict: LociDictOfList = build_loci_dict_of_list_from_file(exclude_file, one_based_loci)
         if self._exclude_file is not None:
             self._logger.debug(
                 "Built exclude dict of size %d with contigs %s",
