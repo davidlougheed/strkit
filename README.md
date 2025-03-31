@@ -10,9 +10,9 @@ a Docker container.
 
 If you use STRkit in published work, please cite our preprint:
 
-> #### [STRkit: precise, read-level genotyping of short tandem repeats using long reads and single-nucleotide variation](https://doi.org/10.1101/2025.03.25.645269)
-> David R Lougheed, Tomi Pastinen, Guillaume Bourque. *BioRxiv preprint*.
-> DOI: [10.1101/2025.03.25.645269](https://doi.org/10.1101/2025.03.25.645269)
+> [STRkit: precise, read-level genotyping of short tandem repeats using long reads and single-nucleotide variation.](https://doi.org/10.1101/2025.03.25.645269)
+> David R Lougheed, Tomi Pastinen, Guillaume Bourque. *BioRxiv&nbsp;preprint*.
+> DOI:&nbsp;[10.1101/2025.03.25.645269](https://doi.org/10.1101/2025.03.25.645269)
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
