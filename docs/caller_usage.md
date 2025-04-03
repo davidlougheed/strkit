@@ -68,7 +68,8 @@
   but less compact. **Default:** off
 * `--vcf [path]`: Path to output VCF-formatted call data to. Setting this option forces the `--consensus` option as 
   well in order to output true REF/ALT values, which slows down runtime somewhat. If the value passed is `stdout`, the 
-  VCF data will be written to `stdout` instead of a file. **Default:** *none*
+  VCF data will be written to `stdout` instead of a file. If a `.vcf.gz` path is specified, a bgzipped file will be 
+  written automatically. **Default:** *none*
 * `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json` or `--vcf`, no output will be generated, which isn't 
   very helpful. **Default:** TSV output on
 * `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 

@@ -109,7 +109,7 @@ strkit call \
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
   --incorporate-snvs path/to/dbsnp/00-common_all.vcf.gz \   # If you want, specify a SNV catalogue to help phase STRs & speed up calling
-  --vcf my-calls.vcf \  # Calculate consensus sequences for alleles and output a VCF with call data
+  --vcf my-calls.vcf \  # Calculate consensus sequences for alleles and output a .vcf (or .vcf.gz) with call data
   --seed 183 \  # Fixed random number generator seed for replicability
   --processes 10 \  # Number of parallel processes to use; DEFAULT: 1
   --no-tsv  # If VCF output is enabled as above, we don't need TSV genotype output to stdout (which is the default)
