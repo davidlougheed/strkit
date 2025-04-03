@@ -385,13 +385,12 @@ def add_cc_parser_args(cc_parser):
 
 
 def add_cv_parser_args(al_parser):
-    al_parser.add_argument("trf-bed", type=str, help="TRF BED file to convert from.")
-    al_parser.add_argument("--caller", type=str, choices=(
-        c.CALLER_EXPANSIONHUNTER,
-        c.CALLER_GANGSTR,
-        c.CALLER_STRAGLR,
-        c.CALLER_TANDEM_GENOTYPES,
-    ), help="Caller format to convert to.")
+    from strkit.convert.converter import CONVERTER_OUTPUT_FORMATS
+    al_parser.add_argument("in_file", type=str, help="Input file to convert from.")
+    al_parser.add_argument(
+        "--in-format", type=str, choices=("trf", "trgt"), default="trf", help="Format to convert from."
+    )
+    al_parser.add_argument("--out-format", type=str, choices=CONVERTER_OUTPUT_FORMATS, help="Format to convert to.")
 
 
 def add_vs_parser_args(vs_parser):
@@ -542,7 +541,7 @@ def _exec_combine_catalogs(p_args):
 
 def _exec_convert(p_args):
     from strkit.convert.converter import convert
-    return convert(getattr(p_args, "trf-file"), p_args.caller)
+    return convert(p_args.in_file, p_args.in_format, p_args.out_format, get_main_logger())
 
 
 def _exec_viz_server(p_args):
@@ -633,7 +632,7 @@ def main(args: list[str] | None = None) -> int:
 
     _make_subparser(
         "convert",
-        help_text="Convert TRF BED file to other caller formats.",
+        help_text="Convert a repeat catalog to other formats.",
         exec_func=_exec_convert,
         arg_func=add_cv_parser_args)
 

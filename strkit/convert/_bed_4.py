@@ -1,10 +1,11 @@
 import sys
+from logging import Logger
 
 __all__ = [
-    "to_bed_4",
+    "trf_to_bed_4",
 ]
 
 
-def to_bed_4(trf_data: list):
-    for i, item in enumerate(trf_data, 1):
+def trf_to_bed_4(trf_data: list, _logger: Logger):
+    for item in trf_data:
         sys.stdout.write("\t".join((*item[:3], item[-1])) + "\n")
