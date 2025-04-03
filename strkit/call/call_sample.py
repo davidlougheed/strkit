@@ -31,6 +31,7 @@ from .output import (
 )
 from .types import VCFContigFormat, LocusResult
 from .utils import get_new_seed
+from .validation import LocusValidationError, validate_locus
 
 __all__ = [
     "call_sample",
@@ -328,10 +329,20 @@ def call_sample(
             contig_set.add(contig)
             last_contig = contig
 
+        # Extract and validate the start, end, and motif:
+        start = int(t[1])
+        end = int(t[2])
+        motif = t[-1].upper()
+        try:
+            validate_locus(t_idx, start, end, motif)
+        except LocusValidationError as e:
+            e.log_error(logger)
+            exit(1)
+
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
         # Tuple of (1-indexed locus index, contig, left coord, right coord, motif, locus-specific random seed)
-        locus_queue.put((t_idx, contig, int(t[1]), int(t[2]), t[-1], n_alleles, get_new_seed(rng)))
+        locus_queue.put((t_idx, contig, start, end, motif, n_alleles, get_new_seed(rng)))
         num_loci += 1
 
     if num_loci > last_none_append_n_loci:  # have progressed since the last None-append
