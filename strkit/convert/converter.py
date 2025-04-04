@@ -31,7 +31,7 @@ convert_formats: dict[tuple[str, str], Callable[[list, Logger], None]] = {
     (IN_FORMAT_TRGT, c.CALLER_TANDEM_GENOTYPES): trgt_bed_to_bed4,
 }
 
-CONVERTER_OUTPUT_FORMATS: tuple[str, ...] = tuple(sorted(k[1] for k in convert_formats))
+CONVERTER_OUTPUT_FORMATS: tuple[str, ...] = tuple(sorted(set(k[1] for k in convert_formats)))
 
 
 def convert(in_file: str, in_format: str, out_format: str, logger: Logger) -> int:
