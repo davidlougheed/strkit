@@ -1,12 +1,13 @@
 import json
 import sys
+from logging import Logger
 
 __all__ = [
     "trf_bed_to_eh",
 ]
 
 
-def trf_bed_to_eh(trf_data: list):
+def trf_bed_to_eh(trf_data: list, _logger: Logger):
     eh_formatted_loci = []
 
     for i, item in enumerate(trf_data, 1):

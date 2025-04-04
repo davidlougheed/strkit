@@ -265,6 +265,48 @@ For other options and what they do, run `strkit mi` (with no other arguments) or
 [Trio analyses with STRkit](./docs/trio_analyses.md) page.
 
 
+### `strkit convert`: STR catalog conversion
+
+STRkit takes as input a four-or-more-column BED file, structured like:
+
+```
+contig  start end [0 or more extraneous columns] motif
+```
+
+Any extraneous columns are removed, (internally) leaving a four-column STR locus representation. 
+Some other tools, e.g., [Straglr](https://github.com/bcgsc/straglr), also take a four-column STR
+BED as locus catalog input. However, other formats representing a catalog of STRs exist:
+
+* [Tandem Repeats Finder](https://github.com/Benson-Genomics-Lab/TRF) outputs a TSV/BED with a lot 
+  of information. This can be used as-is with STRkit, but it's safer for other tools to convert to
+  a four-column BED format.
+* [TRGT uses a custom repeat definition format](https://github.com/PacificBiosciences/trgt/blob/main/docs/repeat_files.md),
+  which can specify more advanced STR structures.
+
+#### Usage
+
+The `strkit convert` sub-command requires an input format (`trf` or `trgt`), an output format 
+(many, see `strkit convert --help`), and an input file. Output is written to `stdout`.
+
+*Note:* Not all input/output format pairs have available converter functions; an error will be 
+printed to `stderr` if one does not exist.
+
+For example, to convert from a TRF BED to a TRGT repeat definition BED file:
+
+```bash
+strkit convert --in-format trf --out-format trgt in_file.trf.bed > out_file.bed
+```
+
+To attempt a conversion from a TRGT repeat definition file to a STRkit/four-column motif BED:
+
+```bash
+strkit convert --in-format trgt --out-format strkit in_file.trgt.bed > out_file.bed
+```
+
+Note that TRGT can represent STRs with complex structure that STRkit cannot, so some of these loci
+may not be converted (these will be logged to `stderr`).
+
+
 ## Copyright and License
 
 * 2021-2023: &copy; David Lougheed (DL) and McGill University 2021-2023 (versions up to and including `0.8.0a1`), 
