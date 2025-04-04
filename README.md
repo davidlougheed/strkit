@@ -303,8 +303,8 @@ To attempt a conversion from a TRGT repeat definition file to a STRkit/four-colu
 strkit convert --in-format trgt --out-format strkit in_file.trgt.bed > out_file.bed
 ```
 
-Note that TRGT can represent STRs with complex structure that STRkit cannot, so some loci may not 
-be converted (these will be logged to `stderr`).
+Note that TRGT can represent STRs with complex structure that STRkit cannot, so some of these loci
+may not be converted (these will be logged to `stderr`).
 
 
 ## Copyright and License

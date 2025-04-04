@@ -6,6 +6,8 @@ __all__ = [
     "trf_or_strkit_bed_to_trgt",
 ]
 
+from strkit.iupac import get_iupac_code_for_nt_set
+
 
 def trgt_bed_to_bed4(trgt_data: list, logger: Logger):
     """
@@ -19,6 +21,28 @@ def trgt_bed_to_bed4(trgt_data: list, logger: Logger):
         motifs = structure_data["MOTIFS"].split(",")
 
         if len(motifs) > 1:
+            # We can do some basic IUPAC code normalization here for simple compound STR structures in TRGT catalogs:
+            if (
+                structure_data["STRUC"] in {"".join(f"({m})n" for m in motifs), f"<{structure_data['ID']}>"}
+                and len({len(m) for m in motifs}) == 1
+            ):
+                failed: bool = False
+                combined_motif_bases = []
+                for bases in zip(*motifs):
+                    bases_set = set(bases)
+                    if len(bases_set) == 1:  # same base in all motifs
+                        combined_motif_bases.append(next(iter(bases_set)))
+                    elif iupac_code := get_iupac_code_for_nt_set(bases_set):
+                        # find IUPAC code representing consensus "base" and append it to the motif
+                        combined_motif_bases.append(iupac_code)
+                    else:  # something went wrong (invalid base?)
+                        failed = True
+                        break
+
+                if not failed:  # found a consensus base for the multiple-motif STR, so we can convert it
+                    sys.stdout.write("\t".join((*data[:3], "".join(combined_motif_bases))) + "\n")
+                    continue
+
             data_str = "\t".join(data)
             logger.warning(f"Could not convert complex locus at line {line}: {data_str}")
             continue
