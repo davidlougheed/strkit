@@ -17,6 +17,27 @@ If you use STRkit in published work, please cite our preprint:
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
 
+## Table of Contents
+
+* [Installation](#installation)
+  * [Via PyPI](#via-pypi)
+  * [As a Docker container](#as-a-docker-container)
+* [Commands](#commands)
+  * [`strkit call`: Genotype caller with bootstrapped confidence intervals](#strkit-call-genotype-caller-with-bootstrapped-confidence-intervals)
+    * [Features](#features)
+    * [Usage](#usage)
+    * [Further documentation on the STRkit caller, including output format](#further-documentation-on-the-strkit-caller-including-output-format)
+  * [`strkit visualize`: Call visualizer](#strkit-visualize-call-visualizer)
+  * [`strkit mi`: Mendelian inheritance analysis](#strkit-mi-mendelian-inheritance-analysis)
+    * [Usage](#usage-1)
+    * [Further documentation](#further-documentation)
+  * [`strkit convert`: STR catalog conversion](#strkit-convert-str-catalog-conversion)
+    * [Usage](#usage-2)
+* [Copyright and License](#copyright-and-license)
+  * [Notice](#notice)
+  * [Exceptions](#exceptions)
+
+
 ## Installation
 
 ### Via PyPI
