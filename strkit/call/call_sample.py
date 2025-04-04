@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import importlib.metadata
 import logging
 import multiprocessing as mp
@@ -292,13 +293,9 @@ def call_sample(
     manager: mmg.SyncManager = mp.Manager()
     locus_queue = manager.Queue()  # TODO: one queue per contig?
 
-    # Cache get_n_alleles calls for contigs
-    contig_n_alleles: dict[str, int | None] = {}
-
+    @functools.cache  # Cache get_n_alleles calls for contigs
     def _get_contig_n_alleles(ctg: str):
-        if ctg not in contig_n_alleles:
-            contig_n_alleles[ctg] = get_n_alleles(2, params.sex_chroms, contig)
-        return contig_n_alleles[ctg]
+        return get_n_alleles(2, params.sex_chroms, ctg)
 
     # Add all loci from the BED file to the queue, allowing each job
     # to pull from the queue as it becomes freed up to do so.
@@ -345,11 +342,15 @@ def call_sample(
         locus_queue.put((t_idx, contig, start, end, motif, n_alleles, get_new_seed(rng)))
         num_loci += 1
 
+    del last_contig  # more as a marker for when we're finished with this, for later refactoring
+
     if num_loci > last_none_append_n_loci:  # have progressed since the last None-append
         # At the end of the queue, add a None value (* the # of processes).
         # When a job encounters a None value, it will terminate.
         for _ in range(params.processes):
             locus_queue.put(None)
+
+    del last_none_append_n_loci  # more as a marker for when we're finished with this, for later refactoring
 
     logger.info(f"Loaded {num_loci} loci")
 
