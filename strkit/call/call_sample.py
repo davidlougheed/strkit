@@ -271,9 +271,11 @@ def call_sample(
     start_time = time.perf_counter()
 
     logger.info(f"strkit_rust_ext version: {importlib.metadata.version('strkit_rust_ext')}")
-    logger.info(
-        f"Starting STR genotyping; sample={params.sample_id}, hq={params.hq}, targeted={params.targeted}, "
-        f"HP={params.use_hp}, SNVs={params.snv_vcf is not None}; seed={params.seed}")
+
+    logger.info("Starting STR genotyping with parameters:")
+    for k, v in params.to_dict().items():
+        v_fmt = f'"{v}"' if isinstance(v, str) else v
+        logger.info(f"    {k.rjust(20)} = {v_fmt}")
 
     # Seed the random number generator if a seed is provided, for replicability
     rng: NPRandomGenerator = np_default_rng(seed=params.seed)
