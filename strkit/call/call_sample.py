@@ -106,7 +106,7 @@ def locus_worker(
 
     snv_vcf_contigs: list[str] = []
     if params.snv_vcf:
-        with VariantFile(params.snv_vcf) as snv_vcf_file:
+        with VariantFile(str(params.snv_vcf)) as snv_vcf_file:
             snv_vcf_contigs.extend(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
 
     vcf_file_format: Literal["chr", "num", "acc", ""] = get_vcf_contig_format(snv_vcf_contigs)
