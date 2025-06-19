@@ -1,5 +1,5 @@
 import pytest
-from strkit.call.validation import LocusValidationError, valid_motif, validate_locus
+from strkit.call.loci import LocusValidationError, valid_motif, validate_locus
 
 
 @pytest.mark.parametrize("motif,valid", [

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import importlib.metadata
 import logging
 import multiprocessing as mp
@@ -16,10 +15,10 @@ from operator import itemgetter
 from pysam import VariantFile as PySamVariantFile
 from queue import Empty as QueueEmpty
 from threading import Lock
-from typing import Iterable, Literal
+from typing import Literal
 
-from .allele import get_n_alleles
 from .call_locus import call_locus
+from .loci import load_loci
 from .non_daemonic_pool import NonDaemonicPool
 from .params import CallParams
 from .output import (
@@ -31,8 +30,6 @@ from .output import (
     output_contig_vcf_lines,
 )
 from .types import VCFContigFormat, LocusResult
-from .utils import get_new_seed
-from .validation import LocusValidationError, validate_locus
 
 __all__ = [
     "call_sample",
@@ -260,15 +257,6 @@ def progress_worker(
     _log()
 
 
-def parse_loci_bed(loci_file: str) -> Iterable[tuple[str, ...]]:
-    with open(loci_file, "r") as tf:
-        yield from (
-            tuple(line.split("\t"))
-            for line in (s.strip() for s in tf)
-            if line and not line.startswith("#")  # skip blank lines and comment lines
-        )
-
-
 def call_sample(
     params: CallParams,
     json_path: str | None = None,
@@ -291,68 +279,9 @@ def call_sample(
     rng: NPRandomGenerator = np_default_rng(seed=params.seed)
 
     manager: mmg.SyncManager = mp.Manager()
-    locus_queue = manager.Queue()  # TODO: one queue per contig?
 
-    @functools.cache  # Cache get_n_alleles calls for contigs
-    def _get_contig_n_alleles(ctg: str):
-        return get_n_alleles(2, params.sex_chroms, ctg)
-
-    # Add all loci from the BED file to the queue, allowing each job
-    # to pull from the queue as it becomes freed up to do so.
-    num_loci: int = 0
-    # Keep track of all contigs we are processing to speed up downstream Mendelian inheritance analysis.
-    contig_set: set[str] = set()
-    last_contig: str | None = None
-    last_none_append_n_loci: int = 0
-    for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
-        contig = t[0]
-
-        n_alleles: int | None = _get_contig_n_alleles(contig)
-        if (
-            n_alleles is None  # Sex chromosome, but we don't have a specified sex chromosome karyotype
-            or n_alleles == 0  # Don't have this chromosome, e.g., Y chromosome for an XX individual
-        ):
-            last_contig = contig
-            continue  # --> skip the locus
-
-        # For each contig, add None breaks to make the jobs terminate. Then, as long as we have entries in the locus
-        # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
-        if last_contig != contig:
-            if last_contig is not None:
-                for _ in range(params.processes):
-                    locus_queue.put(None)
-                last_none_append_n_loci = num_loci
-
-            contig_set.add(contig)
-            last_contig = contig
-
-        # Extract and validate the start, end, and motif:
-        start = int(t[1])
-        end = int(t[2])
-        motif = t[-1].upper()
-        try:
-            validate_locus(t_idx, start, end, motif)
-        except LocusValidationError as e:
-            e.log_error(logger)
-            exit(1)
-
-        # We use locus-specific random seeds for replicability, no matter which order
-        # the loci are yanked out of the queue / how many processes we have.
-        # Tuple of (1-indexed locus index, contig, left coord, right coord, motif, locus-specific random seed)
-        locus_queue.put((t_idx, contig, start, end, motif, n_alleles, get_new_seed(rng)))
-        num_loci += 1
-
-    del last_contig  # more as a marker for when we're finished with this, for later refactoring
-
-    if num_loci > last_none_append_n_loci:  # have progressed since the last None-append
-        # At the end of the queue, add a None value (* the # of processes).
-        # When a job encounters a None value, it will terminate.
-        for _ in range(params.processes):
-            locus_queue.put(None)
-
-    del last_none_append_n_loci  # more as a marker for when we're finished with this, for later refactoring
-
-    logger.info(f"Loaded {num_loci} loci")
+    locus_queue = manager.Queue()
+    num_loci, contig_set = load_loci(params, locus_queue, logger, rng)
 
     # ---
 
