@@ -10,6 +10,7 @@ from typing import Iterable
 from strkit.utils import cat_strs, is_none, idx_0_getter
 from ..allele import get_n_alleles
 from ..params import CallParams
+from ..types import LocusResult
 from ..utils import cn_getter
 
 __all__ = [
@@ -110,7 +111,7 @@ def output_contig_vcf_lines(
     params: CallParams,
     sample_id: str,
     variant_file: VariantFile,
-    results: tuple[dict, ...],
+    results: tuple[LocusResult, ...],
     logger: logging.Logger,
 ) -> None:
     variant_records: list[VariantRecord] = []

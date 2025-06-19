@@ -1,4 +1,5 @@
 import sys
+from ..types import LocusResult
 
 __all__ = ["output_tsv"]
 
@@ -7,7 +8,7 @@ def _cn_to_str(cn: int | float) -> str:
     return f"{cn:.1f}" if isinstance(cn, float) else str(cn)
 
 
-def output_tsv(results: tuple[dict, ...], has_snv_vcf: bool):
+def output_tsv(results: tuple[LocusResult, ...], has_snv_vcf: bool):
     for res in results:
         has_call = res["call"] is not None
         # n_peaks = res["peaks"]["modal_n"]
