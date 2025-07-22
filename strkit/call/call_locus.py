@@ -10,6 +10,7 @@ import time
 
 from collections import Counter
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pysam import FastaFile
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
@@ -733,6 +734,143 @@ def _nested_ndarray_serialize(x: Iterable) -> list[list[int | np.int_]]:
     return list(map(_ndarray_serialize, x))
 
 
+@dataclass
+class LocusRefData:
+    ref_cn: int
+    ref_seq: str
+    ref_left_flank_seq: str
+    ref_right_flank_seq: str
+    ref_total_seq: str
+    left_coord_adj: int
+    right_coord_adj: int
+    ref_time: float
+
+
+class InvalidLocus(Exception):
+    pass
+
+
+class SkipLocus(Exception):
+    pass
+
+
+def get_locus_ref_data(
+    ref: FastaFile,
+    respect_ref: bool,
+    ref_file_has_chr: bool,
+    vcf_anchor_size: int,
+    # ---
+    contig: str,
+    left_flank_coord: int,
+    left_coord: int,
+    right_coord: int,
+    right_flank_coord: int,
+    motif: str,
+    motif_size: int,
+    flank_size: int,
+    # ---
+    logger_: logging.Logger,
+    locus_log_str: str,
+) -> LocusRefData:
+    ref_timer = time.perf_counter()
+
+    ref_contig = normalize_contig(contig, ref_file_has_chr)
+
+    ref_total_seq: str
+    ref_left_flank_seq: str
+    ref_right_flank_seq: str
+    ref_seq: str
+
+    ref_seq_offset_l = left_coord - left_flank_coord
+    ref_seq_offset_r = right_coord - left_flank_coord
+
+    try:
+        ref_total_seq = ref.fetch(ref_contig, left_flank_coord, right_flank_coord + 1)  # plus one for use with realign
+
+        ref_left_flank_seq = ref_total_seq[:ref_seq_offset_l]
+        ref_right_flank_seq = ref_total_seq[ref_seq_offset_r:-1]
+        ref_seq = ref_total_seq[ref_seq_offset_l:ref_seq_offset_r]
+    except IndexError:
+        raise InvalidLocus(
+            f"out of range in provided reference FASTA ({flank_size=}): {ref_contig} [{left_flank_coord}, "
+            f"{right_flank_coord}]"
+        )
+    except ValueError:
+        raise InvalidLocus(f"invalid region '{contig}' for provided reference FASTA")
+
+    if len(ref_left_flank_seq) < flank_size or len(ref_right_flank_seq) < flank_size:
+        raise SkipLocus("reference flank size too small")
+
+    if ref_left_flank_seq.endswith("N" * motif_size) or ref_right_flank_seq.startswith("N" * motif_size):
+        raise SkipLocus("reference has flanking N[...] sequence")
+
+    # Get reference repeat count by our method, so we can calculate offsets from reference
+    #  - Replace flanking/ref TR sequences with adjusted sequences
+
+    ref_est_cn = round(len(ref_seq) / motif_size)  # Initial estimate of copy number based on coordinates + motif size
+
+    ref_max_iters = default_ref_max_iters
+    ref_step_size = 1
+    ref_local_search_range = 3
+
+    # search less with large repeat counts, but in bigger steps, because each alignment takes a long time.
+    if ref_est_cn >= 200:
+        if ref_est_cn < 1000:
+            ref_step_size = 3
+            ref_max_iters = 200
+        elif 1000 <= ref_est_cn < 2000:
+            ref_step_size = 5
+            ref_max_iters = 150
+        elif ref_est_cn >= 2000:  # ref_cn >= 2000
+            ref_step_size = 15
+            ref_max_iters = 50
+            ref_local_search_range = 1
+
+    ref_cn: int | float
+    (ref_cn, _), l_offset, r_offset, r_n_is, (ref_left_flank_seq, ref_seq, ref_right_flank_seq) = get_ref_repeat_count(
+        ref_est_cn,
+        ref_seq,
+        ref_left_flank_seq,
+        ref_right_flank_seq,
+        motif,
+        ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
+        vcf_anchor_size=vcf_anchor_size,  # guarantee we still have some flanking stuff left to anchor with
+        max_iters=ref_max_iters,
+        respect_coords=respect_ref,
+        local_search_range=ref_local_search_range,
+        step_size=ref_step_size,
+    )
+
+    slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
+
+    logger_.debug("%s - ref_cn=%d (l.o.=%d; r.o.=%d; #i=%s)", locus_log_str, ref_cn, l_offset, r_offset, r_n_is)
+
+    if slow_ref_count:
+        logger_.warning(
+            "%s - slow reference copy number counting (motif=%s; ref_cn=%d; iters=%s)",
+            locus_log_str, motif, ref_cn, r_n_is
+        )
+
+    # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
+    # more spaces in which an indel could end up), adjust our coordinates to match.
+    # Currently, contractions of the TR region are ignored.
+    left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
+    right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
+
+    ref_time = time.perf_counter() - ref_timer
+
+    return LocusRefData(
+        ref_cn=ref_cn,
+        ref_seq=ref_seq,
+        ref_left_flank_seq=ref_left_flank_seq,
+        ref_right_flank_seq=ref_right_flank_seq,
+        ref_total_seq=ref_total_seq,
+        left_coord_adj=left_coord_adj,
+        right_coord_adj=right_coord_adj,
+        ref_time=ref_time,
+    )
+
+
 def call_locus(
     t_idx: int,
     contig: str,
@@ -783,18 +921,11 @@ def call_locus(
     rng = np.random.default_rng(seed=seed)
 
     read_contig = normalize_contig(contig, read_file_has_chr)
-    ref_contig = normalize_contig(contig, ref_file_has_chr)
 
     motif_size = len(motif)
 
     left_flank_coord = left_coord - flank_size
     right_flank_coord = right_coord + flank_size
-
-    ref_total_seq: str = ""
-    ref_left_flank_seq: str = ""
-    ref_right_flank_seq: str = ""
-    ref_seq: str = ""
-    raised: bool = False
 
     locus_result: LocusResult = {
         "locus_index": t_idx,
@@ -817,100 +948,37 @@ def call_locus(
 
     # Get reference sequence and copy number ---------------------------------------------------------------------------
 
-    ref_timer = time.perf_counter()
-
-    ref_seq_offset_l = left_coord - left_flank_coord
-    ref_seq_offset_r = right_coord - left_flank_coord
-
     try:
-        ref_total_seq = ref.fetch(ref_contig, left_flank_coord, right_flank_coord + 1)  # plus one for use with realign
-
-        ref_left_flank_seq = ref_total_seq[:ref_seq_offset_l]
-        ref_right_flank_seq = ref_total_seq[ref_seq_offset_r:-1]
-        ref_seq = ref_total_seq[ref_seq_offset_l:ref_seq_offset_r]
-    except IndexError:
-        logger_.warning(
-            "%s - skipping locus, coordinates out of range in provided reference FASTA for region %s with flank size "
-            "%d: [%d, %d]",
-            locus_log_str, ref_contig, flank_size, left_flank_coord, right_flank_coord,
+        ref_res = get_locus_ref_data(
+            ref, respect_ref, ref_file_has_chr, vcf_anchor_size, contig, left_flank_coord, left_coord, right_coord,
+            right_flank_coord, motif, motif_size, flank_size, logger_, locus_log_str
         )
-        raised = True
-    except ValueError:
-        logger_.error("%s - skipping locus., invalid region '%s' for provided reference FASTA", locus_log_str, contig)
-        raised = True
-
-    if raised:
-        return None  # don't even return locus_result, this locus has an invalid position
-
-    if len(ref_left_flank_seq) < flank_size or len(ref_right_flank_seq) < flank_size:
-        logger_.warning("%s - skipping locus, reference flank size too small", locus_log_str)
+    except InvalidLocus as e:
+        logger_.error("%s - skipping locus, %s", locus_log_str, str(e))
+        return None  # don't even return a result, this locus has an invalid position
+    except SkipLocus as e:
+        logger_.warning("%s - skipping locus, %s", locus_log_str, str(e))
         return locus_result
 
-    if ref_left_flank_seq.endswith("N" * motif_size) or ref_right_flank_seq.startswith("N" * motif_size):
-        logger_.warning("%s - skipping locus, reference has flanking N[...] sequence", locus_log_str)
-        return locus_result
+    # TODO: better results
+    if ref_res is None:
+        return None
 
-    # Get reference repeat count by our method, so we can calculate offsets from reference
-    #  - Replace flanking/ref TR sequences with adjusted sequences
+    ref_time: float = ref_res.ref_time
 
-    ref_est_cn = round(len(ref_seq) / motif_size)  # Initial estimate of copy number based on coordinates + motif size
+    ref_cn: int = ref_res.ref_cn
+    locus_result["ref_cn"] = ref_cn
 
-    ref_max_iters = default_ref_max_iters
-    ref_step_size = 1
-    ref_local_search_range = 3
-
-    # search less with large repeat counts, but in bigger steps, because each alignment takes a long time.
-    if ref_est_cn >= 200:
-        if ref_est_cn < 1000:
-            ref_step_size = 3
-            ref_max_iters = 200
-        elif 1000 <= ref_est_cn < 2000:
-            ref_step_size = 5
-            ref_max_iters = 150
-        elif ref_est_cn >= 2000:  # ref_cn >= 2000
-            ref_step_size = 15
-            ref_max_iters = 50
-            ref_local_search_range = 1
-
-    ref_cn: int | float
-    (ref_cn, _), l_offset, r_offset, r_n_is, (ref_left_flank_seq, ref_seq, ref_right_flank_seq) = get_ref_repeat_count(
-        ref_est_cn,
-        ref_seq,
-        ref_left_flank_seq,
-        ref_right_flank_seq,
-        motif,
-        ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
-        vcf_anchor_size=vcf_anchor_size,  # guarantee we still have some flanking stuff left to anchor with
-        max_iters=ref_max_iters,
-        respect_coords=respect_ref,
-        local_search_range=ref_local_search_range,
-        step_size=ref_step_size,
-    )
-    locus_result["ref_cn"] = ref_cn  # tag call dictionary with ref_cn
-
-    slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
-
-    logger_.debug(
-        "%s - ref_cn=%d (l.o.=%d; r.o.=%d; #i=%s)", locus_log_str, ref_cn, l_offset, r_offset, r_n_is
-    )
-
-    if slow_ref_count:
-        logger_.warning(
-            "%s - slow reference copy number counting (motif=%s; ref_cn=%d; iters=%s)",
-            locus_log_str, motif, ref_cn, r_n_is
-        )
-
-    # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
-    # more spaces in which an indel could end up), adjust our coordinates to match.
-    # Currently, contractions of the TR region are ignored.
-    left_coord_adj = left_coord if respect_ref else left_coord - max(0, l_offset)
-    right_coord_adj = right_coord if respect_ref else right_coord + max(0, r_offset)
+    ref_seq: str = ref_res.ref_seq
+    ref_total_seq: str = ref_res.ref_total_seq
+    left_coord_adj: int = ref_res.left_coord_adj
+    right_coord_adj: int = ref_res.right_coord_adj
+    ref_left_flank_seq: str = ref_res.ref_left_flank_seq
+    ref_right_flank_seq: str = ref_res.ref_right_flank_seq
 
     if not respect_ref:  # tag locus_result with adjusted start/end
         locus_result["start_adj"] = left_coord_adj
         locus_result["end_adj"] = right_coord_adj
-
-    ref_time = time.perf_counter() - ref_timer
 
     # Find the initial set of overlapping aligned segments with associated read lengths + whether we have in-locus
     # chimera reads (i.e., reads which aligned twice with different soft-clipping, likely due to a large indel.) -------
