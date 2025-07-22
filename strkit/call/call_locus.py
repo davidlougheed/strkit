@@ -949,7 +949,7 @@ def call_locus(
     # Get reference sequence and copy number ---------------------------------------------------------------------------
 
     try:
-        ref_res = get_locus_ref_data(
+        locus_ref_data = get_locus_ref_data(
             ref, respect_ref, ref_file_has_chr, vcf_anchor_size, contig, left_flank_coord, left_coord, right_coord,
             right_flank_coord, motif, motif_size, flank_size, logger_, locus_log_str
         )
@@ -960,25 +960,10 @@ def call_locus(
         logger_.warning("%s - skipping locus, %s", locus_log_str, str(e))
         return locus_result
 
-    # TODO: better results
-    if ref_res is None:
-        return None
-
-    ref_time: float = ref_res.ref_time
-
-    ref_cn: int = ref_res.ref_cn
-    locus_result["ref_cn"] = ref_cn
-
-    ref_seq: str = ref_res.ref_seq
-    ref_total_seq: str = ref_res.ref_total_seq
-    left_coord_adj: int = ref_res.left_coord_adj
-    right_coord_adj: int = ref_res.right_coord_adj
-    ref_left_flank_seq: str = ref_res.ref_left_flank_seq
-    ref_right_flank_seq: str = ref_res.ref_right_flank_seq
-
+    locus_result["ref_cn"] = locus_ref_data.ref_cn
     if not respect_ref:  # tag locus_result with adjusted start/end
-        locus_result["start_adj"] = left_coord_adj
-        locus_result["end_adj"] = right_coord_adj
+        locus_result["start_adj"] = locus_ref_data.left_coord_adj
+        locus_result["end_adj"] = locus_ref_data.right_coord_adj
 
     # Find the initial set of overlapping aligned segments with associated read lengths + whether we have in-locus
     # chimera reads (i.e., reads which aligned twice with different soft-clipping, likely due to a large indel.) -------
@@ -989,9 +974,6 @@ def call_locus(
     overlapping_segments: NDArray[STRkitAlignedSegment]
     read_lengths: NDArray[np.uint]
     chimeric_read_status: dict[str, int]
-
-    min_reads: int = params.min_reads
-    max_reads: int = params.max_reads
 
     (
         overlapping_segments,
@@ -1004,8 +986,10 @@ def call_locus(
 
     logger_.debug("%s - got %d overlapping aligned segments", locus_log_str, n_overlapping_reads)
 
-    if n_overlapping_reads > max_reads:  # TODO: sample across full set instead?
-        logger_.warning("%s - locus has excess reads, using the first %d; misalignment?", locus_log_str, max_reads)
+    if n_overlapping_reads > params.max_reads:  # TODO: sample across full set instead?
+        logger_.warning(
+            "%s - locus has excess reads, using the first %d; misalignment?", locus_log_str, params.max_reads
+        )
 
     sorted_read_lengths = np.sort(read_lengths)
 
@@ -1079,7 +1063,7 @@ def call_locus(
             pairs_new = perform_realign(
                 t_idx,
                 left_flank_coord,
-                ref_total_seq,
+                locus_ref_data.ref_total_seq,
                 rn,
                 qs,
                 fqqs,
@@ -1100,8 +1084,8 @@ def call_locus(
                 left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
                     get_read_coords_from_matched_pairs(
                         left_flank_coord,
-                        left_coord_adj,
-                        right_coord_adj,
+                        locus_ref_data.left_coord_adj,
+                        locus_ref_data.right_coord_adj,
                         right_flank_coord,
                         motif,
                         motif_size,
@@ -1128,8 +1112,8 @@ def call_locus(
                     cigar_tuples,
                     segment_start,
                     left_flank_coord,
-                    left_coord_adj,
-                    right_coord_adj,
+                    locus_ref_data.left_coord_adj,
+                    locus_ref_data.right_coord_adj,
                     right_flank_coord,
                     motif,
                     motif_size,
@@ -1262,15 +1246,20 @@ def call_locus(
                 really_bad_read_alignment_time,
                 n_read_cn_iters,
                 motif,
-                ref_cn,
+                locus_ref_data.ref_cn,
             )
-            logger_.debug("%s - ref left flank:     %s", locus_log_str, ref_left_flank_seq)
+            logger_.debug("%s - ref left flank:     %s", locus_log_str, locus_ref_data.ref_left_flank_seq)
             logger_.debug("%s - read left flank:    %s", locus_log_str, flank_left_seq)
-            logger_.debug("%s - ref TR seq (:500):  %s (len=%d)", locus_log_str, ref_seq[:500], len(ref_seq))
+            logger_.debug(
+                "%s - ref TR seq (:500):  %s (len=%d)",
+                locus_log_str,
+                locus_ref_data.ref_seq[:500],
+                len(locus_ref_data.ref_seq),
+            )
             logger_.debug(
                 "%s - read TR seq (:500): %s (len=%d)", locus_log_str, tr_read_seq_wc[:500], len(tr_read_seq_wc)
             )
-            logger_.debug("%s - ref right flank:  %s", locus_log_str, ref_right_flank_seq)
+            logger_.debug("%s - ref right flank:  %s", locus_log_str, locus_ref_data.ref_right_flank_seq)
             logger_.debug("%s - read right flank: %s", locus_log_str, flank_right_seq)
             return {
                 **locus_result,
@@ -1337,7 +1326,9 @@ def call_locus(
         if consensus:
             for anchor_offset in range(vcf_anchor_size, 0, -1):
                 # start from largest - want to include small indels in query if they appear immediately upstream
-                anchor_pair_idx, anchor_pair_found = find_pair_by_ref_pos(r_coords, left_coord_adj - anchor_offset, 0)
+                anchor_pair_idx, anchor_pair_found = find_pair_by_ref_pos(
+                    r_coords, locus_ref_data.left_coord_adj - anchor_offset, 0
+                )
                 if anchor_pair_found:
                     read_start_anchor = qs[q_coords[anchor_pair_idx]:left_flank_end]
                     break
@@ -1356,6 +1347,8 @@ def call_locus(
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
         }
+
+        read_extra_entry: ReadDictExtra
         read_dict_extra[rn] = read_extra_entry = {
             "_ref_start": segment_start,
             "_ref_end": segment_end,
@@ -1418,14 +1411,20 @@ def call_locus(
 
     locus_result.update({
         # **({"ref_start_anchor": ref_left_flank_seq[-1].upper(), "ref_seq": ref_seq} if consensus else {}),
-        **({"ref_start_anchor": ref_left_flank_seq[-vcf_anchor_size:].upper(), "ref_seq": ref_seq} if consensus else {}),
+        **(
+            {
+                "ref_start_anchor": locus_ref_data.ref_left_flank_seq[-vcf_anchor_size:].upper(),
+                "ref_seq": locus_ref_data.ref_seq,
+            }
+            if consensus else {}
+        ),
         "reads": read_dict,
     })
 
     # Check now if we don't have enough reads to make a call. We can still return some read-level information!
-    if n_reads_in_dict < min_reads:
+    if n_reads_in_dict < params.min_reads:
         logger_.debug(
-            "%s - not enough reads to make a call (%d < %d)", locus_log_str, n_reads_in_dict, min_reads
+            "%s - not enough reads to make a call (%d < %d)", locus_log_str, n_reads_in_dict, params.min_reads
         )
         return {
             **locus_result,
@@ -1498,8 +1497,8 @@ def call_locus(
 
             # Second read loop occurs in this function
             useful_snvs: list[tuple[int, int]] = process_read_snvs_for_locus_and_calculate_useful_snvs(
-                left_coord_adj,
-                right_coord_adj,
+                locus_ref_data.left_coord_adj,
+                locus_ref_data.right_coord_adj,
                 left_most_coord,
                 # Reference sequence - don't assign to a variable to avoid keeping a large amount of data around until
                 # the GC arises from slumber.
@@ -1716,7 +1715,7 @@ def call_locus(
             motif,
             call,
             assign_method,
-            ref_time,
+            locus_ref_data.ref_time,
             allele_time,
             assign_time,
         )
