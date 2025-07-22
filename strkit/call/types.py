@@ -114,9 +114,6 @@ class BaseLocusResult(TypedDict):
     call_95_cis: list[list[int]] | None
     call_99_cis: list[list[int]] | None
 
-    # Mean model (candidate TR sequence) alignment score across reads.
-    mean_model_align_score: float | None
-
 
 class LocusResult(BaseLocusResult, total=False):
     start_adj: int
@@ -136,3 +133,6 @@ class LocusResult(BaseLocusResult, total=False):
 
     reads: dict[str, ReadDict]
     snvs: list[CalledSNV]
+
+    # Mean model (candidate TR sequence) alignment score across reads.
+    mean_model_align_score: float | None
