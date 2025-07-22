@@ -1099,11 +1099,36 @@ def call_locus(
         flank_right_seq: str = qs[right_flank_start:right_flank_end][:flank_size+10]
 
         tr_len: int = right_flank_start - left_flank_end  # i.e., len(tr_read_seq)
+        tr_read_seq = qs[left_flank_end:right_flank_start]
+
+        # --------------------------------------------------------------------------------------------------------------
+        # Cache these now that we've done some adjustments (although tr_len_w_flank should not change)
         flank_len: int = len(flank_left_seq) + len(flank_right_seq)
         tr_len_w_flank: int = tr_len + flank_len
 
-        tr_read_seq = qs[left_flank_end:right_flank_start]
+        # --------------------------------------------------------------------------------------------------------------
+
+        # Extract qualities for our TR sequence and calculate a wildcard-subsituted TR sequence if qualities are too low
+        # to be confident in base identity.
+
+        qqs = fqqs[left_flank_end:right_flank_start]
+        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
+            logger_.debug(
+                "%s - skipping read %s due to low average base quality (%.2f < %d)",
+                locus_log_str,
+                rn,
+                m_qqs,
+                min_avg_phred,
+            )
+            continue
+
         tr_read_seq_wc = calculate_seq_with_wildcards(tr_read_seq, qqs)
+
+        # These are now invalid (or at least cannot be used for ref lookups):
+        del right_flank_start
+        del right_flank_end
+
+        # --------------------------------------------------------------------------------------------------------------
 
         if count_kmers != "none":
             read_kmers.clear()
