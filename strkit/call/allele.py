@@ -16,7 +16,6 @@ import statistics
 
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.mixture import GaussianMixture
-from sklearn.preprocessing import normalize
 from warnings import simplefilter
 
 from numpy.typing import NDArray
@@ -302,10 +301,8 @@ def call_alleles(
 
         if n_to_resample:
             # Re-sample means if any are removed, based on weights (re-normalized), to match total # of alleles
-            resampled_indices = rng.choice(
-                np.arange(len(means)),
-                size=n_to_resample,
-                p=normalize(weights.reshape(1, -1), norm="l1").flatten())
+            normalized_weights = weights / np.absolute(weights).sum()
+            resampled_indices = rng.choice(np.arange(len(means)), size=n_to_resample, p=normalized_weights)
             resampled_means = np.append(means, means[resampled_indices])
             resampled_weights = np.append(weights, weights[resampled_indices])
             resampled_stdevs = np.append(stdevs, stdevs[resampled_indices])
