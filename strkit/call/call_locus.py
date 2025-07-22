@@ -1565,15 +1565,19 @@ def call_locus(
                 peak = int(len(allele_reads[0]) > len(allele_reads[1]))
             else:
                 # Create an already-fitted Gaussian mixture instance and use it to predict the peak
+                # if we have call_modal_n > 1; otherwise, our peak is always going to be 0.
 
-                g: GaussianMixture = GaussianMixture(n_components=call_modal_n, covariance_type="spherical")
-                g.means_ = peaks.reshape(-1, 1)
-                g.covariances_ = stdevs ** 2
-                g.weights_ = weights
-                # see https://github.com/scikit-learn/scikit-learn/blob/1.5.0/sklearn/mixture/_gaussian_mixture.py#L347
-                g.precisions_cholesky_ = 1.0 / stdevs
+                if call_modal_n == 1:
+                    peak = 0
+                else:
+                    g: GaussianMixture = GaussianMixture(n_components=call_modal_n, covariance_type="spherical")
+                    g.means_ = peaks.reshape(-1, 1)
+                    g.covariances_ = stdevs ** 2
+                    g.weights_ = weights
+                    # https://github.com/scikit-learn/scikit-learn/blob/1.5.0/sklearn/mixture/_gaussian_mixture.py#L347
+                    g.precisions_cholesky_ = 1.0 / stdevs
 
-                peak = g.predict([[cn]])[0].item()
+                    peak = g.predict([[cn]])[0].item()
 
             allele_reads[peak].append(r)
             rd["p"] = peak
