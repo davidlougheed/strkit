@@ -14,6 +14,7 @@ import logging  # For type hinting
 import numpy as np
 import statistics
 
+from collections import Counter
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.mixture import GaussianMixture
 from warnings import simplefilter
@@ -86,12 +87,14 @@ def na_length_list(n_alleles: int):
 GMMInitParamsMethod = Literal["kmeans", "k-means++"]
 
 
-def make_fitted_gmm(n_components: int, sample_rs: NDArray, init_params: GMMInitParamsMethod, rng: np.random.Generator):
+def make_fitted_gmm(
+    n_components: int, sample_rs: NDArray, init_params: GMMInitParamsMethod, n_init: int, rng: np.random.Generator
+):
     return GaussianMixture(
         n_components=n_components,
         init_params=init_params,
         covariance_type="spherical",
-        n_init=N_GM_INIT,
+        n_init=n_init,
         random_state=get_new_seed(rng),
     ).fit(sample_rs)
 
@@ -105,20 +108,33 @@ def fit_gmm(
     gm_filter_factor: int,
     init_params: GMMInitParamsMethod = "k-means++",  # TODO: parameterize outside
 ) -> object | None:
+    def mk_single_gaussian() -> object:
+        # Don't need to do the full fit for a single peak, just calculate the parameters.
+        # I've confirmed this gives an ~identical result to fitting a GMM with one parameter.
+        fake_g: object = type("", (), {})()
+        fake_g.means_ = np.array([[np.mean(sample_rs)]])
+        fake_g.weights_ = WEIGHT_1_0
+        fake_g.covariances_ = np.array([[np.var(sample_rs)]])
+        return fake_g
+
+    # performance hack: skip checking for two peak GMM if we have two close-together most common elements and the first
+    # has significantly higher count than the next.
+    mc = Counter(sample).most_common(2)
+    gm_pre_filter_factor: int = 5
+
+    if len(mc) == 1 or (mc[0][1] / (gm_pre_filter_factor * n_alleles) > mc[1][1] and abs(mc[1][0] - mc[0][0]) == 1):
+        return mk_single_gaussian()
+
+    n_components: int = n_alleles
+
     sample_rs = sample.reshape(-1, 1)
     g: object | None = None
 
-    n_components: int = n_alleles
     while n_components > 0:
-        if n_components == 1:  # Don't need to do the full fit for a single peak, just calculate the parameters
-            # I've confirmed this gives an ~identical result to fitting a GMM with one parameter.
-            fake_g: object = type("", (), {})()
-            fake_g.means_ = np.array([[np.mean(sample_rs)]])
-            fake_g.weights_ = WEIGHT_1_0
-            fake_g.covariances_ = np.array([[np.var(sample_rs)]])
-            return fake_g
+        if n_components == 1:
+            return mk_single_gaussian()
 
-        g = make_fitted_gmm(n_components, sample_rs, init_params, rng)
+        g = make_fitted_gmm(n_components, sample_rs, init_params, N_GM_INIT, rng)
 
         # noinspection PyUnresolvedReferences
         means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
