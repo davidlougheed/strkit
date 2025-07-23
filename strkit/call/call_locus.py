@@ -210,7 +210,6 @@ def call_alleles_with_gmm(
         n_alleles=n_alleles,
         separate_strands=False,
         read_bias_corr_min=0,  # TODO: parametrize
-        gm_filter_factor=3,  # TODO: parametrize
         seed=get_new_seed(rng),
         logger_=logger_,
         debug_str=locus_log_str,
@@ -260,7 +259,6 @@ def call_alleles_with_haplotags(
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
             separate_strands=False,
             read_bias_corr_min=0,  # separate_strands is false, so this is ignored
-            gm_filter_factor=1,  # n_alleles=1, so this is ignored
             seed=get_new_seed(rng),
             logger_=logger_,
             debug_str=f"{locus_log_str} a{hi}"
@@ -608,7 +606,6 @@ def call_alleles_with_incorporated_snvs(
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
             separate_strands=False,
             read_bias_corr_min=0,  # separate_strands is false, so this is ignored
-            gm_filter_factor=1,  # n_alleles=1, so this is ignored
             seed=get_new_seed(rng),
             logger_=logger_,
             debug_str=f"{locus_log_str} a{ci}"

@@ -3,6 +3,7 @@ import pathlib
 
 from pysam import AlignmentFile
 
+from .gmm import GMMParams
 from ..logger import log_levels
 
 __all__ = ["CallParams"]
@@ -25,6 +26,7 @@ class CallParams:
         min_read_align_score: float = 0.9,
         max_rcn_iters: int = 50,
         num_bootstrap: int = 100,
+        gm_filter_factor: int = 3,
         flank_size: int = 70,
         skip_supplementary: bool = False,
         skip_secondary: bool = False,
@@ -54,6 +56,7 @@ class CallParams:
         self.min_read_align_score: float = min_read_align_score
         self.max_rcn_iters: int = max_rcn_iters
         self.num_bootstrap: int = num_bootstrap
+        self.gm_filter_factor: int = gm_filter_factor
         self.flank_size: int = flank_size
         self.skip_supplementary: bool = skip_supplementary
         self.skip_secondary: bool = skip_secondary
@@ -94,6 +97,15 @@ class CallParams:
         self._sample_id_orig: str | None = sample_id
         self.sample_id = sample_id or bam_sample_id
 
+        # TODO: user params for more of this
+        self._gmm_params = GMMParams(
+            init_params_method="k-means++", n_init=3, pre_filter_factor=5, filter_factor=self.gm_filter_factor
+        )
+
+    @property
+    def gmm_params(self) -> GMMParams:
+        return self._gmm_params
+
     @classmethod
     def from_args(cls, logger: logging.Logger, p_args):
         return cls(
@@ -109,6 +121,7 @@ class CallParams:
             min_read_align_score=p_args.min_read_align_score,
             max_rcn_iters=p_args.max_rcn_iters,
             num_bootstrap=p_args.num_bootstrap,
+            gm_filter_factor=p_args.gm_filter_factor,
             flank_size=p_args.flank_size,
             skip_supplementary=p_args.skip_supplementary,
             skip_secondary=p_args.skip_secondary,
@@ -140,6 +153,7 @@ class CallParams:
             "min_read_align_score": self.min_read_align_score,
             "max_rcn_iters": self.max_rcn_iters,
             "num_bootstrap": self.num_bootstrap,
+            "gm_filter_factor": self.gm_filter_factor,
             "flank_size": self.flank_size,
             "skip_supplementary": self.skip_supplementary,
             "skip_secondary": self.skip_secondary,

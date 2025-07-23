@@ -59,6 +59,9 @@
   benchmarking and in case of slight misalignment. This is clamped to being in the range of `[1, flank_size]`.
   **Default:** 5
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
+* `--gm-filter-factor`: Tuning parameter for the copy number Gaussian mixture model (GMM) used for allele calling in
+  some cases. GMM peaks are filtered out when they have a weight lower than `(gm_filter_factor * n_components)` for a
+  given GMM of `n_components`.
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
 * `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 

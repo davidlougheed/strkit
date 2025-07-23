@@ -171,6 +171,15 @@ def add_call_parser_args(call_parser):
              "estimate.")
 
     call_parser.add_argument(
+        "--gm-filter-factor",
+        type=int,
+        default=3,
+        help=(
+            "Filter factor for copy number Gaussian mixture models. With two alleles, a value of ex. 3 would mean "
+            "peaks of weight 1/(3*[n_alleles=2]) would be filtered out."
+        ))
+
+    call_parser.add_argument(
         "--sex-chr", "-x",
         type=str,
         help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "

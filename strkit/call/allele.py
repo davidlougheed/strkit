@@ -10,13 +10,12 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-import logging  # For type hinting
 import numpy as np
 import statistics
 
 from collections import Counter
+from logging import Logger  # For type hinting
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.mixture import GaussianMixture
 from warnings import simplefilter
 
 from numpy.typing import NDArray
@@ -24,8 +23,8 @@ from typing import Iterable, Literal, TypedDict, Union
 
 import strkit.constants as cc
 
+from .gmm import GMMParams, make_single_gaussian
 from .params import CallParams
-from .utils import get_new_seed
 
 __all__ = [
     "RepeatCounts",
@@ -43,7 +42,6 @@ simplefilter("ignore", category=ConvergenceWarning)
 # TODO: parameterize
 small_allele_min = 8
 expansion_ratio = 5
-N_GM_INIT = 3
 
 WEIGHT_1_0 = np.array([[1.0]])
 FLOAT_32_EPSILON = np.finfo(np.float32).eps
@@ -84,57 +82,32 @@ def na_length_list(n_alleles: int):
     return [list() for _ in range(n_alleles)]
 
 
-GMMInitParamsMethod = Literal["kmeans", "k-means++"]
-
-
-def make_fitted_gmm(
-    n_components: int, sample_rs: NDArray, init_params: GMMInitParamsMethod, n_init: int, rng: np.random.Generator
-):
-    return GaussianMixture(
-        n_components=n_components,
-        init_params=init_params,
-        covariance_type="spherical",
-        n_init=n_init,
-        random_state=get_new_seed(rng),
-    ).fit(sample_rs)
-
-
 def fit_gmm(
     rng: np.random.Generator,
     sample: NDArray,
     n_alleles: int,
     allele_filter: float,
     hq: bool,
-    gm_filter_factor: int,
-    init_params: GMMInitParamsMethod = "k-means++",  # TODO: parameterize outside
+    gmm_params: GMMParams,
 ) -> object | None:
-    def mk_single_gaussian() -> object:
-        # Don't need to do the full fit for a single peak, just calculate the parameters.
-        # I've confirmed this gives an ~identical result to fitting a GMM with one parameter.
-        fake_g: object = type("", (), {})()
-        fake_g.means_ = np.array([[np.mean(sample_rs)]])
-        fake_g.weights_ = WEIGHT_1_0
-        fake_g.covariances_ = np.array([[np.var(sample_rs)]])
-        return fake_g
-
     # performance hack: skip checking for two peak GMM if we have two close-together most common elements and the first
     # has significantly higher count than the next.
     mc = Counter(sample).most_common(2)
     gm_pre_filter_factor: int = 5
 
+    sample_rs = sample.reshape(-1, 1)
+
     if len(mc) == 1 or (mc[0][1] / (gm_pre_filter_factor * n_alleles) > mc[1][1] and abs(mc[1][0] - mc[0][0]) == 1):
-        return mk_single_gaussian()
+        return make_single_gaussian(sample_rs)
 
     n_components: int = n_alleles
-
-    sample_rs = sample.reshape(-1, 1)
     g: object | None = None
 
     while n_components > 0:
         if n_components == 1:
-            return mk_single_gaussian()
+            return make_single_gaussian(sample_rs)
 
-        g = make_fitted_gmm(n_components, sample_rs, init_params, N_GM_INIT, rng)
+        g = gmm_params.make_fitted_gmm(n_components, sample_rs, rng)
 
         # noinspection PyUnresolvedReferences
         means_and_weights = np.append(g.means_.transpose(), g.weights_.reshape(1, -1), axis=0)
@@ -151,8 +124,8 @@ def fit_gmm(
         #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
         #   sharing in the worst case where it represents just one allele
         if n_components > 2 or (n_components == 2 and (not hq or (
-                means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0], small_allele_min)))):
-            mw_filter_2 = means_and_weights[1, :] > (1 / (gm_filter_factor * n_components))
+                means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0].item(), small_allele_min)))):
+            mw_filter_2 = means_and_weights[1, :] > (1 / (gmm_params.filter_factor * n_components))
         else:
             mw_filter_2 = means_and_weights[1, :] > FLOAT_32_EPSILON
 
@@ -195,9 +168,8 @@ def call_alleles(
     n_alleles: int,
     separate_strands: bool,
     read_bias_corr_min: int,
-    gm_filter_factor: int,
     seed: int | None,
-    logger_: logging.Logger,
+    logger_: Logger,
     debug_str: str,
 ) -> CallDict | None:
     fwd_len = repeats_fwd.shape[0]
@@ -286,7 +258,7 @@ def call_alleles(
     def _get_fitted_gmm(s: NDArray[np.int_] | NDArray[np.float_]) -> object | None:
         if (s_t := s.tobytes()) not in gmm_cache:
             # Fit Gaussian mixture model to the resampled data
-            gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.hq, gm_filter_factor)
+            gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.hq, params.gmm_params)
 
         return gmm_cache[s_t]
 
