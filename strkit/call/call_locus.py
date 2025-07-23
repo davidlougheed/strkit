@@ -36,7 +36,7 @@ from .align_matrix import match_score
 from .cigar import decode_cigar_np
 from .params import CallParams
 from .realign import perform_realign
-from .repeats import get_repeat_count, get_ref_repeat_count
+from .repeats import RepeatCountParams, get_repeat_count, get_ref_repeat_count
 from .snvs import (
     SNV_GAP_CHAR,
     SNV_OUT_OF_RANGE_CHAR,
@@ -752,6 +752,29 @@ class SkipLocus(Exception):
     pass
 
 
+def _get_ref_rc_params(ref_est_cn: int) -> RepeatCountParams:
+    ref_max_iters = default_ref_max_iters
+    ref_step_size = 1
+    ref_local_search_range = 3
+
+    # search less with large repeat counts, but in bigger steps, because each alignment takes a long time.
+    if ref_est_cn >= 200:
+        if ref_est_cn < 1000:
+            ref_step_size = 3
+            ref_max_iters = 200
+        elif 1000 <= ref_est_cn < 2000:
+            ref_step_size = 5
+            ref_max_iters = 150
+        elif ref_est_cn >= 2000:  # ref_cn >= 2000
+            ref_step_size = 15
+            ref_max_iters = 50
+            ref_local_search_range = 1
+
+    return RepeatCountParams(
+        max_iters=ref_max_iters, initial_step_size=ref_step_size, initial_local_search_range=ref_local_search_range
+    )
+
+
 def get_locus_ref_data(
     ref: FastaFile,
     respect_ref: bool,
@@ -807,23 +830,6 @@ def get_locus_ref_data(
 
     ref_est_cn = round(len(ref_seq) / motif_size)  # Initial estimate of copy number based on coordinates + motif size
 
-    ref_max_iters = default_ref_max_iters
-    ref_step_size = 1
-    ref_local_search_range = 3
-
-    # search less with large repeat counts, but in bigger steps, because each alignment takes a long time.
-    if ref_est_cn >= 200:
-        if ref_est_cn < 1000:
-            ref_step_size = 3
-            ref_max_iters = 200
-        elif 1000 <= ref_est_cn < 2000:
-            ref_step_size = 5
-            ref_max_iters = 150
-        elif ref_est_cn >= 2000:  # ref_cn >= 2000
-            ref_step_size = 15
-            ref_max_iters = 50
-            ref_local_search_range = 1
-
     ref_cn: int | float
     (ref_cn, _), l_offset, r_offset, r_n_is, (ref_left_flank_seq, ref_seq, ref_right_flank_seq) = get_ref_repeat_count(
         ref_est_cn,
@@ -833,10 +839,9 @@ def get_locus_ref_data(
         motif,
         ref_size=right_coord-left_coord,  # reference size, in terms of coordinates (not TRF-recorded size)
         vcf_anchor_size=vcf_anchor_size,  # guarantee we still have some flanking stuff left to anchor with
-        max_iters=ref_max_iters,
+        # search less with large repeat counts, but in bigger steps, because each alignment takes a long time:
+        rc_params=_get_ref_rc_params(ref_est_cn),
         respect_coords=respect_ref,
-        local_search_range=ref_local_search_range,
-        step_size=ref_step_size,
     )
 
     slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
@@ -911,6 +916,7 @@ def call_locus(
     min_avg_phred = params.min_avg_phred
     min_read_align_score = params.min_read_align_score
     max_rcn_iters = params.max_rcn_iters
+    rc_params = params.rc_params
     snv_min_base_qual = params.snv_min_base_qual
     use_hp = params.use_hp
     vcf_anchor_size = params.vcf_anchor_size

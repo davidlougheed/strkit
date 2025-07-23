@@ -4,9 +4,14 @@ import pathlib
 from pysam import AlignmentFile
 
 from .gmm import GMMParams
+from .repeats import RepeatCountParams
 from ..logger import log_levels
 
 __all__ = ["CallParams"]
+
+
+DEFAULT_RC_LOCAL_SEARCH_RANGE: int = 3
+DEFAULT_RC_STEP_SIZE: int = 1
 
 
 class CallParams:
@@ -99,10 +104,21 @@ class CallParams:
         self._sample_id_orig: str | None = sample_id
         self.sample_id = sample_id or bam_sample_id
 
+        self._rc_params: RepeatCountParams = RepeatCountParams(
+            max_iters=max_rcn_iters,
+            # TODO: user params for more of this
+            initial_local_search_range=DEFAULT_RC_LOCAL_SEARCH_RANGE,
+            initial_step_size=DEFAULT_RC_STEP_SIZE,
+        )
+
         # TODO: user params for more of this
-        self._gmm_params = GMMParams(
+        self._gmm_params: GMMParams = GMMParams(
             init_params_method="k-means++", n_init=3, pre_filter_factor=5, filter_factor=self.gm_filter_factor
         )
+
+    @property
+    def rc_params(self) -> RepeatCountParams:
+        return self._rc_params
 
     @property
     def gmm_params(self) -> GMMParams:

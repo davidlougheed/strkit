@@ -1,5 +1,6 @@
 import parasail
 
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
@@ -9,12 +10,20 @@ from strkit.utils import idx_1_getter
 from .align_matrix import dna_matrix, indel_penalty
 
 __all__ = [
+    "RepeatCountParams",
     "get_repeat_count",
     "get_ref_repeat_count",
 ]
 
 
-DEFAULT_LOCAL_SEARCH_RANGE = 3
+@dataclass
+class RepeatCountParams:
+    max_iters: int
+    initial_local_search_range: int  # Initial value; can be narrowed within the get_repeat_count fn
+    initial_step_size: int
+
+    def __hash__(self):
+        return hash((self.max_iters, self.initial_local_search_range, self.initial_step_size))
 
 
 def score_candidate_with_string(db_seq_profile: parasail.Profile, tr_seq: str) -> int:
@@ -67,13 +76,18 @@ def get_repeat_count(
     flank_left_seq: str,
     flank_right_seq: str,
     motif: str,
-    max_iters: int,
-    local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
-    step_size: int = 1,
+    rc_params: RepeatCountParams,
 ) -> tuple[tuple[int, int], int, int]:
     # returns: (best size, best score), n_explored, best size - start count
     return _get_repeat_count(
-        start_count, tr_seq, flank_left_seq, flank_right_seq, motif, max_iters, local_search_range, step_size
+        start_count,
+        tr_seq,
+        flank_left_seq,
+        flank_right_seq,
+        motif,
+        rc_params.max_iters,
+        rc_params.initial_local_search_range,
+        rc_params.initial_step_size,
     )
 
 
@@ -85,11 +99,13 @@ def get_ref_repeat_count(
     motif: str,
     ref_size: int,
     vcf_anchor_size: int,
-    max_iters: int,
+    rc_params: RepeatCountParams,
     respect_coords: bool = False,
-    local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
-    step_size: int = 1,
 ) -> tuple[tuple[int | float, int], int, int, tuple[int, int], tuple[str, str, str]]:
+    max_iters = rc_params.max_iters
+    local_search_range = rc_params.initial_local_search_range
+    step_size = rc_params.initial_step_size
+
     l_offset: int = 0
     r_offset: int = 0
 
@@ -181,8 +197,7 @@ def get_ref_repeat_count(
         flank_left_seq,
         flank_right_seq,
         motif,
-        max_iters=max_iters,
-        step_size=step_size,
+        rc_params,
     )
 
     return (
