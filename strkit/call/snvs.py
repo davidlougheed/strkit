@@ -71,7 +71,7 @@ def call_and_filter_useful_snvs(
             if su == SNV_GAP_CHAR or su_q >= snv_quality_threshold:
                 peak_base_counts[u_ref][p].update((su,))
 
-    called_snvs: list[dict] = []
+    called_snvs: list[CalledSNV] = []
     skipped_snvs: set[int] = set()
 
     for u_idx, (u_ref, peak_counts) in enumerate(peak_base_counts.items()):
@@ -156,13 +156,15 @@ def call_and_filter_useful_snvs(
             skipped_snvs.add(u_idx)  # Skip this useful SNV, since it isn't actually useful
             continue
 
-        called_snvs.append({
-            "id": snv_id,
-            **({"ref": snv_rec["ref_base"]} if snv_rec is not None else {}),
-            "pos": u_ref,
-            "call": tuple(call),
-            "rcs": rs,
-        })
+        called_snvs.append(
+            CalledSNV(
+                id=snv_id,
+                pos=u_ref,
+                call=tuple(call),
+                rcs=rs,
+                **({"ref": snv_rec["ref_base"]} if snv_rec is not None else {}),
+            )
+        )
 
     # If we've skipped any SNVs, filter them out of the read dict - MUTATION
     if skipped_snvs:
