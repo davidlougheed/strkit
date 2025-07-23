@@ -71,6 +71,7 @@ def get_repeat_count(
     local_search_range: int = DEFAULT_LOCAL_SEARCH_RANGE,  # TODO: Parametrize for user
     step_size: int = 1,
 ) -> tuple[tuple[int, int], int, int]:
+    # returns: (best size, best score), n_explored, best size - start count
     return _get_repeat_count(
         start_count, tr_seq, flank_left_seq, flank_right_seq, motif, max_iters, local_search_range, step_size
     )
@@ -176,7 +177,7 @@ def get_ref_repeat_count(
     final_res, n_iters_final_count, _ = get_repeat_count(
         # always start with int here:
         round(((start_count * motif_size) + (max(0, l_offset) + max(0, r_offset))) / motif_size),
-        tr_seq,
+        tr_seq.upper(),  # for comparison purposes if we do any peeking pre-alignment for optimization purposes
         flank_left_seq,
         flank_right_seq,
         motif,
