@@ -1219,18 +1219,19 @@ def call_locus(
         # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
         read_adj_score: float | None = None if tr_len == 0 else read_cn_score / tr_len_w_flank
 
-        logger_.debug(
-            "%s - %s | start=%d, of=%.4f | rct=%fs, cn=%d, s=%d[%f], i=%d",
-            locus_log_str,
-            rn,
-            read_sc,
-            read_offset_frac_from_starting_guess,
-            rc_time,
-            read_cn,
-            read_cn_score,
-            read_adj_score,
-            n_read_cn_iters,
-        )
+        if params.verbose:
+            logger_.debug(
+                "%s - %s | start=%d, of=%.4f | rct=%fs, cn=%d, s=%d[%f], i=%d",
+                locus_log_str,
+                rn,
+                read_sc,
+                read_offset_frac_from_starting_guess,
+                rc_time,
+                read_cn,
+                read_cn_score,
+                read_adj_score,
+                n_read_cn_iters,
+            )
 
         if rc_time >= really_bad_read_alignment_time:
             logger_.debug(

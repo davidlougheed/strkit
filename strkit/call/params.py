@@ -43,6 +43,7 @@ class CallParams:
         vcf_anchor_size: int = 5,
         # ---
         log_level: int = logging.WARNING,
+        verbose: bool = False,
         seed: int | None = None,
         processes: int = 1,
     ):
@@ -73,6 +74,7 @@ class CallParams:
         self.vcf_anchor_size: int = vcf_anchor_size
         # ---
         self.log_level: int = log_level
+        self.verbose: bool = verbose
         self.seed: int | None = seed
         self.processes: int = processes
 
@@ -138,6 +140,7 @@ class CallParams:
             vcf_anchor_size=min(max(p_args.vcf_anchor_size, 1), p_args.flank_size),
             # ---
             log_level=log_levels[p_args.log_level],
+            verbose=p_args.verbose,
             seed=p_args.seed,
             processes=p_args.processes,
         )
@@ -169,6 +172,7 @@ class CallParams:
             "consensus": self.consensus,
             "vcf_anchor_size": self.vcf_anchor_size,
             "log_level": self.log_level,
+            "verbose": self.verbose,
             "seed": self.seed,
             "processes": self.processes,
         }

@@ -190,7 +190,8 @@ def call_alleles(
 
     # If the locus/allele only has one value, don't bother bootstrapping
     if np.unique(combined_reads).shape[0] == 1:
-        logger_.debug(f"{debug_str} - skipping bootstrap / GMM fitting for allele(s) (single value)")
+        logger_.debug("%s - skipping bootstrap / GMM fitting for allele(s) (single value)", debug_str)
+
         cn = combined_reads[0]
 
         call = _array_as_int(np.full(n_alleles, cn))

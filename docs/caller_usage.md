@@ -61,7 +61,7 @@
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
 * `--gm-filter-factor`: Tuning parameter for the copy number Gaussian mixture model (GMM) used for allele calling in
   some cases. GMM peaks are filtered out when they have a weight lower than `(gm_filter_factor * n_components)` for a
-  given GMM of `n_components`.
+  given GMM of `n_components`. **Default:** 3
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
 * `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 
@@ -79,6 +79,8 @@
   Useful for replicability.
 * `--log-level [level]`: Log level. Value must be of `error`, `warning`, `info`, and `debug`. Be careful with the 
   `debug` log level, as it can produce gigabytes of logs for a large run. **Default:** `info`.
+* `--verbose`: Debug log verbosity flag. If `--log-level` is set to `debug`, this will yield many more read-level debug
+  messages (i.e., for each aligned segment from the BAM/CRAM). **Default:** off
 
 
 ## Usage on HPC machines
