@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pysam import FastaFile
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
+from statistics import mean
 
 from numpy.typing import NDArray
 from typing import Iterable, Literal
@@ -1698,7 +1699,7 @@ def call_locus(
 
     # Calculate mean model (candidate TR) alignment score --------------------------------------------------------------
 
-    mean_model_align_score: float = sum(model_align_scores) / len(model_align_scores) if model_align_scores else None
+    mean_model_align_score: float | None = mean(model_align_scores) if model_align_scores else None
 
     # Calculate call time ----------------------------------------------------------------------------------------------
 
