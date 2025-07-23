@@ -172,17 +172,7 @@ def call_alleles(
     logger_: Logger,
     debug_str: str,
 ) -> CallDict | None:
-    fwd_len = repeats_fwd.shape[0]
-    rev_len = repeats_rev.shape[0]
-
-    fwd_strand_weights = make_read_weights(read_weights_fwd, fwd_len)
-    rev_strand_weights = make_read_weights(read_weights_rev, rev_len)
-
-    assert repeats_fwd.shape == fwd_strand_weights.shape
-    assert repeats_rev.shape == rev_strand_weights.shape
-
     combined_reads = np.concatenate((repeats_fwd, repeats_rev), axis=None)
-    combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
     combined_len = combined_reads.shape[-1]
 
     if combined_len < min_reads:
@@ -199,15 +189,30 @@ def call_alleles(
 
         peaks: NDArray[np.float_] = call.astype(np.float_)
 
-        return {
-            "call": call,
-            "call_95_cis": call_cis,
-            "call_99_cis": call_cis,
-            "peaks": peaks,
-            "peak_weights": np.full(n_alleles, 1.0 / n_alleles),
-            "peak_stdevs": np.full(n_alleles, 0.0),
-            "modal_n_peaks": 1,  # 1 peak, since we have 1 value
-        }
+        return CallDict(
+            call=call,
+            call_95_cis=call_cis,
+            call_99_cis=call_cis,
+            peaks=peaks,
+            peak_weights=np.full(n_alleles, 1.0 / n_alleles),
+            peak_stdevs=np.full(n_alleles, 0.0),
+            modal_n_peaks=1,
+        )
+
+    # ------------------------------------------------------------------------------------------------------------------
+
+    fwd_len = repeats_fwd.shape[0]
+    rev_len = repeats_rev.shape[0]
+
+    fwd_strand_weights = make_read_weights(read_weights_fwd, fwd_len)
+    rev_strand_weights = make_read_weights(read_weights_rev, rev_len)
+
+    assert repeats_fwd.shape == fwd_strand_weights.shape
+    assert repeats_rev.shape == rev_strand_weights.shape
+
+    combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
+
+    # ------------------------------------------------------------------------------------------------------------------
 
     nal = na_length_list(n_alleles)
     allele_samples = np.array(nal, dtype=np.float32)
@@ -334,17 +339,17 @@ def call_alleles(
 
     peak_weights /= peak_weights.sum()  # re-normalize weights
 
-    return {
-        "call": medians_of_means_final.flatten(),
-        "call_95_cis": allele_cis_95,
-        "call_99_cis": allele_cis_99,
+    return CallDict(
+        call=medians_of_means_final.flatten(),
+        call_95_cis=allele_cis_95,
+        call_99_cis=allele_cis_99,
 
-        "peaks": medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
-        "peak_weights": peak_weights,
-        "peak_stdevs": peak_stdevs.flatten(),
+        peaks=medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
+        peak_weights=peak_weights,
+        peak_stdevs=peak_stdevs.flatten(),
         # TODO: should be ok to use this, because resample gets put at end, vertically (3rd allele in a 3-ploid case)
         #  so taking the first 2 alleles still works in terms of stdev/mean estimates? I think?
         #  Not quite, cause it's sorted...
         #  --> Only do the peak assignment with 1/2 peaks, which is the majority of human situations
-        "modal_n_peaks": modal_n_peaks,
-    }
+        modal_n_peaks=modal_n_peaks,
+    )
