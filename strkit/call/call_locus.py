@@ -915,7 +915,6 @@ def call_locus(
     targeted = params.targeted
     min_avg_phred = params.min_avg_phred
     min_read_align_score = params.min_read_align_score
-    max_rcn_iters = params.max_rcn_iters
     rc_params = params.rc_params
     snv_min_base_qual = params.snv_min_base_qual
     use_hp = params.use_hp
@@ -1207,14 +1206,14 @@ def call_locus(
             flank_left_seq=flank_left_seq,
             flank_right_seq=flank_right_seq,
             motif=motif,
-            max_iters=max_rcn_iters,
+            rc_params=rc_params,
         )
         # Update using +=, since if we use an offset that was correct, the new returned offset will be 0, so we really
         # want to keep the old offset, not set it to 0.
         read_offset_frac_from_starting_guess += new_offset_from_starting_count / max(read_cn, 1)
         rc_time = time.perf_counter() - rc_timer
 
-        if n_read_cn_iters >= max_rcn_iters:
+        if n_read_cn_iters >= rc_params.max_iters:
             logger_.debug(
                 "%s - %s: read repeat counting exceeded maximum # iterations (%d)",
                 locus_log_str,
