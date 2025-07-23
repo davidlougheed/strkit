@@ -19,12 +19,12 @@ patsy==0.5.6
 pluggy==1.4.0
 psutil==6.1.0
 pyparsing==3.1.2
-pysam==0.23.0
+pysam==0.23.3
 pytest==7.4.4
 pytest-cov==4.1.0
 python-dateutil==2.8.2
 pytz==2025.2
-scikit-learn==1.4.2
+scikit-learn==1.7.1
 scipy==1.15.1
 six==1.16.0
 statsmodels==0.14.4
