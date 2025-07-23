@@ -1,17 +1,33 @@
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from strkit.json import json
-from typing import TypedDict
+
+__all__ = [
+    "BUNDLED_PLOIDY_CONFIGS",
+    "PloidyConfig",
+    "validate_ploidy_config",
+    "load_ploidy_config",
+]
 
 
 BUNDLED_PLOIDY_CONFIGS: dict[str, Path] = {
-    "diploid_xx": Path(__file__).parent / "data" / "ploidy_configs" / "diploid_xx.json",
-    "diploid_xy": Path(__file__).parent / "data" / "ploidy_configs" / "diploid_xx.json",
+    "haploid": Path(__file__).parent / "data" / "ploidy_configs" / "haploid.json",
+    "XX": Path(__file__).parent / "data" / "ploidy_configs" / "diploid_xx.json",
+    "XY": Path(__file__).parent / "data" / "ploidy_configs" / "diploid_xy.json",
 }
 
 
-class PloidyConfig(TypedDict):
+@dataclass
+class PloidyConfig:
     default: int
     overrides: dict[str, int]
+
+    def n_of(self, contig: str):
+        for k, v in self.overrides.items():
+            if re.fullmatch(k, contig):
+                return v
+        return self.default
 
 
 def validate_ploidy_config(p: dict) -> PloidyConfig:
