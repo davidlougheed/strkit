@@ -891,7 +891,7 @@ def call_locus(
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     # ---
-    seed: int,
+    rng: np.random.Generator,
     logger_: logging.Logger,
     locus_log_str: str,
     # ---
@@ -918,8 +918,6 @@ def call_locus(
     use_hp = params.use_hp
     vcf_anchor_size = params.vcf_anchor_size
     # ----------------------------------
-
-    rng = np.random.default_rng(seed=seed)
 
     read_contig = normalize_contig(contig, read_file_has_chr)
 

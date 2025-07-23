@@ -9,7 +9,6 @@ from typing import Iterable
 
 from .allele import get_n_alleles
 from .params import CallParams
-from .utils import get_new_seed
 
 
 __all__ = [
@@ -130,8 +129,8 @@ def load_loci(
 
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
-        # Tuple of (1-indexed locus index, contig, left coord, right coord, motif, locus-specific random seed)
-        locus_queue.put((t_idx, contig, start, end, motif, n_alleles, get_new_seed(rng)))
+        # Tuple of (1-indexed locus index, contig, left coord, right coord, motif)
+        locus_queue.put((t_idx, contig, start, end, motif, n_alleles))
         num_loci += 1
 
     del last_contig  # more as a marker for when we're finished with this, for later refactoring

@@ -30,6 +30,7 @@ from .output import (
     output_contig_vcf_lines,
 )
 from .types import VCFContigFormat, LocusResult
+from .utils import get_new_seed
 
 __all__ = [
     "call_sample",
@@ -70,6 +71,7 @@ def locus_worker(
     snv_genotype_update_lock: Lock,
     snv_genotype_cache: mmg.DictProxy,
     is_single_processed: bool,
+    seed: int,
 ) -> list[LocusResult]:
     if PROFILE_LOCUS_CALLS:
         import cProfile
@@ -89,6 +91,8 @@ def locus_worker(
     else:
         from strkit.logger import create_process_logger
         lg = create_process_logger(getpid(), params.log_level)
+
+    rng = np_default_rng(seed=seed)
 
     sample_id = params.sample_id
 
@@ -129,7 +133,7 @@ def locus_worker(
             lg.debug(f"worker %d encountered queue.Empty", worker_id)
             break
 
-        t_idx, contig, left_coord, right_coord, motif, n_alleles, locus_seed = td
+        t_idx, contig, left_coord, right_coord, motif, n_alleles = td
 
         if current_contig is None:
             current_contig = contig
@@ -162,7 +166,7 @@ def locus_worker(
                 snv_genotype_update_lock,
                 snv_genotype_cache,
                 # ---
-                seed=locus_seed,
+                rng=rng,
                 logger_=lg,
                 locus_log_str=locus_log_str,
                 snv_vcf_file=snv_vcf_reader,
@@ -352,6 +356,7 @@ def call_sample(
             snv_genotype_update_lock,
             snv_genotype_cache,
             is_single_processed,
+            get_new_seed(rng),
         )
 
         n_contigs_processed: int = 0
