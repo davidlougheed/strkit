@@ -21,7 +21,7 @@ setup(
         "parasail>=1.2.4,<1.4",
         "pydantic>=2.11.7,<3",
         "scikit-learn>=1.2.1,<1.8",
-        "scipy>=1.10,<1.16",
+        "scipy>=1.10,<1.17",
         "statsmodels>=0.14.0,<0.15",
         "strkit_rust_ext==0.21.0",
     ],
