@@ -1554,9 +1554,7 @@ def call_locus(
     single_or_dist_assign: bool = assign_method in ("single", "dist")
 
     if single_or_dist_assign:  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
-        call_data = call_alleles_with_gmm(
-            params, n_alleles, read_dict, read_dict_extra, assign_method, rng, logger_, locus_log_str
-        )
+        call_data = call_alleles_with_gmm(params, n_alleles, read_dict, assign_method, rng, logger_, locus_log_str)
 
     allele_time = time.perf_counter() - allele_start_time
 
