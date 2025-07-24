@@ -21,15 +21,12 @@ from warnings import simplefilter
 from numpy.typing import NDArray
 from typing import Iterable, Literal, TypedDict, Union
 
-import strkit.constants as cc
-
 from .gmm import GMMParams, make_single_gaussian
 from .params import CallParams
 
 __all__ = [
     "RepeatCounts",
     "CallDict",
-    "get_n_alleles",
     "call_alleles",
 ]
 
@@ -61,21 +58,6 @@ def _calculate_cis(samples, ci: str = Literal["95", "99"]) -> NDArray[np.int32]:
         samples, CI_PERCENTILE_RANGES[ci], axis=1, method="interpolated_inverted_cdf"
     ).transpose()
     return _array_as_int(percentiles)
-
-
-def get_n_alleles(default_n_alleles: int, sample_sex_chroms: str | None, contig: str) -> int | None:
-    if contig in cc.M_CHROMOSOME_NAMES:
-        return 1
-
-    if contig in cc.SEX_CHROMOSOMES:
-        if sample_sex_chroms is None:
-            return None
-        if contig in cc.X_CHROMOSOME_NAMES:
-            return sample_sex_chroms.count("X")
-        if contig in cc.Y_CHROMOSOME_NAMES:
-            return sample_sex_chroms.count("Y")
-
-    return default_n_alleles
 
 
 def na_length_list(n_alleles: int):

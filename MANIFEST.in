@@ -1,3 +1,4 @@
 include strkit/VERSION
+include strkit/data/ploidy_configs/*.json
 include strkit/viz/static/logo.png
 include strkit/viz/templates/*.html
