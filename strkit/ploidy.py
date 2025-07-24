@@ -1,59 +1,66 @@
 import re
-from dataclasses import dataclass
 from pathlib import Path
-from strkit.json import json
+from pydantic import BaseModel, Field
 
 __all__ = [
     "BUNDLED_PLOIDY_CONFIGS",
+    "PLOIDY_OPTIONS_HELP_TEXT",
     "PloidyConfig",
-    "validate_ploidy_config",
     "load_ploidy_config",
 ]
 
+PLOIDY_CONFIG_BASE_PATH = Path(__file__).parent / "data" / "ploidy_configs"
+DIPLOID_XX_PATH = PLOIDY_CONFIG_BASE_PATH / "diploid_xx.json"
+DIPLOID_XY_PATH = PLOIDY_CONFIG_BASE_PATH / "diploid_xy.json"
 
 BUNDLED_PLOIDY_CONFIGS: dict[str, Path] = {
-    "haploid": Path(__file__).parent / "data" / "ploidy_configs" / "haploid.json",
-    "XX": Path(__file__).parent / "data" / "ploidy_configs" / "diploid_xx.json",
-    "XY": Path(__file__).parent / "data" / "ploidy_configs" / "diploid_xy.json",
+    "haploid": PLOIDY_CONFIG_BASE_PATH / "haploid.json",
+    "diploid_autosomes": PLOIDY_CONFIG_BASE_PATH / "diploid_autosomes.json",
+    # aliases for diploid_xx.json:
+    "diploid_xx": DIPLOID_XX_PATH,
+    "XX": DIPLOID_XX_PATH,
+    # aliases for diploid_xy.json:
+    "diploid_xy": DIPLOID_XY_PATH,
+    "XY": DIPLOID_XY_PATH,
 }
+BUNDLED_PLOIDY_CONFIGS_KEYS = tuple(BUNDLED_PLOIDY_CONFIGS.keys())
 
 
-@dataclass
-class PloidyConfig:
+def _build_ploidy_options_help():
+    ht = ""
+
+    for i, (k, v) in enumerate(BUNDLED_PLOIDY_CONFIGS.items()):
+        if i > 0:
+            if BUNDLED_PLOIDY_CONFIGS[BUNDLED_PLOIDY_CONFIGS_KEYS[i - 1]] == v:
+                ht += f"/{k}"
+            else:
+                ht += f", {k}"
+        else:
+            ht += k
+
+    return ht
+
+
+PLOIDY_OPTIONS_HELP_TEXT = _build_ploidy_options_help()
+
+VALID_KEY_SETS: frozenset[frozenset[str]] = frozenset([
+    frozenset({"default"}),
+    frozenset({"default", "overrides"}),
+    frozenset({"default", "ignore"}),
+    frozenset({"default", "ignore", "overrides"}),
+])
+
+
+class PloidyConfig(BaseModel):
     default: int
-    overrides: dict[str, int]
+    overrides: dict[str, int] = Field(default_factory=lambda: {})
+    ignore: frozenset[str] = frozenset([])
 
-    def n_of(self, contig: str):
+    def n_of(self, contig: str) -> int | None:
         for k, v in self.overrides.items():
             if re.fullmatch(k, contig):
                 return v
         return self.default
-
-
-def validate_ploidy_config(p: dict) -> PloidyConfig:
-    """
-    Validate the structure of a ploidy configuration dictionary and return the validated, typed version of the ploidy
-    configuration dictionary.
-    :param p: Unvalidated ploidy configuration dictionary.
-    :return: Validated, typed version of the ploidy configuration dictionary.
-    """
-
-    p_keys = set(p.keys())
-
-    if p_keys != {"default"} and p_keys != {"default", "overrides"}:
-        raise ValueError(f"Invalid ploidy configuration: invalid set of keys {p_keys}")
-
-    default_ploidy = p["default"]
-    if not isinstance(default_ploidy, int):
-        raise ValueError("Ploidy configuration default must be integer")
-
-    overrides = p.get("overrides", {})
-
-    for k, v in overrides.items():
-        if not isinstance(v, int):
-            raise ValueError("Ploidy configuration override value must be integer")
-
-    return PloidyConfig(default=default_ploidy, overrides=overrides)
 
 
 def load_ploidy_config(id_or_path: Path | str) -> PloidyConfig:
@@ -74,4 +81,4 @@ def load_ploidy_config(id_or_path: Path | str) -> PloidyConfig:
         ploidy_config_path = id_or_path
 
     with open(ploidy_config_path, "r") as fh:
-        return validate_ploidy_config(json.loads(fh.read()))
+        return PloidyConfig.model_validate_json(fh.read())

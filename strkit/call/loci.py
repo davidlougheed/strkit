@@ -7,7 +7,6 @@ from numpy.random import Generator as NPRandomGenerator
 from queue import Queue
 from typing import Iterable
 
-from .allele import get_n_alleles
 from .params import CallParams
 
 
@@ -84,7 +83,7 @@ def load_loci(
 ) -> tuple[int, set[str]]:
     @functools.cache  # Cache get_n_alleles calls for contigs
     def _get_contig_n_alleles(ctg: str):
-        return get_n_alleles(2, params.sex_chroms, ctg)
+        return params.ploidy_config.n_of(ctg)
 
     load_start_time = time.perf_counter()
 

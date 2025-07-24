@@ -754,6 +754,7 @@ class MIResult:
 
     @staticmethod
     def _nm_sort_key_pos(locus: MILocusData):
+        # TODO: this doesn't properly support non-human data
         return CHROMOSOMES.index(locus.contig), locus.start, locus.motif
 
     def _nm_sort_key_test(self, locus: MILocusData):

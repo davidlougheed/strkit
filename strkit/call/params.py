@@ -6,6 +6,7 @@ from pysam import AlignmentFile
 from .gmm import GMMParams
 from .repeats import RepeatCountParams
 from ..logger import log_levels
+from ..ploidy import PloidyConfig, load_ploidy_config
 
 __all__ = ["CallParams"]
 
@@ -35,7 +36,7 @@ class CallParams:
         flank_size: int = 70,
         skip_supplementary: bool = False,
         skip_secondary: bool = False,
-        sex_chroms: str | None = None,
+        ploidy: str | None = None,
         realign: bool = False,
         hq: bool = False,
         use_hp: bool = False,
@@ -66,7 +67,7 @@ class CallParams:
         self.flank_size: int = flank_size
         self.skip_supplementary: bool = skip_supplementary
         self.skip_secondary: bool = skip_secondary
-        self.sex_chroms: str | None = sex_chroms
+        self.ploidy: str | None = ploidy
         self.realign: bool = realign
         self.hq: bool = hq
         self.use_hp: bool = use_hp
@@ -104,6 +105,8 @@ class CallParams:
         self._sample_id_orig: str | None = sample_id
         self.sample_id = sample_id or bam_sample_id
 
+        self._ploidy_config: PloidyConfig = load_ploidy_config(self.ploidy)
+
         self._rc_params: RepeatCountParams = RepeatCountParams(
             max_iters=max_rcn_iters,
             # TODO: user params for more of this
@@ -115,6 +118,10 @@ class CallParams:
         self._gmm_params: GMMParams = GMMParams(
             init_params_method="k-means++", n_init=3, pre_filter_factor=5, filter_factor=self.gm_filter_factor
         )
+
+    @property
+    def ploidy_config(self) -> PloidyConfig:
+        return self._ploidy_config
 
     @property
     def rc_params(self) -> RepeatCountParams:
@@ -143,7 +150,7 @@ class CallParams:
             flank_size=p_args.flank_size,
             skip_supplementary=p_args.skip_supplementary,
             skip_secondary=p_args.skip_secondary,
-            sex_chroms=p_args.sex_chr,
+            ploidy=p_args.ploidy,
             realign=p_args.realign,
             hq=p_args.hq,
             use_hp=p_args.use_hp,
@@ -177,6 +184,7 @@ class CallParams:
             "skip_supplementary": self.skip_supplementary,
             "skip_secondary": self.skip_secondary,
             "sample_id": self._sample_id_orig if as_inputted else self.sample_id,
+            "ploidy": self.ploidy,
             "realign": self.realign,
             "hq": self.hq,
             "use_hp": self.use_hp,

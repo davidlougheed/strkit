@@ -11,6 +11,7 @@ import strkit.constants as c
 from strkit import __version__
 from strkit.exceptions import ParamError, InputError
 from strkit.logger import get_main_logger, attach_stream_handler, log_levels
+from strkit.ploidy import PLOIDY_OPTIONS_HELP_TEXT
 
 
 def add_call_parser_args(call_parser):
@@ -180,10 +181,12 @@ def add_call_parser_args(call_parser):
         ))
 
     call_parser.add_argument(
-        "--sex-chr", "-x",
+        "--ploidy", "--sex-chr", "-x",
         type=str,
-        help="Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will not "
-             "be genotyped.")
+        default="diploid_autosomes",
+        help=f"Sex chromosome configuration to use for this sample (XX, XY, etc.) If left out, sex chromosomes will "
+             f"not be genotyped. Bundled options are: {PLOIDY_OPTIONS_HELP_TEXT}. See documentation for more "
+             f"information on how these JSON configuration files can be formatted.")
 
     # BEGIN FILE OUTPUT ARGUMENTS ======================================================================================
 

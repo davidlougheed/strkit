@@ -1,0 +1,7 @@
+{
+  "default": 2,
+  "ignore": ["chr(X|Y)"],
+  "overrides": {
+    "(chr)?M": 1
+  }
+}

@@ -8,7 +8,6 @@ from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
 from typing import Iterable
 
 from strkit.utils import cat_strs, is_none, idx_0_getter
-from ..allele import get_n_alleles
 from ..params import CallParams
 from ..types import LocusResult
 from ..utils import cn_getter
@@ -130,7 +129,7 @@ def output_contig_vcf_lines(
         ref_start_anchor = result["ref_start_anchor"].upper()
         ref_seq = result["ref_seq"].upper()
 
-        n_alleles: int = get_n_alleles(2, params.sex_chroms, contig) or 2
+        n_alleles: int = params.ploidy_config.n_of(contig)
 
         res_reads = result["reads"]
         res_peaks = result["peaks"] or {}
