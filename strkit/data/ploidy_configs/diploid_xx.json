@@ -1,6 +1,7 @@
 {
   "default": 2,
   "overrides": {
+    "(chr)?Y": 0,
     "(chr)?M": 1
   }
 }

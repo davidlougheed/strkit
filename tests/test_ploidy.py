@@ -32,6 +32,13 @@ def test_ploidy_load_and_use():
     assert haploid.n_of("chrX") == 1
     assert haploid.n_of("chrM") == 1
 
+    diploid_xx = load_ploidy_config("XX")
+    assert diploid_xx.n_of("chr1") == 2
+    assert diploid_xx.n_of("chr22") == 2
+    assert diploid_xx.n_of("chrX") == 2
+    assert diploid_xx.n_of("chrY") == 0
+    assert diploid_xx.n_of("chrM") == 1
+
     diploid_xy = load_ploidy_config("XY")
     assert diploid_xy.n_of("chr1") == 2
     assert diploid_xy.n_of("chr22") == 2
