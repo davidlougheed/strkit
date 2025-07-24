@@ -1023,7 +1023,7 @@ def call_locus(
     read_q_coords: dict[str, np.typing.NDArray[np.uint64]] = {}
     read_r_coords: dict[str, np.typing.NDArray[np.uint64]] = {}
 
-    n_extremely_poor_scoring_reads = 0
+    extremely_poor_scoring_reads = []
 
     read_offset_frac_from_starting_guess: float = 0.0
 
@@ -1238,7 +1238,7 @@ def call_locus(
             )
 
         if rc_time >= really_bad_read_alignment_time:
-            logger_.debug(
+            logger_.warning(
                 "%s - not calling locus due to a pathologically-poorly-aligning read (%s; get_repeat_count time "
                 "%.3fs > %.3f; # get_repeat_count iters: %d; motif=%s; ref_cn=%d)",
                 locus_log_str,
@@ -1282,12 +1282,14 @@ def call_locus(
             )
 
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
-                n_extremely_poor_scoring_reads += 1
-                if n_extremely_poor_scoring_reads > max_bad_reads:
-                    logger_.debug(
-                        "%s - not calling locus due to >3 extremely poor-aligning reads (most recent read TR seq: "
-                        "%s...)",
+                extremely_poor_scoring_reads.append((rn, read_adj_score))
+                if len(extremely_poor_scoring_reads) > max_bad_reads:
+                    logger_.warning(
+                        "%s - not calling locus due to >3 extremely poor-aligning reads (%s, "
+                        "most recent # iters: %d, most recent read TR seq: %s...)",
                         locus_log_str,
+                        str(extremely_poor_scoring_reads),
+                        n_read_cn_iters,
                         tr_read_seq_wc[:20],
                     )
 
