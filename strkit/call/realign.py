@@ -22,8 +22,8 @@ __all__ = [
 
 min_realign_score_ratio: float = 0.95  # TODO: parametrize
 realign_indel_open_penalty: int = 7  # TODO: parametrize
-max_ref_len_for_same_proc: int = 1200  # TODO: parametrize
-max_read_len_for_same_proc: int = 20000  # TODO: parametrize
+max_ref_len_for_same_proc: int = 2000  # TODO: parametrize
+max_read_len_for_same_proc: int = 25000  # TODO: parametrize
 
 
 MatchedCoordPairList = tuple[NDArray[np.uint64], NDArray[np.uint64]]
