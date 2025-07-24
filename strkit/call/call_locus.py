@@ -1071,7 +1071,6 @@ def call_locus(
                 # ---
                 params,
                 realign_timeout,
-                force_realign,
                 # ---
                 logger_,
                 locus_log_str,
