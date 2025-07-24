@@ -60,6 +60,9 @@ class PloidyConfig(BaseModel):
         for k, v in self.overrides.items():
             if re.fullmatch(k, contig):
                 return v
+        for k in self.ignore:
+            if re.fullmatch(k, contig):
+                return None
         return self.default
 
 
