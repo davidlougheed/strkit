@@ -69,6 +69,7 @@ class CallParams:
         self.skip_secondary: bool = skip_secondary
         self.ploidy: str | None = ploidy
         self.realign: bool = realign
+        self.realign_timeout: int = 5  # TODO: user param
         self.hq: bool = hq
         self.use_hp: bool = use_hp
         self.snv_vcf: pathlib.Path | None = snv_vcf

@@ -75,7 +75,6 @@ def perform_realign(
     fqqs: NDArray[np.uint8],
     # ---
     params: CallParams,
-    realign_timeout: int,
     # ---
     logger_: logging.Logger,
     locus_log_str: str,
@@ -111,7 +110,7 @@ def perform_realign(
 
     pairs_new: STRkitAlignedCoords | None = None
     try:
-        pairs_new = q.get(timeout=realign_timeout)
+        pairs_new = q.get(timeout=params.realign_timeout)
         proc.join()
     except queue.Empty:
         logger_.warning(

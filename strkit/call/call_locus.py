@@ -1057,7 +1057,6 @@ def call_locus(
                 fqqs,
                 # ---
                 params,
-                realign_timeout,
                 # ---
                 logger_,
                 locus_log_str,
