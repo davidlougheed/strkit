@@ -1081,7 +1081,7 @@ def call_locus(
 
                 # equivalent to the below check of `coords_or_none is None` - if realign happens, but the flank
                 # boundaries cannot be extracted from the alignment, we skip this read.
-                if any(v == -1 for v in (left_flank_start, left_flank_end, right_flank_start, right_flank_end)):
+                if -1 in (left_flank_start, left_flank_end, right_flank_start, right_flank_end):
                     debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
                     continue
 
