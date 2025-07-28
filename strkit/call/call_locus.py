@@ -1052,9 +1052,7 @@ def call_locus(
                 locus.t_idx,
                 locus.left_flank_coord,
                 locus_ref_data.ref_total_seq,
-                rn,
-                qs,
-                fqqs,
+                segment,
                 # ---
                 params,
                 # ---
