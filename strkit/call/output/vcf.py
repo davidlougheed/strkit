@@ -52,12 +52,9 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
     vh.add_meta("reference", f"file://{str(Path(reference_file).resolve().absolute())}")
 
     # Add all contigs from the reference genome file + lengths
-    rf = FastaFile(reference_file)
-    try:
+    with FastaFile(reference_file) as rf:
         for contig in rf.references:
             vh.contigs.add(contig, length=rf.get_reference_length(contig))
-    finally:
-        rf.close()
 
     # Add CNV:TR alt type (symbolic allele: tandem repeat)
     # vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")

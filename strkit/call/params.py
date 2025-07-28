@@ -84,10 +84,9 @@ class CallParams:
         self.seed: int | None = seed
         self.processes: int = processes
 
-        bf = AlignmentFile(read_file, reference_filename=reference_file)
-
-        # noinspection PyTypeChecker
-        bfh = bf.header.to_dict()
+        with AlignmentFile(read_file, reference_filename=reference_file) as bf:
+            # noinspection PyTypeChecker
+            bfh = bf.header.to_dict()
 
         sns: set[str] = {e.get("SM") for e in bfh.get("RG", ()) if e.get("SM")}
         bam_sample_id: str | None = None
