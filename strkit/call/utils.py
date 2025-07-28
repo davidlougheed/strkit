@@ -10,7 +10,6 @@ __all__ = [
     "cn_getter",
     "neq_blank",
     "normalize_contig",
-    "round_to_base_pos",
     "get_new_seed",
     "calculate_seq_with_wildcards",
 ]
@@ -23,10 +22,6 @@ neq_blank = partial(operator.ne, "")
 
 def normalize_contig(contig: str, has_chr: bool) -> str:
     return ("chr" if has_chr else "") + contig.replace("chr", "")
-
-
-def round_to_base_pos(x, motif_size: int) -> float:
-    return round(float(x) * motif_size) / motif_size
 
 
 def get_new_seed(rng: np.random.Generator) -> int:
