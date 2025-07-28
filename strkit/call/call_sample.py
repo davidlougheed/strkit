@@ -13,6 +13,7 @@ from multiprocessing.synchronize import Event as EventClass  # For type hinting
 from numpy.random import Generator as NPRandomGenerator, default_rng as np_default_rng
 from operator import itemgetter
 from pysam import VariantFile as PySamVariantFile
+from strkit_rust_ext import STRkitLocus
 from queue import Empty as QueueEmpty
 from threading import Lock
 from typing import Literal
@@ -125,36 +126,26 @@ def locus_worker(
 
     while True:
         try:
-            td = locus_queue.get_nowait()
-            if td is None:  # Kill signal
+            locus: STRkitLocus | None = locus_queue.get_nowait()
+            if locus is None:  # Kill signal
                 lg.debug(f"worker %d finished current contig: %s", worker_id, current_contig)
                 break
         except QueueEmpty:
             lg.debug(f"worker %d encountered queue.Empty", worker_id)
             break
 
-        t_idx, contig, left_coord, right_coord, motif, n_alleles = td
-
         if current_contig is None:
-            current_contig = contig
+            current_contig = locus.contig
 
         # String representation of locus for logging purposes
-        locus_log_str: str = (
-            f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}locus {t_idx}: "
-            f"{contig}:{left_coord}-{right_coord} [{motif}]"
-        )
+        locus_log_str: str = f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}{locus.log_str()}"
 
         lg.debug("%s - working on locus", locus_log_str)
 
         try:
             res = call_locus(
-                t_idx,
-                contig,
-                left_coord,
-                right_coord,
-                motif,
+                locus,
                 # ---
-                n_alleles,
                 bf,
                 ref,
                 params,
@@ -179,7 +170,7 @@ def locus_worker(
         except Exception as e:
             import traceback
             res = None
-            lg.error(f"{locus_log_str} - encountered exception while genotyping ({t_idx=}, {n_alleles=}): {repr(e)}")
+            lg.error(f"{locus_log_str} - encountered exception while genotyping ({locus.n_alleles=}): {repr(e)}")
             lg.error(f"{locus_log_str} - {traceback.format_exc()}")
 
         locus_counter_lock.acquire(timeout=30)
@@ -287,7 +278,8 @@ def call_sample(
     manager: mmg.SyncManager = mp.Manager()
 
     locus_queue = manager.Queue()
-    num_loci, contig_set = load_loci(params, locus_queue, logger, rng)
+    # Loads actual STRkitLocus definitions into locus_queue, but returns # of loci + the contig set:
+    num_loci, contig_set = load_loci(params, locus_queue, logger)
 
     # ---
 

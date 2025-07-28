@@ -9,7 +9,6 @@ from ..utils import cat_strs
 __all__ = [
     "cn_getter",
     "neq_blank",
-    "find_pair_by_ref_pos",
     "normalize_contig",
     "round_to_base_pos",
     "get_new_seed",
@@ -20,12 +19,6 @@ __all__ = [
 # index/property getters and other partials
 cn_getter = operator.itemgetter("cn")
 neq_blank = partial(operator.ne, "")
-
-
-def find_pair_by_ref_pos(r_coords: NDArray[np.uint64], target: int, start_left: int = 0) -> tuple[int, bool]:
-    n_pairs: int = len(r_coords)
-    idx = start_left + np.searchsorted(r_coords[start_left:], target)
-    return idx, idx < n_pairs and r_coords[idx] == target
 
 
 def normalize_contig(contig: str, has_chr: bool) -> str:

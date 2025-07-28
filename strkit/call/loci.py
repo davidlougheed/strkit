@@ -3,8 +3,8 @@ import re
 import time
 
 from logging import Logger
-from numpy.random import Generator as NPRandomGenerator
 from queue import Queue
+from strkit_rust_ext import STRkitLocus
 from typing import Iterable
 
 from .params import CallParams
@@ -47,24 +47,24 @@ def valid_motif(motif: str) -> bool:
     return RE_VALID_MOTIF.match(motif) is not None
 
 
-def validate_locus(line: int, start: int, end: int, motif: str) -> None:
+def validate_locus(locus: STRkitLocus) -> None:
     """
     Validate a locus definition for use by STRkit.
-    :param line: Line number, for logging errors in a catalog BED file.
-    :param start: Start coordinate; 0-based, inclusive.
-    :param end: End coordinate; 0-based, exclusive.
-    :param motif: Motif sequence (to be validated).
+    :param locus: Locus definition data class (implemented in strkit_rust_ext.)
     """
 
-    if start >= end:
+    line = locus.t_idx
+
+    if locus.left_coord >= locus.right_coord:
         raise LocusValidationError(
-            f"BED catalog format error: invalid coordinates on line {line}: start ({start}) >= end ({end})",
+            f"BED catalog format error: invalid coordinates on line {line}: start ({locus.left_coord}) >= end "
+            f"({locus.right_coord})",
             "BED catalog: coordinates must be 0-based, half-open - [start, end)",
         )
 
-    if not valid_motif(motif):
+    if not valid_motif(locus.motif):
         raise LocusValidationError(
-            f"BED catalog format error: invalid motif on line {line}: {motif}",
+            f"BED catalog format error: invalid motif on line {line}: {locus.motif}",
             "BED catalog: motifs must contain only valid IUPAC nucleotide codes.",
         )
 
@@ -78,9 +78,7 @@ def parse_loci_bed(loci_file: str) -> Iterable[tuple[str, ...]]:
         )
 
 
-def load_loci(
-    params: CallParams, locus_queue: Queue, logger: Logger, rng: NPRandomGenerator
-) -> tuple[int, set[str]]:
+def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str]]:
     @functools.cache  # Cache get_n_alleles calls for contigs
     def _get_contig_n_alleles(ctg: str):
         return params.ploidy_config.n_of(ctg)
@@ -120,16 +118,19 @@ def load_loci(
         start = int(t[1])
         end = int(t[2])
         motif = t[-1].upper()
+
+        locus = STRkitLocus(t_idx, contig, start, end, motif, n_alleles, flank_size=params.flank_size)
+
         try:
-            validate_locus(t_idx, start, end, motif)
+            validate_locus(locus)
         except LocusValidationError as e:
             e.log_error(logger)
             exit(1)
 
         # We use locus-specific random seeds for replicability, no matter which order
         # the loci are yanked out of the queue / how many processes we have.
-        # Tuple of (1-indexed locus index, contig, left coord, right coord, motif)
-        locus_queue.put((t_idx, contig, start, end, motif, n_alleles))
+        # (1-indexed locus index, contig, left coord, right coord, motif)
+        locus_queue.put(locus)
         num_loci += 1
 
     del last_contig  # more as a marker for when we're finished with this, for later refactoring

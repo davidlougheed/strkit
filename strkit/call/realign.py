@@ -7,6 +7,7 @@ import queue
 import time
 
 from numpy.typing import NDArray
+from strkit_rust_ext import STRkitAlignedCoords
 
 from .align_matrix import match_score, dna_matrix
 from .cigar import decode_cigar_np, get_aligned_pair_matches
@@ -38,10 +39,10 @@ def realign_read(
     q,  # mp.Queue | None
     read_log_str: str,
     log_level: int = logging.WARNING,
-) -> MatchedCoordPairListOrNone:
+) -> STRkitAlignedCoords | None:
     # Have to re-attach logger in separate process I guess
 
-    def ret_q(v: MatchedCoordPairListOrNone) -> MatchedCoordPairListOrNone:
+    def ret_q(v: STRkitAlignedCoords | None) -> STRkitAlignedCoords | None:
         if q:
             q.put(v)
             q.close()
@@ -61,8 +62,7 @@ def realign_read(
 
     lg.debug(f"Realigned {read_log_str}: scored {pr.score}; Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
 
-    matches = get_aligned_pair_matches(decode_cigar_np(pr.cigar.seq), left_flank_coord, 0)
-    res: MatchedCoordPairList = (matches[1], matches[0])
+    res: STRkitAlignedCoords = get_aligned_pair_matches(decode_cigar_np(pr.cigar.seq), left_flank_coord, 0)
     return ret_q(res)
 
 
@@ -79,7 +79,7 @@ def perform_realign(
     # ---
     logger_: logging.Logger,
     locus_log_str: str,
-) -> MatchedCoordPairListOrNone:
+) -> STRkitAlignedCoords | None:
     qs_wc = calculate_seq_with_wildcards(qs, fqqs)
 
     ref_seq_len = len(ref_total_seq)
@@ -109,7 +109,7 @@ def perform_realign(
     ))
     proc.start()
 
-    pairs_new = None
+    pairs_new: STRkitAlignedCoords | None = None
     try:
         pairs_new = q.get(timeout=realign_timeout)
         proc.join()
