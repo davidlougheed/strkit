@@ -3,7 +3,7 @@ import multiprocessing.managers as mmg
 
 from collections import Counter
 
-from strkit_rust_ext import get_read_snvs, process_read_snvs_for_locus_and_calculate_useful_snvs, CandidateSNVs
+from strkit_rust_ext import process_read_snvs_for_locus_and_calculate_useful_snvs, CandidateSNVs
 from strkit.utils import idx_1_getter
 
 from .types import ReadDict, CalledSNV
@@ -13,7 +13,6 @@ __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",
     "SNV_GAP_CHAR",
     "SNV_NA_CHARS",
-    "get_read_snvs",
     "call_and_filter_useful_snvs",
     "process_read_snvs_for_locus_and_calculate_useful_snvs",
 ]
