@@ -14,7 +14,7 @@ setup(
 
     python_requires="~=3.10",
     install_requires=[
-        "Flask>=2.2.5,<3.1",
+        "Flask>=2.2.5,<3.2",
         "orjson>=3.9.15,<4",
         "pysam>=0.19,<0.24",
         "numpy>=1.23.4,<1.27",
