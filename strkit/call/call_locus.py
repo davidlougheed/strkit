@@ -1113,8 +1113,11 @@ def call_locus(
 
         # --------------------------------------------------------------------------------------------------------------
 
-        # Extract qualities for our TR sequence and calculate a wildcard-subsituted TR sequence if qualities are too low
-        # to be confident in base identity.
+        # Extract qualities for our TR sequence and flanking regions, and calculate wildcard-subsituted sequences if
+        # qualities are too low to be confident in base identity.
+
+        flank_left_qqs = fqqs[left_flank_start:left_flank_end][-1*(flank_size+10):]
+        flank_right_qqs = fqqs[right_flank_start:right_flank_end][:flank_size+10]
 
         qqs = fqqs[left_flank_end:right_flank_start]
         if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
@@ -1127,6 +1130,8 @@ def call_locus(
             )
             continue
 
+        flank_left_seq_wc = calculate_seq_with_wildcards(flank_left_seq, flank_left_qqs)
+        flank_right_seq_wc = calculate_seq_with_wildcards(flank_right_seq, flank_right_qqs)
         tr_read_seq_wc = calculate_seq_with_wildcards(tr_read_seq, qqs)
 
         # These are now invalid (or at least cannot be used for ref lookups):
@@ -1152,11 +1157,19 @@ def call_locus(
             # Otherwise, use the offset.
             read_sc += read_sc_offset
 
+        # get_repeat_count is one of the performance bottlenecks of genotyping. We can speed it up a little bit by
+        # reducing the flanking regions - which shouldn't even matter that much to scoring the actual repeat, barring
+        # small alignment errors which are unfortunately frequent around STR boundaries.
+        # TODO: This should be tuneable in the future
+        repeat_count_scoring_flank_size = min(locus.motif_size * 2, flank_size)  # TODO: parameter / test values
+        repeat_count_scoring_fls = flank_left_seq_wc[-1*repeat_count_scoring_flank_size:]
+        repeat_count_scoring_frs = flank_right_seq_wc[:repeat_count_scoring_flank_size]
+
         (read_cn, read_cn_score), n_read_cn_iters, new_offset_from_starting_count = get_repeat_count(
             start_count=read_sc,  # should always be >= 0 with above logic
             tr_seq=tr_read_seq_wc,
-            flank_left_seq=flank_left_seq,
-            flank_right_seq=flank_right_seq,
+            flank_left_seq=repeat_count_scoring_fls,
+            flank_right_seq=repeat_count_scoring_frs,
             motif=locus.motif,
             rc_params=rc_params,
         )
@@ -1173,8 +1186,11 @@ def call_locus(
                 n_read_cn_iters,
             )
 
-        # TODO: need to rethink this; it should maybe quantify mismatches/indels in the flanking regions
-        read_adj_score: float | None = None if tr_len == 0 else read_cn_score / tr_len_w_flank
+        read_adj_score: float | None = (
+            None
+            if tr_len == 0
+            else read_cn_score / (tr_len + repeat_count_scoring_flank_size*2)
+        )
 
         if params.verbose:
             logger_.debug(
