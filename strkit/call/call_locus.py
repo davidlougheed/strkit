@@ -1252,13 +1252,13 @@ def call_locus(
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
                 extremely_poor_scoring_reads.append((rn, read_adj_score))
                 if len(extremely_poor_scoring_reads) > max_bad_reads:
-                    logger_.warning(
+                    logger_.debug(
                         "%s - not calling locus due to >3 extremely poor-aligning reads (%s, "
                         "most recent # iters: %d, most recent read TR seq: %s...)",
                         locus_log_str,
                         str(extremely_poor_scoring_reads),
                         n_read_cn_iters,
-                        tr_read_seq_wc[:20],
+                        tr_read_seq_wc[:100],
                     )
 
                     return {
