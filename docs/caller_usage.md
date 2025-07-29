@@ -81,6 +81,7 @@
   `debug` log level, as it can produce gigabytes of logs for a large run. **Default:** `info`.
 * `--verbose`: Debug log verbosity flag. If `--log-level` is set to `debug`, this will yield many more read-level debug
   messages (i.e., for each aligned segment from the BAM/CRAM). **Default:** off
+* `--log-progress-interval ##`: How often to log caller progress (INFO logger messages), in seconds. **Default:** 120.
 
 
 ## Usage on HPC machines

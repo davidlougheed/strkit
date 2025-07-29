@@ -52,6 +52,7 @@ class CallParams:
         verbose: bool = False,
         seed: int | None = None,
         processes: int = 1,
+        log_progress_interval: int = 120,
     ):
         self.read_file: str = read_file
         self.reference_file: str = reference_file
@@ -81,6 +82,7 @@ class CallParams:
         self.vcf_anchor_size: int = vcf_anchor_size
         # ---
         self.log_level: int = log_level
+        self.log_progress_interval: int = log_progress_interval
         self.verbose: bool = verbose
         self.seed: int | None = seed
         self.processes: int = processes
@@ -166,6 +168,7 @@ class CallParams:
             verbose=p_args.verbose,
             seed=p_args.seed,
             processes=p_args.processes,
+            log_progress_interval=p_args.log_progress_interval,
         )
 
     def to_dict(self, as_inputted: bool = False):
@@ -199,4 +202,5 @@ class CallParams:
             "verbose": self.verbose,
             "seed": self.seed,
             "processes": self.processes,
+            "log_progress_interval": self.log_progress_interval,
         }

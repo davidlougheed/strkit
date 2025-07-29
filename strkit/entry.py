@@ -230,6 +230,12 @@ def add_call_parser_args(call_parser):
         type=int,
         help="Random seed to pass to random number generators for result replicability.")
 
+    call_parser.add_argument(
+        "--log-progress-interval",
+        type=int,
+        default=120,
+        help="How often (in seconds) to log calling progress INFO messages.")
+
 
 def add_mi_parser_args(mi_parser):
     mi_parser.add_argument(

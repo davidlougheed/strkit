@@ -39,7 +39,6 @@ __all__ = [
 
 
 # TODO: Parameterize
-LOG_PROGRESS_INTERVAL: int = 120  # seconds
 PROFILE_LOCUS_CALLS: bool = False
 
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
@@ -198,6 +197,7 @@ def progress_worker(
     sample_id: str | None,
     start_time: float,
     log_level: int,
+    log_progress_interval: int,
     locus_queue: mp.Queue,
     locus_counter: mmg.ValueProxy,
     num_loci: int,
@@ -231,11 +231,11 @@ def progress_worker(
     while not event.is_set():
         time.sleep(1)
         timer += 1  # one second has elapsed
-        if timer >= LOG_PROGRESS_INTERVAL:
-            last_qsize = qsize  # qsize from {LOG_PROGRESS_INTERVAL} seconds ago
+        if timer >= log_progress_interval:
+            last_qsize = qsize  # qsize from {log_progress_interval} seconds ago
             qsize = locus_queue.qsize()
 
-            _log()  # log every {LOG_PROGRESS_INTERVAL} seconds
+            _log()  # log every {log_progress_interval} seconds
 
             if last_qsize == qsize:  # stuck
                 last_qsize_n_stuck += 1
@@ -270,7 +270,7 @@ def call_sample(
     logger.info("Starting STR genotyping with parameters:")
     for k, v in params.to_dict().items():
         v_fmt = f'"{v}"' if isinstance(v, str) else v
-        logger.info(f"    {k.rjust(20)} = {v_fmt}")
+        logger.info(f"    {k.rjust(22)} = {v_fmt}")
 
     # Seed the random number generator if a seed is provided, for replicability
     rng: NPRandomGenerator = np_default_rng(seed=params.seed)
@@ -315,6 +315,7 @@ def call_sample(
                 params.sample_id,
                 start_time,
                 params.log_level,
+                params.log_progress_interval,
                 locus_queue,
                 locus_counter,
                 num_loci,
