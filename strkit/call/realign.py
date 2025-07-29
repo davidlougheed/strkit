@@ -7,7 +7,7 @@ import queue
 import time
 
 from numpy.typing import NDArray
-from strkit_rust_ext import STRkitAlignedCoords, STRkitAlignedSegment
+from strkit_rust_ext import STRkitAlignedCoords, STRkitAlignedSegment, STRkitLocusWithRefData
 
 from .align_matrix import match_score, dna_matrix
 from .cigar import decode_cigar_np, get_aligned_pair_matches
@@ -67,9 +67,7 @@ def realign_read(
 
 
 def perform_realign(
-    t_idx: int,
-    left_flank_coord: int,
-    ref_total_seq: str,
+    locus_with_ref_data: STRkitLocusWithRefData,
     segment: STRkitAlignedSegment,
     # ---
     params: CallParams,
@@ -83,10 +81,12 @@ def perform_realign(
     #  the query sequence or something...
     qs_wc = calculate_seq_with_wildcards(segment.query_sequence, segment.query_qualities)
 
+    ref_total_seq = locus_with_ref_data.ref_total_seq
     ref_seq_len = len(ref_total_seq)
     qs_len = len(qs_wc)
+    left_flank_coord = locus_with_ref_data.locus_def.left_flank_coord
 
-    read_log_str = f"{rn} in locus {t_idx}"
+    read_log_str = f"{rn} in locus {locus_with_ref_data.locus_def.t_idx}"
 
     if ref_seq_len <= max_ref_len_for_same_proc and qs_len <= max_read_len_for_same_proc:
         # Don't start process for short realigns, since then process startup dominates the total time taken

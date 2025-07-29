@@ -28,6 +28,7 @@ from strkit_rust_ext import (
     STRkitBAMReader,
     STRkitAlignedSegment,
     STRkitLocus,
+    STRkitLocusWithRefData,
     STRkitVCFReader,
 )
 
@@ -778,7 +779,7 @@ def _get_ref_rc_params(ref_est_cn: int) -> RepeatCountParams:
     )
 
 
-def get_locus_ref_data(
+def get_locus_with_ref_data(
     ref: FastaFile,
     respect_ref: bool,
     ref_file_has_chr: bool,
@@ -789,7 +790,7 @@ def get_locus_ref_data(
     # ---
     logger_: logging.Logger,
     locus_log_str: str,
-) -> LocusRefData:
+) -> STRkitLocusWithRefData:
     ref_timer = time.perf_counter()
 
     ref_contig = normalize_contig(locus.contig, ref_file_has_chr)
@@ -845,10 +846,9 @@ def get_locus_ref_data(
         respect_coords=respect_ref,
     )
 
-    slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
-
     logger_.debug("%s - ref_cn=%d (l.o.=%d; r.o.=%d; #i=%s)", locus_log_str, ref_cn, l_offset, r_offset, r_n_is)
 
+    slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
     if slow_ref_count:
         logger_.warning(
             "%s - slow reference copy number counting (ref_cn=%d; iters=%s)",
@@ -861,18 +861,16 @@ def get_locus_ref_data(
     left_coord_adj = locus.left_coord if respect_ref else locus.left_coord - max(0, l_offset)
     right_coord_adj = locus.right_coord if respect_ref else locus.right_coord + max(0, r_offset)
 
-    ref_time = time.perf_counter() - ref_timer
-
-    return LocusRefData(
+    return locus.with_ref_data(
         ref_contig=ref_contig,
         ref_cn=ref_cn,
-        ref_seq=ref_seq,
-        ref_left_flank_seq=ref_left_flank_seq,
-        ref_right_flank_seq=ref_right_flank_seq,
-        ref_total_seq=ref_total_seq,
+        ref_seq=ref_seq,  # TODO: If more gets moved to Rust, these can just be borrowed slices
+        ref_left_flank_seq=ref_left_flank_seq,  # TODO: If more gets moved to Rust, these can just be borrowed slices
+        ref_right_flank_seq=ref_right_flank_seq,  # TODO: If more gets moved to Rust, these can just be borrowed slices
+        ref_total_seq=ref_total_seq,  # TODO: ... and this is the original
         left_coord_adj=left_coord_adj,
         right_coord_adj=right_coord_adj,
-        ref_time=ref_time,
+        ref_time=time.perf_counter() - ref_timer,
     )
 
 
@@ -938,7 +936,7 @@ def call_locus(
     # Get reference sequence and copy number ---------------------------------------------------------------------------
 
     try:
-        locus_ref_data = get_locus_ref_data(
+        locus_with_ref_data = get_locus_with_ref_data(
             ref, respect_ref, ref_file_has_chr, vcf_anchor_size, locus, flank_size, logger_, locus_log_str
         )
     except InvalidLocus as e:
@@ -948,10 +946,10 @@ def call_locus(
         logger_.warning("%s - skipping locus, %s", locus_log_str, str(e))
         return locus_result
 
-    locus_result["ref_cn"] = locus_ref_data.ref_cn
+    locus_result["ref_cn"] = locus_with_ref_data.ref_cn
     if not respect_ref:  # tag locus_result with adjusted start/end
-        locus_result["start_adj"] = locus_ref_data.left_coord_adj
-        locus_result["end_adj"] = locus_ref_data.right_coord_adj
+        locus_result["start_adj"] = locus_with_ref_data.left_coord_adj
+        locus_result["end_adj"] = locus_with_ref_data.right_coord_adj
 
     # Find the initial set of overlapping aligned segments with associated read lengths + whether we have in-locus
     # chimera reads (i.e., reads which aligned twice with different soft-clipping, likely due to a large indel.) -------
@@ -1048,17 +1046,7 @@ def call_locus(
             # Run the realignment in a separate process, to give us a timeout mechanism.
             # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
 
-            pairs_new = perform_realign(
-                locus.t_idx,
-                locus.left_flank_coord,
-                locus_ref_data.ref_total_seq,
-                segment,
-                # ---
-                params,
-                # ---
-                logger_,
-                locus_log_str,
-            )
+            pairs_new = perform_realign(locus_with_ref_data, segment, params, logger_, locus_log_str)
 
             if pairs_new is not None:
                 aligned_coords = pairs_new  # aligned_coords is no longer None
@@ -1066,16 +1054,7 @@ def call_locus(
                 realign_count += 1
 
                 left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
-                    get_read_coords_from_matched_pairs(
-                        locus.left_flank_coord,
-                        locus_ref_data.left_coord_adj,
-                        locus_ref_data.right_coord_adj,
-                        locus.right_flank_coord,
-                        locus.motif,
-                        locus.motif_size,
-                        query_seq=qs,
-                        aligned_coords=aligned_coords,
-                    )
+                    get_read_coords_from_matched_pairs(locus_with_ref_data, qs, aligned_coords)
 
                 # equivalent to the below check of `coords_or_none is None` - if realign happens, but the flank
                 # boundaries cannot be extracted from the alignment, we skip this read.
@@ -1091,17 +1070,7 @@ def call_locus(
                 continue
 
             coords_or_none, left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
-                get_pairs_and_tr_read_coords(
-                    cigar_tuples,
-                    segment_start,
-                    locus.left_flank_coord,
-                    locus_ref_data.left_coord_adj,
-                    locus_ref_data.right_coord_adj,
-                    locus.right_flank_coord,
-                    locus.motif,
-                    locus.motif_size,
-                    qs,
-                )
+                get_pairs_and_tr_read_coords(cigar_tuples, segment_start, locus_with_ref_data, qs)
 
             if coords_or_none is None:
                 # -1 in one of the flank coords - equivalent to the check for -1 values in the realign block above.
@@ -1230,20 +1199,20 @@ def call_locus(
                 rc_time,
                 really_bad_read_alignment_time,
                 n_read_cn_iters,
-                locus_ref_data.ref_cn,
+                locus_with_ref_data.ref_cn,
             )
-            logger_.debug("%s - ref left flank:     %s", locus_log_str, locus_ref_data.ref_left_flank_seq)
+            logger_.debug("%s - ref left flank:     %s", locus_log_str, locus_with_ref_data.ref_left_flank_seq)
             logger_.debug("%s - read left flank:    %s", locus_log_str, flank_left_seq)
             logger_.debug(
                 "%s - ref TR seq (:500):  %s (len=%d)",
                 locus_log_str,
-                locus_ref_data.ref_seq[:500],
-                len(locus_ref_data.ref_seq),
+                locus_with_ref_data.ref_seq[:500],
+                len(locus_with_ref_data.ref_seq),
             )
             logger_.debug(
                 "%s - read TR seq (:500): %s (len=%d)", locus_log_str, tr_read_seq_wc[:500], len(tr_read_seq_wc)
             )
-            logger_.debug("%s - ref right flank:  %s", locus_log_str, locus_ref_data.ref_right_flank_seq)
+            logger_.debug("%s - ref right flank:  %s", locus_log_str, locus_with_ref_data.ref_right_flank_seq)
             logger_.debug("%s - read right flank: %s", locus_log_str, flank_right_seq)
             return {
                 **locus_result,
@@ -1313,7 +1282,7 @@ def call_locus(
             for anchor_offset in range(vcf_anchor_size, 0, -1):
                 # start from largest - want to include small indels in query if they appear immediately upstream
                 anchor_pair_idx, anchor_pair_found = find_coord_idx_by_ref_pos(
-                    aligned_coords, locus_ref_data.left_coord_adj - anchor_offset, 0
+                    aligned_coords, locus_with_ref_data.left_coord_adj - anchor_offset, 0
                 )
                 if anchor_pair_found:
                     read_start_anchor = qs[aligned_coords.query_coord_at_idx(anchor_pair_idx):left_flank_end]
@@ -1397,8 +1366,8 @@ def call_locus(
         # **({"ref_start_anchor": ref_left_flank_seq[-1].upper(), "ref_seq": ref_seq} if consensus else {}),
         **(
             {
-                "ref_start_anchor": locus_ref_data.ref_left_flank_seq[-vcf_anchor_size:].upper(),
-                "ref_seq": locus_ref_data.ref_seq,
+                "ref_start_anchor": locus_with_ref_data.ref_left_flank_seq[-vcf_anchor_size:].upper(),
+                "ref_seq": locus_with_ref_data.ref_seq,
             }
             if consensus else {}
         ),
@@ -1481,12 +1450,12 @@ def call_locus(
 
             # Second read loop occurs in this function
             useful_snvs: list[tuple[int, int]] = process_read_snvs_for_locus_and_calculate_useful_snvs(
-                locus_ref_data.left_coord_adj,
-                locus_ref_data.right_coord_adj,
+                locus_with_ref_data.left_coord_adj,
+                locus_with_ref_data.right_coord_adj,
                 left_most_coord,
                 # Reference sequence - don't assign to a variable to avoid keeping a large amount of data around until
                 # the GC arises from slumber.
-                ref.fetch(locus_ref_data.ref_contig, left_most_coord, right_most_coord + 1).upper(),
+                ref.fetch(locus_with_ref_data.ref_contig, left_most_coord, right_most_coord + 1).upper(),
                 read_dict_extra,
                 read_aligned_coords,
                 candidate_snvs,
@@ -1688,7 +1657,7 @@ def call_locus(
             call_time,
             call,
             assign_method,
-            locus_ref_data.ref_time,
+            locus_with_ref_data.ref_time,
             allele_time,
             assign_time,
         )
