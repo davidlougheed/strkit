@@ -13,7 +13,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pysam import FastaFile
 from sklearn.cluster import AgglomerativeClustering
-from sklearn.mixture import GaussianMixture
 from statistics import mean
 
 from numpy.typing import NDArray
@@ -36,6 +35,7 @@ from strkit.call.allele import CallDict, call_alleles
 from strkit.utils import idx_0_getter, apply_or_none
 
 from .cigar import decode_cigar_np
+from .gmm import make_already_fitted_gmm
 from .params import CallParams
 from .realign import perform_realign
 from .repeats import RepeatCountParams, get_repeat_count, get_ref_repeat_count
@@ -1616,18 +1616,11 @@ def call_locus(
             else:
                 # Create an already-fitted Gaussian mixture instance and use it to predict the peak
                 # if we have call_modal_n > 1; otherwise, our peak is always going to be 0.
-
-                if call_modal_n == 1:
-                    peak = 0
-                else:
-                    g: GaussianMixture = GaussianMixture(n_components=call_modal_n, covariance_type="spherical")
-                    g.means_ = peaks.reshape(-1, 1)
-                    g.covariances_ = stdevs ** 2
-                    g.weights_ = weights
-                    # https://github.com/scikit-learn/scikit-learn/blob/1.5.0/sklearn/mixture/_gaussian_mixture.py#L347
-                    g.precisions_cholesky_ = 1.0 / stdevs
-
-                    peak = g.predict([[cn]])[0].item()
+                peak = (
+                    0
+                    if call_modal_n == 1
+                    else make_already_fitted_gmm(call_modal_n, peaks, stdevs, weights).predict([[cn]])[0].item()
+                )
 
             allele_reads[peak].append(r)
             rd["p"] = peak

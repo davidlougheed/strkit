@@ -25,6 +25,7 @@ __all__ = [
     "GMMInitParamsMethod",
     "GMMParams",
     "make_single_gaussian",
+    "make_already_fitted_gmm",
 ]
 
 
@@ -66,3 +67,15 @@ def make_single_gaussian(sample_rs: NDArray) -> object:
     fake_g.weights_ = WEIGHT_1_0
     fake_g.covariances_ = np.array([[np.var(sample_rs)]])
     return fake_g
+
+
+def make_already_fitted_gmm(
+    n_components: int, peaks: NDArray[np.float_], stdevs: NDArray[np.float_], weights: NDArray[np.float_]
+) -> GaussianMixture:
+    g: GaussianMixture = GaussianMixture(n_components=n_components, covariance_type="spherical")
+    g.means_ = peaks.reshape(-1, 1)
+    g.covariances_ = stdevs ** 2
+    g.weights_ = weights
+    # https://github.com/scikit-learn/scikit-learn/blob/1.5.0/sklearn/mixture/_gaussian_mixture.py#L347
+    g.precisions_cholesky_ = 1.0 / stdevs
+    return g
