@@ -10,14 +10,21 @@ __pycache__
 
 *.bam
 *.bai
+*.bcf
+*.fasta
 *.fa.gz
 *.fa.gz.fai
 *.fa.gz.gzi
+*.log
 *.bed
 !tests/data/*.bed
 /*.json
+*.time
 /*.tsv
 *.vcf.gz*
 *.vcf
 
 *.token
+
+*.lprof
+*.poasta
