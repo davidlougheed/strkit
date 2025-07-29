@@ -1137,6 +1137,7 @@ def call_locus(
         tr_read_seq = qs[left_flank_end:right_flank_start]
 
         # --------------------------------------------------------------------------------------------------------------
+
         # Cache these now that we've done some adjustments (although tr_len_w_flank should not change)
         flank_len: int = len(flank_left_seq) + len(flank_right_seq)
         tr_len_w_flank: int = tr_len + flank_len
@@ -1575,7 +1576,7 @@ def call_locus(
     # Also keep track of read model align scores to calculate the mean at the end
     model_align_scores: list[float] = []
 
-    if read_peaks_called := call_modal_n and call_modal_n <= 2:
+    if read_peaks_called := (call_modal_n and call_modal_n <= 2):
         peaks: NDArray[np.float_] = call_peaks[:call_modal_n]
         stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
         weights: NDArray[np.float_] = call_weights[:call_modal_n]
