@@ -54,6 +54,5 @@ def motif_rotations(motif: str) -> Iterable[str]:
     for _ in range(len(motif) - 1):
         motif_chars.rotate(1)
         if (m := cat_strs(motif_chars)) not in already_sent:
-            print(already_sent, m)
             already_sent.add(m)
             yield m
