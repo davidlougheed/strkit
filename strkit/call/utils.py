@@ -1,8 +1,10 @@
 import numpy as np
 import operator
 
+from collections import deque
 from functools import cache, partial
 from numpy.typing import NDArray
+from typing import Iterable
 
 from ..utils import cat_strs
 
@@ -12,6 +14,7 @@ __all__ = [
     "normalize_contig",
     "get_new_seed",
     "calculate_seq_with_wildcards",
+    "motif_rotations",
 ]
 
 
@@ -37,3 +40,20 @@ def calculate_seq_with_wildcards(qs: str, quals: NDArray[np.uint8] | None) -> st
     if quals is None:
         return qs  # No quality information, so don't do anything
     return cat_strs(map(_mask_low_q_base, zip(qs, quals)))
+
+
+def motif_rotations(motif: str) -> Iterable[str]:
+    yield motif
+
+    if not motif:
+        return
+
+    already_sent: set[str] = {motif}
+
+    motif_chars = deque(motif)
+    for _ in range(len(motif) - 1):
+        motif_chars.rotate(1)
+        if (m := cat_strs(motif_chars)) not in already_sent:
+            print(already_sent, m)
+            already_sent.add(m)
+            yield m
