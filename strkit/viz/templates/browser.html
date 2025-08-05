@@ -11,6 +11,29 @@
 <!--    <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>-->
 
     <script>
+        function* motifRotations(motif) {
+            yield motif;
+
+            if (!motif) {
+                return;
+            }
+
+            const alreadySent = new Set();
+
+            const motifLetters = motif.split("");
+            for (let i = 0; i < motif.length - 1; i++) {
+                // deque rotate
+                let ml = motifLetters.pop();
+                motifLetters.unshift(ml);
+
+                const m = "".join(motifLetters);
+                if (!alreadySent.has(m)) {
+                    alreadySent.add(m);
+                    yield m;
+                }
+            }
+        }
+
         const palettes = [d3.interpolateBlues, d3.interpolateReds];
 
         const ui = {
