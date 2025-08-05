@@ -16,7 +16,6 @@ __all__ = [
     "parse_ci",
     "parse_cis",
     "cis_overlap",
-    "sign",
 ]
 
 
@@ -60,7 +59,3 @@ def cis_overlap(ci1, ci2) -> bool:
     # int logic: ci1[0] <= ci2[1] and ci2[0] <= ci1[1]
     # float logic: lets add some epsilon to prevent little issues
     return (ci2[1] - ci1[0]) > epsilon and (ci1[1] - ci2[0]) > epsilon
-
-
-def sign(x: int | float) -> int:
-    return round(math.copysign(1, x))
