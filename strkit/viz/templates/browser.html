@@ -153,7 +153,7 @@
             .selectAll("rect")
             .data(bins)
             .join("rect")
-              .attr("x", d => xScale(d.x0) + insetLeft - (params.report.fractional ? 0 : barWidth(d)/2))
+              .attr("x", d => xScale(d.x0) + insetLeft - barWidth(d)/2)
               .attr("width", barWidth)
               .attr("y", (d, i) => yScale(Y[i]))
               .attr("height", (d, i) => yScale(0) - yScale(Y[i]))
@@ -252,8 +252,8 @@
             searchResponses = sr.results;
             // noinspection JSUnresolvedVariable
             const res = sr.results.map(r =>
-                `<li onclick="${r.disabled ? "" : "handleSearchResultClick(${r.i})"}"
-                     class="${r.disabled ? "disabled" : ""}">${r.contig}:${r.start}-${r.end}`).join("");
+                `<li onclick="${r.disabled ? "" : `handleSearchResultClick(${r.i})`}"
+                     class="${r.disabled ? "disabled" : ""}">${r.contig}:${r.start}-${r.end}</li>`).join("");
             searchResponseList.innerHTML = res || "<em>No results found.</em>";
         };
 
@@ -267,12 +267,12 @@
             const scale = document.createElement("div");
             scale.setAttribute("data-label", `Allele ${j+1}`);
             const scaleGradient = document.createElement("div");
-            scaleGradient.setAttribute("data-lower", b.min.toFixed(params.report.fractional ? 1 : 0));
+            scaleGradient.setAttribute("data-lower", b.min.toFixed(0));
             scaleGradient.setAttribute(
                 "style",
                 `--scale-lower: ${palettes[j](b.span === 0 ? 0.6 : 0.3)};
                  --scale-upper: ${palettes[j](b.span === 0 ? 0.6 : 0.9)}`);
-            scaleGradient.setAttribute("data-upper", b.max.toFixed(params.report.fractional ? 1 : 0));
+            scaleGradient.setAttribute("data-upper", b.max.toFixed(0));
             scale.appendChild(scaleGradient);
             scalesContainer.appendChild(scale);
         };
@@ -565,7 +565,8 @@
             // Load initial data
             fetchParams().then(() => {
                 performSearch();
-                fetchCallData({{ initial_i }});
+                const initialI = "{{ initial_i }}"; // Filled in by Flask
+                fetchCallData(initialI);
             });
 
             fetchReportMetadata().then(() => {
