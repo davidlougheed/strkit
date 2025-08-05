@@ -50,6 +50,7 @@ class CallParams:
         # ---
         log_level: int = logging.WARNING,
         verbose: bool = False,
+        profile: bool = False,
         seed: int | None = None,
         processes: int = 1,
         log_progress_interval: int = 120,
@@ -84,6 +85,7 @@ class CallParams:
         self.log_level: int = log_level
         self.log_progress_interval: int = log_progress_interval
         self.verbose: bool = verbose
+        self.profile: bool = profile
         self.seed: int | None = seed
         self.processes: int = processes
 
@@ -166,6 +168,7 @@ class CallParams:
             # ---
             log_level=log_levels[p_args.log_level],
             verbose=p_args.verbose,
+            profile=p_args.profile,
             seed=p_args.seed,
             processes=p_args.processes,
             log_progress_interval=p_args.log_progress_interval,
@@ -200,6 +203,7 @@ class CallParams:
             "vcf_anchor_size": self.vcf_anchor_size,
             "log_level": self.log_level,
             "verbose": self.verbose,
+            "profile": self.profile,
             "seed": self.seed,
             "processes": self.processes,
             "log_progress_interval": self.log_progress_interval,

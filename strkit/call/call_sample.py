@@ -38,9 +38,6 @@ __all__ = [
 ]
 
 
-# TODO: Parameterize
-PROFILE_LOCUS_CALLS: bool = False
-
 NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
 ACCESSION_PATTERN = re.compile(r"^NC_\d+")
 
@@ -73,7 +70,7 @@ def locus_worker(
     is_single_processed: bool,
     seed: int,
 ) -> list[LocusResult]:
-    if PROFILE_LOCUS_CALLS:
+    if params.profile:
         import cProfile
         pr = cProfile.Profile()
         pr.enable()

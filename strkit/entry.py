@@ -236,6 +236,8 @@ def add_call_parser_args(call_parser):
         default=120,
         help="How often (in seconds) to log calling progress INFO messages.")
 
+    call_parser.add_argument("--profile", action="store_true", help="Profile function calls (for development.)")
+
 
 def add_mi_parser_args(mi_parser):
     mi_parser.add_argument(
