@@ -624,8 +624,8 @@ def main(args: list[str] | None = None) -> int:
 
     subparsers = parser.add_subparsers()
 
-    def _make_subparser(arg: str, help_text: str, exec_func: Callable, arg_func: Callable):
-        sp = subparsers.add_parser(arg, help=help_text)
+    def _make_subparser(*names: str, help_text: str, exec_func: Callable, arg_func: Callable):
+        sp = subparsers.add_parser(names[0], aliases=names[1:], help=help_text)
         sp.add_argument("--log-level", type=str, default="info", choices=("error", "warning", "info", "debug"))
         sp.add_argument(
             "--verbose",
@@ -660,7 +660,7 @@ def main(args: list[str] | None = None) -> int:
         arg_func=add_cv_parser_args)
 
     _make_subparser(
-        "visualize",
+        "visualize", "vis", "viz",
         help_text="Start a web server to visualize results from an STR genotyping report.",
         exec_func=_exec_viz_server,
         arg_func=add_vs_parser_args)
