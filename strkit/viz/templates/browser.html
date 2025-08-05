@@ -254,14 +254,17 @@
             const res = sr.results.map(r =>
                 `<li onclick="${r.disabled ? "" : `handleSearchResultClick(${r.i})`}"
                      class="${r.disabled ? "disabled" : ""}">${r.contig}:${r.start}-${r.end}</li>`).join("");
+            console.log(res);
             searchResponseList.innerHTML = res || "<em>No results found.</em>";
         };
 
-        const performSearch = q =>
+        const performSearch = q => {
+            console.debug("calling /loci with q=", q);
             fetch("/loci" + (q ? `?q=${encodeURIComponent(q.trim())}` : ""))
                 .then(r => r.json())
                 .then(updateSearchResponses)
                 .catch(console.error);
+        }
 
         const makeScale = (j, b) => {
             const scale = document.createElement("div");
@@ -311,11 +314,18 @@
 
             console.debug("call data", callData);
 
+            if (callData.call === null) {
+                console.warn("no call for callData", callData);
+                return;
+            }
+
             /** @type number[] */
             const cns = Object.values(callData.reads ?? {}).map(read => read.cn);
             const thresholds = Math.min(100, Math.max(...cns) - Math.min(...cns));
 
             // Add histogram
+
+            console.log("cns", cns);
 
             histogramContainer.innerHTML = "";
             histogramContainer.appendChild(Histogram(cns, {
@@ -494,6 +504,7 @@
                 .catch(console.error);
 
         const handleSearchResultClick = i => {
+            console.debug("search result click", i);
             fetchCallData(i);
         };
 
