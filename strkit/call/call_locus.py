@@ -29,7 +29,6 @@ from strkit_rust_ext import (
     STRkitAlignedSegment,
     STRkitLocus,
     STRkitLocusWithRefData,
-    STRkitVCFReader,
 )
 
 from strkit.call.allele import CallDict, call_alleles
@@ -892,9 +891,7 @@ def call_locus(
     logger_: logging.Logger,
     locus_log_str: str,
     # ---
-    snv_vcf_file: STRkitVCFReader | None = None,
-    snv_vcf_contigs: tuple[str, ...] = (),
-    snv_vcf_file_format: VCFContigFormat = "",
+    candidate_snvs: CandidateSNVs | None = None,
     # ---
     read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
@@ -930,7 +927,7 @@ def call_locus(
 
     # Currently, only support diploid use of SNVs. There's not much of a point with haploid loci,
     # and polyploidy is hard.
-    should_incorporate_snvs: bool = snv_vcf_file is not None and locus.n_alleles == 2
+    should_incorporate_snvs: bool = candidate_snvs is not None and locus.n_alleles == 2
     only_known_snvs: bool = True  # TODO: parametrize
 
     # Get reference sequence and copy number ---------------------------------------------------------------------------
@@ -984,15 +981,6 @@ def call_locus(
     @functools.cache
     def get_read_length_partition_mean(p_idx: int) -> float:
         return np.mean(sorted_read_lengths[p_idx:]).item()
-
-    # Find candidate SNVs, if we're using SNV data
-
-    candidate_snvs: CandidateSNVs | None = None  # Lookup dictionary for candidate SNVs by position
-    if n_overlapping_reads and should_incorporate_snvs and snv_vcf_file:
-        # ^^ n_overlapping_reads check since otherwise we will have invalid left/right_most_coord
-        candidate_snvs = snv_vcf_file.get_candidate_snvs(
-            snv_vcf_contigs, snv_vcf_file_format, locus.contig, left_most_coord, right_most_coord
-        )
 
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 

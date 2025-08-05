@@ -122,59 +122,67 @@ def locus_worker(
 
     while True:
         try:
-            locus: STRkitLocus | None = locus_queue.get_nowait()
-            if locus is None:  # Kill signal
+            lb = locus_queue.get_nowait()
+            if lb is None:  # Kill signal
                 lg.debug(f"worker %d finished current contig: %s", worker_id, current_contig)
                 break
+            locus_block: tuple[STRkitLocus, ...]
+            locus_block_left: int
+            locus_block_right: int
+            locus_block_left, locus_block_right, locus_block = lb
         except QueueEmpty:
             lg.debug(f"worker %d encountered queue.Empty", worker_id)
             break
 
         if current_contig is None:
-            current_contig = locus.contig
+            current_contig = locus_block[0].contig
 
-        # String representation of locus for logging purposes
-        locus_log_str: str = f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}{locus.log_str()}"
+        # Find candidate SNVs for this locus block, if we're using SNV data
+        block_candidate_snvs = snv_vcf_reader.get_candidate_snvs(
+            tuple(snv_vcf_contigs), vcf_file_format, current_contig, locus_block_left, locus_block_right
+        ) if snv_vcf_reader is not None else None
 
-        lg.debug("%s - working on locus", locus_log_str)
+        for locus in locus_block:
+            # String representation of locus for logging purposes
+            locus_log_str: str = f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}{locus.log_str()}"
 
-        try:
-            res = call_locus(
-                locus,
-                # ---
-                bf,
-                ref,
-                params,
-                # ---
-                phase_set_lock,
-                phase_set_counter,
-                phase_set_remap,
-                phase_set_synonymous,
-                snv_genotype_update_lock,
-                snv_genotype_cache,
-                # ---
-                rng=rng,
-                logger_=lg,
-                locus_log_str=locus_log_str,
-                snv_vcf_file=snv_vcf_reader,
-                snv_vcf_contigs=tuple(snv_vcf_contigs),
-                snv_vcf_file_format=vcf_file_format,
-                read_file_has_chr=read_file_has_chr,
-                ref_file_has_chr=ref_file_has_chr,
-            )
+            lg.debug("%s - working on locus", locus_log_str)
 
-        except Exception as e:
-            import traceback
-            res = None
-            lg.error(f"{locus_log_str} - encountered exception while genotyping ({locus.n_alleles=}): {repr(e)}")
-            lg.error(f"{locus_log_str} - {traceback.format_exc()}")
+            try:
+                res = call_locus(
+                    locus,
+                    # ---
+                    bf,
+                    ref,
+                    params,
+                    # ---
+                    phase_set_lock,
+                    phase_set_counter,
+                    phase_set_remap,
+                    phase_set_synonymous,
+                    snv_genotype_update_lock,
+                    snv_genotype_cache,
+                    # ---
+                    rng=rng,
+                    logger_=lg,
+                    locus_log_str=locus_log_str,
+                    candidate_snvs=block_candidate_snvs,
+                    read_file_has_chr=read_file_has_chr,
+                    ref_file_has_chr=ref_file_has_chr,
+                )
+
+            except Exception as e:
+                import traceback
+                res = None
+                lg.error(f"{locus_log_str} - encountered exception while genotyping ({locus.n_alleles=}): {repr(e)}")
+                lg.error(f"{locus_log_str} - {traceback.format_exc()}")
+
+            if res is not None:
+                results.append(res)
 
         locus_counter_lock.acquire(timeout=30)
-        locus_counter.set(locus_counter.get() + 1)
+        locus_counter.set(locus_counter.get() + len(locus_block))
         locus_counter_lock.release()
-
-        if res is not None:
-            results.append(res)
 
     ref.close()
     del bf

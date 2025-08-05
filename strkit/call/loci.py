@@ -85,6 +85,9 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
 
     load_start_time = time.perf_counter()
 
+    with open(params.loci_file) as tfh:
+        n_loci: int = sum(1 for line in tfh if not line.startswith("#"))
+
     # Add all loci from the BED file to the queue, allowing each job
     # to pull from the queue as it becomes freed up to do so.
     num_loci: int = 0
@@ -92,6 +95,24 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
     contig_set: set[str] = set()
     last_contig: str | None = None
     last_none_append_n_loci: int = 0
+
+    # We will pass blocks of loci for the queue, for a (future) optimization where we fetch all overlapping segments at
+    # once and re-use them via an interval tree.
+    max_block_size: int = min(100, max(n_loci // params.processes, 1))
+    max_block_inter_read_dist: int = 20000
+    current_block: list[STRkitLocus] = []
+    current_block_left: int = 9999999999999999
+    current_block_right: int = -1
+
+    def _put_current_block():
+        nonlocal current_block_left
+        nonlocal current_block_right
+
+        locus_queue.put((current_block_left, current_block_right, tuple(current_block)))
+        current_block.clear()
+        current_block_left = 9999999999999999
+        current_block_right = -1
+
     for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
         contig = t[0]
 
@@ -107,8 +128,12 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
         # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
         if last_contig != contig:
             if last_contig is not None:
+                if current_block:
+                    _put_current_block()
+
                 for _ in range(params.processes):
                     locus_queue.put(None)
+
                 last_none_append_n_loci = num_loci
 
             contig_set.add(contig)
@@ -127,11 +152,19 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
             e.log_error(logger)
             exit(1)
 
-        # We use locus-specific random seeds for replicability, no matter which order
-        # the loci are yanked out of the queue / how many processes we have.
-        # (1-indexed locus index, contig, left coord, right coord, motif)
-        locus_queue.put(locus)
+        if len(current_block) == max_block_size or (
+            current_block and locus.left_coord - current_block[-1].right_coord > max_block_inter_read_dist
+        ):
+            _put_current_block()
+
+        current_block.append(locus)
+        current_block_left = min(current_block_left, locus.left_flank_coord)
+        current_block_right = max(current_block_right, locus.right_flank_coord)
+
         num_loci += 1
+
+    if current_block:
+        _put_current_block()
 
     del last_contig  # more as a marker for when we're finished with this, for later refactoring
 
