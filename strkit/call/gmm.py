@@ -54,7 +54,9 @@ class GMMParams:
             n_components=n_components,
             init_params=self.init_params_method,
             covariance_type="spherical",
-            n_init=self.n_init,
+            # For relatively simple cases (total of two different copy numbers in the sample set), force n_init to be 1
+            # even if we have a different parameter value to save on needless computation.
+            n_init=self.n_init if sample_rs[-1][0] - sample_rs[0][0] > 1.0 else 1,
             random_state=get_new_seed(rng),
         ).fit(sample_rs)
 
