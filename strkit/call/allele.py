@@ -140,6 +140,60 @@ def make_read_weights(read_weights: Iterable[float] | None, num_reads: int) -> N
         read_weights if read_weights is not None else np.array(([1/num_reads] * num_reads) if num_reads else []))
 
 
+def get_resampled_bootstrapped_reads(
+    combined_reads: NDArray[np.int32],
+    combined_len: int,
+    repeats_fwd: NDArray[np.int32],
+    repeats_rev: NDArray[np.int32],
+    read_weights_fwd: Iterable[float] | None,
+    read_weights_rev: Iterable[float] | None,
+    # ---------------------------------------
+    num_bootstrap: int,
+    separate_strands: bool,
+    read_bias_corr_min: int,
+    # ---------------------------------------
+    rng: np.random.Generator,
+):
+    fwd_len = repeats_fwd.shape[0]
+    rev_len = repeats_rev.shape[0]
+
+    fwd_strand_weights = make_read_weights(read_weights_fwd, fwd_len)
+    rev_strand_weights = make_read_weights(read_weights_rev, rev_len)
+
+    assert repeats_fwd.shape == fwd_strand_weights.shape
+    assert repeats_rev.shape == rev_strand_weights.shape
+
+    combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
+
+    # ------------------------------------------------------------------------------------------------------------------
+
+    if separate_strands and fwd_len >= read_bias_corr_min and rev_len >= read_bias_corr_min:
+        target_length: int = max(fwd_len, rev_len)
+
+        # Resample original sample, correcting for imbalances between
+        # forward and reverse-strand reads along the way
+        # (if we've passed the coverage threshold)
+
+        resample_size = (num_bootstrap, target_length)
+        fwd_strand_samples = rng.choice(repeats_fwd, size=resample_size, replace=True, p=fwd_strand_weights)
+        rev_strand_samples = rng.choice(repeats_rev, size=resample_size, replace=True, p=rev_strand_weights)
+
+        concat_samples = np.sort(
+            np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1),
+            kind="stable")
+
+    else:
+        concat_samples = np.sort(
+            (
+                rng.choice(combined_reads, size=(num_bootstrap, combined_len), replace=True, p=combined_weights)
+                if num_bootstrap > 1
+                else np.array([combined_reads])
+            ),
+            kind="stable")
+
+    return concat_samples
+
+
 def call_alleles(
     repeats_fwd: NDArray[np.int32],
     repeats_rev: NDArray[np.int32],
@@ -183,19 +237,6 @@ def call_alleles(
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    fwd_len = repeats_fwd.shape[0]
-    rev_len = repeats_rev.shape[0]
-
-    fwd_strand_weights = make_read_weights(read_weights_fwd, fwd_len)
-    rev_strand_weights = make_read_weights(read_weights_rev, rev_len)
-
-    assert repeats_fwd.shape == fwd_strand_weights.shape
-    assert repeats_rev.shape == rev_strand_weights.shape
-
-    combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
-
-    # ------------------------------------------------------------------------------------------------------------------
-
     nal = na_length_list(n_alleles)
     allele_samples = np.array(nal, dtype=np.float32)
     allele_weight_samples = np.array(nal, dtype=np.float32)
@@ -204,42 +245,22 @@ def call_alleles(
 
     rng: np.random.Generator = np.random.default_rng(seed=seed)
 
-    # Perform a number of bootstrap iterations to get a 95% CI and more accurate estimate of repeat counts / differences
+    concat_samples = get_resampled_bootstrapped_reads(
+        combined_reads,
+        combined_len,
+        repeats_fwd,
+        repeats_rev,
+        read_weights_fwd,
+        read_weights_rev,
+        # -------------------
+        params.num_bootstrap,
+        separate_strands,
+        read_bias_corr_min,
+        # -------------------
+        rng,
+    )
 
-    if separate_strands and fwd_len >= read_bias_corr_min and rev_len >= read_bias_corr_min:
-        target_length: int = max(fwd_len, rev_len)
-
-        # Resample original sample, correcting for imbalances between
-        # forward and reverse-strand reads along the way
-        # (if we've passed the coverage threshold)
-
-        fwd_strand_samples = rng.choice(
-            repeats_fwd,
-            size=(params.num_bootstrap, target_length),
-            replace=True,
-            p=fwd_strand_weights,
-        )
-
-        rev_strand_samples = rng.choice(
-            repeats_rev,
-            size=(params.num_bootstrap, target_length),
-            replace=True,
-            p=rev_strand_weights,
-        )
-
-        concat_samples = np.sort(
-            np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1),
-            kind="stable")
-
-    else:
-        concat_samples = np.sort(
-            rng.choice(
-                combined_reads,
-                size=(params.num_bootstrap, combined_len),
-                replace=True,
-                p=combined_weights,
-            ) if params.num_bootstrap > 1 else np.array([combined_reads]),
-            kind="stable")
+    # ------------------------------------------------------------------------------------------------------------------
 
     gmm_cache = {}
 
@@ -255,7 +276,7 @@ def call_alleles(
     allele_filter = (params.min_allele_reads - 0.1) / concat_samples.shape[0]
 
     for i in range(params.num_bootstrap):
-        sample = concat_samples[i, :]
+        sample = concat_samples[i, :]  # already sorted
 
         g: object | None = _get_fitted_gmm(sample)
         if not g:
