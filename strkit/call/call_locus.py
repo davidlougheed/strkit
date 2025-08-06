@@ -47,7 +47,7 @@ from .snvs import (
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
 from .types import (
-    VCFContigFormat, AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
+    AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
 )
 from .utils import cn_getter, normalize_contig, get_new_seed, calculate_seq_with_wildcards
 
