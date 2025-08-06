@@ -29,6 +29,7 @@ from strkit_rust_ext import (
     STRkitAlignedSegment,
     STRkitLocus,
     STRkitLocusWithRefData,
+    STRkitLocusBlockSegments,
 )
 
 from strkit.call.allele import CallDict, call_alleles
@@ -876,7 +877,7 @@ def get_locus_with_ref_data(
 def call_locus(
     locus: STRkitLocus,
     # ---
-    bf: STRkitBAMReader,
+    block_segments: STRkitLocusBlockSegments,
     ref: FastaFile,
     params: CallParams,
     # ---
@@ -965,9 +966,7 @@ def call_locus(
         chimeric_read_status,
         left_most_coord,
         right_most_coord,
-    ) = bf.get_overlapping_segments_and_related_data(
-        read_contig, locus.left_flank_coord, locus.right_flank_coord, locus_log_str
-    )
+    ) = block_segments.get_segments_for_locus(locus)
 
     logger_.debug("%s - got %d overlapping aligned segments", locus_log_str, n_overlapping_reads)
 

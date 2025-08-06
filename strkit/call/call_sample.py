@@ -137,6 +137,14 @@ def locus_worker(
         if current_contig is None:
             current_contig = locus_block[0].contig
 
+        # Get all aligned segments for this locus block, reducing the number of round-trip BAM IO ops we have to do!
+        block_segments = bf.get_overlapping_segments_and_related_data_for_block(
+            current_contig,
+            locus_block_left,
+            locus_block_right,
+            f"[block {current_contig}:{locus_block_left}-{locus_block_right}]",
+        )
+
         # Find candidate SNVs for this locus block, if we're using SNV data
         block_candidate_snvs = snv_vcf_reader.get_candidate_snvs(
             tuple(snv_vcf_contigs), vcf_file_format, current_contig, locus_block_left, locus_block_right
@@ -152,7 +160,7 @@ def locus_worker(
                 res = call_locus(
                     locus,
                     # ---
-                    bf,
+                    block_segments,
                     ref,
                     params,
                     # ---
