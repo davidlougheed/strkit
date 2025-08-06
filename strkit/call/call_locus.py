@@ -1430,8 +1430,7 @@ def call_locus(
                 locus_log_str,
                 haplotagged_reads_count,
                 min_hp_read_coverage,
-                top_ps and top_ps[0][0],
-                top_ps and top_ps[0][1],
+                *(top_ps[0] if top_ps else (None, 0)),  # %s %d --> top phase set + count or None 0
                 min_hp_read_coverage,
                 len(haplotags),
                 locus.n_alleles,
