@@ -200,11 +200,15 @@ def output_contig_vcf_lines(
         vr.info[VCF_INFO_REFMC] = result["ref_cn"]
         vr.info[VCF_INFO_ANCH] = params.vcf_anchor_size - anchor_offset
 
-        vr.samples[sample_id]["GT"] = (
-            tuple(map(seq_alleles_raw.index, seqs_with_anchors))
-            if call is not None and peak_seqs
-            else _blank_entry(n_alleles)
-        )
+        try:
+            vr.samples[sample_id]["GT"] = (
+                tuple(map(seq_alleles_raw.index, seqs_with_anchors))
+                if call is not None and peak_seqs
+                else _blank_entry(n_alleles)
+            )
+        except ValueError:
+            logger.error(f"results[{result_idx}]: one of {seqs_with_anchors} not in {seq_alleles_raw}")
+            continue
 
         if am := result.get("assign_method"):
             vr.samples[sample_id]["PM"] = am
