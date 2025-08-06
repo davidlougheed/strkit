@@ -25,7 +25,6 @@ from strkit_rust_ext import (
     get_read_coords_from_matched_pairs,
     get_pairs_and_tr_read_coords,
     find_coord_idx_by_ref_pos,
-    STRkitBAMReader,
     STRkitAlignedSegment,
     STRkitLocus,
     STRkitLocusWithRefData,
