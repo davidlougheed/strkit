@@ -893,7 +893,6 @@ def call_locus(
     # ---
     candidate_snvs: CandidateSNVs | None = None,
     # ---
-    read_file_has_chr: bool = True,
     ref_file_has_chr: bool = True,
 ) -> LocusResult | None:
     call_timer = time.perf_counter()
@@ -912,8 +911,6 @@ def call_locus(
     use_hp = params.use_hp
     vcf_anchor_size = params.vcf_anchor_size
     # ----------------------------------
-
-    read_contig = normalize_contig(locus.contig, read_file_has_chr)
 
     # noinspection PyTypeChecker
     locus_result: LocusResult = {

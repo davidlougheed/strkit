@@ -31,7 +31,7 @@ from .output import (
     output_contig_vcf_lines,
 )
 from .types import VCFContigFormat, LocusResult
-from .utils import get_new_seed
+from .utils import get_new_seed, normalize_contig
 
 __all__ = [
     "call_sample",
@@ -139,7 +139,7 @@ def locus_worker(
 
         # Get all aligned segments for this locus block, reducing the number of round-trip BAM IO ops we have to do!
         block_segments = bf.get_overlapping_segments_and_related_data_for_block(
-            current_contig,
+            normalize_contig(current_contig, read_file_has_chr),
             locus_block_left,
             locus_block_right,
             f"[block {current_contig}:{locus_block_left}-{locus_block_right}]",
@@ -175,7 +175,6 @@ def locus_worker(
                     logger_=lg,
                     locus_log_str=locus_log_str,
                     candidate_snvs=block_candidate_snvs,
-                    read_file_has_chr=read_file_has_chr,
                     ref_file_has_chr=ref_file_has_chr,
                 )
 
