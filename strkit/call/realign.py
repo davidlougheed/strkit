@@ -7,12 +7,13 @@ import queue
 import time
 
 from numpy.typing import NDArray
-from strkit_rust_ext import STRkitAlignedCoords, STRkitAlignedSegment, STRkitLocusWithRefData
+from strkit_rust_ext import (
+    STRkitAlignedCoords, STRkitAlignedSegment, STRkitLocusWithRefData, calculate_seq_with_wildcards
+)
 
 from .align_matrix import match_score, dna_matrix
 from .cigar import decode_cigar_np, get_aligned_pair_matches
 from .params import CallParams
-from .utils import calculate_seq_with_wildcards
 
 __all__ = [
     "MatchedCoordPairListOrNone",
@@ -77,9 +78,8 @@ def perform_realign(
 ) -> STRkitAlignedCoords | None:
     rn = segment.name
 
-    # TODO: move calculate_seq_with_wildcards to rust and add a segment method for doing this on a specified slice of
-    #  the query sequence or something...
-    qs_wc = calculate_seq_with_wildcards(segment.query_sequence, segment.query_qualities)
+    # TODO: add a segment method for doing this on a specified slice of query sequence or something...
+    qs_wc = calculate_seq_with_wildcards(segment.query_sequence, segment.query_qualities, 3)
 
     ref_total_seq = locus_with_ref_data.ref_total_seq
     ref_seq_len = len(ref_total_seq)

@@ -29,6 +29,7 @@ from strkit_rust_ext import (
     STRkitLocus,
     STRkitLocusWithRefData,
     STRkitLocusBlockSegments,
+    calculate_seq_with_wildcards,
 )
 
 from strkit.call.allele import CallDict, call_alleles
@@ -46,10 +47,8 @@ from .snvs import (
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
-from .types import (
-    AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
-)
-from .utils import cn_getter, normalize_contig, get_new_seed, calculate_seq_with_wildcards
+from .types import AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
+from .utils import cn_getter, normalize_contig, get_new_seed
 
 
 __all__ = [
@@ -1081,18 +1080,14 @@ def call_locus(
         # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
         # contain a correctly-sized sequence.
 
-        # TODO: wildcards in flanking region too?
         flank_left_seq: str = qs[left_flank_start:left_flank_end][-1*(flank_size+10):]
         flank_right_seq: str = qs[right_flank_start:right_flank_end][:flank_size+10]
 
         tr_len: int = right_flank_start - left_flank_end  # i.e., len(tr_read_seq)
         tr_read_seq = qs[left_flank_end:right_flank_start]
 
-        # --------------------------------------------------------------------------------------------------------------
-
-        # Cache these now that we've done some adjustments (although tr_len_w_flank should not change)
-        flank_len: int = len(flank_left_seq) + len(flank_right_seq)
-        tr_len_w_flank: int = tr_len + flank_len
+        # Cache this now that we've done some adjustments (although tr_len_w_flank should not change)
+        tr_len_w_flank: int = tr_len + len(flank_left_seq) + len(flank_right_seq)
 
         # --------------------------------------------------------------------------------------------------------------
 
@@ -1113,13 +1108,17 @@ def call_locus(
             )
             continue
 
-        flank_left_seq_wc = calculate_seq_with_wildcards(flank_left_seq, flank_left_qqs)
-        flank_right_seq_wc = calculate_seq_with_wildcards(flank_right_seq, flank_right_qqs)
-        tr_read_seq_wc = calculate_seq_with_wildcards(tr_read_seq, qqs)
+        flank_left_seq_wc = calculate_seq_with_wildcards(flank_left_seq, flank_left_qqs, base_wildcard_threshold)
+        flank_right_seq_wc = calculate_seq_with_wildcards(flank_right_seq, flank_right_qqs, base_wildcard_threshold)
+        tr_read_seq_wc = calculate_seq_with_wildcards(tr_read_seq, qqs, base_wildcard_threshold)
 
         # These are now invalid (or at least cannot be used for ref lookups):
         del right_flank_start
         del right_flank_end
+
+        # These are now not used anymore
+        del flank_left_seq
+        del flank_right_seq
 
         # --------------------------------------------------------------------------------------------------------------
 
@@ -1201,7 +1200,7 @@ def call_locus(
                 locus_with_ref_data.ref_cn,
             )
             logger_.debug("%s - ref left flank:     %s", locus_log_str, locus_with_ref_data.ref_left_flank_seq)
-            logger_.debug("%s - read left flank:    %s", locus_log_str, flank_left_seq)
+            logger_.debug("%s - read left flank:    %s", locus_log_str, flank_left_seq_wc)
             logger_.debug(
                 "%s - ref TR seq (:500):  %s (len=%d)",
                 locus_log_str,
@@ -1212,7 +1211,7 @@ def call_locus(
                 "%s - read TR seq (:500): %s (len=%d)", locus_log_str, tr_read_seq_wc[:500], len(tr_read_seq_wc)
             )
             logger_.debug("%s - ref right flank:  %s", locus_log_str, locus_with_ref_data.ref_right_flank_seq)
-            logger_.debug("%s - read right flank: %s", locus_log_str, flank_right_seq)
+            logger_.debug("%s - read right flank: %s", locus_log_str, flank_right_seq_wc)
             return {
                 **locus_result,
                 "peaks": None,
