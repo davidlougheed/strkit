@@ -16,6 +16,12 @@ If you use STRkit in published work, please cite our preprint:
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
+**Officially-supported platforms:** macOS (aarch64), Linux (amd64/aarch64)
+
+> **Note:** Currently, it is unlikely that STRkit will work on "plain" Windows due to downstream dependencies. 
+> To run STRkit on Windows, please use [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/) or
+> use our Docker image (see [Installation as a Docker container](#as-a-docker-container)).
+
 
 ## Table of Contents
 
@@ -83,6 +89,33 @@ Then, STRkit commands can be run mostly as normal using the Docker image:
 ```bash
 docker run -it ghcr.io/davidlougheed/strkit --help
 ```
+
+For example, to run the `strkit call` subcommand in Docker, including writing file output (via binding input files and 
+mounting a read/writeable folder for outputs):
+
+```bash
+docker run \
+  -v inputs:/inputs:ro \
+  -v out:/out \
+  -it ghcr.io/davidlougheed/strkit call \
+  /inputs/file.bam \
+  --hq --loci /inputs/loci.bed --ref /inputs/ref.fa --incorporate-snvs /inputs/dbsnp.vcf.gz \
+  --vcf /out/calls.vcf --no-tsv
+```
+
+Inside the `inputs` directory, STRkit would (given these parameters) expect the following files to be present:
+
+* `file.bam`: A readset for the sample to be called.
+* `file.bam.bai`: A BAI index for the readset.
+* `ref.fa`: The reference genome for the reads in FASTA format.
+* `ref.fa.fai`: A FAIDX-format index for the reference genome.
+* `dbsnp.vcf.gz`: A VCF of SNVs to use as a catalogue for calling SNVs to aid in the STR genotyping process.
+* `dbsnp.vcf.gz.tbi`: A Tabix-format index for the dbSNP VCF.
+* `loci.bed`: A catalogue of loci (see the [Caller catalog format & choosing a catalog](./docs/caller_catalog.md) 
+  document for more information).
+
+For more information on call parameters, see the below section on `strkit call` and the 
+[Advanced caller usage and configuration](./docs/caller_usage.md) document.
 
 
 ## Commands
