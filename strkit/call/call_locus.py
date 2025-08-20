@@ -87,10 +87,6 @@ significant_clip_snv_take_in = 250
 large_consensus_length: int = 2000
 max_n_large_consensus_reads: int = 20
 
-# maximum median number of bases before we can't use POA for consensus anymore due to performance:
-max_mdn_poa_length: int = 5000
-
-
 # property getters & other partials
 weight_getter = operator.itemgetter("w")
 not_snv_out_of_range_char = functools.partial(operator.ne, SNV_OUT_OF_RANGE_CHAR)
@@ -1614,7 +1610,7 @@ def call_locus(
                     if seqs and len(seqs[0]) > large_consensus_length:
                         # if we're dealing with large sequences, use a subset of the reads to prevent stalling out.
                         seqs = seqs[:max_n_large_consensus_reads]
-                    yield consensus_seq(seqs, logger_, max_mdn_poa_length)
+                    yield consensus_seq(seqs, logger_, params.max_mdn_poa_length)
 
             call_seqs.extend(_consensi_for_key("_tr_seq"))
             call_anchor_seqs.extend(_consensi_for_key("_start_anchor"))

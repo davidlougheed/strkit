@@ -96,6 +96,15 @@ def add_call_parser_args(call_parser):
         help="Calculate consensus sequences for alleles. This flag increases runtime.")
 
     call_parser.add_argument(
+        "--max-mdn-poa-length",
+        type=int,
+        default=1500,
+        help=(
+            "Maximum median STR sequence length before we use a best-representative-read method for the 'consensus' "
+            "STR sequence rather than partial order alignment (POA) due to computational performance."
+        ))
+
+    call_parser.add_argument(
         "--min-reads",
         type=int,
         default=4,
