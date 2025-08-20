@@ -381,10 +381,9 @@ def _determine_snv_call_phase_set(
         try:
             # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
             while call_phase_set in phase_set_synonymous:
-                logger_.debug(
-                    f"{locus_log_str} - using existing remap {call_phase_set} -> "
-                    f"{phase_set_synonymous[call_phase_set]}")
-                call_phase_set, r1 = phase_set_synonymous[call_phase_set]
+                pss = phase_set_synonymous[call_phase_set]
+                logger_.debug(f"%s - using existing remap %s -> %s", locus_log_str, call_phase_set, pss)
+                call_phase_set, r1 = pss
                 # If r[1] is True:
                 #   we should flip while going from call_phase_set -> r[0], so we should invert should_flip
                 # If r[1] is False:
@@ -933,10 +932,10 @@ def call_locus(
             ref, respect_ref, ref_file_has_chr, vcf_anchor_size, locus, flank_size, logger_, locus_log_str
         )
     except InvalidLocus as e:
-        logger_.error("%s - skipping locus, %s", locus_log_str, str(e))
+        logger_.error("%s - skipping locus (InvalidLocus), %s", locus_log_str, str(e))
         return None  # don't even return a result, this locus has an invalid position
     except SkipLocus as e:
-        logger_.warning("%s - skipping locus, %s", locus_log_str, str(e))
+        logger_.warning("%s - skipping locus (SkipLocus), %s", locus_log_str, str(e))
         return locus_result
 
     locus_result["ref_cn"] = locus_with_ref_data.ref_cn
@@ -965,10 +964,8 @@ def call_locus(
 
     logger_.debug("%s - got %d overlapping aligned segments", locus_log_str, n_overlapping_reads)
 
-    if n_overlapping_reads > params.max_reads:  # TODO: sample across full set instead?
-        logger_.warning(
-            "%s - locus has excess reads, using the first %d; misalignment?", locus_log_str, params.max_reads
-        )
+    if n_overlapping_reads > (mr := params.max_reads):  # TODO: sample across full set instead?
+        logger_.warning("%s - locus has excess reads, using the first %d; misalignment?", locus_log_str, mr)
 
     sorted_read_lengths = np.sort(read_lengths)
 
