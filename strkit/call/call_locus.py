@@ -60,8 +60,6 @@ EMPTY_NP_ARRAY = np.array([])
 # TODO: Parameterize
 CALL_WARN_TIME = 3  # seconds
 
-realign_timeout = 5
-
 default_ref_max_iters: int = 250
 ref_max_iters_to_be_slow: int = 100
 
@@ -89,7 +87,6 @@ max_n_large_consensus_reads: int = 20
 
 # property getters & other partials
 weight_getter = operator.itemgetter("w")
-not_snv_out_of_range_char = functools.partial(operator.ne, SNV_OUT_OF_RANGE_CHAR)
 eq_0 = functools.partial(operator.eq, 0)
 
 
