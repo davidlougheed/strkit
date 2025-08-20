@@ -8,7 +8,7 @@ from pathlib import Path
 from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
 from typing import Iterable
 
-from strkit.utils import cat_strs, is_none, idx_0_getter
+from strkit.utils import is_none, idx_0_getter
 from ..params import CallParams
 from ..types import LocusResult
 from ..utils import cn_getter
@@ -93,10 +93,6 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
 
 def _vr_pos_key(vr: VariantRecord) -> int:
     return vr.pos
-
-
-def _reversed_str(s: str) -> str:
-    return cat_strs(reversed(s))
 
 
 @functools.cache
