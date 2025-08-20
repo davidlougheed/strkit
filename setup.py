@@ -39,6 +39,8 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: POSIX",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS :: MacOS X",
     ],
 
     author="David Lougheed",
