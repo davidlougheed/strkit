@@ -152,9 +152,17 @@ Example report format:
 
 ## VCF
 
+VCF meta fields (non-exhaustive):
+
+* `source`: always set to `strkit`
+* `phasing`: present and set to `partial` if using SNV/HP phasing
+* `reference`: absolute file URI to FASTA reference (`file://<...>`)
+* `strkitVersion`: STRkit version used to generate the file
+
 VCF format fields (i.e., for each variant sample entry):
 
-* `AD`: Read depth for each allele
+* `AD`: Read depth for each allele (non-standard vs. common VCF usage, where this is read depth for reference vs. each
+  possible alt.)
 * `CONS`: Consensus methods used for each alt (`single`/`poa`/`best_rep`)
 * `DP`: Total read depth
 * `DPS`: Total read depth; only supporting reads (for calls with incorporated SNVs mainly; STR calls only)
@@ -176,3 +184,4 @@ VCF info. fields (i.e., for each STR variant record; not present for SNV records
 * `VT`: Variant record type (`str` or `snv`)
 * `MOTIF`: Motif sequence
 * `REFMC`: Motif copy number in the reference genome
+* `ANCH`: 5' anchor size, i.e., size of the prefix of the reference sequence replaced by any of the alts

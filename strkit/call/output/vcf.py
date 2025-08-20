@@ -3,11 +3,13 @@ import logging
 import traceback
 
 from collections import Counter
+from datetime import datetime
 from os.path import commonprefix
 from pathlib import Path
 from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
 from typing import Iterable
 
+from strkit import __version__
 from strkit.utils import is_none, idx_0_getter
 from ..params import CallParams
 from ..types import LocusResult
@@ -46,8 +48,19 @@ def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
     return map(str.upper, x)
 
 
-def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
+def build_vcf_header(sample_id: str, reference_file: str, partial_phasing: bool) -> VariantHeader:
     vh = VariantHeader()  # automatically sets VCF version to 4.2
+
+    # Add file date
+    now = datetime.now()
+    vh.add_meta("fileDate", f"{now.year}{now.month:02d}{now.day:02d}")
+
+    # Add source
+    vh.add_meta("source", "strkit")
+
+    # Mark that we have partial phasing if we're using HP/SNVs
+    if partial_phasing:
+        vh.add_meta("phasing", "partial")
 
     # Add an absolute path to the reference genome
     vh.add_meta("reference", f"file://{str(Path(reference_file).resolve().absolute())}")
@@ -56,6 +69,9 @@ def build_vcf_header(sample_id: str, reference_file: str) -> VariantHeader:
     with FastaFile(reference_file) as rf:
         for contig in rf.references:
             vh.contigs.add(contig, length=rf.get_reference_length(contig))
+
+    # Add STRkit-specific fields marking version
+    vh.add_meta("strkitVersion", str(__version__))
 
     # Add CNV:TR alt type (symbolic allele: tandem repeat)
     # vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")
