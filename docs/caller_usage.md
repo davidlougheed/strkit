@@ -47,10 +47,10 @@
   TR boundaries can be blurry, so by default we give STRkit an opportunity to extend the provided region to improve
   mapped indel capturing and to be consistent with the approach we use to count repeat copies in non-reference samples.
   Turning this off should give results closer to other STR callers, at the cost of potentially missing variation.
-* `--count-kmers` or `-k`: Turn on motif-sized k-mer counting at the allele level, with `-k peak`, or at the read 
-  level, with `-k read`, or both with `-k both`. If the flag is provided with no value, it will default to `peak.`
-  Note that k-mer counts will only be reported if a `--json` path is specified. This feature can be used to detect
-  motif composition differences between alleles or samples. **Default:** `none`
+* `--count-kmers [peak|read|both|none]` or `-k`: Turn on motif-sized k-mer counting at the allele level, with `-k peak`,
+  or at the read level, with `-k read`, or both with `-k both`. If the flag is provided with no value, it will default 
+  to `peak.` Note that k-mer counts will only be reported if a `--json` path is specified. This feature can be used to
+  detect motif composition differences between alleles or samples. **Default:** `none`
 * `--consensus` or `-c`: Turn on consensus calculation for alleles. This adds runtime, but gives a better idea of STR 
   structure and is useful for comparing alleles beyond copy number. If `--vcf` is set, this option is forced on. 
   **Default:** off
@@ -66,7 +66,7 @@
   benchmarking and in case of slight misalignment. This is clamped to being in the range of `[1, flank_size]`.
   **Default:** 5
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
-* `--gm-filter-factor`: Tuning parameter for the copy number Gaussian mixture model (GMM) used for allele calling in
+* `--gm-filter-factor #`: Tuning parameter for the copy number Gaussian mixture model (GMM) used for allele calling in
   some cases. GMM peaks are filtered out when they have a weight lower than `(gm_filter_factor * n_components)` for a
   given GMM of `n_components`. **Default:** 3
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
@@ -82,7 +82,7 @@
   written automatically. **Default:** *none*
 * `--no-tsv`: Suppresses TSV output to `stdout`. Without `--json` or `--vcf`, no output will be generated, which isn't 
   very helpful. **Default:** TSV output on
-* `--seed`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 
+* `--seed ####`: Seed the random number generator used for all random sampling, Gaussian mixture modeling, etc. 
   Useful for replicability.
 * `--log-level [level]`: Log level. Value must be of `error`, `warning`, `info`, and `debug`. Be careful with the 
   `debug` log level, as it can produce gigabytes of logs for a large run. **Default:** `info`.
