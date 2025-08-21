@@ -187,6 +187,8 @@ def locus_worker(
             if res is not None:
                 results.append(res)
 
+        # Instead of updating the locus counter every time a single locus finishes, do it in blocks. This is less
+        # accurate (which isn't that important) and saves time with locking/unlocking.
         locus_counter_lock.acquire(timeout=30)
         locus_counter.set(locus_counter.get() + len(locus_block))
         locus_counter_lock.release()
