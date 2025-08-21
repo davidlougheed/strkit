@@ -303,7 +303,9 @@ def call_sample(
     sample_id_str = params.sample_id or "sample"
     vf: PySamVariantFile | None = None
     if vcf_path is not None:
-        vh = build_vcf_header(sample_id_str, params.reference_file)
+        vh = build_vcf_header(
+            sample_id_str, params.reference_file, partial_phasing=params.snv_vcf is not None or params.use_hp
+        )
         vf = PySamVariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 
     # ---
