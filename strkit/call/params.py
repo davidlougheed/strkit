@@ -46,7 +46,9 @@ class CallParams:
         respect_ref: bool = False,
         count_kmers: str = "none",  # "none" | "peak" | "read"
         consensus: bool = False,
-        max_mdn_poa_length: int = 1500,
+        large_consensus_length: int = 1200,
+        max_n_large_consensus_reads: int = 20,
+        max_mdn_poa_length: int = 2000,
         vcf_anchor_size: int = 5,
         # ---
         log_level: int = logging.WARNING,
@@ -81,6 +83,9 @@ class CallParams:
         self.respect_ref: bool = respect_ref
         self.count_kmers: str = count_kmers
         self.consensus: bool = consensus
+        # above large_consensus_length, the number of reads used for consensus is limited to max_n_large_consensus_reads
+        self.large_consensus_length: int = large_consensus_length
+        self.max_n_large_consensus_reads: int = max_n_large_consensus_reads
         self.max_mdn_poa_length: int = max_mdn_poa_length
         self.vcf_anchor_size: int = vcf_anchor_size
         # ---
@@ -166,6 +171,8 @@ class CallParams:
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
             consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
+            large_consensus_length=p_args.large_consensus_length,
+            max_n_large_consensus_reads=p_args.max_n_large_consensus_reads,
             max_mdn_poa_length=p_args.max_mdn_poa_length,
             vcf_anchor_size=min(max(p_args.vcf_anchor_size, 1), p_args.flank_size),
             # ---
@@ -203,6 +210,8 @@ class CallParams:
             "respect_ref": self.respect_ref,
             "count_kmers": self.count_kmers,
             "consensus": self.consensus,
+            "large_consensus_length": self.large_consensus_length,
+            "max_n_large_consensus_reads": self.max_n_large_consensus_reads,
             "max_mdn_poa_length": self.max_mdn_poa_length,
             "vcf_anchor_size": self.vcf_anchor_size,
             "log_level": self.log_level,

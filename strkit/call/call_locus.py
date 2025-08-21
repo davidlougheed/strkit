@@ -81,10 +81,6 @@ many_realigns_threshold = 2
 significant_clip_threshold = 100
 significant_clip_snv_take_in = 250
 
-# above large_consensus_length, the number of reads used for consensus is limited to max_n_large_consensus_reads
-large_consensus_length: int = 2000
-max_n_large_consensus_reads: int = 20
-
 # property getters & other partials
 weight_getter = operator.itemgetter("w")
 eq_0 = functools.partial(operator.eq, 0)
@@ -1604,9 +1600,9 @@ def call_locus(
             def _consensi_for_key(k: Literal["_tr_seq", "_start_anchor"]):
                 for a in allele_reads:
                     seqs = list(map(lambda rr: read_dict_extra[rr][k], a))
-                    if seqs and len(seqs[0]) > large_consensus_length:
+                    if seqs and len(seqs[0]) > params.large_consensus_length:
                         # if we're dealing with large sequences, use a subset of the reads to prevent stalling out.
-                        seqs = seqs[:max_n_large_consensus_reads]
+                        seqs = seqs[:params.max_n_large_consensus_reads]
                     yield consensus_seq(seqs, logger_, params.max_mdn_poa_length)
 
             call_seqs.extend(_consensi_for_key("_tr_seq"))

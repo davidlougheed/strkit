@@ -54,9 +54,14 @@
 * `--consensus` or `-c`: Turn on consensus calculation for alleles. This adds runtime, but gives a better idea of STR 
   structure and is useful for comparing alleles beyond copy number. If `--vcf` is set, this option is forced on. 
   **Default:** off
-* `--max-mdn-poa-length`: Maximum median STR sequence length before we use a best-representative-read method for the 
-  'consensus' STR sequence rather than partial order alignment (POA) due to computational performance. **Default:** 1500
-* `--vcf-anchor-size`: Number of bases upstream (5') of the tandem repeat to include in the VCF output. This can include
+* `--large-consensus-length ####`: If the smallest tandem repeat sequence is longer than this, the number of reads used
+  for determining the consensus will be downsampled to `--max-n-large-consensus-reads`. **Default:** 1200
+* `--max-n-large-consensus-reads ##`: When the smallest tandem repeat sequence is longer than 
+  `--large-consensus-length`, the number of reads will be downsampled to this value. **Default:** 20
+* `--max-mdn-poa-length ####`: Maximum median STR sequence length before we use a best-representative-read method for 
+  the 'consensus' STR sequence rather than partial order alignment (POA) due to computational performance.
+  **Default:** 2000
+* `--vcf-anchor-size #`: Number of bases upstream (5') of the tandem repeat to include in the VCF output. This can include
   small indels, and having a size above `1` may be beneficial or detrimental to the use case at hand, but is nice for 
   benchmarking and in case of slight misalignment. This is clamped to being in the range of `[1, flank_size]`.
   **Default:** 5

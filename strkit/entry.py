@@ -96,13 +96,25 @@ def add_call_parser_args(call_parser):
         help="Calculate consensus sequences for alleles. This flag increases runtime.")
 
     call_parser.add_argument(
+        "--large-consensus-length",
+        type=int,
+        default=1200,
+        help="If the smallest tandem repeat sequence is longer than this, the reads will be downsampled to "
+             "--max-n-large-consensus-reads.")
+
+    call_parser.add_argument(
+        "--max-n-large-consensus-reads",
+        type=int,
+        default=20,
+        help="When the smallest tandem repeat sequence is longer than --large-consensus-length, the number of reads "
+             "will be downsampled to this value.")
+
+    call_parser.add_argument(
         "--max-mdn-poa-length",
         type=int,
-        default=1500,
-        help=(
-            "Maximum median STR sequence length before we use a best-representative-read method for the 'consensus' "
-            "STR sequence rather than partial order alignment (POA) due to computational performance."
-        ))
+        default=2000,
+        help="Maximum median STR sequence length before we use a best-representative-read method for the 'consensus' "
+             "STR sequence rather than partial order alignment (POA) due to computational performance.")
 
     call_parser.add_argument(
         "--min-reads",
