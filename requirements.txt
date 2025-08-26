@@ -33,7 +33,7 @@ scikit-learn==1.7.1
 scipy==1.16.1
 six==1.17.0
 statsmodels==0.14.5
-strkit_rust_ext==0.23.0
+strkit_rust_ext==0.23.1
 threadpoolctl==3.6.0
 tomli==2.2.1
 typing-inspection==0.4.1

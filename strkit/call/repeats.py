@@ -88,6 +88,7 @@ def get_repeat_count(
         rc_params.max_iters,
         rc_params.initial_local_search_range,
         rc_params.initial_step_size,
+        use_shortcuts=False,
     )
 
 
