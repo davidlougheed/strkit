@@ -523,6 +523,8 @@ def _exec_mi(p_args) -> None:
     if (father_file is None or mother_file is None) and (mother_id is None or father_id is None or child_id is None):
         raise ParamError("If less than 3 genotype files are specified, sample IDs must be given")
 
+    logger = get_main_logger(log_levels[p_args.log_level])
+
     calc_inst = calc_class(
         child_call_file=child_file,
         mother_call_file=mother_file,
@@ -545,6 +547,7 @@ def _exec_mi(p_args) -> None:
         only_phased=only_phased,
 
         debug=p_args.debug,
+        logger=logger,
     )
 
     # TODO: Figure out contigs properly... sex chromosome stuff
@@ -558,6 +561,8 @@ def _exec_mi(p_args) -> None:
     if contig is not None:
         contigs = {contig}
 
+    logger.info("Executing MI calculator: %s", caller)
+    logger.info("MI included contigs: %s", contigs)
     res = calc_inst.calculate(included_contigs=contigs)
 
     if not res:
