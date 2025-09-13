@@ -71,12 +71,33 @@ def output_json_report_results(results: tuple[LocusResult, ...], is_last: bool, 
     _write_bytes(results_bytes, json_path, "ab")
 
 
-def output_json_report_footer(time_taken: float, json_path: str, indent_json: bool):
+def _indent_lines(json_bytes: bytes, indent: int) -> bytes:
+    """
+    Given serialized, indented JSON bytes, indent them by extra spaces.
+    :param json_bytes: Serialized, indented JSON bytes.
+    :param indent: Number of spaces to indent the JSON by.
+    :return: Extra-indented JSON bytes.
+    """
+    return b"\n".join(
+        b" " * indent + line if line and i > 0 else line  # skip first indent since this will be attached to a key
+        for i, line in enumerate(json_bytes.split(b"\n"))
+    )
+
+
+def output_json_report_footer(
+    avg_read_depths: dict[str, float], time_taken: float, json_path: str, indent_json: bool
+):
+    avg_read_depths_bytes = (dumps_indented if indent_json else dumps)(avg_read_depths)
     runtime_bytes = dumps(time_taken)
     if indent_json:
-        footer_bytes = b'\n  ],\n  "runtime": ' + runtime_bytes + b'\n}\n'
+        footer_bytes = (
+            b'\n  ],\n  "avg_read_depths": '
+            + _indent_lines(avg_read_depths_bytes, indent=2)
+            + b',\n  "runtime": '
+            + runtime_bytes + b'\n}\n'
+        )
     else:
-        footer_bytes = b'],"runtime":' + runtime_bytes + b'}\n'
+        footer_bytes = b'],"avg_read_depths":' + avg_read_depths_bytes + b',"runtime":' + runtime_bytes + b'}\n'
 
     # write partial JSON
     _write_bytes(footer_bytes, json_path, "ab")

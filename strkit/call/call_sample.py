@@ -370,6 +370,8 @@ def call_sample(
         )
 
         n_contigs_processed: int = 0
+        avg_read_depths: dict[str, float] = {}
+
         qsize: int = locus_queue.qsize()
         while qsize > 0:  # should have one loop iteration per contig
             jobs = [p.apply_async(locus_worker, (i + 1, *job_args)) for i in range(params.processes)]
@@ -426,6 +428,19 @@ def call_sample(
             if vf is not None:
                 output_contig_vcf_lines(params, sample_id_str, vf, results, logger)
 
+            #  - calculate average read depth for contig for a little logging report at the end
+            if results:
+                ard: int = 0
+                nwr: int = 0
+                for r in results:
+                    if "reads" not in r:
+                        continue
+                    ard += len(r["reads"])
+                    nwr += 1
+                avg_read_depths[results[0]["contig"]] = ard / nwr
+            else:
+                avg_read_depths[f"unknown{n_contigs_processed}"] = 0.0
+
             #  - we're done with this tuple, so delete it as early as possible
             del results
 
@@ -456,5 +471,8 @@ def call_sample(
 
     logger.info(f"Finished STR genotyping in {time_taken:.1f}s")
 
+    for rc, rr in avg_read_depths.items():
+        logger.info("    Average read depth (called loci only) for contig %s: %.1f", rc, rr)
+
     if json_path:
-        output_json_report_footer(time_taken, json_path, indent_json)
+        output_json_report_footer(avg_read_depths, time_taken, json_path, indent_json)
