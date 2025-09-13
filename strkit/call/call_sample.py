@@ -70,13 +70,6 @@ def locus_worker(
     is_single_processed: bool,
     seed: int,
 ) -> list[LocusResult]:
-    if params.profile:
-        import cProfile
-        pr = cProfile.Profile()
-        pr.enable()
-    else:
-        pr = None
-
     from os import getpid
     from pysam import FastaFile, VariantFile
     from strkit_rust_ext import STRkitBAMReader, STRkitVCFReader
@@ -88,6 +81,14 @@ def locus_worker(
     else:
         from strkit.logger import create_process_logger
         lg = create_process_logger(getpid(), params.log_level)
+
+    if params.profile:
+        import cProfile
+        pr = cProfile.Profile()
+        pr.enable()
+        lg.info("Profiling is enabled")
+    else:
+        pr = None
 
     rng = np_default_rng(seed=seed)
 
