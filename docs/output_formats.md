@@ -145,7 +145,10 @@ Example report format:
       "time": 0.1274
     },
     // ...
-  ]
+  ],
+  "avg_read_depths": {
+    "chr4": 37.0
+  }
 }
 ```
 
