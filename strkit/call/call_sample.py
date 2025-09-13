@@ -285,7 +285,7 @@ def call_sample(
     logger.info("Starting STR genotyping with parameters:")
     for k, v in params.to_dict().items():
         v_fmt = f'"{v}"' if isinstance(v, str) else v
-        logger.info(f"    {k.rjust(22)} = {v_fmt}")
+        logger.info(f"    {k.rjust(27)} = {v_fmt}")
 
     # Seed the random number generator if a seed is provided, for replicability
     rng: NPRandomGenerator = np_default_rng(seed=params.seed)
