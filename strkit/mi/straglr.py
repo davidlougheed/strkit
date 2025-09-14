@@ -8,6 +8,13 @@ __all__ = [
 ]
 
 
+COL_CONTIG = 0
+COL_START = 1
+COL_END = 2
+COL_MOTIF = 3
+COL_GT = 6
+
+
 class StraglrCalculator(BaseCalculator):
     @staticmethod
     def get_contigs_from_fh(fh) -> set:
@@ -24,15 +31,15 @@ class StraglrCalculator(BaseCalculator):
 
             line = pv.strip().split("\t")
 
-            if line[0] != contig:
+            if line[COL_CONTIG] != contig:
                 if calls:
                     # assume ordered BED; break after we've collected all calls for the contig
                     break
                 continue
 
-            locus = tuple(line[:3])
+            locus = tuple(line[:COL_END+1])
 
-            k = (line[0], int(line[1]), int(line[2]))
+            k = (line[COL_CONTIG], int(line[COL_START]), int(line[COL_END]))
 
             overlapping = self.get_loci_overlapping(k[0], k[1], k[2], True)
 
@@ -50,9 +57,9 @@ class StraglrCalculator(BaseCalculator):
 
             # Transform the genotypes into something that is consistent across individuals,
             # using the file with the list of loci.
-            gt_fact = len(line[3]) / len(orig_motif)
+            gt_fact = len(line[COL_MOTIF]) / len(orig_motif)
 
-            gt = tuple(float(g.split("(")[0]) * gt_fact for g in line[4].split(";"))
+            gt = tuple(float(g.split("(")[0]) * gt_fact for g in line[COL_GT].split(";"))
             if len(gt) == 1:  # If it's homozygous, expand it out to length 2
                 gt = gt + gt
 
