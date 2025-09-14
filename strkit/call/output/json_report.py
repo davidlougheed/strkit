@@ -85,19 +85,30 @@ def _indent_lines(json_bytes: bytes, indent: int) -> bytes:
 
 
 def output_json_report_footer(
-    avg_read_depths: dict[str, float], time_taken: float, json_path: str, indent_json: bool
+    avg_read_depth: float,
+    avg_read_depths_by_contig: dict[str, float],
+    time_taken: float,
+    json_path: str,
+    indent_json: bool,
 ):
-    avg_read_depths_bytes = (dumps_indented if indent_json else dumps)(avg_read_depths)
+    avg_read_depth_bytes = dumps(avg_read_depth)  # ensure JSON-formatted float (probably needless)
+    avg_read_depths_by_contig_bytes = (dumps_indented if indent_json else dumps)(avg_read_depths_by_contig)
     runtime_bytes = dumps(time_taken)
     if indent_json:
         footer_bytes = (
-            b'\n  ],\n  "avg_read_depths": '
-            + _indent_lines(avg_read_depths_bytes, indent=2)
+            b'\n  ],\n  "avg_read_depth": ' + avg_read_depth_bytes + b',\n  "avg_read_depths_by_contig": '
+            + _indent_lines(avg_read_depths_by_contig_bytes, indent=2)
             + b',\n  "runtime": '
             + runtime_bytes + b'\n}\n'
         )
     else:
-        footer_bytes = b'],"avg_read_depths":' + avg_read_depths_bytes + b',"runtime":' + runtime_bytes + b'}\n'
+        footer_bytes = (
+            b'],"avg_read_depth":' + avg_read_depth_bytes + b',"avg_read_depths_by_contig":'
+            + avg_read_depths_by_contig_bytes
+            + b',"runtime":'
+            + runtime_bytes
+            + b'}\n'
+        )
 
     # write partial JSON
     _write_bytes(footer_bytes, json_path, "ab")

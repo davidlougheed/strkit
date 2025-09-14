@@ -74,7 +74,6 @@ Example report format:
     "seed": 1234,
     "processes": 1
   },
-  "runtime": 8.628772,
   "contigs": [
     "chr4"
   ],
@@ -146,9 +145,11 @@ Example report format:
     },
     // ...
   ],
-  "avg_read_depths": {
+  "avg_read_depth": 37.0,
+  "avg_read_depths_by_contig": {
     "chr4": 37.0
-  }
+  },
+  "runtime": 8.628772
 }
 ```
 
