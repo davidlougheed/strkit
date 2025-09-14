@@ -119,6 +119,7 @@ def locus_worker(
     snv_vcf_reader = STRkitVCFReader(str(params.snv_vcf)) if params.snv_vcf else None
 
     current_contig: str | None = None
+    block_results: list[LocusResult] = []  # in the future, maybe we can use this for some kind of extra phasing info
     results: list[LocusResult] = []
 
     while True:
@@ -150,6 +151,10 @@ def locus_worker(
         block_candidate_snvs = snv_vcf_reader.get_candidate_snvs(
             tuple(snv_vcf_contigs), vcf_file_format, current_contig, locus_block_left, locus_block_right
         ) if snv_vcf_reader is not None else None
+
+        # TODO: could do SNV pileup for this block in the future.
+        #  - this should improve SNV genotyping, as we can get the true genotypes of the candidate SNVs in the sample
+        #    before we extract the values for the reads.
 
         for locus in locus_block:
             # String representation of locus for logging purposes
@@ -186,7 +191,10 @@ def locus_worker(
                 lg.error(f"{locus_log_str} - {traceback.format_exc()}")
 
             if res is not None:
-                results.append(res)
+                block_results.append(res)
+
+        results.extend(block_results)
+        block_results.clear()
 
         # Instead of updating the locus counter every time a single locus finishes, do it in blocks. This is less
         # accurate (which isn't that important) and saves time with locking/unlocking.
