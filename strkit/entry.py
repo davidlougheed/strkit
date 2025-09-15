@@ -5,6 +5,7 @@ import pathlib
 import os
 import sys
 
+from logging import Logger
 from typing import Callable, Type
 
 import strkit.constants as c
@@ -450,11 +451,14 @@ def add_vs_parser_args(vs_parser):
         help="1-based index of the locus to visualize in the JSON file. Default: 0")
 
 
+def _main_logger(p_args) -> Logger:
+    return get_main_logger(log_levels[p_args.log_level])
+
+
 def _exec_call(p_args) -> None:
     from strkit.call import call_sample, CallParams
-    logger = get_main_logger(log_levels[p_args.log_level])
     call_sample(
-        CallParams.from_args(logger, p_args),
+        CallParams.from_args(_main_logger(p_args), p_args),
         json_path=p_args.json,
         indent_json=p_args.indent_json,
         vcf_path=p_args.vcf,
@@ -523,7 +527,7 @@ def _exec_mi(p_args) -> None:
     if (father_file is None or mother_file is None) and (mother_id is None or father_id is None or child_id is None):
         raise ParamError("If less than 3 genotype files are specified, sample IDs must be given")
 
-    logger = get_main_logger(log_levels[p_args.log_level])
+    logger = _main_logger(p_args)
 
     calc_inst = calc_class(
         child_call_file=child_file,
@@ -587,7 +591,7 @@ def _exec_combine_catalogs(p_args):
 
 def _exec_convert(p_args):
     from strkit.convert.converter import convert
-    return convert(p_args.in_file, p_args.in_format, p_args.out_format, get_main_logger())
+    return convert(p_args.in_file, p_args.in_format, p_args.out_format, _main_logger(p_args))
 
 
 def _exec_viz_server(p_args):
@@ -697,9 +701,8 @@ def main(args: list[str] | None = None) -> int:
     p_args = parser.parse_args(args)
 
     if hasattr(p_args, "log_level"):
-        ll = log_levels[p_args.log_level]
-        logger = get_main_logger(ll)
-        attach_stream_handler(ll, logger)
+        logger = _main_logger(p_args)
+        attach_stream_handler(log_levels[p_args.log_level], logger)
     else:
         logger = get_main_logger()
 
