@@ -1406,9 +1406,12 @@ def call_locus(
             if call_res is not None:
                 assign_method = "hp"
                 call_data = call_res
+            else:
+                logger_.debug("%s - call_alleles_with_haplotags failed", locus_log_str)
         else:
             logger_.debug(
-                "%s - not enough HP/PS tags for incorporation; one of %d < %d, top PS %s %d < %d, or #{HP} %d != %d",
+                "%s - not enough HP/PS tags for incorporation; one of %d < %d, top PS %s %d < %d, or #{HP} %d != %d "
+                "(%s)",
                 locus_log_str,
                 haplotagged_reads_count,
                 min_hp_read_coverage,
@@ -1416,6 +1419,7 @@ def call_locus(
                 min_hp_read_coverage,
                 len(haplotags),
                 locus.n_alleles,
+                haplotags,
             )
 
     if should_incorporate_snvs and assign_method != "hp":
