@@ -221,7 +221,7 @@ def call_alleles_with_haplotags(
 
     hp_reads: list[tuple[ReadDict, ...]] = []
     cns: list[NDArray[np.int32]] = []
-    c_ws: list[NDArray[np.int_] | NDArray[np.float_]] = []
+    c_ws: list[NDArray[np.float_]] = []
 
     for hi, hp in enumerate(haplotags):
         # Find reads for cluster
