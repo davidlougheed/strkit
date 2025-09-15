@@ -98,7 +98,7 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--large-consensus-length",
         type=int,
-        default=1200,
+        default=2000,
         help="If the smallest tandem repeat sequence is longer than this, the reads will be downsampled to "
              "--max-n-large-consensus-reads.")
 
@@ -112,7 +112,7 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--max-mdn-poa-length",
         type=int,
-        default=2000,
+        default=5000,
         help="Maximum median STR sequence length before we use a best-representative-read method for the 'consensus' "
              "STR sequence rather than partial order alignment (POA) due to computational performance.")
 

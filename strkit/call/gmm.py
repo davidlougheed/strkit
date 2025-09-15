@@ -56,7 +56,7 @@ class GMMParams:
             covariance_type="spherical",
             # For relatively simple cases (total of two different copy numbers in the sample set), force n_init to be 1
             # even if we have a different parameter value to save on needless computation.
-            n_init=self.n_init if sample_rs[-1][0] - sample_rs[0][0] > 1.0 else 1,
+            n_init=self.n_init,  # if sample_rs[-1][0] - sample_rs[0][0] > 1.0 else 1,  TODO: re-enable if ok
             random_state=get_new_seed(rng),
         ).fit(sample_rs)
 

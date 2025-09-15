@@ -73,13 +73,16 @@ def fit_gmm(
     gmm_params: GMMParams,
 ) -> object | None:
     # performance hack: skip checking for two peak GMM if we have two close-together most common elements and the first
-    # has significantly higher count than the next.
+    # has significantly higher count than the next. TODO: re-enable optimization if we show it doesn't impact MI
     mc = Counter(sample).most_common(2)
-    gm_pre_filter_factor: int = 5
 
     sample_rs = sample.reshape(-1, 1)
 
-    if len(mc) == 1 or (mc[0][1] / (gm_pre_filter_factor * n_alleles) > mc[1][1] and abs(mc[1][0] - mc[0][0]) == 1):
+    if (
+        len(mc) == 1
+        # or (mc[0][1] / (gmm_params.pre_filter_factor * n_alleles) > mc[1][1] and abs(mc[1][0] - mc[0][0]) == 1)
+    ):
+        # TODO: re-enable optimization if we show it doesn't impact MI
         return make_single_gaussian(sample_rs)
 
     n_components: int = n_alleles
