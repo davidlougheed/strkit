@@ -139,6 +139,9 @@ long read data should still work.
   additional downstream analysis possibilities.
   * Recommended for **HiFi data and ONT R10 data only**. In my testing, this worsens runtime and call quality for 
     ONT ultra-long-read data, but speeds up the tool and improves call quality for HiFi/ONT R10 data. 
+  * **Important note:** This functionality is best for whole-genome STR surveying. If hunting for rare / low-coverage
+    expansions, or using targeted sequencing data, it may be best to **NOT USE** an SNV catalog to avoid discording 
+    reads with short flanking regions.
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
 
