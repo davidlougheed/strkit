@@ -84,7 +84,7 @@
           normalize, // whether to normalize values to a total of 100%
           marginTop = 20, // top margin, in pixels
           marginRight = 30, // right margin, in pixels
-          marginBottom = 30, // bottom margin, in pixels
+          marginBottom = 40, // bottom margin, in pixels
           marginLeft = 40, // left margin, in pixels
           width = 640, // outer width of chart, in pixels
           height = 400, // outer height of chart, in pixels
@@ -134,7 +134,8 @@
               .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
 
           svg.append("g")
-              .attr("transform", `translate(${marginLeft},0)`)
+              .attr("transform", `translate(${marginLeft},2)`)
+              .style("font-size", "16px")
               .call(yAxis)
               .call(g => g.select(".domain").remove())
               .call(g => g.selectAll(".tick line").clone()
@@ -190,10 +191,11 @@
 
           svg.append("g")
               .attr("transform", `translate(0,${height - marginBottom})`)
+              .style("font-size", "16px")
               .call(xAxis)
               .call(g => g.append("text")
                   .attr("x", width - marginRight)
-                  .attr("y", 27)
+                  .attr("y", 34)
                   .attr("fill", "currentColor")
                   .attr("text-anchor", "end")
                   .text(xLabel));
@@ -240,7 +242,10 @@
             console.log("kmer domain", domain);
             return Plot.plot({
                 width, height,
-                marginLeft: domain[0] ? 25 + domain[0].length * 7 : 50,
+                marginLeft: domain[0] ? 30 + domain[0].length * 11 : 50,
+                marginBottom: 40,
+                marginRight: 23,
+                style: "font-size: 16px;",
                 y: {
                     domain,
                 },
@@ -327,7 +332,7 @@
 
                 callData.peaks.kmers.forEach(k => {
                     const data = Object.entries(k).map(([kmer, count]) => ({kmer, count}));
-                    kmerContainer.appendChild(kmerDistribution(data, {width: 300, height: 500}));
+                    kmerContainer.appendChild(kmerDistribution(data, {width: 350, height: 500}));
                 });
 
             } else {
@@ -858,7 +863,7 @@
 
         #k-mer-plot {
             display: flex;
-            gap: 12px;
+            gap: 0;
             flex-direction: row;
         }
 
