@@ -26,7 +26,7 @@
                 let ml = motifLetters.pop();
                 motifLetters.unshift(ml);
 
-                const m = "".join(motifLetters);
+                const m = motifLetters.join("");
                 if (!alreadySent.has(m)) {
                     alreadySent.add(m);
                     yield m;
@@ -38,6 +38,7 @@
 
         const ui = {
             showGaussians: true,
+            collapseKmers: true,
         };
 
         const state = {
@@ -203,16 +204,51 @@
         // --------------------------------------------------------------------
 
         const kmerDistribution = (data, {width, height}) => {
+            const sortedData = d3.sort(data, d => -d.count);
+            const finalData = [];
+
+            if (ui.collapseKmers) {
+                const seenKmers = new Set();
+                sortedData.forEach((d) => {
+                    let found = "";
+                    for (let rotation of motifRotations(d.kmer)) {
+                        if (seenKmers.has(rotation)) {
+                            found = rotation;
+                            break;
+                        }
+                    }
+                    if (found) {
+                        finalData.find((e) => e.kmer === found).count += d.count;
+                    } else {
+                        seenKmers.add(d.kmer);
+                        finalData.push(d);
+                    }
+                });
+            } else {
+                finalData.push(...sortedData);
+            }
+
+            if (ui.collapseKmers) {
+                finalData.forEach((d) => {
+                    d.kmer = [...motifRotations(d.kmer)].join("/");
+                });
+            }
+
+            const domain = finalData
+                .map(d => d.kmer)
+                .slice(0, data.length && ui.collapseKmers ? Math.max(15 / data[0].kmer.length, 5) : 15);
+            console.log("kmer domain", domain);
             return Plot.plot({
                 width, height,
+                marginLeft: domain[0] ? 25 + domain[0].length * 7 : 50,
                 y: {
-                    domain: d3.sort(data, d => -d.count).map(d => d.kmer).slice(0, 15),
+                    domain,
                 },
                 x: {
                     grid: true,
                 },
                 marks: [
-                    Plot.barX(data, {y: "kmer", x: "count"}),
+                    Plot.barX(finalData, {y: "kmer", x: "count"}),
                     // Plot.ruleY([0]),
                 ],
             });
@@ -226,6 +262,7 @@
         let searchResponseList = null;
 
         let btnToggleCurves = null;
+        let checkToggleKmerCollapse = null;
 
         let histogramContainer = null;
         let kmerColumn = null;
@@ -282,6 +319,22 @@
 
         const makeBounds = (min, max) => ({min, max, span: max - min});
 
+        const renderKmers = () => {
+            const callData = state.callData;
+            if (callData.peaks.kmers) {
+                kmerColumn.classList.remove("hidden");
+                kmerContainer.innerHTML = "";
+
+                callData.peaks.kmers.forEach(k => {
+                    const data = Object.entries(k).map(([kmer, count]) => ({kmer, count}));
+                    kmerContainer.appendChild(kmerDistribution(data, {width: 300, height: 500}));
+                });
+
+            } else {
+                kmerColumn.classList.add("hidden");
+            }
+        };
+
         /** {% raw %}
          * @param {{
          *     contig: string,
@@ -331,19 +384,7 @@
             }));
 
             // Add k-mer plots, if available
-
-            if (callData.peaks.kmers) {
-                kmerColumn.classList.remove("hidden");
-                kmerContainer.innerHTML = "";
-
-                callData.peaks.kmers.forEach(k => {
-                    const data = Object.entries(k).map(([kmer, count]) => ({kmer, count}));
-                    kmerContainer.appendChild(kmerDistribution(data, {width: 300, height: 500}));
-                });
-
-            } else {
-                kmerColumn.classList.add("hidden");
-            }
+            renderKmers();
 
             // -----
 
@@ -509,6 +550,7 @@
             searchResponseList = document.getElementById("search-responses");
 
             btnToggleCurves = document.getElementById("btn-toggle-curves");
+            checkToggleKmerCollapse = document.getElementById("toggle-kmer-collapse");
 
             histogramContainer = document.getElementById("histogram");
             kmerColumn = document.getElementById("col-k-mer-dist");
@@ -560,6 +602,12 @@
                     document.getElementById(tL.dataset.for).classList.add("active");
                     browser.visibilityChange();
                 });
+            });
+
+            checkToggleKmerCollapse.checked = ui.collapseKmers;
+            checkToggleKmerCollapse.addEventListener("click", e => {
+                ui.collapseKmers = e.target.checked;
+                renderKmers();
             });
 
             // Load initial data
@@ -965,8 +1013,16 @@
         </div>
         <div id="col-k-mer-dist" class="hidden"> <!-- TODO: Only if k-mer content exists -->
             <div class="col-header">
-                <h2>K-mer distribution</h2>
-                <p class="help-text">Plots may be truncated after top 15 k-mers.</p>
+                <div style="display: flex;">
+                    <h2 style="flex: 1;">K-mer distribution</h2>
+                    <div>
+                        <label for="toggle-kmer-collapse">
+                            <input id="toggle-kmer-collapse" type="checkbox">
+                            Collapse k-mer rotations?
+                        </label>
+                    </div>
+                </div>
+                <p class="help-text">Plots may be truncated after top k-mers.</p>
             </div>
             <div id="k-mer-plot"></div>
         </div>
