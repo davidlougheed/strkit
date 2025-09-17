@@ -1129,7 +1129,9 @@ def call_locus(
         # reducing the flanking regions - which shouldn't even matter that much to scoring the actual repeat, barring
         # small alignment errors which are unfortunately frequent around STR boundaries.
         # TODO: This should be tuneable in the future
-        repeat_count_scoring_flank_size = min(locus.motif_size * 2, flank_size)  # TODO: parameter / test values
+        # min(locus.motif_size * 2, flank_size)  # TODO: parameter / test values
+        # TODO: re-enable when we're sure this doesn't impact performance
+        repeat_count_scoring_flank_size = flank_size
         repeat_count_scoring_fls = flank_left_seq_wc[-1*repeat_count_scoring_flank_size:]
         repeat_count_scoring_frs = flank_right_seq_wc[:repeat_count_scoring_flank_size]
 
@@ -1294,7 +1296,7 @@ def call_locus(
             **({"_start_anchor": read_start_anchor, "_tr_seq": tr_read_seq} if consensus else {}),
         }
 
-        # Reads can show up more than once - TODO - cache this information across loci
+        # Reads can show up more than once - TODO - cache this information across loci in the block
 
         if use_hp:
             if (hp := segment.hp) is not None and (ps := segment.ps) is not None:
