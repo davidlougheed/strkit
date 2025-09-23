@@ -1130,7 +1130,7 @@ def call_locus(
         # small alignment errors which are unfortunately frequent around STR boundaries.
         # TODO: This should be tuneable in the future
         # min(locus.motif_size * 2, flank_size)  # TODO: parameter / test values
-        # TODO: re-enable when we're sure this doesn't impact performance
+        # NOTE: reducing this to motif_size * 2 does in fact have a performance impact...
         repeat_count_scoring_flank_size = flank_size
         repeat_count_scoring_fls = flank_left_seq_wc[-1*repeat_count_scoring_flank_size:]
         repeat_count_scoring_frs = flank_right_seq_wc[:repeat_count_scoring_flank_size]
