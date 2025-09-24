@@ -1,4 +1,4 @@
-# Citations mostly obtained from Gall-Duncan et al. 2022	.	.	.	.	.	.	.	.
+# Citations mostly obtained from Gall-Duncan et al. 2022	.	.	.	.	.	.	.	.	.
 # contig	start	end	disease	inheritance	gene	citation	pathogenic form	notes	motif
 chr1	57367043	57367125	SCA37	AD	DAB1	Seixas et al. 2017			RAAAT
 chr1	94418421	94418442	OPDM	AD	ABCD3	Cortese et al. 2024	CN>=118		GCC
