@@ -5,10 +5,11 @@
 For the `--loci` argument, `strkit call` takes a list of loci in a modified BED / TSV format,
 similar to methods like Straglr/Tandem-genotypes/GangSTR.
 
-The file must be structured with a row per locus, where each row looks like:
+The file must be structured with a row per locus, where each row looks like one of the following:
 
 ```
-chr#    10000    10101    [...]    AC
+chr4    3074876    3074966    [...]    CAG
+chrX    147912050  147912110  [...]    ID=FMR1;MOTIF=CGG
 ```
 
 The important requirements here are:
@@ -16,8 +17,8 @@ The important requirements here are:
   * The fields are tab-separated
   * The rows are sorted by contig, and then by starting position
   * Locus coordinates are 0-based and half-open (start is inclusive, end is exclusive)
-  * The locus motif must come **last** in the row, but *any number of fields* can separate
-    the end position and the motif.
+  * The locus motif (either plain, or as part of a [more complex locus description](#specifying-a-custom-locus-id)) 
+    must come **last** in the row, but *any number of fields* can separate the end position and the motif.
 
 As a result, STRkit can take myrid different TSV-type catalog formats as input, including
 those produced from the TRF UCSC browser track, or for GangSTR, or for Straglr.
@@ -43,6 +44,18 @@ Here are a few notes on catalogs:
     function can be used during calling with the `--count-kmers` flag. See the 
     [advanced usage](https://github.com/davidlougheed/strkit/blob/master/docs/caller_usage.md#all-optional-flags) page 
     for more.
+
+
+### Specifying a custom locus ID
+
+The last column of a STRkit-compatible locus catalog can be either just a motif, or a set of key-value pairs. The 
+following are all valid values for the last column of the catalog BED file:
+
+* `CAG` results in `ID=locus#;MOTIF=CAG` where `#` is the line index of the locus (1-indexed).
+* `MOTIF=CAG` results in the same as above.
+* `ID=HTT;MOTIF=CAG` specifies a custom ID alongside the `CAG` motif.
+
+The locus ID is included in the JSON and VCF outputs, as well as logging output.
 
 
 ## Choosing an existing catalog

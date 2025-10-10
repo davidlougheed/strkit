@@ -80,6 +80,7 @@ Example report format:
   "results": [
     {
       "locus_index": 1,
+      "locus_id": "locus1",
       "contig": "chr4",
       "start": 96617,
       "end": 96648,
@@ -162,6 +163,12 @@ VCF meta fields (non-exhaustive):
 * `phasing`: present and set to `partial` if using SNV/HP phasing
 * `reference`: absolute file URI to FASTA reference (`file://<...>`)
 * `strkitVersion`: STRkit version used to generate the file
+
+VCF records will usually have IDs specified. For STR loci, this will be either `locus<idx>` (e.g., `locus1`) if no ID is 
+specified in the catalog, or a custom value, usually useful if it's a locus of particular significance 
+(see ["Specifying a custom locus ID"](./caller_catalog.md#specifying-a-custom-locus-id)).
+
+SNVs will copy the ID field from the SNV catalog file.
 
 VCF format fields (i.e., for each variant sample entry):
 

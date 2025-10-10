@@ -103,6 +103,7 @@ class PeakData(BasePeakData):
 
 class BaseLocusResult(TypedDict):
     locus_index: int
+    locus_id: str
     contig: str
     start: int
     end: int

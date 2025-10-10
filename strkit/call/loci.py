@@ -5,7 +5,7 @@ import time
 from logging import Logger
 from queue import Queue
 from strkit_rust_ext import STRkitLocus
-from typing import Iterable
+from typing import Iterable, TypedDict
 
 from .params import CallParams
 
@@ -15,11 +15,14 @@ __all__ = [
     "valid_motif",
     "validate_locus",
     "parse_loci_bed",
+    "parse_last_column",
     "load_loci",
 ]
 
 # patterns
 RE_VALID_MOTIF = re.compile(r"^[ACGTRYSWKMBDHVN]+$")
+RE_LOCUS_INFO_DELIM = re.compile(r"; *")
+RE_LOCUS_INFO_ASSIGN = re.compile(r" *= *")
 
 
 # exceptions
@@ -33,6 +36,13 @@ class LocusValidationError(ValueError):
     def log_error(self, logger: Logger) -> None:
         logger.critical(self._error_str)
         logger.critical(self._hint_msg)
+
+
+# types
+
+class LastColumnData(TypedDict, total=False):
+    id: str
+    motif: str
 
 
 # functions
@@ -76,6 +86,60 @@ def parse_loci_bed(loci_file: str) -> Iterable[tuple[str, ...]]:
             for line in (s.strip() for s in tf)
             if line and not line.startswith("#")  # skip blank lines and comment lines
         )
+
+
+def parse_last_column(t_idx: int, val: str) -> LastColumnData:
+    """
+    Given the last line of a 4-column BED file, parse it into a LastColumnData dictionary. For STRkit, the last column
+    of a catalog BED file line can either be a motif or a list of semicolon-delimited key-value pairs with = used for
+    assignment. These key-value pairs specify the locus motif + other locus information, like a custom locus ID.
+    For example, possible valid values are: CAG    MOTIF=CAG    ID=HTT;MOTIF=CAG
+    :param t_idx: Locus index in BED file.
+    :param val: Value of the last column of the locus BED file entry.
+    :return: Dictionary of {"id": "<...>", "motif": "<...>"}
+    """
+
+    # We can have a straightforward motif rather than key/value pairs:
+    if ";" not in val and "=" not in val:
+        return {"id": f"locus{t_idx}", "motif": val}
+
+    # Otherwise, we need to parse out the key/value pairs.
+
+    hint = "BED catalog: last column must either be motif or ID=locusID;MOTIF=motif"
+    err = LocusValidationError(f"BED catalog format error: could not parse last column on line {t_idx}: {val}", hint)
+
+    res: LastColumnData = {"id": f"locus{t_idx}"}
+
+    vals: list[str] = RE_LOCUS_INFO_DELIM.split(val)
+    for part in vals:
+        assign_parts = RE_LOCUS_INFO_ASSIGN.split(part)
+        if len(assign_parts) != 2:
+            raise err
+
+        k = assign_parts[0].lower()
+        v = assign_parts[1].strip()
+
+        # validate k/v
+        if k not in ("id", "motif"):  # key needs to be known
+            raise err
+        if not v:  # we need to have a non-blank value for the key
+            raise LocusValidationError(
+                f"BED catalog format error: cannot have empty value in last column on line {t_idx} for key {k}", hint
+            )
+
+        # post-processing of motif
+        if k == "motif":
+            v = v.upper()
+
+        res[k] = v
+
+    # to be valid, we need to have both a non-blank locus ID and a non-blank motif.
+    #  - the former is guaranteed by the combination of starting with a default value and checking value blankness above
+    #  - we need to check for the latter in case a motif did not get specified at all
+    if res.get("motif"):
+        return res
+
+    raise err
 
 
 def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str]]:
@@ -139,14 +203,12 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
             contig_set.add(contig)
             last_contig = contig
 
-        # Extract and validate the start, end, and motif:
-        start = int(t[1])
-        end = int(t[2])
-        motif = t[-1].upper()
-
-        locus = STRkitLocus(t_idx, contig, start, end, motif, n_alleles, flank_size=params.flank_size)
-
+        # Extract / parse values from the catalog BED file and validate the locus
         try:
+            last = parse_last_column(t_idx, t[-1])
+            locus = STRkitLocus(
+                t_idx, last["id"], contig, int(t[1]), int(t[2]), last["motif"], n_alleles, flank_size=params.flank_size
+            )
             validate_locus(locus)
         except LocusValidationError as e:
             e.log_error(logger)

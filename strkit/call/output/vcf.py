@@ -205,6 +205,7 @@ def create_result_vcf_records(
     start = result.get("start_adj", start) - len(ref_start_anchor)
 
     vr: VariantRecord = variant_file.new_record(
+        id=result["locus_id"],
         contig=contig,
         start=start,
         alleles=seq_alleles,

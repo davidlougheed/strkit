@@ -111,8 +111,8 @@ Inside the `inputs` directory, STRkit would (given these parameters) expect the 
 * `ref.fa.fai`: A FAIDX-format index for the reference genome.
 * `dbsnp.vcf.gz`: A VCF of SNVs to use as a catalogue for calling SNVs to aid in the STR genotyping process.
 * `dbsnp.vcf.gz.tbi`: A Tabix-format index for the dbSNP VCF.
-* `loci.bed`: A catalogue of loci (see the [Caller catalog format & choosing a catalog](./docs/caller_catalog.md) 
-  document for more information).
+* `loci.bed`: A tab-delimited BED-format catalogue of loci (see the 
+  [Caller catalog format & choosing a catalog](./docs/caller_catalog.md) document for more information).
 
 For more information on call parameters, see the below section on `strkit call` and the 
 [Advanced caller usage and configuration](./docs/caller_usage.md) document.
