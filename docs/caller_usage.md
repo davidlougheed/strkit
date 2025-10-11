@@ -49,7 +49,8 @@
 * `--respect-ref` or `-e`: Turn off reference TR region 'coordinate extension' from what is specified in the catalog.
   TR boundaries can be blurry, so by default we give STRkit an opportunity to extend the provided region to improve
   mapped indel capturing and to be consistent with the approach we use to count repeat copies in non-reference samples.
-  Turning this off should give results closer to other STR callers, at the cost of potentially missing variation.
+  Turning this off should give results closer to other STR callers and produce start/end coordinates closer to the BED 
+  catalog file, at the cost of potentially missing variation.
 * `--count-kmers [peak|read|both|none]` or `-k`: Turn on motif-sized k-mer counting at the allele level, with `-k peak`,
   or at the read level, with `-k read`, or both with `-k both`. If the flag is provided with no value, it will default 
   to `peak.` Note that k-mer counts will only be reported if a `--json` path is specified. This feature can be used to
