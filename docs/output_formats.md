@@ -195,4 +195,6 @@ VCF info. fields (i.e., for each STR variant record; not present for SNV records
 * `VT`: Variant record type (`str` or `snv`)
 * `MOTIF`: Motif sequence
 * `REFMC`: Motif copy number in the reference genome
+* `BED_START`: Original start position of the locus as defined in the BED catalog (0-based inclusive).
+* `BED_END`: Original end position of the locus as defined in the BED catalog (0-based exclusive, i.e., 1-based).
 * `ANCH`: 5' anchor size, i.e., size of the prefix of the reference sequence replaced by any of the alts

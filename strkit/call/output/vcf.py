@@ -37,6 +37,8 @@ __all__ = [
 VCF_INFO_VT = "VT"
 VCF_INFO_MOTIF = "MOTIF"
 VCF_INFO_REFMC = "REFMC"
+VCF_INFO_BED_START = "BED_START"
+VCF_INFO_BED_END = "BED_END"
 VCF_INFO_ANCH = "ANCH"
 
 VT_STR = "str"
@@ -95,6 +97,18 @@ def build_vcf_header(sample_id: str, reference_file: str, partial_phasing: bool)
     vh.info.add(VCF_INFO_VT, 1, "String", "Variant record type (str/snv)")
     vh.info.add(VCF_INFO_MOTIF, 1, "String", "Motif string")
     vh.info.add(VCF_INFO_REFMC, 1, "Integer", "Motif copy number in the reference genome")
+    vh.info.add(
+        VCF_INFO_BED_START,
+        1,
+        "Integer",
+        "Original start position of the locus as defined in the catalog (0-based inclusive)",
+    )
+    vh.info.add(
+        VCF_INFO_BED_END,
+        1,
+        "Integer",
+        "Original end position of the locus as defined in the catalog (0-based exclusive, i.e., 1-based)",
+    )
     vh.info.add(VCF_INFO_ANCH, 1, "Integer", "Five-prime anchor size")
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
@@ -214,6 +228,8 @@ def create_result_vcf_records(
     vr.info[VCF_INFO_VT] = VT_STR
     vr.info[VCF_INFO_MOTIF] = result["motif"]
     vr.info[VCF_INFO_REFMC] = result["ref_cn"]
+    vr.info[VCF_INFO_BED_START] = result["start"]
+    vr.info[VCF_INFO_BED_END] = result["end"]
     vr.info[VCF_INFO_ANCH] = params.vcf_anchor_size - anchor_offset
 
     try:
