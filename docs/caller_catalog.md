@@ -1,5 +1,13 @@
 # Caller catalog format & choosing a catalog
 
+## Table of Contents
+
+* [Caller catalog format](#caller-catalog-format)
+  * [Specifying a custom locus ID](#specifying-a-custom-locus-id)
+* [Choosing an existing catalog](#choosing-an-existing-catalog)
+  * [Whole genome catalogs](#whole-genome-catalogs)
+  * [Disease-relevant loci](#disease-relevant-loci)
+
 ## Caller catalog format
 
 For the `--loci` argument, `strkit call` takes a list of loci in a modified BED / TSV format,
