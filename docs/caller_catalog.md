@@ -60,7 +60,10 @@ The locus ID is included in the JSON and VCF outputs, as well as logging output.
 
 ## Choosing an existing catalog
 
-Other researchers have done extensive work in identifying and cataloguing loci for genotyping:
+Other researchers have done extensive work in identifying and cataloguing loci for genotyping. Some of these catalogs 
+are for the entire human genome, whereas others are for only disease-relevant loci.
+
+### Whole genome catalogs
 
   * The Tandem Repeats Finder track for the UCSC browser, available as a 
     [downloadable BED file](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.trf.bed.gz),
@@ -72,6 +75,9 @@ Other researchers have done extensive work in identifying and cataloguing loci f
     for different human reference genomes, containing motifs up to 20bp in length. However, **these files use
     1-based closed-interval coordinates**, and should be adjusted (subtracting 1 from all start coordinates) to 
     transform them into the 0-based half-open interval coordinates when using them with STRkit.
+
+### Disease-relevant loci
+
   * We have prepared a [catalog of disease-causing or disease-associated loci](../catalogs/pathogenic_assoc.hg38.tsv) 
     for the `hg38` reference genome, partially based on the review research done by Gall-Duncan *et al.* (2022), as well
     as entries from the [STRipy database](https://stripy.org/database) 
