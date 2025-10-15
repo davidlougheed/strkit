@@ -212,6 +212,18 @@ file.
 
 For more information, see also documentation on the [Output formats](./docs/output_formats.md).
 
+###### Note on output locus coordinates
+
+STRkit can adjust reference coordinates of STR loci to include regions it thinks should be part of
+the definition. Thus, output coordinates may not match the original BED catalog definition. This is
+done for two purposes:
+* To include slightly mismapped indels that may lie outside the catalog-defined region
+* To try to achieve a more consistent absolute copy number between the reference region and the
+  sample data
+
+Using the `--respect-ref` flag (see [Caller usage](./docs/caller_usage.md)), users may suppress 
+this behaviour.
+
 ##### REGARDING REFERENCE GENOMES
 
 The reference genome provided must be BGZipped and indexed using `samtools faidx`:
