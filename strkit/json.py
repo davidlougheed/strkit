@@ -25,4 +25,6 @@ def dumps(v: Serializable) -> bytes:
 
 
 def dumps_indented(v: Serializable) -> bytes:
-    return json.dumps(v, option=json.OPT_NON_STR_KEYS | json.OPT_INDENT_2 | json.OPT_SERIALIZE_NUMPY)
+    return json.dumps(
+        v, option=json.OPT_NON_STR_KEYS | json.OPT_INDENT_2 | json.OPT_SERIALIZE_NUMPY, default=_dumps_default
+    )
