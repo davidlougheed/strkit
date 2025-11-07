@@ -14,6 +14,7 @@ import numpy as np
 
 from dataclasses import dataclass
 from numpy.typing import NDArray
+from numpy.random import Generator
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.mixture import GaussianMixture
 from typing import Literal
@@ -49,7 +50,7 @@ class GMMParams:
     #  - for filtering out peaks which have a weight lower than (filter_factor * n_components) for a GMM of n_components
     filter_factor: int
 
-    def make_fitted_gmm(self, n_components: int, sample_rs: NDArray, rng: np.random.Generator):
+    def make_fitted_gmm(self, n_components: int, sample_rs: NDArray, rng: Generator):
         return GaussianMixture(
             n_components=n_components,
             init_params=self.init_params_method,
