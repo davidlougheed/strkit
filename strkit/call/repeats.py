@@ -26,25 +26,6 @@ class RepeatCountParams:
         return hash((self.max_iters, self.initial_local_search_range, self.initial_step_size))
 
 
-def score_candidate_with_string(db_seq_profile: parasail.Profile, tr_seq: str) -> int:
-    # TODO: sub-flank again, to avoid more errors in flanking region contributing to score?
-    # Always assign parasail results to variables due to funky memory allocation behaviour
-    #  - switch 'db' and 'query' here so we can use the db sequence as the profile for a "database" search against
-    #    candidate sequences. order doesn't end up mattering, since we're using semi-global alignment.
-    r = parasail.sg_striped_profile_sat(db_seq_profile, tr_seq, indel_penalty, indel_penalty)
-    return r.score
-
-
-def score_candidate(
-    db_seq_profile: parasail.Profile,
-    motif: str,
-    motif_count: int,
-    flank_left_seq: str,
-    flank_right_seq: str,
-) -> int:
-    return score_candidate_with_string(db_seq_profile, f"{flank_left_seq}{motif * motif_count}{flank_right_seq}")
-
-
 def score_ref_boundaries(
     db_seq_profile: parasail.Profile,
     db_seq_rev_profile: parasail.Profile,
