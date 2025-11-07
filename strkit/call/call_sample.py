@@ -212,8 +212,11 @@ def locus_worker(
 
     lg.debug(f"worker {worker_id} - returning batch of {len(results)} locus results")
 
-    # Sort worker results; we will merge them after
-    return results if is_single_processed else sorted(results, key=get_locus_index)
+    if not is_single_processed:
+        # If we're multiprocessing, sort worker results in-place; we will merge them after
+        results.sort(key=get_locus_index)
+
+    return results
 
 
 def progress_worker(
