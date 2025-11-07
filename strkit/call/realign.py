@@ -1,22 +1,23 @@
-import logging
-import multiprocessing as mp
-import numpy as np
+from __future__ import annotations
+
 import os
-import parasail
-import queue
 import time
 
-from numpy.typing import NDArray
-from strkit_rust_ext import (
-    STRkitAlignedCoords, STRkitAlignedSegment, STRkitLocusWithRefData, calculate_seq_with_wildcards
-)
+from multiprocessing import Queue as MpQueue, Process
+from parasail import sg_dx_trace_scan_16
+from queue import Empty as QueueEmpty
+from strkit_rust_ext import calculate_seq_with_wildcards
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from logging import Logger
+    from strkit_rust_ext import STRkitAlignedCoords, STRkitAlignedSegment, STRkitLocusWithRefData
+    from .params import CallParams
 
 from .align_matrix import match_score, dna_matrix
 from .cigar import decode_cigar_np, get_aligned_pair_matches
-from .params import CallParams
 
 __all__ = [
-    "MatchedCoordPairListOrNone",
     "realign_read",
     "perform_realign",
 ]
@@ -28,10 +29,6 @@ max_ref_len_for_same_proc: int = 2000  # TODO: parametrize
 max_read_len_for_same_proc: int = 25000  # TODO: parametrize
 
 
-MatchedCoordPairList = tuple[NDArray[np.uint64], NDArray[np.uint64]]
-MatchedCoordPairListOrNone = MatchedCoordPairList | None
-
-
 def realign_read(
     ref_seq: str,
     query_seq: str,
@@ -39,7 +36,7 @@ def realign_read(
     flank_size: int,
     q,  # mp.Queue | None
     read_log_str: str,
-    log_level: int = logging.WARNING,
+    log_level: int,
 ) -> STRkitAlignedCoords | None:
     # Have to re-attach logger in separate process I guess
 
@@ -53,15 +50,15 @@ def realign_read(
     lg = create_process_logger(os.getpid(), log_level)
 
     # flipped: 'ref sequence' as query here, since it should in general be shorter (!)
-    pr = parasail.sg_dx_trace_scan_16(
+    pr = sg_dx_trace_scan_16(
         # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
         ref_seq, query_seq, realign_indel_open_penalty, 0, dna_matrix)
 
     if pr.score < (th := min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty)):
-        lg.debug(f"Realignment for {read_log_str} scored below threshold ({pr.score} < {th:.2f})")
+        lg.debug("Realignment for %s scored below threshold (%d < %.2f)", read_log_str, pr.score, th)
         return ret_q(None)
 
-    lg.debug(f"Realigned {read_log_str}: scored {pr.score}; Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
+    lg.debug("Realigned %s: scored %d; Flipped CIGAR: %s", read_log_str, pr.score, pr.cigar.decode.decode("ascii"))
 
     res: STRkitAlignedCoords = get_aligned_pair_matches(decode_cigar_np(pr.cigar.seq), left_flank_coord, 0)
     return ret_q(res)
@@ -73,7 +70,7 @@ def perform_realign(
     # ---
     params: CallParams,
     # ---
-    logger_: logging.Logger,
+    logger_: Logger,
     locus_log_str: str,
 ) -> STRkitAlignedCoords | None:
     rn = segment.name
@@ -97,8 +94,8 @@ def perform_realign(
 
     t = time.time()
 
-    q: mp.Queue = mp.Queue()
-    proc = mp.Process(target=realign_read, daemon=False, kwargs=dict(
+    q: MpQueue = MpQueue()
+    proc = Process(target=realign_read, daemon=False, kwargs=dict(
         # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
         ref_seq=ref_total_seq,  # TODO: with the plus 1, really?
         query_seq=qs_wc,
@@ -114,24 +111,24 @@ def perform_realign(
     try:
         pairs_new = q.get(timeout=params.realign_timeout)
         proc.join()
-    except queue.Empty:
+    except QueueEmpty:
         logger_.warning(
-            f"{locus_log_str} - experienced timeout while re-aligning read {rn}. Reverting to initial "
-            f"alignment.")
+            "%s - experienced timeout while re-aligning read %s. Reverting to initial alignment.", locus_log_str, rn)
         proc.terminate()
         time.sleep(0.1)  # wait a little for the process to terminate
     finally:
         wait_count: int = 0
         while proc.is_alive():
-            logger_.warning(f"{locus_log_str} - realign job has still not exited. Waiting 0.5 seconds...")
+            logger_.warning("%s - realign job has still not exited. Waiting 0.5 seconds...", locus_log_str)
             time.sleep(0.5)
             wait_count += 1
             if wait_count > 30:
-                logger_.fatal(f"{locus_log_str} - realign job never exited. Terminating...")
+                logger_.fatal("%s - realign job never exited. Terminating...", locus_log_str)
                 exit(1)
         proc.close()
 
     logger_.debug(
-        f"{locus_log_str} - {rn}: long realign job completed in {time.time() - t:.4f}s ({ref_seq_len=}, {qs_len=})")
+        "%s - %s: long realign job completed in %.4fs (ref_seq_len=%d, qs_len=%d)",
+        locus_log_str, rn, time.time() - t, ref_seq_len, qs_len)
 
     return pairs_new
