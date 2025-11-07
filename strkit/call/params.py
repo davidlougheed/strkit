@@ -4,7 +4,7 @@ import pathlib
 from pysam import AlignmentFile
 
 from .gmm import GMMParams
-from .repeats import RepeatCountParams
+from .repeat_count_params import RepeatCountParams
 from ..logger import log_levels
 from ..ploidy import PloidyConfig, load_ploidy_config
 

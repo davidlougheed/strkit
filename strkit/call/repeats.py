@@ -1,29 +1,22 @@
+from __future__ import annotations
+
 import parasail
 
-from dataclasses import dataclass
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 from strkit_rust_ext import get_repeat_count as _get_repeat_count
 from strkit.utils import idx_1_getter
 
 from .align_matrix import dna_matrix, indel_penalty
 
+if TYPE_CHECKING:
+    from .repeat_count_params import RepeatCountParams
+
 __all__ = [
-    "RepeatCountParams",
     "get_repeat_count",
     "get_ref_repeat_count",
 ]
-
-
-@dataclass
-class RepeatCountParams:
-    max_iters: int
-    initial_local_search_range: int  # Initial value; can be narrowed within the get_repeat_count fn
-    initial_step_size: int
-
-    def __hash__(self):
-        return hash((self.max_iters, self.initial_local_search_range, self.initial_step_size))
 
 
 def score_ref_boundaries(

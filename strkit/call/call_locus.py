@@ -39,7 +39,8 @@ from .cigar import decode_cigar_np
 from .gmm import make_already_fitted_gmm
 from .params import CallParams
 from .realign import perform_realign
-from .repeats import RepeatCountParams, get_repeat_count, get_ref_repeat_count
+from .repeats import get_repeat_count, get_ref_repeat_count
+from .repeat_count_params import RepeatCountParams
 from .snvs import (
     SNV_GAP_CHAR,
     SNV_OUT_OF_RANGE_CHAR,
