@@ -10,7 +10,6 @@ import time
 
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
 from pysam import FastaFile
 from sklearn.cluster import AgglomerativeClustering
 from statistics import mean
@@ -720,19 +719,6 @@ def _ndarray_serialize(x: Iterable) -> list[int | np.int_]:
 
 def _nested_ndarray_serialize(x: Iterable) -> list[list[int | np.int_]]:
     return list(map(_ndarray_serialize, x))
-
-
-@dataclass
-class LocusRefData:
-    ref_contig: str
-    ref_cn: int
-    ref_seq: str
-    ref_left_flank_seq: str
-    ref_right_flank_seq: str
-    ref_total_seq: str
-    left_coord_adj: int
-    right_coord_adj: int
-    ref_time: float
 
 
 class InvalidLocus(Exception):
