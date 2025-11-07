@@ -1,4 +1,4 @@
-import parasail
+from parasail import matrix_create
 from ..iupac import IUPAC_NUCLEOTIDE_CODES
 
 __all__ = [
@@ -27,9 +27,17 @@ dna_codes: dict[str, tuple[str, ...]] = {
     **IUPAC_NUCLEOTIDE_CODES,
     "X": ("A", "C", "G", "T"),  # Special character for matching low-quality bases
 }
-dna_matrix = parasail.matrix_create(dna_bases_str, match_score, -1 * mismatch_penalty)
 
-for code, code_matches in dna_codes.items():
-    for cm in code_matches:
-        dna_matrix[dna_bases[code], dna_bases[cm]] = 2 if code != "X" else 0
-        dna_matrix[dna_bases[cm], dna_bases[code]] = 2 if code != "X" else 0
+
+def _create_dna_matrix():
+    dna_matrix_ = matrix_create(dna_bases_str, match_score, -1 * mismatch_penalty)
+
+    for code, code_matches in dna_codes.items():
+        for cm in code_matches:
+            dna_matrix_[dna_bases[code], dna_bases[cm]] = 2 if code != "X" else 0
+            dna_matrix_[dna_bases[cm], dna_bases[code]] = 2 if code != "X" else 0
+
+    return dna_matrix_
+
+
+dna_matrix = _create_dna_matrix()
