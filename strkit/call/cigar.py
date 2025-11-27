@@ -1,11 +1,8 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from strkit_rust_ext import get_aligned_pair_matches
-
 __all__ = [
     "decode_cigar_np",
-    "get_aligned_pair_matches",
 ]
 
 

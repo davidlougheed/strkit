@@ -6,7 +6,7 @@ import time
 from multiprocessing import Queue as MpQueue, Process
 from parasail import sg_dx_trace_scan_16
 from queue import Empty as QueueEmpty
-from strkit_rust_ext import calculate_seq_with_wildcards
+from strkit_rust_ext import calculate_seq_with_wildcards, get_aligned_pair_matches
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from .params import CallParams
 
 from .align_matrix import match_score, dna_matrix
-from .cigar import decode_cigar_np, get_aligned_pair_matches
+from .cigar import decode_cigar_np
 
 __all__ = [
     "realign_read",
