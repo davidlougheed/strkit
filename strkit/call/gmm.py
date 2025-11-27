@@ -39,7 +39,7 @@ GMMInitParamsMethod = Literal["kmeans", "k-means++"]
 WEIGHT_1_0 = np.array([[1.0]])
 
 
-@dataclass
+@dataclass(frozen=True)
 class GMMParams:
     # sklearn model parameters
     init_params_method: GMMInitParamsMethod
