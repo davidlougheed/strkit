@@ -11,18 +11,23 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 # ----------------------------------------------------------------------------------------------------------------------
 
 import numpy as np
-import statistics
 
 from collections import Counter
 from logging import Logger  # For type hinting
 from sklearn.exceptions import ConvergenceWarning
+from statistics import mode
 from warnings import simplefilter
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, TypedDict, Union
+from typing import Iterable, Literal, TypedDict, Union, TYPE_CHECKING
 
-from .gmm import GMMParams, make_single_gaussian
-from .params import CallParams
+from .gmm import make_single_gaussian
+
+if TYPE_CHECKING:
+    from numpy.random import Generator
+
+    from .gmm import GMMParams
+    from .params import CallParams
 
 __all__ = [
     "RepeatCounts",
@@ -246,7 +251,7 @@ def call_alleles(
     allele_stdev_samples = np.array(nal, dtype=np.float32)
     sample_peaks = np.array([], dtype=np.int32)
 
-    rng: np.random.Generator = np.random.default_rng(seed=seed)
+    rng: Generator = np.random.default_rng(seed=seed)
 
     concat_samples = get_resampled_bootstrapped_reads(
         combined_reads,
@@ -341,7 +346,7 @@ def call_alleles(
     medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
     peak_weights = allele_weight_samples[:, median_idx].flatten()
     peak_stdevs = allele_stdev_samples[:, median_idx]
-    modal_n_peaks: int = statistics.mode(sample_peaks).item()
+    modal_n_peaks: int = mode(sample_peaks).item()
 
     peak_weights /= peak_weights.sum()  # re-normalize weights
 
