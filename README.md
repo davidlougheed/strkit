@@ -290,6 +290,11 @@ To exit the tool, press `Ctrl-C` in your command line window as mentioned in
 the start-up instructions.
 
 
+#### Further documentation on the STRkit web visualization tool:
+
+* [Using `strkit visualize` remotely](./docs/remote_viz.md)
+
+
 
 ### `strkit mi`: Mendelian inheritance analysis
 
