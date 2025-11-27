@@ -1234,8 +1234,8 @@ def call_locus(
             # Fatal
             # TODO: Just skip this locus
             logger_.error(
-                f"%s - something strange happened; could not find an encompassing read where one should be "
-                f"guaranteed. TR length with flank: %d; read lengths: %s",
+                "%s - something strange happened; could not find an encompassing read where one should be "
+                "guaranteed. TR length with flank: %d; read lengths: %s",
                 locus_log_str,
                 tr_len_w_flank,
                 sorted_read_lengths,

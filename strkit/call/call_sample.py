@@ -185,10 +185,10 @@ def locus_worker(
                 )
 
             except Exception as e:
-                import traceback
                 res = None
-                lg.error(f"{locus_log_str} - encountered exception while genotyping ({locus.n_alleles=}): {repr(e)}")
-                lg.error(f"{locus_log_str} - {traceback.format_exc()}")
+                lg.exception(
+                    "%s - encountered exception while genotyping (n_alleles=%d)",
+                    locus_log_str, locus.n_alleles, exc_info=e)
 
             if res is not None:
                 block_results.append(res)
@@ -210,7 +210,7 @@ def locus_worker(
         pr.disable()
         pr.print_stats("tottime")
 
-    lg.debug(f"worker {worker_id} - returning batch of {len(results)} locus results")
+    lg.debug("worker %d - returning batch of %d locus results", worker_id, len(results))
 
     if not is_single_processed:
         # If we're multiprocessing, sort worker results in-place; we will merge them after
@@ -291,7 +291,7 @@ def call_sample(
     # Start the call timer
     start_time = time.perf_counter()
 
-    logger.info(f"strkit_rust_ext version: {importlib.metadata.version('strkit_rust_ext')}")
+    logger.info("strkit_rust_ext version: %s", importlib.metadata.version("strkit_rust_ext"))
 
     logger.info("Starting STR genotyping with parameters:")
     for k, v in params.to_dict().items():

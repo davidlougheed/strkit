@@ -1,7 +1,11 @@
-import logging
-import multiprocessing.managers as mmg
+from __future__ import annotations
 
 from collections import Counter
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from logging import Logger
+    # noinspection PyProtectedMember
+    from multiprocessing.managers import DictProxy
 
 from strkit_rust_ext import process_read_snvs_for_locus_and_calculate_useful_snvs, CandidateSNVs
 from strkit.utils import idx_1_getter
@@ -31,10 +35,10 @@ def call_and_filter_useful_snvs(
     # ---
     snv_quality_threshold: int,
     # ---
-    snv_genotype_cache: mmg.DictProxy,
+    snv_genotype_cache: DictProxy,
     # ---
     locus_log_str: str,
-    logger_: logging.Logger,
+    logger_: Logger,
 ) -> list[CalledSNV]:
     """
     Call useful SNVs at a locus level from read-level SNV data.
@@ -54,7 +58,7 @@ def call_and_filter_useful_snvs(
     # we have some guarantees that these values should be fairly internally consistent
     # for a given peak... most of the time.
 
-    allele_range = tuple(range(n_alleles))
+    allele_range: tuple[int, ...] = tuple(range(n_alleles))
     peak_base_counts: dict[int, dict[int, Counter]] = {
         u_ref: {p: Counter() for p in allele_range}
         for _, u_ref in useful_snvs
@@ -107,20 +111,23 @@ def call_and_filter_useful_snvs(
 
                     if b_total == 0:  # probably due to quality filtering
                         skipped = True
-                        logger_.warning(f"{locus_log_str} - for SNV {u_ref}, found a 0-total for allele {b} (b)")
+                        logger_.warning("%s - for SNV %d, found a 0-total for allele %d (b)", locus_log_str, u_ref, b)
                         break
 
                     if (peak_counts_b[mcc[0]] / b_total) > (peak_counts_a[mcc[0]] / a_total / 2):  # TODO: parametrize
                         logger_.debug(
-                            f"{locus_log_str} - for SNV position {u_ref}: got uninformative peak counts (cross-talk) - "
-                            f"{peak_counts=}")
+                            "%s - for SNV position %d: got uninformative peak counts (cross-talk) - peak_counts=%s",
+                            locus_log_str, u_ref, str(peak_counts))
                         skipped = True
                         break
 
             except IndexError:  # '-' is the only value, somehow
                 logger_.debug(
-                    f"{locus_log_str} - for SNV {u_ref}, found only '{SNV_OUT_OF_RANGE_CHAR}' with {mcc[1]} reads")
-                logger_.debug(f"{locus_log_str} - for SNV position {u_ref}: {mc=}, {peak_counts[a]=}")
+                    f"%s - for SNV %d, found only '{SNV_OUT_OF_RANGE_CHAR}' with %d reads",
+                    locus_log_str, u_ref, mcc[1])
+                logger_.debug(
+                    "%s - for SNV position %d: mc=%s, peak_counts[a]=%s",
+                    locus_log_str, u_ref, str(mc), str(peak_counts[a]))
                 skipped = True
                 break
 
@@ -132,7 +139,8 @@ def call_and_filter_useful_snvs(
 
         if not skipped and len(snv_call_set) == 1:
             logger_.warning(
-                f"{locus_log_str} - for SNV position {u_ref}: got degenerate call {call} from {peak_counts=}")
+                "%s - for SNV position %d: got degenerate call %s from peak_counts=%s",
+                locus_log_str, u_ref, call, str(peak_counts))
             skipped = True
 
         snv_rec = candidate_snvs.get(u_ref)
@@ -147,8 +155,8 @@ def call_and_filter_useful_snvs(
             cached_snv_genotype = snv_genotype_cache.get(snv_id)
             if cached_snv_genotype is not None and (cgt := set(cached_snv_genotype[0])) != snv_call_set:
                 logger_.warning(
-                    f"{locus_log_str} - got mismatch for SNV {snv_id} (position {u_ref}); cache genotype set {cgt} != "
-                    f"current genotype set {snv_call_set}")
+                    f"%s - got mismatch for SNV %s (position %d); cache genotype set {cgt} != "
+                    f"current genotype set {snv_call_set}", locus_log_str, snv_id, u_ref)
                 skipped = True
 
         if skipped:
@@ -171,6 +179,6 @@ def call_and_filter_useful_snvs(
             if "snvu" not in read:
                 continue
             read["snvu"] = tuple(map(idx_1_getter, filter(lambda e: e[0] not in skipped_snvs, enumerate(read["snvu"]))))
-        logger_.debug(f"{locus_log_str} - filtered out {len(skipped_snvs)} not-actually-useful SNVs")
+        logger_.debug("%s - filtered out %d not-actually-useful SNVs", locus_log_str, len(skipped_snvs))
 
     return called_snvs

@@ -149,7 +149,7 @@ def create_result_vcf_records(
     start = result["start"]
 
     if "ref_start_anchor" not in result:
-        logger.debug(f"No ref anchor for {contig}:{start}; skipping VCF output for locus")
+        logger.debug("No ref anchor for %s:%d; skipping VCF output for locus", contig, start)
         raise SkipWritingLocus()
 
     ref_start_anchor = result["ref_start_anchor"].upper()
@@ -165,11 +165,11 @@ def create_result_vcf_records(
     peak_start_anchor_seqs: list[str] = list(map(idx_0_getter, res_peaks.get("start_anchor_seqs", [])))
 
     if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
-        logger.error(f"Encountered None in results[{result_idx}].peaks.seqs: {peak_seqs}")
+        logger.error("Encountered None in results[%d].peaks.seqs: %s", result_idx, peak_seqs)
         raise SkipWritingLocus()
 
     if any(map(is_none, peak_start_anchor_seqs)):  # Occurs when no consensus for one of the peaks
-        logger.error(f"Encountered None in results[{result_idx}].peaks.start_anchor_seqs: {peak_start_anchor_seqs}")
+        logger.error("Encountered None in results[%d].peaks.start_anchor_seqs: %s", result_idx, peak_start_anchor_seqs)
         raise SkipWritingLocus()
 
     peak_start_anchor_seqs_upper = tuple(iter_to_upper(peak_start_anchor_seqs))
@@ -239,7 +239,9 @@ def create_result_vcf_records(
             else _blank_entry(n_alleles)
         )
     except ValueError:
-        logger.error(f"results[{result_idx}]: one of {seqs_with_anchors} not in {seq_alleles_raw}")
+        logger.error(
+            "results[%d] (locus_id=%s): one of %s not in %s",
+            result_idx, locus_id, seqs_with_anchors, seq_alleles_raw)
         raise SkipWritingLocus()
 
     if am := result.get("assign_method"):
@@ -291,7 +293,7 @@ def create_result_vcf_records(
                 vr.samples[sample_id]["PS"] = ps
         except TypeError:
             vr.samples[sample_id].phased = False
-            logger.error(f"Received bad PS value while writing VCF record at {contig}:{start} - {ps}")
+            logger.error("Received bad PS value while writing VCF record at %s:%d - %s", contig, start, ps)
             ps = None
 
         for snv in str_snvs:
@@ -306,7 +308,7 @@ def create_result_vcf_records(
             snv_pos = snv["pos"]
 
             if len(snv_alleles) < 2:
-                logger.error(f"Error while writing VCF: SNV ({snv_id}) at {contig}:{snv_pos + 1} has no alts")
+                logger.error("Error while writing VCF: SNV (%s) at %s:%d has no alts", snv_id, contig, snv_pos + 1)
                 continue
 
             snv_vr: VariantRecord = variant_file.new_record(
@@ -360,8 +362,7 @@ def output_contig_vcf_lines(
         except SkipWritingLocus:
             pass  # just skipping the locus, nothing to do here as we've already logged
         except Exception as e:  # fallback if we didn't handle a case properly in create_result_vcf_records
-            logger.error(f"Error while writing VCF: unhandled exception at results[{result_idx}] - {e}")
-            traceback.print_exc()  # print traceback to stderr for debugging purposes
+            logger.exception("Error while writing VCF: unhandled exception at results[%d]", result_idx, exc_info=e)
 
     # sort the variant records by position to ensure we write a properly bgzippable/tabix-indexable VCF
     variant_records.sort(key=_vr_pos_key)
