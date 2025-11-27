@@ -9,7 +9,8 @@ without having to copy data to your local machine.
 > This guide assumes that the `visualize` web server will run on port 5011 both locally and on the server.
 
 > [!IMPORTANT]
-> While the server is running, others on the machine can access it, as it binds a port on the entire server.
+> While the server is running, others on the machine can access it, as it binds a port on the entire server. Do not do 
+> this in an insecure or untrusted environment!
 
 As an example, let's assume we have some genotyping results data on the 
 [Rorqual](https://docs.alliancecan.ca/wiki/Rorqual/en) cluster. We're going to forward the 5011 port to our local 
@@ -20,7 +21,7 @@ machine from whichever login node we sign in to, using the `ssh -L` option (with
 ssh -L 5011:localhost:5011 <user>@rorqual.alliancecan.ca 
 cd path/to/our/results  # navigate to the directory with our genotyping results JSON file and other required files
 source env/bin/activate  # activate our STRkit Python virtual environment
-strkit visualize TODO
+strkit viz ./path/to/bam --ref hg38 --json my_calls.json
 ```
 
 Then, on your local machine, go to http://localhost:5011. While the SSH connection is active and `strkit visualize` is 
