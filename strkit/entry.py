@@ -447,8 +447,9 @@ def add_vs_parser_args(vs_parser):
         help="Reference genome code used for visualization and calls. Default: hg38")
     vs_parser.add_argument("--json", type=str, help="JSON file with STRkit calls to read from.")
     vs_parser.add_argument(
-        "-i", type=int, default=1,
+        "-i", "--index", type=int, default=1,
         help="1-based index of the locus to visualize in the JSON file. Default: 0")
+    vs_parser.add_argument("--port", type=int, default=5011, help="Port to start the visualization server on.")
 
 
 def _main_logger(p_args) -> Logger:
@@ -634,6 +635,8 @@ def _exec_viz_server(p_args):
 
     viz_run_server(
         call_report=call_report,
+        port=p_args.port,
+        # ---------------------------------------------
         initial_i=idx-1,
         ref=p_args.ref,
         # ref_index=ref_index,

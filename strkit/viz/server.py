@@ -82,6 +82,6 @@ def get_align_index_file():
     return send_file(app.config["PARAMS"]["align_index"], conditional=True)
 
 
-def run_server(call_report, **kwargs):
+def run_server(call_report, port, **kwargs):
     app.config.from_mapping(dict(CALL_REPORT=call_report, PARAMS=kwargs))
-    app.run(host="localhost", port=5011, debug=True)
+    app.run(host="localhost", port=port, debug=True)
