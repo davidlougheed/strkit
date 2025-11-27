@@ -1,12 +1,18 @@
-import logging
-import pathlib
+from __future__ import annotations
 
+from logging import WARNING
 from pysam import AlignmentFile
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from logging import Logger
+    from pathlib import Path
+    from ..ploidy import PloidyConfig
 
 from .gmm import GMMParams
 from .repeat_count_params import RepeatCountParams
 from ..logger import log_levels
-from ..ploidy import PloidyConfig, load_ploidy_config
+from ..ploidy import load_ploidy_config
 
 __all__ = ["CallParams"]
 
@@ -19,7 +25,7 @@ class CallParams:
     def __init__(
         self,
 
-        logger: logging.Logger,
+        logger: Logger,
 
         read_file: str,
         reference_file: str,
@@ -40,7 +46,7 @@ class CallParams:
         realign: bool = False,
         hq: bool = False,
         use_hp: bool = False,
-        snv_vcf: pathlib.Path | None = None,
+        snv_vcf: Path | None = None,
         snv_min_base_qual: int = 20,
         targeted: bool = False,
         respect_ref: bool = False,
@@ -51,7 +57,7 @@ class CallParams:
         max_mdn_poa_length: int = 2000,
         vcf_anchor_size: int = 5,
         # ---
-        log_level: int = logging.WARNING,
+        log_level: int = WARNING,
         verbose: bool = False,
         profile: bool = False,
         seed: int | None = None,
@@ -77,7 +83,7 @@ class CallParams:
         self.realign_timeout: int = 5  # TODO: user param
         self.hq: bool = hq
         self.use_hp: bool = use_hp
-        self.snv_vcf: pathlib.Path | None = snv_vcf
+        self.snv_vcf: Path | None = snv_vcf
         self.snv_min_base_qual: int = snv_min_base_qual
         self.targeted: bool = targeted
         self.respect_ref: bool = respect_ref
@@ -143,7 +149,7 @@ class CallParams:
         return self._gmm_params
 
     @classmethod
-    def from_args(cls, logger: logging.Logger, p_args):
+    def from_args(cls, logger: Logger, p_args):
         return cls(
             logger,
             p_args.read_file,

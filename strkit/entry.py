@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import argparse
-import pathlib
 import os
 import sys
 
-from logging import Logger
-from typing import Callable, Type
+from pathlib import Path
+from typing import Callable, Type, TYPE_CHECKING
 
 import strkit.constants as c
 from strkit import __version__
 from strkit.exceptions import ParamError, InputError
 from strkit.logger import get_main_logger, attach_stream_handler, log_levels
 from strkit.ploidy import PLOIDY_OPTIONS_HELP_TEXT
+
+if TYPE_CHECKING:
+    from logging import Logger
 
 
 def add_call_parser_args(call_parser):
@@ -58,7 +60,7 @@ def add_call_parser_args(call_parser):
 
     call_parser.add_argument(
         "--incorporate-snvs", "--snv", "-v",
-        type=pathlib.Path,
+        type=Path,
         help="A path to a dbSNP VCF file with a list of validated SNVs to help phase with. Specifying this enables the "
              "use of read-phased SNVs to help properly call genotypes. This option can only be used if --hq "
              "is enabled. Use with CCS ONLY! This option is currently EXPERIMENTAL!")
@@ -457,7 +459,8 @@ def _main_logger(p_args) -> Logger:
 
 
 def _exec_call(p_args) -> None:
-    from strkit.call import call_sample, CallParams
+    from strkit.call.call_sample import call_sample
+    from strkit.call.params import CallParams
     call_sample(
         CallParams.from_args(_main_logger(p_args), p_args),
         json_path=p_args.json,
@@ -599,8 +602,8 @@ def _exec_viz_server(p_args):
     from strkit.json import json
     from strkit.viz.server import run_server as viz_run_server
 
-    align_file = str(pathlib.Path(p_args.align_file).resolve())
-    align_index = str(pathlib.Path(p_args.align_index).resolve()) if p_args.align_index else None
+    align_file = str(Path(p_args.align_file).resolve())
+    align_index = str(Path(p_args.align_index).resolve()) if p_args.align_index else None
 
     align_format = os.path.splitext(align_file)[-1].lstrip(".")
     if align_format not in ("bam", "cram"):
@@ -623,7 +626,7 @@ def _exec_viz_server(p_args):
     #     print(f"Error: missing .fai for reference genome at '{ref}'", file=sys.stderr)
     #     return 1
 
-    if not (json_file := pathlib.Path(p_args.json)).exists():
+    if not (json_file := Path(p_args.json)).exists():
         raise ParamError(f"Could not find JSON call report file at '{json_file}'")
 
     with open(json_file, "r") as jf:
