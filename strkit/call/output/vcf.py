@@ -1,19 +1,22 @@
-import functools
-import logging
-import traceback
+from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
+from functools import cache
 from os.path import commonprefix
 from pathlib import Path
-from pysam import FastaFile, VariantFile, VariantHeader, VariantRecord
-from typing import Iterable
+from pysam import FastaFile, VariantHeader
+from typing import Iterable, TYPE_CHECKING
 
 from strkit import __version__
 from strkit.utils import is_none, idx_0_getter
-from ..params import CallParams
-from ..types import LocusResult
 from ..utils import cn_getter
+
+if TYPE_CHECKING:
+    from logging import Logger
+    from pysam import VariantFile, VariantRecord
+    from ..params import CallParams
+    from ..types import LocusResult
 
 __all__ = [
     "build_vcf_header",
@@ -125,7 +128,7 @@ def _vr_pos_key(vr: VariantRecord) -> int:
     return vr.pos
 
 
-@functools.cache
+@cache
 def _blank_entry(n_alleles: int) -> tuple[None, ...]:
     return tuple([None] * n_alleles)
 
@@ -141,7 +144,7 @@ def create_result_vcf_records(
     result_idx: int,
     result: LocusResult,
     snvs_written: set[str],  # to avoid writing the same SNV twice across records
-    logger: logging.Logger,
+    logger: Logger,
 ):
     variant_records: list[VariantRecord] = []
 
@@ -341,7 +344,7 @@ def output_contig_vcf_lines(
     sample_id: str,
     variant_file: VariantFile,
     results: tuple[LocusResult, ...],
-    logger: logging.Logger,
+    logger: Logger,
 ) -> None:
     variant_records: list[VariantRecord] = []
     snvs_written: set[str] = set()

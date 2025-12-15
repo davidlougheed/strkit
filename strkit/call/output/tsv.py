@@ -1,11 +1,11 @@
+from __future__ import annotations
 import sys
-from ..types import LocusResult
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..types import LocusResult
 
 __all__ = ["output_tsv"]
-
-
-def _cn_to_str(cn: int | float) -> str:
-    return f"{cn:.1f}" if isinstance(cn, float) else str(cn)
 
 
 def output_tsv(results: tuple[LocusResult, ...], has_snv_vcf: bool):
@@ -21,10 +21,10 @@ def output_tsv(results: tuple[LocusResult, ...], has_snv_vcf: bool):
             str(res["start"]),
             str(res["end"]),
             res["motif"],
-            _cn_to_str(ref_cn) if ref_cn is not None else ".",
-            ",".join(map(_cn_to_str, sorted(r["cn"] for r in reads.values()))) if reads else ".",
-            "|".join(map(_cn_to_str, res["call"])) if has_call else ".",
-            ("|".join("-".join(map(_cn_to_str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
+            str(ref_cn) if ref_cn is not None else ".",
+            ",".join(map(str, sorted(r["cn"] for r in reads.values()))) if reads else ".",
+            "|".join(map(str, res["call"])) if has_call else ".",
+            ("|".join("-".join(map(str, gc)) for gc in res["call_95_cis"]) if has_call else "."),
             # *((res["assign_method"] if has_call else ".",) if incorporate_snvs else ()),
             *((res["assign_method"] if has_call else ".",) if has_snv_vcf else ()),
 
