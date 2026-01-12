@@ -8,11 +8,11 @@ STRkit is a short tandem repeat (STR) genotyping and analysis toolkit for long r
 PacBio HiFi data. The STRkit software package is written in Python and is available in the PyPI package registry or as
 a Docker container.
 
-If you use STRkit in published work, please cite our preprint:
+If you use STRkit in published work, please cite our paper in *Genome Research*:
 
-> [STRkit: precise, read-level genotyping of short tandem repeats using long reads and single-nucleotide variation.](https://doi.org/10.1101/2025.03.25.645269)
-> David R Lougheed, Tomi Pastinen, Guillaume Bourque. *BioRxiv&nbsp;preprint*.
-> DOI:&nbsp;[10.1101/2025.03.25.645269](https://doi.org/10.1101/2025.03.25.645269)
+> [Read-level genotyping of short tandem repeats using long reads and single-nucleotide variation with STRkit.](https://doi.org/10.1101/gr.280766.125)
+> David R Lougheed, Tomi Pastinen, Guillaume Bourque. *Genome Res*.
+> DOI:&nbsp;[10.1101/gr.280766.125](https://doi.org/10.1101/gr.280766.125)
 
 <img src="./docs/images/strkit_logo_small.png" alt="" width="500" height="324" />
 
