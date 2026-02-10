@@ -632,7 +632,7 @@ def _exec_viz_server(p_args):
     with open(json_file, "r") as jf:
         call_report = json.loads(jf.read())
 
-    idx = p_args.i
+    idx = p_args.index
     if idx < 1 or idx > len(call_report["results"]):
         raise InputError(f"JSON offset out of bounds: '{idx}'")
 
