@@ -1,13 +1,16 @@
-import functools
+from __future__ import annotations
+
 import re
 import time
 
-from logging import Logger
-from queue import Queue
-from strkit_rust_ext import STRkitLocus
-from typing import Iterable, TypedDict
+from functools import cache
+from strkit_rust_ext import STRkitLocus, STRkitLocusBlock
+from typing import Iterable, TypedDict, TYPE_CHECKING
 
-from .params import CallParams
+if TYPE_CHECKING:
+    from logging import Logger
+    from queue import Queue
+    from .params import CallParams
 
 
 __all__ = [
@@ -143,7 +146,7 @@ def parse_last_column(t_idx: int, val: str) -> LastColumnData:
 
 
 def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str]]:
-    @functools.cache  # Cache get_n_alleles calls for contigs
+    @cache  # Cache get_n_alleles calls for contigs
     def _get_contig_n_alleles(ctg: str):
         return params.ploidy_config.n_of(ctg)
 
@@ -160,8 +163,8 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
     last_contig: str | None = None
     last_none_append_n_loci: int = 0
 
-    # We will pass blocks of loci for the queue, for a (future) optimization where we fetch all overlapping segments at
-    # once and re-use them via an interval tree.
+    # We will pass blocks of loci for the queue, so that we can fetch all overlapping segments at once for a block and
+    # re-use them via an interval tree during the calling process
     max_block_size: int = min(100, max(n_loci // params.processes, 1))
     max_block_inter_read_dist: int = 20000
     current_block: list[STRkitLocus] = []

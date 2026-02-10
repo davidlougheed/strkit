@@ -716,11 +716,11 @@ def main(args: list[str] | None = None) -> int:
         p_args = parser.parse_args(("--help",))
 
     try:
-        logger.info(f"STRkit version {__version__}")
+        logger.info("STRkit version %s", __version__)
         p_args.func(p_args)
         return 0
     except ParamError as e:
-        logger.critical(f"Paramter error: {e}")
+        logger.critical(f"Parameter error: {e}")
         return 1
     except InputError as e:
         logger.critical(f"Input error: {e}")

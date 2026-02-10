@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import functools
-import logging
 import multiprocessing.managers as mmg
 import numpy as np
 import operator
@@ -11,6 +9,8 @@ import time
 from collections import Counter
 from collections.abc import Sequence
 from pysam import FastaFile
+from functools import cache, partial
+from logging import Logger, DEBUG
 from sklearn.cluster import AgglomerativeClustering
 from statistics import mean
 
@@ -83,7 +83,7 @@ significant_clip_snv_take_in = 250
 
 # property getters & other partials
 weight_getter = operator.itemgetter("w")
-eq_0 = functools.partial(operator.eq, 0)
+eq_0 = partial(operator.eq, 0)
 
 
 def calculate_read_distance(
@@ -117,7 +117,7 @@ def calculate_read_distance(
     # Initialize a distance matrix for all reads
     distance_matrix = np.zeros((n_reads, n_reads), dtype=np.float_)
 
-    @functools.cache
+    @cache
     def _skip_set(idx: int) -> set:
         r_snv_u = read_dict_items[idx][1]["snvu"]
         return set(
@@ -176,7 +176,7 @@ def call_alleles_with_gmm(
     # ---
     rng: np.random.Generator,
     # ---
-    logger_: logging.Logger,
+    logger_: Logger,
     locus_log_str: str,
 ) -> CallDict | dict:
     # Dicts are ordered in Python; very nice :)
@@ -214,7 +214,7 @@ def call_alleles_with_haplotags(
     # ---
     rng: np.random.Generator,
     # ---
-    logger_: logging.Logger,
+    logger_: Logger,
     locus_log_str: str,
 ) -> dict | None:
     n_alleles: int = len(haplotags)
@@ -288,7 +288,7 @@ def call_alleles_with_haplotags(
     return call_data
 
 
-@functools.cache
+@cache
 def _snv_should_flip_gt(gt1: tuple[str, ...], gt2: tuple[str, ...]):
     return gt1 != gt2 and gt1 == tuple(reversed(gt2))
 
@@ -304,7 +304,7 @@ def _determine_snv_call_phase_set(
     snv_genotype_update_lock: threading.Lock,
     snv_genotype_cache: mmg.DictProxy,
     # ---
-    logger_: logging.Logger,
+    logger_: Logger,
     locus_log_str: str,
 ) -> int | None:
     # May mutate: cdd_ordered
@@ -371,7 +371,7 @@ def _determine_snv_call_phase_set(
             # Use the phase set synonymous graph to get back to the smallest-count phase set to use for these SNVs
             while call_phase_set in phase_set_synonymous:
                 pss = phase_set_synonymous[call_phase_set]
-                logger_.debug(f"%s - using existing remap %s -> %s", locus_log_str, call_phase_set, pss)
+                logger_.debug("%s - using existing remap %s -> %s", locus_log_str, call_phase_set, pss)
                 call_phase_set, r1 = pss
                 # If r[1] is True:
                 #   we should flip while going from call_phase_set -> r[0], so we should invert should_flip
@@ -452,7 +452,7 @@ def call_alleles_with_incorporated_snvs(
     snv_genotype_cache: mmg.DictProxy,
     # ---
     rng: np.random.Generator,
-    logger_: logging.Logger,
+    logger_: Logger,
     locus_log_str: str,
 ) -> tuple[AssignMethod, tuple[CallDict, list[CalledSNV]] | None]:
     assign_method: AssignMethod = "dist"
@@ -699,7 +699,7 @@ def call_alleles_with_incorporated_snvs(
     return assign_method, (call_data, called_useful_snvs)
 
 
-def debug_log_flanking_seq(logger_: logging.Logger, locus_log_str: str, rn: str, realigned: bool):
+def debug_log_flanking_seq(logger_: Logger, locus_log_str: str, rn: str, realigned: bool):
     logger_.debug(
         f"%s - skipping read %s: could not get sufficient flanking sequence"
         f"{' (post-realignment)' if realigned else ''}",
@@ -761,7 +761,7 @@ def get_locus_with_ref_data(
     locus: STRkitLocus,
     flank_size: int,
     # ---
-    logger_: logging.Logger,
+    logger_: Logger,
     locus_log_str: str,
 ) -> STRkitLocusWithRefData:
     ref_timer = time.perf_counter()
@@ -862,7 +862,7 @@ def call_locus(
     snv_genotype_cache: mmg.DictProxy,
     # ---
     rng: np.random.Generator,
-    logger_: logging.Logger,
+    logger_: Logger,
     locus_log_str: str,
     # ---
     candidate_snvs: CandidateSNVs | None = None,
@@ -912,7 +912,7 @@ def call_locus(
         return None  # don't even return a result, this locus has an invalid position
     except SkipLocus as e:
         logger_.warning("%s - skipping locus (SkipLocus), %s", locus_log_str, str(e))
-        return locus_result
+        return locus_result  # returning with locus dict + (assign_method/call/call_95_cis/call_99_cis all as None)
 
     locus_result["ref_cn"] = locus_with_ref_data.ref_cn
     if not respect_ref:  # tag locus_result with adjusted start/end
@@ -941,11 +941,12 @@ def call_locus(
     logger_.debug("%s - got %d overlapping aligned segments", locus_log_str, n_overlapping_reads)
 
     if n_overlapping_reads > (mr := params.max_reads):  # TODO: sample across full set instead?
+        # Actual subset is done in get_segments_for_locus(...)
         logger_.warning("%s - locus has excess reads, using the first %d; misalignment?", locus_log_str, mr)
 
     sorted_read_lengths = np.sort(read_lengths)
 
-    @functools.cache
+    @cache
     def get_read_length_partition_mean(p_idx: int) -> float:
         return np.mean(sorted_read_lengths[p_idx:]).item()
 
@@ -1174,19 +1175,31 @@ def call_locus(
                 n_read_cn_iters,
                 locus_with_ref_data.ref_cn,
             )
-            logger_.debug("%s - ref left flank:     %s", locus_log_str, locus_with_ref_data.ref_left_flank_seq)
-            logger_.debug("%s - read left flank:    %s", locus_log_str, flank_left_seq_wc)
-            logger_.debug(
-                "%s - ref TR seq (:500):  %s (len=%d)",
-                locus_log_str,
-                locus_with_ref_data.ref_seq[:500],
-                len(locus_with_ref_data.ref_seq),
-            )
-            logger_.debug(
-                "%s - read TR seq (:500): %s (len=%d)", locus_log_str, tr_read_seq_wc[:500], len(tr_read_seq_wc)
-            )
-            logger_.debug("%s - ref right flank:  %s", locus_log_str, locus_with_ref_data.ref_right_flank_seq)
-            logger_.debug("%s - read right flank: %s", locus_log_str, flank_right_seq_wc)
+            if params.log_level == DEBUG:
+                logger_.debug(
+                    "%s - ref left flank:     %s", locus_log_str, locus_with_ref_data.ref_left_flank_seq
+                )
+                logger_.debug(
+                    "%s - read left flank:    %s", locus_log_str, locus_seq_and_flank_data.flank_left_seq_wc
+                )
+                logger_.debug(
+                    "%s - ref TR seq (:500):  %s (len=%d)",
+                    locus_log_str,
+                    locus_with_ref_data.ref_seq[:500],
+                    len(locus_with_ref_data.ref_seq),
+                )
+                logger_.debug(
+                    "%s - read TR seq (:500): %s (len=%d)",
+                    locus_log_str,
+                    locus_seq_and_flank_data.tr_seq_wc[:500],
+                    len(locus_seq_and_flank_data.tr_seq_wc),
+                )
+                logger_.debug(
+                    "%s - ref right flank:  %s", locus_log_str, locus_with_ref_data.ref_right_flank_seq
+                )
+                logger_.debug(
+                    "%s - read right flank: %s", locus_log_str, locus_seq_and_flank_data.flank_right_seq_wc
+                )
             return {
                 **locus_result,
                 "peaks": None,

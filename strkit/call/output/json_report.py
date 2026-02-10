@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import sys
 from typing import Callable, Literal
 
 from strkit import __version__
-from strkit.json import Serializable, dumps, dumps_indented
+from strkit.json import dumps, dumps_indented
+from typing import TYPE_CHECKING
 
-from ..params import CallParams
-from ..types import LocusResult
+if TYPE_CHECKING:
+    from strkit.json import Serializable
+    from ..params import CallParams
+    from ..types import LocusResult
 
 __all__ = [
     "output_json_report_header",
