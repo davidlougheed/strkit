@@ -77,6 +77,9 @@ Example report format:
   "contigs": [
     "chr4"
   ],
+  "catalog": {
+    "num_loci": 5000 
+  },
   "results": [
     {
       "locus_index": 1,
@@ -163,6 +166,7 @@ VCF meta fields (non-exhaustive):
 * `phasing`: present and set to `partial` if using SNV/HP phasing
 * `reference`: absolute file URI to FASTA reference (`file://<...>`)
 * `strkitVersion`: STRkit version used to generate the file
+* `strkitCatalogNumLoci`: Number of total loci in the catalog used for genotyping
 
 VCF records will usually have IDs specified. For STR loci, this will be either `locus<idx>` (e.g., `locus1`) if no ID is 
 specified in the catalog, or a custom value, usually useful if it's a locus of particular significance 

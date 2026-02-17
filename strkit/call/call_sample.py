@@ -311,14 +311,17 @@ def call_sample(
 
     # If we're outputting JSON, write the header
     if json_path is not None:
-        output_json_report_header(params, contig_set, json_path, indent_json)
+        output_json_report_header(params, contig_set, json_path, indent_json, num_loci)
 
     # If we're outputting a VCF, open the file and write the header
     sample_id_str = params.sample_id or "sample"
     vf: PySamVariantFile | None = None
     if vcf_path is not None:
         vh = build_vcf_header(
-            sample_id_str, params.reference_file, partial_phasing=params.snv_vcf is not None or params.use_hp
+            sample_id_str,
+            params.reference_file,
+            partial_phasing=params.snv_vcf is not None or params.use_hp,
+            num_loci=num_loci,
         )
         vf = PySamVariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 

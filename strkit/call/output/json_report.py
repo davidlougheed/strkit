@@ -33,7 +33,9 @@ def _write_bytes(b: bytes, json_path: str, mode: Literal["wb", "ab"]):
             jf.write(b)
 
 
-def output_json_report_header(params: CallParams, contig_set: set[str], json_path: str, indent_json: bool):
+def output_json_report_header(
+    params: CallParams, contig_set: set[str], json_path: str, indent_json: bool, num_loci: int
+):
     json_report_header = {
         "sample_id": params.sample_id,
         "caller": {
@@ -42,6 +44,9 @@ def output_json_report_header(params: CallParams, contig_set: set[str], json_pat
         },
         "parameters": params.to_dict(as_inputted=True),
         "contigs": tuple(contig_set),
+        "catalog": {
+            "num_loci": num_loci,
+        },
     }
 
     dfn = _get_dfn(indent_json)
