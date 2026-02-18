@@ -272,6 +272,10 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument("--profile", action="store_true", help="Profile function calls (for development.)")
 
 
+def add_merge_parser_args(merge_parser):
+    merge_parser.add_argument("vcf_files", type=str, nargs="+", help="STRkit-generated VCF files to merge together.")
+
+
 def add_mi_parser_args(mi_parser):
     mi_parser.add_argument(
         "--debug",
@@ -477,6 +481,11 @@ def _exec_call(p_args) -> None:
         vcf_path=p_args.vcf,
         output_tsv=not p_args.no_tsv,
     )
+
+
+def _exec_merge(p_args) -> None:
+    from strkit.merge.merge_vcfs import merge_vcfs
+    merge_vcfs(tuple(Path(p) for p in p_args.vcf_files))
 
 
 def _exec_mi(p_args) -> None:
@@ -687,6 +696,12 @@ def main(args: list[str] | None = None) -> int:
         help_text="A tandem repeat (TR) caller designed for high-fidelity long reads.",
         exec_func=_exec_call,
         arg_func=add_call_parser_args)
+
+    _make_subparser(
+        "merge",
+        help_text="A merging tool for STRkit VCF output.",
+        exec_func=_exec_merge,
+        arg_func=add_merge_parser_args)
 
     _make_subparser(
         "mi",
