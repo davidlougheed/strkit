@@ -338,6 +338,7 @@ def _determine_snv_call_phase_set(
         if not snv_pss_with_should_flip:
             psl = phase_set_lock.acquire(timeout=30)
             if not psl:
+                snv_genotype_update_lock.release()
                 logger_.error("Failed to acquire phase_set_lock")
                 return None
 
@@ -355,12 +356,19 @@ def _determine_snv_call_phase_set(
                 snv_genotype_cache[snv_id] = (snv["call"], call_phase_set)
                 snv_id_list.append(snv_id)
 
-            logger_.debug("%s - assigned new phase set %d to SNVs %s", locus_log_str, call_phase_set, snv_id_list)
+            snv_genotype_update_lock.release()  # release before logging to save a tiny bit of time
 
+            logger_.debug("%s - assigned new phase set %d to SNVs %s", locus_log_str, call_phase_set, snv_id_list)
             return call_phase_set
 
-    finally:
         snv_genotype_update_lock.release()
+
+    except Exception as e:
+        snv_genotype_update_lock.release()
+        logger_.exception(
+            "%s - unhandled exception during first part of obtaining SNV phase set", locus_log_str, exc_info=e
+        )
+        return None
 
     if snv_pss_with_should_flip:  # else from above, but we want to release snv_genotype_update_lock first
         # Have found SNVs, should flip/not flip and assign existing phase set
@@ -390,22 +398,29 @@ def _determine_snv_call_phase_set(
 
             for psm, _ in phase_set_consensus_set[1:]:
                 if psm == call_phase_set:
+                    phase_set_lock.release()
                     logger_.warning(
                         f"{locus_log_str} - encountered self-flip while trying to re-use a phase set; "
                         f"{phase_set_consensus_set=}; {snv_pss_with_should_flip=}; {called_useful_snvs=}")
                     return None
 
-            if len(phase_set_consensus_set) > 1:
-                logger_.debug(
-                    f"{locus_log_str} - new re-mapping of phase sets {phase_set_consensus_set[1:]} to {call_phase_set} "
-                    f"with {should_flip=} ({phase_set_consensus_set=})")
-
             for psm, psm_sf in phase_set_consensus_set[1:]:
                 # (synonymous lower-# call_phase_set, should_flip RELATIVE to call_phase_set - XOR)
                 phase_set_synonymous[psm] = (call_phase_set, (should_flip or psm_sf) and not (should_flip and psm_sf))
 
-        finally:
             phase_set_lock.release()
+
+            if len(phase_set_consensus_set) > 1:
+                logger_.debug(
+                    f"%s - new re-mapping of phase sets {phase_set_consensus_set[1:]} to {call_phase_set} "
+                    f"with {should_flip=} ({phase_set_consensus_set=})", locus_log_str)
+
+        except Exception as e:
+            phase_set_lock.release()
+            logger_.exception(
+                "%s - unhandled exception during second part of obtaining SNV phase set", locus_log_str, exc_info=e
+            )
+            return None
 
         # ----
 
@@ -428,6 +443,10 @@ def _determine_snv_call_phase_set(
                     r["ps"] = call_phase_set
 
         return call_phase_set
+
+    # Should never actually be reached, we just have an awkward split if-statement above with snv_pss_with_should_flip.
+    # This is more for linting/IDE yelling than anything.
+    return None
 
 
 def _agg_clust_alleles_by_dm(n_alleles: int, dm: NDArray[np.float_]) -> tuple[NDArray[np.int_], tuple[int, ...]]:
