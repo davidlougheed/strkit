@@ -57,9 +57,7 @@ if TYPE_CHECKING:
 
     from .allele import CallDict
     from .params import CallParams
-    from .types import (
-        AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, CalledSNV, LocusResult
-    )
+    from .types import AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, CalledSNV, LocusResult
 
 
 __all__ = [
@@ -1032,19 +1030,8 @@ def call_locus(
     #  - Keep track of left-most and right-most coordinates
     #    If SNV-based peak calling is enabled, we can use this to pre-fetch reference data for all reads to reduce the
     #    fairly significant overhead involved in reading from the reference genome for each read to identifify SNVs.
-
-    overlapping_segments: NDArray[STRkitAlignedSegment]
-    read_lengths: NDArray[np.uint]
-    chimeric_read_status: dict[str, int]
-
-    (
-        overlapping_segments,
-        n_overlapping_reads,
-        read_lengths,
-        chimeric_read_status,
-        left_most_coord,
-        right_most_coord,
-    ) = block_segments.get_segments_for_locus(locus)
+    locus_segments = block_segments.get_segments_for_locus(locus)
+    n_overlapping_reads = locus_segments.n_segments
 
     logger_.debug("%s - got %d overlapping aligned segments", locus_log_str, n_overlapping_reads)
 
@@ -1052,7 +1039,7 @@ def call_locus(
         # Actual subset is done in get_segments_for_locus(...)
         logger_.warning("%s - locus has excess reads, using the first %d; misalignment?", locus_log_str, mr)
 
-    sorted_read_lengths = np.sort(read_lengths)
+    sorted_read_lengths = locus_segments.sorted_read_lengths
 
     @cache
     def get_read_length_partition_mean(p_idx: int) -> float:
@@ -1078,9 +1065,7 @@ def call_locus(
     read_offset_frac_from_starting_guess: float = 0.0
 
     segment: STRkitAlignedSegment
-    for segment, read_len in zip(overlapping_segments, read_lengths):
-        rn: str = segment.name
-
+    for segment in locus_segments:
         # TODO: rewrite as method of segment after we rust-ify the cigar NDarray
         # TODO: maybe construct some kind of locus+segment pair object with an Arc to segment?
         locus_alignment_data = get_locus_alignment_data_from_read(locus_with_ref_data, segment, params, logger_)
@@ -1110,7 +1095,7 @@ def call_locus(
             logger_.debug(
                 "%s - skipping read %s due to low average base quality (%.2f < %d)",
                 locus_log_str,
-                rn,
+                segment.name,
                 e.mean_base_qual,
                 min_avg_phred,
             )
@@ -1162,6 +1147,9 @@ def call_locus(
             motif=locus.motif,
             rc_params=rc_params,
         )
+
+        rn: str = segment.name
+
         # Update using +=, since if we use an offset that was correct, the new returned offset will be 0, so we really
         # want to keep the old offset, not set it to 0.
         read_offset_frac_from_starting_guess += new_offset_from_starting_count / max(read_cn, 1)
@@ -1284,13 +1272,15 @@ def call_locus(
             )
             exit(1)
 
-        mean_containing_size = read_len if targeted else get_read_length_partition_mean(partition_idx)
+        mean_containing_size = segment.length if targeted else get_read_length_partition_mean(partition_idx)
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
         read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
 
         # ---
 
-        crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
+        # Chimera within the TR region, indicating a potential large expansion
+        crs_cir = locus_segments.get_chimeric_read_status(rn) == 3
+
         read_dict[rn] = read_dict_entry = {
             "s": "-" if segment.is_reverse else "+",
             "cn": read_cn,
@@ -1443,6 +1433,8 @@ def call_locus(
             # LIMITATION: Currently can only use SNVs for haplotyping with haploid/diploid
 
             # Second read loop occurs in this function
+            left_most_coord = locus_segments.left_most_coord
+            right_most_coord = locus_segments.right_most_coord
             useful_snvs: list[tuple[int, int]] = process_read_snvs_for_locus_and_calculate_useful_snvs(
                 block_segments,
                 locus_with_ref_data,
