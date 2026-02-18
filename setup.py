@@ -25,6 +25,9 @@ setup(
         "statsmodels>=0.14.0,<0.15",
         "strkit_rust_ext==0.24.2",
     ],
+    extras_require={
+        "plot": ["pandas>=2.3.2,<2.4", "seaborn>=0.13.2,<0.14"],
+    },
 
     description="A toolkit for analyzing variation in short(ish) tandem repeats.",
     long_description=long_description,
