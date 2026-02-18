@@ -55,7 +55,7 @@ with the following command:
 python -m pip install strkit
 ```
 
-You may need to install the [Rust toolchain](https://www.rust-lang.org/tools/install) (version 1.85.0 or newer)
+You may need to install the [Rust toolchain](https://www.rust-lang.org/tools/install) (version 1.88.0 or newer)
 and a C compiler (e.g., `gcc`, `clang`), as well as `cmake`, to compile the `strkit_rust_ext` wheel, 
 although prebuilt wheels for this module are available for some platforms. Compiling the wheel may take quite
 a long time (in the tens of minutes).
@@ -63,7 +63,7 @@ a long time (in the tens of minutes).
 On Digital Research Alliance of Canada/Compute Canada clusters, this involves loading a few modules:
 
 ```bash
-module load rust/1.85.0 clang/18.1.8 python/3.11 scipy-stack/2025a parasail/2.6.2
+module load rust/1.91.0 clang/18.1.8 python/3.11 scipy-stack/2026a parasail/2.6.2
 python -m pip install strkit
 ```
 
@@ -387,8 +387,8 @@ may not be converted (these will be logged to `stderr`).
   created during graduate research by DL.
 * 2023+: (versions beyond `0.8.0a1`):
   * Portions &copy; DL and McGill University 2021-2023
-  * Portions &copy; McGill University 2024-2025
-  * Portions &copy; DL 2024-2025
+  * Portions &copy; McGill University 2024-2026
+  * Portions &copy; DL 2024-2026
 
 
 ### Notice
