@@ -446,6 +446,18 @@ def add_cv_parser_args(al_parser):
     al_parser.add_argument("--out-format", type=str, choices=CONVERTER_OUTPUT_FORMATS, help="Format to convert to.")
 
 
+def add_pl_parser_args(pl_parser):
+    pl_parser.add_argument("in_file", type=str, help="Input STRkit JSON report to plot a locus from.")
+    pl_parser.add_argument("idx", type=int)  # TODO: HELP
+    pl_parser.add_argument("out_file", type=str)  # TODO: HELP
+    pl_parser.add_argument("--allele", type=str, default="all")  # TODO: HELP
+    pl_parser.add_argument("--allele-label", type=str, default="Allele")  # TODO: HELP
+    pl_parser.add_argument("--n-bins", type=int, default=None)  # TODO: HELP
+    pl_parser.add_argument("--x-label", type=str, default="Copy number")  # TODO: HELP
+    pl_parser.add_argument("--y-label", type=str, default="# reads")  # TODO: HELP
+    pl_parser.add_argument("--annotation", "--annot", type=str, action="append")  # TODO: HELP
+
+
 def add_vs_parser_args(vs_parser):
     vs_parser.add_argument("align_file", type=str, help="Alignment file to visualize.")
     vs_parser.add_argument(
@@ -607,6 +619,26 @@ def _exec_convert(p_args):
     return convert(p_args.in_file, p_args.in_format, p_args.out_format, _main_logger(p_args))
 
 
+def _exec_plot(p_args):
+    from strkit.json import json
+    from strkit.plot.locus import plot_locus
+
+    with open(p_args.in_file, "rb") as fh:
+        data = json.loads(fh.read())
+
+    plot_locus(
+        data["results"][p_args.idx],
+        p_args.allele,
+        p_args.allele_label,
+        p_args.n_bins,
+        p_args.x_label,
+        p_args.y_label,
+        p_args.annotation,
+        p_args.out_file,
+        _main_logger(p_args),
+    )
+
+
 def _exec_viz_server(p_args):
     from strkit.json import json
     from strkit.viz.server import run_server as viz_run_server
@@ -705,6 +737,15 @@ def main(args: list[str] | None = None) -> int:
         help_text="Convert a repeat catalog to other formats.",
         exec_func=_exec_convert,
         arg_func=add_cv_parser_args)
+
+    _make_subparser(
+        "plot",
+        help_text=(
+            "Generate a plot of a specific locus (and, optionally, a specific allele) with a copy number histogram "
+            "and/or a k-mer histogram."
+        ),
+        exec_func=_exec_plot,
+        arg_func=add_pl_parser_args)
 
     _make_subparser(
         "visualize", "vis", "viz",
