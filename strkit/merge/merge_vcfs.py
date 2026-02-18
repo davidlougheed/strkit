@@ -15,7 +15,7 @@ def check_headers(hdrs: tuple[VariantHeader, ...]):
     pass
 
 
-def merge_vcfs(paths: tuple[Path, ...], out_file: Path):
+def merge_vcfs(paths: tuple[Path, ...]):
     fhs: tuple[VariantFile, ...] = tuple(VariantFile(str(p)) for p in paths)
 
     try:
