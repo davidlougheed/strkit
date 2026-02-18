@@ -7,7 +7,11 @@ __pycache__
 /strkit.egg-info
 # ignore WIP cohort code for now
 /strkit/cohort
+# ignore WIP strkit viz code
+/strkit_viz
 
+plot-*.bash
+test-*.bash
 *.bam
 *.bai
 *.bcf
@@ -19,10 +23,11 @@ __pycache__
 *.bed
 !tests/data/*.bed
 /*.json
+*.png
 *.time
 /*.tsv
 *.vcf.gz*
-*.vcf
+*.vcf*
 
 *.token
 
