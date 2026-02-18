@@ -1215,12 +1215,11 @@ def call_locus(
                 logger_.debug(
                     "%s - read right flank: %s", locus_log_str, locus_seq_and_flank_data.flank_right_seq_wc
                 )
-            return {
-                **locus_result,
-                "peaks": None,
-                "read_peaks_called": False,
-                "time": time.perf_counter() - call_timer,
-            }
+
+            locus_result["peaks"] = None
+            locus_result["read_peaks_called"] = False
+            locus_result["time"] = time.perf_counter() - call_timer
+            return locus_result
 
         if read_adj_score is not None and read_adj_score < min_read_align_score:
             logger_.debug(
@@ -1246,12 +1245,10 @@ def call_locus(
                         locus_seq_and_flank_data.tr_seq_wc[:100],
                     )
 
-                    return {
-                        **locus_result,
-                        "peaks": None,
-                        "read_peaks_called": False,
-                        "time": time.perf_counter() - call_timer,
-                    }
+                    locus_result["peaks"] = None
+                    locus_result["read_peaks_called"] = False
+                    locus_result["time"] = time.perf_counter() - call_timer
+                    return locus_result
 
             continue
 
@@ -1360,12 +1357,11 @@ def call_locus(
         logger_.debug(
             "%s - not enough reads to make a call (%d < %d)", locus_log_str, n_reads_in_dict, params.min_reads
         )
-        return {
-            **locus_result,
-            "peaks": None,
-            "read_peaks_called": False,
-            "time": time.perf_counter() - call_timer,
-        }
+
+        locus_result["peaks"] = None
+        locus_result["read_peaks_called"] = False
+        locus_result["time"] = time.perf_counter() - call_timer
+        return locus_result
 
     # Now, we know we have enough reads to maybe make a call -----------------------------------------------------------
 
