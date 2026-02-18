@@ -18,7 +18,7 @@ If you use STRkit in published work, please cite our paper in *Genome Research*:
 
 **Officially-supported platforms:** macOS (aarch64), Linux (amd64/aarch64)
 
-> **Note:** Currently, it is unlikely that STRkit will work on "plain" Windows due to downstream dependencies. 
+> **Note:** Currently, it is unlikely that STRkit will work on "plain" Windows due to upstream dependencies. 
 > To run STRkit on Windows, please use [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/) or
 > use our Docker image (see [Installation as a Docker container](#as-a-docker-container)).
 
