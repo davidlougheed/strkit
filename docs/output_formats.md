@@ -79,7 +79,8 @@ Example report format:
     "chr4"
   ],
   "catalog": {
-    "num_loci": 5000 
+    "num_loci": 5000,
+    "loci_hash": "0b2106349f9e2c62c367c5dbeab231f77aa6ff6030a6b65fb4de36a52dd63d3a"
   },
   "results": [
     {
@@ -168,6 +169,7 @@ VCF meta fields (non-exhaustive):
 * `reference`: absolute file URI to FASTA reference (`file://<...>`)
 * `strkitVersion`: STRkit version used to generate the file
 * `strkitCatalogNumLoci`: Number of total loci in the catalog used for genotyping
+* `strkitCatalogHash`: SHA256 hash of the loci loaded from the catalog
 
 VCF records will usually have IDs specified. For STR loci, this will be either `locus<idx>` (e.g., `locus1`) if no ID is 
 specified in the catalog, or a custom value, usually useful if it's a locus of particular significance 
