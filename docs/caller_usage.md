@@ -43,6 +43,8 @@
   with short flanking regions.
 * `--snv-min-base-qual [int]` or `--min-sbq [int]`: Minimum PHRED quality score for bases of SNVs to use for phasing. 
   **Default:** 20
+* `--significant-clip-threshold ###`: Minimum number of bases to consider the end of a read 'significantly' 
+  soft-clipped, meaning we should do some read trimming in the SNV-finding process to avoid SNV false positives.
 * `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads that do not reflect normal mapping patterns, e.g. from PacBio No-Amp 
   Targeted Sequencing. **Default:** off

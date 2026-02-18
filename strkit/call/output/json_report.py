@@ -34,7 +34,7 @@ def _write_bytes(b: bytes, json_path: str, mode: Literal["wb", "ab"]):
 
 
 def output_json_report_header(
-    params: CallParams, contig_set: set[str], json_path: str, indent_json: bool, num_loci: int
+    params: CallParams, contig_set: set[str], json_path: str, indent_json: bool, num_loci: int, loci_hash: str
 ):
     json_report_header = {
         "sample_id": params.sample_id,
@@ -46,6 +46,7 @@ def output_json_report_header(
         "contigs": tuple(contig_set),
         "catalog": {
             "num_loci": num_loci,
+            "loci_hash": loci_hash,
         },
     }
 

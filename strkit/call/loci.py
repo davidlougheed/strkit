@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 
@@ -145,7 +146,7 @@ def parse_last_column(t_idx: int, val: str) -> LastColumnData:
     raise err
 
 
-def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str]]:
+def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str], str]:
     @cache  # Cache get_n_alleles calls for contigs
     def _get_contig_n_alleles(ctg: str):
         return params.ploidy_config.n_of(ctg)
@@ -165,17 +166,18 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
 
     # We will pass blocks of loci for the queue, so that we can fetch all overlapping segments at once for a block and
     # re-use them via an interval tree during the calling process
-    max_block_size: int = min(100, max(n_loci // params.processes, 1))
+    max_block_size: int = min(200, max(n_loci // params.processes, 1))
     max_block_inter_read_dist: int = 20000
     current_block: list[STRkitLocus] = []
     current_block_left: int = 9999999999999999
     current_block_right: int = -1
+    loci_hash = hashlib.new("sha256")
 
     def _put_current_block():
         nonlocal current_block_left
         nonlocal current_block_right
 
-        locus_queue.put((current_block_left, current_block_right, tuple(current_block)))
+        locus_queue.put(STRkitLocusBlock(current_block, current_block_left, current_block_right))
         current_block.clear()
         current_block_left = 9999999999999999
         current_block_right = -1
@@ -213,6 +215,8 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
                 t_idx, last["id"], contig, int(t[1]), int(t[2]), last["motif"], n_alleles, flank_size=params.flank_size
             )
             validate_locus(locus)
+            locus_hash = hash(locus)
+            loci_hash.update(locus_hash.to_bytes(64, byteorder="little", signed=True))
         except LocusValidationError as e:
             e.log_error(logger)
             exit(1)
@@ -241,7 +245,8 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
 
     del last_none_append_n_loci  # more as a marker for when we're finished with this, for later refactoring
 
-    logger.info(f"Loaded {num_loci} loci in {(time.perf_counter() - load_start_time):.2f}s")
-    del load_start_time
+    hash_digest = loci_hash.hexdigest()
 
-    return num_loci, contig_set
+    logger.info(f"Loaded {num_loci} loci in {(time.perf_counter() - load_start_time):.2f}s (sha256 hash={hash_digest})")
+
+    return num_loci, contig_set, hash_digest

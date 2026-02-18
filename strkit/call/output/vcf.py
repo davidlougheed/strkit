@@ -53,7 +53,9 @@ def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
     return map(str.upper, x)
 
 
-def build_vcf_header(sample_id: str, reference_file: str, partial_phasing: bool, num_loci: int) -> VariantHeader:
+def build_vcf_header(
+    sample_id: str, reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
+) -> VariantHeader:
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
     # Add file date
@@ -80,6 +82,8 @@ def build_vcf_header(sample_id: str, reference_file: str, partial_phasing: bool,
     vh.add_meta("strkitVersion", str(__version__))
     #  - indicating number of loci provided (i.e., catalogue size)
     vh.add_meta("strkitCatalogNumLoci", str(num_loci))
+    #  - indicating hash of STRkitLocus objects (for checking catalogue sameness)
+    vh.add_meta("strkitCatalogLociHash", loci_hash)
 
     # Add CNV:TR alt type (symbolic allele: tandem repeat)
     # vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")

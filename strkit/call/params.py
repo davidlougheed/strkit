@@ -48,6 +48,7 @@ class CallParams:
         use_hp: bool = False,
         snv_vcf: Path | None = None,
         snv_min_base_qual: int = 20,
+        significant_clip_threshold: int = 100,
         targeted: bool = False,
         respect_ref: bool = False,
         count_kmers: str = "none",  # "none" | "peak" | "read"
@@ -85,6 +86,7 @@ class CallParams:
         self.use_hp: bool = use_hp
         self.snv_vcf: Path | None = snv_vcf
         self.snv_min_base_qual: int = snv_min_base_qual
+        self.significant_clip_threshold: int = significant_clip_threshold
         self.targeted: bool = targeted
         self.respect_ref: bool = respect_ref
         self.count_kmers: str = count_kmers
@@ -173,6 +175,7 @@ class CallParams:
             use_hp=p_args.use_hp,
             snv_vcf=p_args.incorporate_snvs,
             snv_min_base_qual=p_args.snv_min_base_qual,
+            significant_clip_threshold=p_args.significant_clip_threshold,
             targeted=p_args.targeted,
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
@@ -212,6 +215,7 @@ class CallParams:
             "use_hp": self.use_hp,
             "snv_vcf": str(self.snv_vcf) if self.snv_vcf else None,
             "snv_min_base_qual": self.snv_min_base_qual,
+            "significant_clip_threshold": self.significant_clip_threshold,
             "targeted": self.targeted,
             "respect_ref": self.respect_ref,
             "count_kmers": self.count_kmers,

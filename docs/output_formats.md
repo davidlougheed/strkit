@@ -66,6 +66,7 @@ Example report format:
     "hq": true,
     "snv_vcf": "00-common_all.vcf.gz",
     "snv_min_base_qual": 20,
+    "significant_clip_threshold": 100,
     "targeted": false,
     "respect_ref": false,
     "count_kmers": "none",

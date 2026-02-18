@@ -1,80 +1,52 @@
 from __future__ import annotations
 
-import importlib.metadata
-import logging
-import multiprocessing as mp
-import multiprocessing.dummy as mpd
-import multiprocessing.managers as mmg
-import re
-import time
-
-from heapq import merge as heapq_merge
-from multiprocessing.synchronize import Event as EventClass  # For type hinting
-from numpy.random import Generator as NPRandomGenerator, default_rng as np_default_rng
 from operator import itemgetter
-from pysam import VariantFile as PySamVariantFile
-from strkit_rust_ext import STRkitLocus
-from queue import Empty as QueueEmpty
-from threading import Lock
-from typing import Literal
+from typing import TYPE_CHECKING
 
-from .call_locus import call_locus
-from .loci import load_loci
-from .non_daemonic_pool import NonDaemonicPool
-from .params import CallParams
-from .output import (
-    output_json_report_header,
-    output_json_report_results,
-    output_json_report_footer,
-    output_tsv as output_tsv_fn,
-    build_vcf_header,
-    output_contig_vcf_lines,
-)
-from .types import VCFContigFormat, LocusResult
-from .utils import get_new_seed, normalize_contig
+if TYPE_CHECKING:  # For type hinting only
+    from logging import Logger
+    from multiprocessing import Queue as MpQueue
+    # noinspection PyProtectedMember
+    from multiprocessing.managers import DictProxy, SyncManager, ValueProxy
+    from multiprocessing.synchronize import Event as EventClass
+    from numpy.random import Generator as NPRandomGenerator
+    from strkit_rust_ext import STRkitLocus, STRkitLocusBlock
+    from threading import Lock
+
+    from .params import CallParams
+    from .types import LocusResult
+
 
 __all__ = [
     "call_sample",
 ]
 
-
-NUMERAL_CONTIG_PATTERN = re.compile(r"^(\d{1,2}|X|Y)$")
-ACCESSION_PATTERN = re.compile(r"^NC_\d+")
-
 get_locus_index = itemgetter("locus_index")
-
-
-def get_vcf_contig_format(snv_vcf_contigs: list[str]) -> VCFContigFormat:
-    if not snv_vcf_contigs or snv_vcf_contigs[0].startswith("chr"):
-        return "chr"
-    elif NUMERAL_CONTIG_PATTERN.match(snv_vcf_contigs[0]):
-        return "num"
-    elif ACCESSION_PATTERN.match(snv_vcf_contigs[0]):
-        return "acc"
-    else:
-        return ""
 
 
 def locus_worker(
     worker_id: int,
     params: CallParams,
-    locus_queue: mp.Queue,
+    locus_queue: MpQueue,
     locus_counter_lock: Lock,
-    locus_counter: mmg.ValueProxy,
+    locus_counter: ValueProxy,
     phase_set_lock: Lock,
-    phase_set_counter: mmg.ValueProxy,
-    phase_set_remap: mmg.DictProxy,
-    phase_set_synonymous: mmg.DictProxy,
+    phase_set_counter: ValueProxy,
+    phase_set_remap: DictProxy,
+    phase_set_synonymous: DictProxy,
     snv_genotype_update_lock: Lock,
-    snv_genotype_cache: mmg.DictProxy,
+    snv_genotype_cache: DictProxy,
     is_single_processed: bool,
     seed: int,
 ) -> list[LocusResult]:
+    from logging import DEBUG
+    from numpy.random import default_rng as np_default_rng
     from os import getpid
-    from pysam import FastaFile, VariantFile
+    from pysam import FastaFile
+    from queue import Empty as QueueEmpty
     from strkit_rust_ext import STRkitBAMReader, STRkitVCFReader
 
-    lg: logging.Logger
+    lg: Logger
     if is_single_processed:
         from strkit.logger import get_main_logger
         lg = get_main_logger()
@@ -90,9 +62,14 @@ def locus_worker(
     else:
         pr = None
 
+    from .call_locus import call_locus
+
+    # ------------------------------------------------------------------------------------------------------------------
+
     rng = np_default_rng(seed=seed)
 
     sample_id = params.sample_id
+    log_str_prefix: str = f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}"
 
     ref = FastaFile(params.reference_file)
     bf = STRkitBAMReader(
@@ -102,21 +79,16 @@ def locus_worker(
         params.skip_supplementary,
         params.skip_secondary,
         params.use_hp,
+        params.significant_clip_threshold,
         lg,
-        params.log_level == logging.DEBUG,
+        params.log_level == DEBUG,
     )
 
-    snv_vcf_contigs: list[str] = []
-    if params.snv_vcf:
-        with VariantFile(str(params.snv_vcf)) as snv_vcf_file:
-            snv_vcf_contigs.extend(map(lambda c: c.name, snv_vcf_file.header.contigs.values()))
-
-    vcf_file_format: Literal["chr", "num", "acc", ""] = get_vcf_contig_format(snv_vcf_contigs)
-
     ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
-    read_file_has_chr = any(r.startswith("chr") for r in bf.references)
 
-    snv_vcf_reader = STRkitVCFReader(str(params.snv_vcf)) if params.snv_vcf else None
+    snv_vcf_reader = STRkitVCFReader(
+        str(params.snv_vcf), is_sample_vcf=False, sample_id=None
+    ) if params.snv_vcf else None
 
     current_contig: str | None = None
     block_results: list[LocusResult] = []  # in the future, maybe we can use this for some kind of extra phasing info
@@ -124,41 +96,35 @@ def locus_worker(
 
     while True:
         try:
-            lb = locus_queue.get_nowait()
-            if lb is None:  # Kill signal
-                lg.debug(f"worker %d finished current contig: %s", worker_id, current_contig)
+            locus_block: STRkitLocusBlock = locus_queue.get_nowait()
+            if locus_block is None:  # Kill signal
+                lg.debug("worker %d finished current contig: %s", worker_id, current_contig)
                 break
-            locus_block: tuple[STRkitLocus, ...]
-            locus_block_left: int
-            locus_block_right: int
-            locus_block_left, locus_block_right, locus_block = lb
         except QueueEmpty:
-            lg.debug(f"worker %d encountered queue.Empty", worker_id)
+            lg.debug("worker %d encountered queue.Empty", worker_id)
             break
 
+        # TODO: locus block ID
+        locus_block_size = len(locus_block)
+        lg.debug("working on locus block (len=%d)", locus_block_size)
+
         if current_contig is None:
-            current_contig = locus_block[0].contig
+            current_contig = locus_block.contig
 
         # Get all aligned segments for this locus block, reducing the number of round-trip BAM IO ops we have to do!
-        block_segments = bf.get_overlapping_segments_and_related_data_for_block(
-            normalize_contig(current_contig, read_file_has_chr),
-            locus_block_left,
-            locus_block_right,
-            f"[block {current_contig}:{locus_block_left}-{locus_block_right}]",
-        )
+        block_segments = bf.get_overlapping_segments_and_related_data_for_block(locus_block)
 
         # Find candidate SNVs for this locus block, if we're using SNV data
-        block_candidate_snvs = snv_vcf_reader.get_candidate_snvs(
-            tuple(snv_vcf_contigs), vcf_file_format, current_contig, locus_block_left, locus_block_right
-        ) if snv_vcf_reader is not None else None
+        block_candidate_snvs = snv_vcf_reader.get_candidate_snvs(locus_block) if snv_vcf_reader is not None else None
 
         # TODO: could do SNV pileup for this block in the future.
         #  - this should improve SNV genotyping, as we can get the true genotypes of the candidate SNVs in the sample
         #    before we extract the values for the reads.
 
+        locus: STRkitLocus
         for locus in locus_block:
             # String representation of locus for logging purposes
-            locus_log_str: str = f"[w{worker_id}] {sample_id or ''}{' ' if sample_id else ''}{locus.log_str()}"
+            locus_log_str: str = log_str_prefix + locus.log_str()
 
             lg.debug("%s - working on locus", locus_log_str)
 
@@ -194,12 +160,17 @@ def locus_worker(
                 block_results.append(res)
 
         results.extend(block_results)
+
+        # Done with these
         block_results.clear()
+        del locus_block
+        del block_segments
+        del block_candidate_snvs
 
         # Instead of updating the locus counter every time a single locus finishes, do it in blocks. This is less
         # accurate (which isn't that important) and saves time with locking/unlocking.
         locus_counter_lock.acquire(timeout=30)
-        locus_counter.set(locus_counter.get() + len(locus_block))
+        locus_counter.set(locus_counter.get() + locus_block_size)
         locus_counter_lock.release()
 
     ref.close()
@@ -224,11 +195,13 @@ def progress_worker(
     start_time: float,
     log_level: int,
     log_progress_interval: int,
-    locus_queue: mp.Queue,
-    locus_counter: mmg.ValueProxy,
+    locus_queue: MpQueue,
+    locus_counter: ValueProxy,
     num_loci: int,
     event: EventClass,
 ):
+    import time
+
     from os import nice as os_nice, getpid
     try:
         os_nice(20)
@@ -285,7 +258,29 @@ def call_sample(
     indent_json: bool = False,
     output_tsv: bool = True,
 ) -> None:
+    import importlib.metadata
+    import multiprocessing as mp
+    import time
+
+    from heapq import merge as heapq_merge
+    from numpy.random import default_rng as np_default_rng
+    from pysam import VariantFile
+
     from strkit.logger import get_main_logger
+
+    from .loci import load_loci
+    from .output import (
+        output_json_report_header,
+        output_json_report_results,
+        output_json_report_footer,
+        output_tsv as output_tsv_fn,
+        build_vcf_header,
+        output_contig_vcf_lines,
+    )
+    from .utils import get_new_seed
+
+    # ------------------------------------------------------------------------------------------------------------------
+
     logger = get_main_logger()
 
     # Start the call timer
@@ -295,44 +290,48 @@ def call_sample(
 
     logger.info("Starting STR genotyping with parameters:")
     for k, v in params.to_dict().items():
-        v_fmt = f'"{v}"' if isinstance(v, str) else v
-        logger.info(f"    {k.rjust(27)} = {v_fmt}")
+        logger.info("    %s = %s", k.rjust(27), f'"{v}"' if isinstance(v, str) else v)
 
     # Seed the random number generator if a seed is provided, for replicability
     rng: NPRandomGenerator = np_default_rng(seed=params.seed)
 
-    manager: mmg.SyncManager = mp.Manager()
+    manager: SyncManager = mp.Manager()
 
     locus_queue = manager.Queue()
     # Loads actual STRkitLocus definitions into locus_queue, but returns # of loci + the contig set:
-    num_loci, contig_set = load_loci(params, locus_queue, logger)
+    num_loci, contig_set, loci_hash = load_loci(params, locus_queue, logger)
 
     # ---
 
     # If we're outputting JSON, write the header
     if json_path is not None:
-        output_json_report_header(params, contig_set, json_path, indent_json, num_loci)
+        output_json_report_header(params, contig_set, json_path, indent_json, num_loci, loci_hash)
 
     # If we're outputting a VCF, open the file and write the header
     sample_id_str = params.sample_id or "sample"
-    vf: PySamVariantFile | None = None
+    vf: VariantFile | None = None
     if vcf_path is not None:
         vh = build_vcf_header(
             sample_id_str,
             params.reference_file,
             partial_phasing=params.snv_vcf is not None or params.use_hp,
             num_loci=num_loci,
+            loci_hash=loci_hash,
         )
-        vf = PySamVariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
+        vf = VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 
     # ---
 
     is_single_processed = params.processes == 1
 
-    if not is_single_processed:
-        logger.info(f"Using {params.processes} workers")
+    if is_single_processed:
+        from multiprocessing.dummy import Pool
+        pool_class = Pool
+    else:
+        logger.info("Using %d workers", params.processes)
+        from .non_daemonic_pool import NonDaemonicPool
+        pool_class = NonDaemonicPool
 
-    pool_class = mpd.Pool if is_single_processed else NonDaemonicPool
     finish_event = mp.Event()
     with pool_class(params.processes) as p:
         locus_counter_lock = manager.Lock()

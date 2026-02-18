@@ -1,42 +1,32 @@
 from __future__ import annotations
 
-import multiprocessing.managers as mmg
 import numpy as np
 import operator
-import threading
 import time
 
 from collections import Counter
-from collections.abc import Sequence
-from pysam import FastaFile
 from functools import cache, partial
 from logging import Logger, DEBUG
 from sklearn.cluster import AgglomerativeClustering
 from statistics import mean
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal
+from typing import Iterable, Literal, Sequence, TYPE_CHECKING
 
 from strkit_rust_ext import (
-    STRkitAlignedCoords,
-    CandidateSNVs,
+    LowMeanBaseQual,
+    STRkitSegmentAlignmentDataForLocus,
+    STRkitAlignedSegmentSequenceDataForLocus,
     consensus_seq,
     get_read_coords_from_matched_pairs,
     get_pairs_and_tr_read_coords,
-    find_coord_idx_by_ref_pos,
-    STRkitAlignedSegment,
-    STRkitLocus,
-    STRkitLocusWithRefData,
-    STRkitLocusBlockSegments,
-    calculate_seq_with_wildcards,
+    normalize_contig,
 )
 
-from strkit.call.allele import CallDict, call_alleles
 from strkit.utils import idx_0_getter, apply_or_none
 
-from .cigar import decode_cigar_np
+from .allele import call_alleles
 from .gmm import make_already_fitted_gmm
-from .params import CallParams
 from .realign import perform_realign
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .repeat_count_params import RepeatCountParams
@@ -47,8 +37,29 @@ from .snvs import (
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
-from .types import AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, ReadDictExtra, CalledSNV, LocusResult
-from .utils import cn_getter, normalize_contig, get_new_seed
+from .types import ReadDictExtra
+from .utils import cn_getter, get_new_seed
+
+if TYPE_CHECKING:
+    # noinspection PyProtectedMember
+    from multiprocessing.managers import DictProxy, ValueProxy
+    from pysam import FastaFile
+    from threading import Lock
+
+    from strkit_rust_ext import (
+        STRkitAlignedCoords,
+        CandidateSNVs,
+        STRkitAlignedSegment,
+        STRkitLocus,
+        STRkitLocusWithRefData,
+        STRkitLocusBlockSegments,
+    )
+
+    from .allele import CallDict
+    from .params import CallParams
+    from .types import (
+        AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, CalledSNV, LocusResult
+    )
 
 
 __all__ = [
@@ -78,7 +89,6 @@ roughly_equiv_stdev_dist = 1
 force_realign = False
 many_realigns_threshold = 2
 
-significant_clip_threshold = 100
 significant_clip_snv_take_in = 250
 
 # property getters & other partials
@@ -298,11 +308,11 @@ def _determine_snv_call_phase_set(
     cdd_ordered: list[CallDict],
     called_useful_snvs: list[CalledSNV],
     # ---
-    phase_set_lock: threading.Lock,
-    phase_set_counter: mmg.ValueProxy,
-    phase_set_synonymous: mmg.DictProxy,
-    snv_genotype_update_lock: threading.Lock,
-    snv_genotype_cache: mmg.DictProxy,
+    phase_set_lock: Lock,
+    phase_set_counter: ValueProxy,
+    phase_set_synonymous: DictProxy,
+    snv_genotype_update_lock: Lock,
+    snv_genotype_cache: DictProxy,
     # ---
     logger_: Logger,
     locus_log_str: str,
@@ -445,11 +455,11 @@ def call_alleles_with_incorporated_snvs(
     # ---
     snv_quality_threshold: int,
     # ---
-    phase_set_lock: threading.Lock,
-    phase_set_counter: mmg.ValueProxy,
-    phase_set_synonymous: mmg.DictProxy,
-    snv_genotype_update_lock: threading.Lock,
-    snv_genotype_cache: mmg.DictProxy,
+    phase_set_lock: Lock,
+    phase_set_counter: ValueProxy,
+    phase_set_synonymous: DictProxy,
+    snv_genotype_update_lock: Lock,
+    snv_genotype_cache: DictProxy,
     # ---
     rng: np.random.Generator,
     logger_: Logger,
@@ -779,6 +789,7 @@ def get_locus_with_ref_data(
     try:
         # plus one for use with realign:
         # TODO: do we really need the +1 above?
+        # TODO: can we read from ref once instead of twice?
         ref_total_seq = ref.fetch(ref_contig, locus.left_flank_coord, locus.right_flank_coord + 1)
 
         ref_left_flank_seq = ref_total_seq[:ref_seq_offset_l]
@@ -847,6 +858,104 @@ def get_locus_with_ref_data(
     )
 
 
+def get_locus_alignment_data_from_read(
+    locus_with_ref_data: STRkitLocusWithRefData,
+    segment: STRkitAlignedSegment,
+    params: CallParams,
+    logger_: Logger,
+) -> STRkitSegmentAlignmentDataForLocus | None:
+    """
+    Given a specific locus and an aligned segment, return TODO
+    :param locus_with_ref_data: Locus catalog information + locus data from the reference genome
+    :param segment: Aligned segment to get locus-specific alignment data for.
+    :param params: STRkit caller parameters
+    :param logger_: Logger instance
+    """
+
+    start = segment.start
+    end = segment.end
+
+    flank_size = params.flank_size
+
+    realigned: bool = False
+
+    left_flank_start = -1
+    left_flank_end = -1
+    right_flank_start = -1
+    right_flank_end = -1
+
+    aligned_coords: STRkitAlignedCoords | None = None
+
+    # ------------------------------------------------------------------------------------------------------------------
+
+    # Soft-clipping in large insertions can result from mapping difficulties.
+    # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
+    # via realignment with parasail.
+    # 4: BAM code for soft clip CIGAR operation
+    # TODO: if some alignment is present, use it to reduce realignment overhead?
+    #  - use start point + flank*3 or end point - flank*3 or something like that
+    if params.realign and (force_realign or segment.soft_clip_overlaps_locus(locus_with_ref_data.locus_def)):
+        # Run the realignment in a separate process, to give us a timeout mechanism.
+        # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
+
+        pairs_new = perform_realign(locus_with_ref_data, segment, params, logger_)
+
+        if pairs_new is not None:
+            aligned_coords = pairs_new  # aligned_coords is no longer None
+            realigned = True
+
+            left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
+                get_read_coords_from_matched_pairs(locus_with_ref_data, segment, aligned_coords)
+
+            # equivalent to the below check of `coords_or_none is None` - if realign happens, but the flank
+            # boundaries cannot be extracted from the alignment, we skip this read.
+            if -1 in (left_flank_start, left_flank_end, right_flank_start, right_flank_end):
+                if params.log_level == DEBUG:
+                    debug_log_flanking_seq(logger_, locus_with_ref_data.log_str(), segment.name, realigned)
+                return None
+
+    # ------------------------------------------------------------------------------------------------------------------
+
+    if aligned_coords is None:  # if realign was not attempted, or was attempted but was not successful
+        if locus_with_ref_data.left_flank_coord < start or locus_with_ref_data.right_flank_coord > end:
+            # Cannot find pair for LHS flank start or RHS flank end;
+            # early-continue before we load pairs since that step is slow
+            if params.log_level == DEBUG:
+                debug_log_flanking_seq(logger_, locus_with_ref_data.log_str(), segment.name, realigned)
+            return None
+
+        coords_or_none, left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
+            get_pairs_and_tr_read_coords(locus_with_ref_data, segment)
+
+        if coords_or_none is None:
+            # -1 in one of the flank coords - equivalent to the check for -1 values in the realign block above.
+            if params.log_level == DEBUG:
+                debug_log_flanking_seq(logger_, locus_with_ref_data.log_str(), segment.name, realigned)
+            return None
+
+        aligned_coords = coords_or_none
+
+    # ------------------------------------------------------------------------------------------------------------------
+
+    # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop relatively distant
+    # expansion sequences from accidentally being included in the flanking region; e.g. if the insert gets mapped
+    # onto bases outside the definition coordinates.  TODO: better to do something else here?
+    # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
+    # contain a correctly-sized sequence.
+
+    if left_flank_start < (lfs_from_lfe := left_flank_end - flank_size - 10):
+        left_flank_start = lfs_from_lfe
+
+    if right_flank_end > (rfe_from_rfs := right_flank_start + flank_size + 10):
+        right_flank_end = rfe_from_rfs
+
+    # ------------------------------------------------------------------------------------------------------------------
+
+    return STRkitSegmentAlignmentDataForLocus(
+        aligned_coords, left_flank_start, left_flank_end, right_flank_start, right_flank_end, realigned
+    )
+
+
 def call_locus(
     locus: STRkitLocus,
     # ---
@@ -854,12 +963,12 @@ def call_locus(
     ref: FastaFile,
     params: CallParams,
     # ---
-    phase_set_lock: threading.Lock,
-    phase_set_counter: mmg.ValueProxy,
-    phase_set_hp_remap: mmg.DictProxy,
-    phase_set_synonymous: mmg.DictProxy,
-    snv_genotype_update_lock: threading.Lock,
-    snv_genotype_cache: mmg.DictProxy,
+    phase_set_lock: Lock,
+    phase_set_counter: ValueProxy,
+    phase_set_hp_remap: DictProxy,
+    phase_set_synonymous: DictProxy,
+    snv_genotype_update_lock: Lock,
+    snv_genotype_cache: DictProxy,
     # ---
     rng: np.random.Generator,
     logger_: Logger,
@@ -875,7 +984,6 @@ def call_locus(
     consensus = params.consensus
     count_kmers = params.count_kmers
     flank_size = params.flank_size
-    realign = params.realign
     respect_ref = params.respect_ref
     targeted = params.targeted
     min_avg_phred = params.min_avg_phred
@@ -963,7 +1071,7 @@ def call_locus(
 
     # Aggregations for additional read-level data
     read_kmers: Counter[str] = Counter()
-    read_aligned_coords: dict[str, STRkitAlignedCoords] = {}
+    read_locus_alignment_data: dict[str, STRkitSegmentAlignmentDataForLocus] = {}
 
     extremely_poor_scoring_reads = []
 
@@ -971,79 +1079,13 @@ def call_locus(
 
     segment: STRkitAlignedSegment
     for segment, read_len in zip(overlapping_segments, read_lengths):
-        rn: str = segment.name  # Know this is not None from overlapping_segments calculation
-        segment_start: int = segment.start
-        segment_end: int = segment.end
+        rn: str = segment.name
 
-        qs: str = segment.query_sequence
-
-        fqqs: NDArray[np.uint8] = segment.query_qualities
-        cigar_tuples: NDArray[np.uint32] = decode_cigar_np(segment.raw_cigar)
-
-        realigned: bool = False
-
-        left_flank_start = -1
-        left_flank_end = -1
-        right_flank_start = -1
-        right_flank_end = -1
-
-        aligned_coords: STRkitAlignedCoords | None = None
-
-        # Soft-clipping in large insertions can result from mapping difficulties.
-        # If we have a soft clip which overlaps with our TR region (+ flank), we can try to recover it
-        # via realignment with parasail.
-        # 4: BAM code for soft clip CIGAR operation
-        # TODO: if some alignment is present, use it to reduce realignment overhead?
-        #  - use start point + flank*3 or end point - flank*3 or something like that
-        if realign and (force_realign or (
-            ((c1 := cigar_tuples[0])[0] == 4 and segment_start > locus.left_flank_coord >= segment_start - c1[1]) or
-            ((c2 := cigar_tuples[-1])[0] == 4 and segment_end < locus.right_flank_coord <= segment_end + c2[1])
-        )):
-            # Run the realignment in a separate process, to give us a timeout mechanism.
-            # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
-
-            pairs_new = perform_realign(locus_with_ref_data, segment, params, logger_, locus_log_str)
-
-            if pairs_new is not None:
-                aligned_coords = pairs_new  # aligned_coords is no longer None
-                realigned = True
-                realign_count += 1
-
-                left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
-                    get_read_coords_from_matched_pairs(locus_with_ref_data, qs, aligned_coords)
-
-                # equivalent to the below check of `coords_or_none is None` - if realign happens, but the flank
-                # boundaries cannot be extracted from the alignment, we skip this read.
-                if -1 in (left_flank_start, left_flank_end, right_flank_start, right_flank_end):
-                    debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
-                    continue
-
-        if aligned_coords is None:  # if realign was not attempted, or was attempted but was not successful
-            if locus.left_flank_coord < segment_start or locus.right_flank_coord > segment_end:
-                # Cannot find pair for LHS flank start or RHS flank end;
-                # early-continue before we load pairs since that step is slow
-                debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
-                continue
-
-            coords_or_none, left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
-                get_pairs_and_tr_read_coords(cigar_tuples, segment_start, locus_with_ref_data, qs)
-
-            if coords_or_none is None:
-                # -1 in one of the flank coords - equivalent to the check for -1 values in the realign block above.
-                debug_log_flanking_seq(logger_, locus_log_str, rn, realigned)
-                continue
-
-            aligned_coords = coords_or_none
-
-        qqs = fqqs[left_flank_end:right_flank_start]
-        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
-            logger_.debug(
-                "%s - skipping read %s due to low average base quality (%.2f < %d)",
-                locus_log_str,
-                rn,
-                m_qqs,
-                min_avg_phred,
-            )
+        # TODO: rewrite as method of segment after we rust-ify the cigar NDarray
+        # TODO: maybe construct some kind of locus+segment pair object with an Arc to segment?
+        locus_alignment_data = get_locus_alignment_data_from_read(locus_with_ref_data, segment, params, logger_)
+        if locus_alignment_data is None:
+            # skip this locus if we get a 'not enough flanking sequence error' case (None)
             continue
 
         # --------------------------------------------------------------------------------------------------------------
@@ -1054,57 +1096,46 @@ def call_locus(
         # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
         # contain a correctly-sized sequence.
 
-        flank_left_seq: str = qs[left_flank_start:left_flank_end][-1*(flank_size+10):]
-        flank_right_seq: str = qs[right_flank_start:right_flank_end][:flank_size+10]
+        # TODO: this only checks base quality of actual TR region; check flank too?
+        # TODO: instead of None, raise a custom error / return a Result which contains the low base quality number
 
-        tr_len: int = right_flank_start - left_flank_end  # i.e., len(tr_read_seq)
-        tr_read_seq = qs[left_flank_end:right_flank_start]
-
-        # Cache this now that we've done some adjustments (although tr_len_w_flank should not change)
-        tr_len_w_flank: int = tr_len + len(flank_left_seq) + len(flank_right_seq)
-
-        # --------------------------------------------------------------------------------------------------------------
-
-        # Extract qualities for our TR sequence and flanking regions, and calculate wildcard-subsituted sequences if
-        # qualities are too low to be confident in base identity.
-
-        flank_left_qqs = fqqs[left_flank_start:left_flank_end][-1*(flank_size+10):]
-        flank_right_qqs = fqqs[right_flank_start:right_flank_end][:flank_size+10]
-
-        qqs = fqqs[left_flank_end:right_flank_start]
-        if qqs.shape[0] and (m_qqs := np.mean(qqs)) < min_avg_phred:  # TODO: check flank?
+        try:
+            locus_seq_and_flank_data: STRkitAlignedSegmentSequenceDataForLocus = segment.get_sequence_data_for_locus(
+                locus,
+                locus_alignment_data,
+                min_avg_phred,
+                base_wildcard_threshold,
+            )
+        except LowMeanBaseQual as e:
             logger_.debug(
                 "%s - skipping read %s due to low average base quality (%.2f < %d)",
                 locus_log_str,
                 rn,
-                m_qqs,
+                e.mean_base_qual,
                 min_avg_phred,
             )
             continue
 
-        flank_left_seq_wc = calculate_seq_with_wildcards(flank_left_seq, flank_left_qqs, base_wildcard_threshold)
-        flank_right_seq_wc = calculate_seq_with_wildcards(flank_right_seq, flank_right_qqs, base_wildcard_threshold)
-        tr_read_seq_wc = calculate_seq_with_wildcards(tr_read_seq, qqs, base_wildcard_threshold)
+        # --------------------------------------------------------------------------------------------------------------
 
-        # These are now invalid (or at least cannot be used for ref lookups):
-        del right_flank_start
-        del right_flank_end
-
-        # These are now not used anymore
-        del flank_left_seq
-        del flank_right_seq
+        # only update realign count if we didn't skip the read due to low mean base quality with the exception above
+        if locus_alignment_data.realigned:
+            realign_count += 1
 
         # --------------------------------------------------------------------------------------------------------------
 
         if count_kmers != "none":
+            # if we're counting k-mers at all, we will need the read k-mers:
             read_kmers.clear()
-            read_kmers.update(_calc_motif_size_kmers(tr_read_seq_wc, tr_len, locus.motif_size))
+            read_kmers.update(locus_seq_and_flank_data.get_motif_size_kmers())
+
+        # --------------------------------------------------------------------------------------------------------------
 
         rc_timer = time.perf_counter()
 
         # Set initial integer copy number guess based on aligned TR size, plus the previous read offset (how much the
         # last guess was wrong by, as a delta.)
-        read_sc = round(tr_len / locus.motif_size)
+        read_sc = locus_seq_and_flank_data.get_est_copy_num()
         if (read_sc_offset := round(read_offset_frac_from_starting_guess * read_sc)) < -1 * read_sc:
             # If our new guess is negative, it was probably a vastly different read, so we should ignore the offset
             # fraction and just use a new starting guess and start again with our offset.
@@ -1120,12 +1151,12 @@ def call_locus(
         # min(locus.motif_size * 2, flank_size)  # TODO: parameter / test values
         # NOTE: reducing this to motif_size * 2 does in fact have a performance impact...
         repeat_count_scoring_flank_size = flank_size
-        repeat_count_scoring_fls = flank_left_seq_wc[-1*repeat_count_scoring_flank_size:]
-        repeat_count_scoring_frs = flank_right_seq_wc[:repeat_count_scoring_flank_size]
+        repeat_count_scoring_fls = locus_seq_and_flank_data.flank_left_seq_wc[-1*repeat_count_scoring_flank_size:]
+        repeat_count_scoring_frs = locus_seq_and_flank_data.flank_right_seq_wc[:repeat_count_scoring_flank_size]
 
         (read_cn, read_cn_score), n_read_cn_iters, new_offset_from_starting_count = get_repeat_count(
             start_count=read_sc,  # should always be >= 0 with above logic
-            tr_seq=tr_read_seq_wc,
+            tr_seq=locus_seq_and_flank_data.tr_seq_wc,
             flank_left_seq=repeat_count_scoring_fls,
             flank_right_seq=repeat_count_scoring_frs,
             motif=locus.motif,
@@ -1144,11 +1175,7 @@ def call_locus(
                 n_read_cn_iters,
             )
 
-        read_adj_score: float | None = (
-            None
-            if tr_len == 0
-            else read_cn_score / (tr_len + repeat_count_scoring_flank_size*2)
-        )
+        read_adj_score: float | None = locus_seq_and_flank_data.calc_adj_score(read_cn_score)
 
         if params.verbose:
             logger_.debug(
@@ -1228,7 +1255,7 @@ def call_locus(
                         locus_log_str,
                         str(extremely_poor_scoring_reads),
                         n_read_cn_iters,
-                        tr_read_seq_wc[:100],
+                        locus_seq_and_flank_data.tr_seq_wc[:100],
                     )
 
                     return {
@@ -1239,6 +1266,8 @@ def call_locus(
                     }
 
             continue
+
+        tr_len_w_flank: int = locus_seq_and_flank_data.tr_len_with_flank
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
         # overlaps the region, is P(read is large enough to contain) * P(  # TODO: complete this..
@@ -1261,59 +1290,53 @@ def call_locus(
 
         # ---
 
-        # it would be nice to do this with the coord pairs instead - but we don't have a great way then of finding a
-        # coord that works for both the ref and every read without doing another iteration.
-        read_start_anchor: str = ""
-        if consensus:
-            for anchor_offset in range(vcf_anchor_size, 0, -1):
-                # start from largest - want to include small indels in query if they appear immediately upstream
-                anchor_pair_idx, anchor_pair_found = find_coord_idx_by_ref_pos(
-                    aligned_coords, locus_with_ref_data.left_coord_adj - anchor_offset, 0
-                )
-                if anchor_pair_found:
-                    read_start_anchor = qs[aligned_coords.query_coord_at_idx(anchor_pair_idx):left_flank_end]
-                    break
-                # otherwise, there's an indel in ref - so we shrink the anchor size
-            # if nothing worked, leave as blank - anchor base deleted
-
-        # ---
-
         crs_cir = chimeric_read_status[rn] == 3  # Chimera within the TR region, indicating a potential large expansion
         read_dict[rn] = read_dict_entry = {
             "s": "-" if segment.is_reverse else "+",
             "cn": read_cn,
             "w": read_weight,
             "sc": read_adj_score,
-            **({"realn": realigned} if realign and realigned else {}),
+            **({"realn": locus_alignment_data.realigned} if locus_alignment_data.realigned else {}),
             **({"chimeric_in_region": crs_cir} if crs_cir else {}),
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
         }
 
-        read_extra_entry: ReadDictExtra
-        read_dict_extra[rn] = read_extra_entry = {
-            "_ref_start": segment_start,
-            "_ref_end": segment_end,
-            **({"_start_anchor": read_start_anchor, "_tr_seq": tr_read_seq} if consensus else {}),
-        }
-
-        # Reads can show up more than once - TODO - cache this information across loci in the block
+        read_dict_extra[rn] = ReadDictExtra(
+            # calculates a VCF sequence start 'anchor' for this particular read. a consensus of the read anchors
+            # will determine the allele anchor, which is a bit of a hack.
+            # it would be nice to do this with the coord pairs instead - but we don't have a great way then of
+            # finding a coord that works for both the ref and every read without doing another iteration.
+            _start_anchor=segment.get_vcf_anchor_for_locus(
+                locus_with_ref_data, locus_alignment_data, vcf_anchor_size
+            ),
+            _tr_seq=locus_seq_and_flank_data.tr_seq,
+        ) if consensus else {}
 
         if use_hp:
+            # TODO: this should be done on locus block creation instead maybe, once SNV stuff is also there
             if (hp := segment.hp) is not None and (ps := segment.ps) is not None:
-                orig_ps = int(ps)
-
-                phase_set_lock.acquire(timeout=300)
-
                 ps_remapped: int
-                if orig_ps in phase_set_hp_remap:
-                    ps_remapped = phase_set_hp_remap[orig_ps]
+                if segment.ps_remapped is not None:
+                    # if we've already calculated the remapped phase set for this read (i.e., it's shown up before in
+                    # the locus block), re-use the value instead of taking the hit of locking/unlocking.
+                    ps_remapped = segment.ps_remapped
                 else:
-                    psc = int(phase_set_counter.value)
-                    phase_set_counter.set(psc + 1)
-                    phase_set_hp_remap[orig_ps] = psc
-                    ps_remapped = psc
+                    # otherwise, remap this phase set to be consistent with our SNV-derived phase sets
 
-                phase_set_lock.release()
+                    orig_ps = int(ps)
+
+                    phase_set_lock.acquire(timeout=300)
+
+                    if orig_ps in phase_set_hp_remap:
+                        ps_remapped = phase_set_hp_remap[orig_ps]
+                    else:
+                        psc = int(phase_set_counter.value)
+                        phase_set_counter.set(psc + 1)
+                        phase_set_hp_remap[orig_ps] = psc
+                        ps_remapped = psc
+
+                    phase_set_lock.release()
+                    block_segments.set_segment_ps_remapped(rn, ps_remapped)
 
                 read_dict_entry["hp"] = hp  # not none inside this if-statement
                 read_dict_entry["ps"] = ps_remapped
@@ -1322,34 +1345,16 @@ def call_locus(
                 phase_sets[ps_remapped] += 1
 
         if should_incorporate_snvs:
-            # Store the segment sequence and qualities in the read dict for the next go-around if we've enabled SNV
-            # incorporation, in order to pass them to the get_read_snvs function with the cached ref string.
-            read_extra_entry["_qs"] = qs
-            read_extra_entry["_fqqs"] = fqqs
-
-            # Observed significant increase in annoying, probably false SNVs near the edges of significantly
-            # clipped reads in CCS data. Figure out if we have large clipping for later use here in the SNV finder.
-            #   --> RE-ENABLE FOR DE NOVO SNV FINDER <--
-            cigar_first_op = cigar_tuples[0]
-            cigar_last_op = cigar_tuples[-1]
-
-            read_extra_entry["sig_clip_left"] = (
-                cigar_first_op[0] in (4, 5) and cigar_first_op[1] >= significant_clip_threshold)
-            read_extra_entry["sig_clip_right"] = (
-                cigar_last_op[0] in (4, 5) and cigar_last_op[1] >= significant_clip_threshold)
-
-            # Cache aligned pairs, since it takes a lot of time to extract, and we use it for calculate_useful_snvs
-            read_aligned_coords[rn] = aligned_coords
-
-        # Manually clean up large numpy arrays after we're done stashing them in read_q_coords/read_r_coords
-        del aligned_coords
+            # Cache segment locus alignment data to cache aligned pairs, since it takes a lot of time to extract, and
+            # we use it for calculate_useful_snvs
+            # TODO: rework this and port to rust
+            read_locus_alignment_data[rn] = locus_alignment_data
 
     # End of first read loop -------------------------------------------------------------------------------------------
 
     n_reads_in_dict: int = len(read_dict)
 
     locus_result.update({
-        # **({"ref_start_anchor": ref_left_flank_seq[-1].upper(), "ref_seq": ref_seq} if consensus else {}),
         **(
             {
                 "ref_start_anchor": locus_with_ref_data.ref_left_flank_seq[-vcf_anchor_size:].upper(),
@@ -1439,14 +1444,14 @@ def call_locus(
 
             # Second read loop occurs in this function
             useful_snvs: list[tuple[int, int]] = process_read_snvs_for_locus_and_calculate_useful_snvs(
-                locus_with_ref_data.left_coord_adj,
-                locus_with_ref_data.right_coord_adj,
+                block_segments,
+                locus_with_ref_data,
                 left_most_coord,
                 # Reference sequence - don't assign to a variable to avoid keeping a large amount of data around until
                 # the GC arises from slumber.
                 ref.fetch(locus_with_ref_data.ref_contig, left_most_coord, right_most_coord + 1).upper(),
                 read_dict_extra,
-                read_aligned_coords,
+                read_locus_alignment_data,
                 candidate_snvs,
                 params.min_allele_reads,
                 significant_clip_snv_take_in,
@@ -1487,7 +1492,7 @@ def call_locus(
                     locus_result["snvs"] = call_res[1]  # Called useful SNVs
 
     # We're done with read_aligned_coords - free it early
-    del read_aligned_coords
+    del read_locus_alignment_data
 
     single_or_dist_assign: bool = assign_method in ("single", "dist")
 

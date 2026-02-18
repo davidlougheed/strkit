@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from .params import CallParams
 
 from .align_matrix import match_score, dna_matrix
-from .cigar import decode_cigar_np
 
 __all__ = [
     "realign_read",
@@ -60,7 +59,7 @@ def realign_read(
 
     lg.debug("Realigned %s: scored %d; Flipped CIGAR: %s", read_log_str, pr.score, pr.cigar.decode.decode("ascii"))
 
-    res: STRkitAlignedCoords = get_aligned_pair_matches(decode_cigar_np(pr.cigar.seq), left_flank_coord, 0)
+    res: STRkitAlignedCoords = get_aligned_pair_matches(pr.cigar.seq, left_flank_coord, 0)
     return ret_q(res)
 
 
@@ -71,7 +70,6 @@ def perform_realign(
     params: CallParams,
     # ---
     logger_: Logger,
-    locus_log_str: str,
 ) -> STRkitAlignedCoords | None:
     rn = segment.name
 
@@ -89,7 +87,7 @@ def perform_realign(
         # Don't start process for short realigns, since then process startup dominates the total time taken
         # TODO: more robust solution; realign worker somehow? How to do timeout?
         return realign_read(
-            ref_total_seq, qs_wc, left_flank_coord, params.flank_size, None, locus_log_str, params.log_level
+            ref_total_seq, qs_wc, left_flank_coord, params.flank_size, None, read_log_str, params.log_level
         )
 
     t = time.time()
@@ -106,6 +104,8 @@ def perform_realign(
         log_level=params.log_level,
     ))
     proc.start()
+
+    locus_log_str = locus_with_ref_data.log_str()
 
     pairs_new: STRkitAlignedCoords | None = None
     try:

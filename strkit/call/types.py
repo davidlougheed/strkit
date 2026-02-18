@@ -5,7 +5,6 @@ from numpy.typing import NDArray
 
 
 __all__ = [
-    "VCFContigFormat",
     "AssignMethod",
     "AssignMethodWithHP",
     "ConsensusMethod",
@@ -17,9 +16,6 @@ __all__ = [
 ]
 
 # TODO: py3.10: new Required[] TypedDict structuring
-
-
-VCFContigFormat = Literal["chr", "num", "acc", ""]
 
 AssignMethod = Literal["dist", "snv", "snv+dist", "single"]
 AssignMethodWithHP = AssignMethod | Literal["hp"]
@@ -68,9 +64,6 @@ class ReadDictExtra(TypedDict, total=False):
 
     _qs: str  # Query (read) sequence
     _fqqs: NDArray[np.uint8]  # Query (read) base qualities
-
-    sig_clip_left: bool  # Significant amounts of clipping (5' of read)
-    sig_clip_right: bool  # Significant amounts of clipping (3' of read)
 
     snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
     # Intermediate result: tuple of bases/qualities for the set of SNVs across all reads

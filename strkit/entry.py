@@ -145,6 +145,15 @@ def add_call_parser_args(call_parser):
         default=13,
         help="Minimum average PHRED score for relevant (flanking + TR) bases required for a read to be used.")
 
+    call_parser.add_argument(
+        "--significant-clip-threshold",
+        type=int,
+        default=100,
+        help=(
+            "Minimum number of bases to consider the end of a read 'significantly' soft-clipped, meaning we should do "
+            "some read trimming in the SNV-finding process to avoid SNV false positives."
+        ))
+
     # Minimum read alignment score (fractional) to include a read in calling.
     call_parser.add_argument(
         "--min-read-align-score", "--mras",
