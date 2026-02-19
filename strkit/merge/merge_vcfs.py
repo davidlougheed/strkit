@@ -14,6 +14,18 @@ if TYPE_CHECKING:
 __all__ = ["merge_vcfs"]
 
 
+COMMON_STR_INFO_KEYS = (
+    vcf.VCF_INFO_VT,
+    vcf.VCF_INFO_MOTIF,
+    vcf.VCF_INFO_REFMC,
+    vcf.VCF_INFO_BED_START,
+    vcf.VCF_INFO_BED_END,
+)
+COMMON_SNV_INFO_KEYS = (
+    vcf.VCF_INFO_VT,
+)
+
+
 def check_headers(headers: tuple[VariantHeader, ...], logger: Logger):
     header_contigs: set[tuple[str, ...]] = set()
     strkit_versions: set[str] = set()
@@ -73,19 +85,13 @@ def merge_str_records(header: VariantHeader, records: list[VariantRecord], logge
     contig = records[0].contig
 
     refs = tuple(p.ref for p in records)
+    if len(set(refs)) > 1:
+        logger.debug("merge_str_records: encountered >1 STR reference sequence")
 
-    common_info_keys = (
-        vcf.VCF_INFO_VT,
-        vcf.VCF_INFO_MOTIF,
-        vcf.VCF_INFO_REFMC,
-        vcf.VCF_INFO_BED_START,
-        vcf.VCF_INFO_BED_END,
-    )
-
-    infos = set(tuple(p.info[k] for k in common_info_keys) for p in records)
+    infos = set(tuple(p.info[k] for k in COMMON_STR_INFO_KEYS) for p in records)
 
     if len(infos) > 1:
-        logger.warning("merge_str_records encountered more than one set of INFO field values")
+        logger.warning("merge_str_records: encountered >1 set of INFO field values for STR")
         # TODO: more reporting
 
     if len(set(refs)) > 1:
@@ -99,10 +105,11 @@ def merge_str_records(header: VariantHeader, records: list[VariantRecord], logge
         # TODO: also consider if there's extra on the end or something?
         ref = ref_max_anchor
         # TODO: this misses SNVs that are in the VCF anchor. Maybe STRkit should genotype these.
+        # TODO: filter out ref allele
         alts = sorted(set(ref_max_anchor[:added_prefix_lengths[i]] + a for i, p in enumerate(records) for a in p.alts))
     else:
         ref = refs[0]
-        alts = sorted(set(a for p in records for a in (p.alts or ())), key=lambda a: (len(a), a))
+        alts = sorted(set(a for p in records for a in (p.alts or ()) if a != ref), key=lambda a: (len(a), a))
         start = records[0].start
 
     # TODO: merge info/format fields
@@ -112,16 +119,47 @@ def merge_str_records(header: VariantHeader, records: list[VariantRecord], logge
     print(alleles)
     rec = header.new_record(contig, start=start, alleles=alleles, id=records[0].id)
 
+    # -- add INFO (common across samples) to merged STR record ---------------------------------------------------------
     common_info = next(iter(infos))
-    for ki, k in enumerate(common_info_keys):
+    for ki, k in enumerate(COMMON_STR_INFO_KEYS):
         rec.info[k] = common_info[ki]
+    # ------------------------------------------------------------------------------------------------------------------
+
+    # Done common stuff, now need to add/transform sample data
+    for sample in header.samples:
+        pass
 
     return rec
 
 
 def merge_snv_records(header: VariantHeader, records: list[VariantRecord], logger: Logger) -> VariantRecord:
-    rec = header.new_record()  # TODO
     print("TODO: SNV MERGE")
+    print([str(r) for r in records])
+
+    # confirm we have a single base ref
+    refs = tuple(p.ref for p in records)
+    if len(ref_set := set(refs)) > 1:
+        logger.critical("merge_snv_records: encountered >1 SNP reference sequence (%s)", ref_set)
+        exit(1)
+    ref = refs[0]
+
+    infos = set(tuple(p.info[k] for k in COMMON_SNV_INFO_KEYS) for p in records)
+
+    if len(infos) > 1:
+        logger.warning("merge_str_records: encountered >1 set of INFO field values for STR")
+
+    alts = sorted(set(a for p in records for a in (p.alts or ()) if a != ref))
+    alleles = (ref, *alts)
+    rec = header.new_record(contig=records[0].contig, start=records[0].start, alleles=alleles)  # TODO
+
+    common_info = next(iter(infos))
+    for ki, k in enumerate(COMMON_SNV_INFO_KEYS):
+        rec.info[k] = common_info[ki]
+
+    # Done common stuff, now need to add/transform sample data
+    for sample in header.samples:
+        pass
+
     return rec
 
 
