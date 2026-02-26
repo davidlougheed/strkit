@@ -312,7 +312,7 @@ def call_sample(
     vf: VariantFile | None = None
     if vcf_path is not None:
         vh = build_vcf_header(
-            sample_id_str,
+            (sample_id_str,),
             params.reference_file,
             partial_phasing=params.snv_vcf is not None or params.use_hp,
             num_loci=num_loci,

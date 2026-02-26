@@ -45,7 +45,7 @@ def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
 
 
 def build_vcf_header(
-    sample_id: str, reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
+    sample_ids: tuple[str, ...], reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
 ) -> VariantHeader:
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
@@ -104,8 +104,9 @@ def build_vcf_header(
     # for iv in VCF_TR_INFO_RECORDS:
     #     vh.info.add(*iv)
 
-    # Add the sample
-    vh.add_sample(sample_id)
+    # Add the sample(s)
+    for sample_id in sample_ids:
+        vh.add_sample(sample_id)
 
     return vh
 
