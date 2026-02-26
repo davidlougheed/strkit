@@ -50,7 +50,7 @@ def build_vcf_header(
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
     # Add file date
-    vu.add_vcf_file_date(vh)
+    vu.header.add_vcf_file_date(vh)
 
     # Add source
     vh.add_meta("source", "strkit")
@@ -94,11 +94,11 @@ def build_vcf_header(
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
 
     # Set up VCF info fields (mutates vh.info)
-    vu.VCF_INFO_VT.add_to_info(vh.info)
-    vu.VCF_INFO_MOTIF.add_to_info(vh.info)
-    vu.VCF_INFO_REFMC.add_to_info(vh.info)
-    vu.VCF_INFO_BED_START.add_to_info(vh.info)
-    vu.VCF_INFO_BED_END.add_to_info(vh.info)
+    vu.header.VCF_INFO_VT.add_to_info(vh.info)
+    vu.header.VCF_INFO_MOTIF.add_to_info(vh.info)
+    vu.header.VCF_INFO_REFMC.add_to_info(vh.info)
+    vu.header.VCF_INFO_BED_START.add_to_info(vh.info)
+    vu.header.VCF_INFO_BED_END.add_to_info(vh.info)
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
@@ -131,7 +131,7 @@ def create_result_vcf_records(
 
     if "ref_start_anchor" not in result:
         logger.debug("No ref anchor for %s:%d; skipping VCF output for locus", contig, start)
-        raise vu.SkipWritingLocus()
+        raise vu.record.SkipWritingLocus()
 
     ref_start_anchor = result["ref_start_anchor"].upper()
     ref_seq = result["ref_seq"].upper()
@@ -147,11 +147,11 @@ def create_result_vcf_records(
 
     if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
         logger.error("Encountered None in results[%d].peaks.seqs: %s", result_idx, peak_seqs)
-        raise vu.SkipWritingLocus()
+        raise vu.record.SkipWritingLocus()
 
     if any(map(is_none, peak_start_anchor_seqs)):  # Occurs when no consensus for one of the peaks
         logger.error("Encountered None in results[%d].peaks.start_anchor_seqs: %s", result_idx, peak_start_anchor_seqs)
-        raise vu.SkipWritingLocus()
+        raise vu.record.SkipWritingLocus()
 
     peak_start_anchor_seqs_upper = tuple(iter_to_upper(peak_start_anchor_seqs))
     common_anchor_prefix = commonprefix([ref_start_anchor, *peak_start_anchor_seqs_upper])
@@ -206,15 +206,15 @@ def create_result_vcf_records(
         alleles=seq_alleles,
     )
 
-    vr.info[vu.VCF_INFO_VT.key] = VT_STR
-    vr.info[vu.VCF_INFO_MOTIF.key] = result["motif"]
-    vr.info[vu.VCF_INFO_REFMC.key] = result["ref_cn"]
-    vr.info[vu.VCF_INFO_BED_START.key] = result["start"]
-    vr.info[vu.VCF_INFO_BED_END.key] = result["end"]
-    vr.info[vu.VCF_INFO_ANCH.key] = params.vcf_anchor_size - anchor_offset
+    vr.info[vu.header.VCF_INFO_VT.key] = VT_STR
+    vr.info[vu.header.VCF_INFO_MOTIF.key] = result["motif"]
+    vr.info[vu.header.VCF_INFO_REFMC.key] = result["ref_cn"]
+    vr.info[vu.header.VCF_INFO_BED_START.key] = result["start"]
+    vr.info[vu.header.VCF_INFO_BED_END.key] = result["end"]
+    vr.info[vu.header.VCF_INFO_ANCH.key] = params.vcf_anchor_size - anchor_offset
 
     try:
-        vr.samples[sample_id]["GT"] = vu.genotype_indices(
+        vr.samples[sample_id]["GT"] = vu.record.genotype_indices(
             alleles=seq_alleles_raw,
             call=None if call is None or not peak_seqs else seqs_with_anchors,
             n_alleles=n_alleles,
@@ -223,7 +223,7 @@ def create_result_vcf_records(
         logger.error(
             "results[%d] (locus_id=%s): one of %s not in %s",
             result_idx, result["locus_id"], seqs_with_anchors, seq_alleles_raw)
-        raise vu.SkipWritingLocus()
+        raise vu.record.SkipWritingLocus()
 
     if am := result.get("assign_method"):
         vr.samples[sample_id]["PM"] = am
@@ -300,9 +300,9 @@ def create_result_vcf_records(
                 alleles=snv_alleles,
             )
 
-            snv_vr.info[vu.VCF_INFO_VT.key] = VT_SNV
+            snv_vr.info[vu.header.VCF_INFO_VT.key] = VT_SNV
 
-            snv_vr.samples[sample_id]["GT"] = vu.genotype_indices(snv_alleles, snv["call"], n_alleles)
+            snv_vr.samples[sample_id]["GT"] = vu.record.genotype_indices(snv_alleles, snv["call"], n_alleles)
             snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
             snv_vr.samples[sample_id]["AD"] = snv["rcs"]
 
@@ -340,7 +340,7 @@ def output_contig_vcf_lines(
                     logger,
                 )
             )
-        except vu.SkipWritingLocus:
+        except vu.record.SkipWritingLocus:
             pass  # just skipping the locus, nothing to do here as we've already logged
         except Exception as e:  # fallback if we didn't handle a case properly in create_result_vcf_records
             logger.exception("Error while writing VCF: unhandled exception at results[%d]", result_idx, exc_info=e)
