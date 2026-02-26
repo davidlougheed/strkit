@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
-from functools import cache
 from os.path import commonprefix
 from pathlib import Path
 from pysam import FastaFile, VariantHeader
@@ -10,6 +9,7 @@ from typing import Iterable, TYPE_CHECKING
 
 from strkit import __version__
 from strkit.utils import is_none, idx_0_getter
+from strkit.vcf_utils import SkipWritingLocus, genotype_indices
 from ..utils import cn_getter
 
 if TYPE_CHECKING:
@@ -135,15 +135,6 @@ def _vr_pos_key(vr: VariantRecord) -> int:
     return vr.pos
 
 
-@cache
-def _blank_entry(n_alleles: int) -> tuple[None, ...]:
-    return tuple([None] * n_alleles)
-
-
-class SkipWritingLocus(Exception):
-    pass
-
-
 def create_result_vcf_records(
     params: CallParams,
     variant_file: VariantFile,
@@ -243,10 +234,10 @@ def create_result_vcf_records(
     vr.info[VCF_INFO_ANCH] = params.vcf_anchor_size - anchor_offset
 
     try:
-        vr.samples[sample_id]["GT"] = (
-            tuple(map(seq_alleles_raw.index, seqs_with_anchors))
-            if call is not None and peak_seqs
-            else _blank_entry(n_alleles)
+        vr.samples[sample_id]["GT"] = genotype_indices(
+            alleles=seq_alleles_raw,
+            call=None if call is None or not peak_seqs else seqs_with_anchors,
+            n_alleles=n_alleles,
         )
     except ValueError:
         logger.error(
@@ -331,7 +322,7 @@ def create_result_vcf_records(
 
             snv_vr.info[VCF_INFO_VT] = VT_SNV
 
-            snv_vr.samples[sample_id]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
+            snv_vr.samples[sample_id]["GT"] = genotype_indices(snv_alleles, snv["call"], n_alleles)
             snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
             snv_vr.samples[sample_id]["AD"] = snv["rcs"]
 
