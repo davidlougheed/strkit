@@ -83,6 +83,9 @@ are for the entire human genome, whereas others are for only disease-relevant lo
     for different human reference genomes, containing motifs up to 20bp in length. However, **these files use
     1-based closed-interval coordinates**, and should be adjusted (subtracting 1 from all start coordinates) to 
     transform them into the 0-based half-open interval coordinates when using them with STRkit.
+    **IMPORTANT:** Also note that some of these catalogs have an extra column after the motif (e.g., `hg38_ver17`). 
+    STRkit requires that the motif is the last column in the BED catalog; use `hg38_ver13` or trim the last column from
+    their file in order to get correct genotypes. 
 
 ### Disease-relevant loci
 
