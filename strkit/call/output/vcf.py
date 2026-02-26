@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime
 from os.path import commonprefix
 from pathlib import Path
 from pysam import FastaFile, VariantHeader
 from typing import Iterable, TYPE_CHECKING
 
-from strkit import __version__
+from strkit import __version__, vcf_utils as vu
 from strkit.utils import is_none, idx_0_getter
-from strkit.vcf_utils import SkipWritingLocus, genotype_indices
 from ..utils import cn_getter
 
 if TYPE_CHECKING:
@@ -37,13 +35,6 @@ __all__ = [
 #     ("CIRB", ".", "Integer", "Confidence interval around RB"),
 # )
 
-VCF_INFO_VT = "VT"
-VCF_INFO_MOTIF = "MOTIF"
-VCF_INFO_REFMC = "REFMC"
-VCF_INFO_BED_START = "BED_START"
-VCF_INFO_BED_END = "BED_END"
-VCF_INFO_ANCH = "ANCH"
-
 VT_STR = "str"
 VT_SNV = "snv"
 
@@ -59,8 +50,7 @@ def build_vcf_header(
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
     # Add file date
-    now = datetime.now()
-    vh.add_meta("fileDate", f"{now.year}{now.month:02d}{now.day:02d}")
+    vu.add_vcf_file_date(vh)
 
     # Add source
     vh.add_meta("source", "strkit")
@@ -103,23 +93,12 @@ def build_vcf_header(
     vh.formats.add("PS", 1, "Integer", "Phase set")
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
 
-    # Set up VCF info fields
-    vh.info.add(VCF_INFO_VT, 1, "String", "Variant record type (str/snv)")
-    vh.info.add(VCF_INFO_MOTIF, 1, "String", "Motif string")
-    vh.info.add(VCF_INFO_REFMC, 1, "Integer", "Motif copy number in the reference genome")
-    vh.info.add(
-        VCF_INFO_BED_START,
-        1,
-        "Integer",
-        "Original start position of the locus as defined in the catalog (0-based inclusive)",
-    )
-    vh.info.add(
-        VCF_INFO_BED_END,
-        1,
-        "Integer",
-        "Original end position of the locus as defined in the catalog (0-based exclusive, i.e., 1-based)",
-    )
-    vh.info.add(VCF_INFO_ANCH, 1, "Integer", "Five-prime anchor size")
+    # Set up VCF info fields (mutates vh.info)
+    vu.VCF_INFO_VT.add_to_info(vh.info)
+    vu.VCF_INFO_MOTIF.add_to_info(vh.info)
+    vu.VCF_INFO_REFMC.add_to_info(vh.info)
+    vu.VCF_INFO_BED_START.add_to_info(vh.info)
+    vu.VCF_INFO_BED_END.add_to_info(vh.info)
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
@@ -151,7 +130,7 @@ def create_result_vcf_records(
 
     if "ref_start_anchor" not in result:
         logger.debug("No ref anchor for %s:%d; skipping VCF output for locus", contig, start)
-        raise SkipWritingLocus()
+        raise vu.SkipWritingLocus()
 
     ref_start_anchor = result["ref_start_anchor"].upper()
     ref_seq = result["ref_seq"].upper()
@@ -167,11 +146,11 @@ def create_result_vcf_records(
 
     if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
         logger.error("Encountered None in results[%d].peaks.seqs: %s", result_idx, peak_seqs)
-        raise SkipWritingLocus()
+        raise vu.SkipWritingLocus()
 
     if any(map(is_none, peak_start_anchor_seqs)):  # Occurs when no consensus for one of the peaks
         logger.error("Encountered None in results[%d].peaks.start_anchor_seqs: %s", result_idx, peak_start_anchor_seqs)
-        raise SkipWritingLocus()
+        raise vu.SkipWritingLocus()
 
     peak_start_anchor_seqs_upper = tuple(iter_to_upper(peak_start_anchor_seqs))
     common_anchor_prefix = commonprefix([ref_start_anchor, *peak_start_anchor_seqs_upper])
@@ -226,15 +205,15 @@ def create_result_vcf_records(
         alleles=seq_alleles,
     )
 
-    vr.info[VCF_INFO_VT] = VT_STR
-    vr.info[VCF_INFO_MOTIF] = result["motif"]
-    vr.info[VCF_INFO_REFMC] = result["ref_cn"]
-    vr.info[VCF_INFO_BED_START] = result["start"]
-    vr.info[VCF_INFO_BED_END] = result["end"]
-    vr.info[VCF_INFO_ANCH] = params.vcf_anchor_size - anchor_offset
+    vr.info[vu.VCF_INFO_VT.key] = VT_STR
+    vr.info[vu.VCF_INFO_MOTIF.key] = result["motif"]
+    vr.info[vu.VCF_INFO_REFMC.key] = result["ref_cn"]
+    vr.info[vu.VCF_INFO_BED_START.key] = result["start"]
+    vr.info[vu.VCF_INFO_BED_END.key] = result["end"]
+    vr.info[vu.VCF_INFO_ANCH.key] = params.vcf_anchor_size - anchor_offset
 
     try:
-        vr.samples[sample_id]["GT"] = genotype_indices(
+        vr.samples[sample_id]["GT"] = vu.genotype_indices(
             alleles=seq_alleles_raw,
             call=None if call is None or not peak_seqs else seqs_with_anchors,
             n_alleles=n_alleles,
@@ -243,7 +222,7 @@ def create_result_vcf_records(
         logger.error(
             "results[%d] (locus_id=%s): one of %s not in %s",
             result_idx, result["locus_id"], seqs_with_anchors, seq_alleles_raw)
-        raise SkipWritingLocus()
+        raise vu.SkipWritingLocus()
 
     if am := result.get("assign_method"):
         vr.samples[sample_id]["PM"] = am
@@ -320,9 +299,9 @@ def create_result_vcf_records(
                 alleles=snv_alleles,
             )
 
-            snv_vr.info[VCF_INFO_VT] = VT_SNV
+            snv_vr.info[vu.VCF_INFO_VT.key] = VT_SNV
 
-            snv_vr.samples[sample_id]["GT"] = genotype_indices(snv_alleles, snv["call"], n_alleles)
+            snv_vr.samples[sample_id]["GT"] = vu.genotype_indices(snv_alleles, snv["call"], n_alleles)
             snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
             snv_vr.samples[sample_id]["AD"] = snv["rcs"]
 
@@ -360,7 +339,7 @@ def output_contig_vcf_lines(
                     logger,
                 )
             )
-        except SkipWritingLocus:
+        except vu.SkipWritingLocus:
             pass  # just skipping the locus, nothing to do here as we've already logged
         except Exception as e:  # fallback if we didn't handle a case properly in create_result_vcf_records
             logger.exception("Error while writing VCF: unhandled exception at results[%d]", result_idx, exc_info=e)
