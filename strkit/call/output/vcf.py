@@ -251,7 +251,7 @@ def create_result_vcf_records(
     except ValueError:
         logger.error(
             "results[%d] (locus_id=%s): one of %s not in %s",
-            result_idx, locus_id, seqs_with_anchors, seq_alleles_raw)
+            result_idx, result["locus_id"], seqs_with_anchors, seq_alleles_raw)
         raise SkipWritingLocus()
 
     if am := result.get("assign_method"):
