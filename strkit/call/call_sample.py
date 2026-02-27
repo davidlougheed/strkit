@@ -268,6 +268,7 @@ def call_sample(
     from pysam import VariantFile
 
     from strkit.logger import get_main_logger
+    from strkit.vcf_utils.header import build_vcf_header
 
     from .loci import load_loci
     from .output import (
@@ -275,7 +276,6 @@ def call_sample(
         output_json_report_results,
         output_json_report_footer,
         output_tsv as output_tsv_fn,
-        build_vcf_header,
         output_contig_vcf_lines,
     )
     from .utils import get_new_seed
