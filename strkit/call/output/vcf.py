@@ -45,7 +45,7 @@ def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
 
 
 def build_vcf_header(
-    sample_ids: tuple[str, ...], reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
+    command: str, sample_ids: tuple[str, ...], reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
 ) -> VariantHeader:
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
@@ -70,6 +70,8 @@ def build_vcf_header(
     # Add STRkit-specific fields:
     #  - marking version
     vh.add_meta("strkitVersion", str(__version__))
+    #  - the subcommand being used to generate this VCF (call|merge)
+    vh.add_meta("strkitCommand", command)
     #  - indicating number of loci provided (i.e., catalogue size)
     vh.add_meta("strkitCatalogNumLoci", str(num_loci))
     #  - indicating hash of STRkitLocus objects (for checking catalogue sameness)
