@@ -341,10 +341,11 @@ For other options and what they do, run `strkit mi` (with no other arguments) or
 
 ### `strkit convert`: STR catalog conversion
 
-STRkit takes as input a four-or-more-column BED file, structured like:
+STRkit takes as input a four-or-more-column BED file, structured like one of the following:
 
 ```
-contig  start end [0 or more extraneous columns] motif
+contig  start end [0 or more extraneous columns] NNN
+contig  start end [0 or more extraneous columns] ID=locus1;MOTIF=NNN
 ```
 
 Any extraneous columns are removed, (internally) leaving a four-column STR locus representation. 
@@ -371,14 +372,17 @@ For example, to convert from a TRF BED to a TRGT repeat definition BED file:
 strkit convert --in-format trf --out-format trgt in_file.trf.bed > out_file.bed
 ```
 
-To attempt a conversion from a TRGT repeat definition file to a STRkit/four-column motif BED:
+To convert from a TRGT repeat definition file to a STRkit BED, including locus IDs if set:
 
 ```bash
-strkit convert --in-format trgt --out-format strkit in_file.trgt.bed > out_file.bed
+strkit convert --in-format trgt --out-format strkit in_file.trgt.bed > out_file.strkit.bed
 ```
 
-Note that TRGT can represent STRs with complex structure that STRkit cannot, so some of these loci
-may not be converted (these will be logged to `stderr`).
+Where possible, multiple motifs will be reconciled using [IUPAC codes](https://www.bioinformatics.org/sms/iupac.html),
+which STRkit supports.
+
+Note that TRGT can represent STRs with complex structure that STRkit cannot. In these cases, the first motif in the TRGT 
+locus definition will be used and a message will be logged to `stderr`.
 
 
 ## Copyright and License
