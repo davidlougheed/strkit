@@ -45,7 +45,13 @@ def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
 
 
 def build_vcf_header(
-    command: str, sample_ids: tuple[str, ...], reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
+    command: str,
+    sample_ids: tuple[str, ...],
+    reference_file: Path | str,  # if Path, turn into file URI. Otherwise, treat "as-is".
+    partial_phasing: bool,
+    num_loci: int,
+    loci_hash: str,
+    contigs: tuple[tuple[str, int], ...] | None = None,
 ) -> VariantHeader:
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
@@ -59,13 +65,22 @@ def build_vcf_header(
     if partial_phasing:
         vh.add_meta("phasing", "partial")
 
-    # Add an absolute path to the reference genome
-    vh.add_meta("reference", f"file://{str(Path(reference_file).resolve().absolute())}")
+    # Add an absolute path to the reference genome. If we're passed a string (from merge), assume this is already a file
+    # URI.
+    vh.add_meta(
+        "reference",
+        f"file://{str(reference_file.resolve().absolute())}" if isinstance(reference_file, Path) else reference_file
+    )
 
-    # Add all contigs from the reference genome file + lengths
-    with FastaFile(reference_file) as rf:
-        for contig in rf.references:
-            vh.contigs.add(contig, length=rf.get_reference_length(contig))
+    if contigs is not None:
+        # If we're passed contig records directly (from merge), add them rather than pulling them from the reference.
+        for contig, contig_length in contigs:
+            vh.contigs.add(contig, length=contig_length)
+    else:
+        # Add all contigs from the reference genome file + lengths
+        with FastaFile(str(reference_file)) as rf:
+            for contig in rf.references:
+                vh.contigs.add(contig, length=rf.get_reference_length(contig))
 
     # Add STRkit-specific fields:
     #  - marking version

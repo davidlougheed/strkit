@@ -264,6 +264,7 @@ def call_sample(
 
     from heapq import merge as heapq_merge
     from numpy.random import default_rng as np_default_rng
+    from pathlib import Path
     from pysam import VariantFile
 
     from strkit.logger import get_main_logger
@@ -314,7 +315,7 @@ def call_sample(
         vh = build_vcf_header(
             "call",
             (sample_id_str,),
-            params.reference_file,
+            Path(params.reference_file),
             partial_phasing=params.snv_vcf is not None or params.use_hp,
             num_loci=num_loci,
             loci_hash=loci_hash,
