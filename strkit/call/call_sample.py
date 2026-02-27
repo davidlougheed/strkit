@@ -264,9 +264,11 @@ def call_sample(
 
     from heapq import merge as heapq_merge
     from numpy.random import default_rng as np_default_rng
+    from pathlib import Path
     from pysam import VariantFile
 
     from strkit.logger import get_main_logger
+    from strkit.vcf_utils.header import build_vcf_header
 
     from .loci import load_loci
     from .output import (
@@ -274,7 +276,6 @@ def call_sample(
         output_json_report_results,
         output_json_report_footer,
         output_tsv as output_tsv_fn,
-        build_vcf_header,
         output_contig_vcf_lines,
     )
     from .utils import get_new_seed
@@ -312,8 +313,9 @@ def call_sample(
     vf: VariantFile | None = None
     if vcf_path is not None:
         vh = build_vcf_header(
-            sample_id_str,
-            params.reference_file,
+            "call",
+            (sample_id_str,),
+            Path(params.reference_file),
             partial_phasing=params.snv_vcf is not None or params.use_hp,
             num_loci=num_loci,
             loci_hash=loci_hash,

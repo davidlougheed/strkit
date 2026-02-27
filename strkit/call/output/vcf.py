@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime
-from functools import cache
 from os.path import commonprefix
-from pathlib import Path
-from pysam import FastaFile, VariantHeader
 from typing import Iterable, TYPE_CHECKING
 
-from strkit import __version__
+from strkit import vcf_utils as vu
 from strkit.utils import is_none, idx_0_getter
 from ..utils import cn_getter
 
@@ -19,33 +15,8 @@ if TYPE_CHECKING:
     from ..types import LocusResult
 
 __all__ = [
-    "build_vcf_header",
     "output_contig_vcf_lines",
 ]
-
-
-# VCF_ALLELE_CNV_TR = "<CNV:TR>"
-
-# VCF_TR_INFO_RECORDS: tuple[tuple[str, str, str, str], ...] = (
-#     ("SVLEN", "A", "Integer", "Length of the structural variant"),
-#     ("CN", "A", "Float", "Copy number of allele"),
-#     ("RN", "A", "Integer", "Total number of repeat sequences in this allele"),
-#     ("RUS", ".", "String", "Repeat unit sequence of the corresponding repeat sequence"),
-#     ("RUL", ".", "Integer", "Repeat unit length of the corresponding repeat sequence"),
-#     ("RB", ".", "Integer", "Total number of bases in the corresponding repeat sequence"),
-#     ("CIRUC", ".", "Float", "Confidence interval around RUC"),
-#     ("CIRB", ".", "Integer", "Confidence interval around RB"),
-# )
-
-VCF_INFO_VT = "VT"
-VCF_INFO_MOTIF = "MOTIF"
-VCF_INFO_REFMC = "REFMC"
-VCF_INFO_BED_START = "BED_START"
-VCF_INFO_BED_END = "BED_END"
-VCF_INFO_ANCH = "ANCH"
-
-VT_STR = "str"
-VT_SNV = "snv"
 
 
 def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
@@ -53,95 +24,8 @@ def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
     return map(str.upper, x)
 
 
-def build_vcf_header(
-    sample_id: str, reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
-) -> VariantHeader:
-    vh = VariantHeader()  # automatically sets VCF version to 4.2
-
-    # Add file date
-    now = datetime.now()
-    vh.add_meta("fileDate", f"{now.year}{now.month:02d}{now.day:02d}")
-
-    # Add source
-    vh.add_meta("source", "strkit")
-
-    # Mark that we have partial phasing if we're using HP/SNVs
-    if partial_phasing:
-        vh.add_meta("phasing", "partial")
-
-    # Add an absolute path to the reference genome
-    vh.add_meta("reference", f"file://{str(Path(reference_file).resolve().absolute())}")
-
-    # Add all contigs from the reference genome file + lengths
-    with FastaFile(reference_file) as rf:
-        for contig in rf.references:
-            vh.contigs.add(contig, length=rf.get_reference_length(contig))
-
-    # Add STRkit-specific fields:
-    #  - marking version
-    vh.add_meta("strkitVersion", str(__version__))
-    #  - indicating number of loci provided (i.e., catalogue size)
-    vh.add_meta("strkitCatalogNumLoci", str(num_loci))
-    #  - indicating hash of STRkitLocus objects (for checking catalogue sameness)
-    vh.add_meta("strkitCatalogLociHash", loci_hash)
-
-    # Add CNV:TR alt type (symbolic allele: tandem repeat)
-    # vh.add_meta("ALT", "<ID=CNV:TR,Description=\"Tandem repeat\">")
-
-    # Set up basic VCF formats
-    vh.formats.add("AD", ".", "Integer", "Read depth for each allele")
-    vh.formats.add("ANCL", ".", "Integer", "Anchor length for the ref and each alt, five-prime of TR sequence")
-    vh.formats.add("CONS", ".", "String", "Consensus methods used for each alt (single/poa/best_rep)")
-    vh.formats.add("DP", 1, "Integer", "Read depth")
-    vh.formats.add("DPS", 1, "Integer", "Read depth (supporting reads only)")
-    vh.formats.add("GT", 1, "String", "Genotype")
-    vh.formats.add("MC", ".", "Integer", "Motif copy number for each allele")
-    vh.formats.add("MCCI", ".", "String", "Motif copy number 95% confidence interval for each allele")
-    vh.formats.add("MCRL", ".", "String", "Read-level motif copy numbers for each allele")
-    vh.formats.add("MMAS", 1, "Float", "Mean model (candidate TR sequence) alignment score across reads.")
-    vh.formats.add("NSNV", 1, "Integer", "Number of supporting SNVs for the STR peak-call")
-    vh.formats.add("PS", 1, "Integer", "Phase set")
-    vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
-
-    # Set up VCF info fields
-    vh.info.add(VCF_INFO_VT, 1, "String", "Variant record type (str/snv)")
-    vh.info.add(VCF_INFO_MOTIF, 1, "String", "Motif string")
-    vh.info.add(VCF_INFO_REFMC, 1, "Integer", "Motif copy number in the reference genome")
-    vh.info.add(
-        VCF_INFO_BED_START,
-        1,
-        "Integer",
-        "Original start position of the locus as defined in the catalog (0-based inclusive)",
-    )
-    vh.info.add(
-        VCF_INFO_BED_END,
-        1,
-        "Integer",
-        "Original end position of the locus as defined in the catalog (0-based exclusive, i.e., 1-based)",
-    )
-    vh.info.add(VCF_INFO_ANCH, 1, "Integer", "Five-prime anchor size")
-
-    # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
-    # for iv in VCF_TR_INFO_RECORDS:
-    #     vh.info.add(*iv)
-
-    # Add the sample
-    vh.add_sample(sample_id)
-
-    return vh
-
-
 def _vr_pos_key(vr: VariantRecord) -> int:
     return vr.pos
-
-
-@cache
-def _blank_entry(n_alleles: int) -> tuple[None, ...]:
-    return tuple([None] * n_alleles)
-
-
-class SkipWritingLocus(Exception):
-    pass
 
 
 def create_result_vcf_records(
@@ -160,7 +44,7 @@ def create_result_vcf_records(
 
     if "ref_start_anchor" not in result:
         logger.debug("No ref anchor for %s:%d; skipping VCF output for locus", contig, start)
-        raise SkipWritingLocus()
+        raise vu.record.SkipWritingLocus()
 
     ref_start_anchor = result["ref_start_anchor"].upper()
     ref_seq = result["ref_seq"].upper()
@@ -176,11 +60,11 @@ def create_result_vcf_records(
 
     if any(map(is_none, peak_seqs)):  # Occurs when no consensus for one of the peaks
         logger.error("Encountered None in results[%d].peaks.seqs: %s", result_idx, peak_seqs)
-        raise SkipWritingLocus()
+        raise vu.record.SkipWritingLocus()
 
     if any(map(is_none, peak_start_anchor_seqs)):  # Occurs when no consensus for one of the peaks
         logger.error("Encountered None in results[%d].peaks.start_anchor_seqs: %s", result_idx, peak_start_anchor_seqs)
-        raise SkipWritingLocus()
+        raise vu.record.SkipWritingLocus()
 
     peak_start_anchor_seqs_upper = tuple(iter_to_upper(peak_start_anchor_seqs))
     common_anchor_prefix = commonprefix([ref_start_anchor, *peak_start_anchor_seqs_upper])
@@ -235,24 +119,24 @@ def create_result_vcf_records(
         alleles=seq_alleles,
     )
 
-    vr.info[VCF_INFO_VT] = VT_STR
-    vr.info[VCF_INFO_MOTIF] = result["motif"]
-    vr.info[VCF_INFO_REFMC] = result["ref_cn"]
-    vr.info[VCF_INFO_BED_START] = result["start"]
-    vr.info[VCF_INFO_BED_END] = result["end"]
-    vr.info[VCF_INFO_ANCH] = params.vcf_anchor_size - anchor_offset
+    vr.info[vu.header.VCF_INFO_VT.key] = vu.header.VT_STR
+    vr.info[vu.header.VCF_INFO_MOTIF.key] = result["motif"]
+    vr.info[vu.header.VCF_INFO_REFMC.key] = result["ref_cn"]
+    vr.info[vu.header.VCF_INFO_BED_START.key] = result["start"]
+    vr.info[vu.header.VCF_INFO_BED_END.key] = result["end"]
+    vr.info[vu.header.VCF_INFO_ANCH.key] = params.vcf_anchor_size - anchor_offset
 
     try:
-        vr.samples[sample_id]["GT"] = (
-            tuple(map(seq_alleles_raw.index, seqs_with_anchors))
-            if call is not None and peak_seqs
-            else _blank_entry(n_alleles)
+        vr.samples[sample_id]["GT"] = vu.record.genotype_indices(
+            alleles=seq_alleles_raw,
+            call=None if call is None or not peak_seqs else seqs_with_anchors,
+            n_alleles=n_alleles,
         )
     except ValueError:
         logger.error(
             "results[%d] (locus_id=%s): one of %s not in %s",
-            result_idx, locus_id, seqs_with_anchors, seq_alleles_raw)
-        raise SkipWritingLocus()
+            result_idx, result["locus_id"], seqs_with_anchors, seq_alleles_raw)
+        raise vu.record.SkipWritingLocus()
 
     if am := result.get("assign_method"):
         vr.samples[sample_id]["PM"] = am
@@ -329,9 +213,9 @@ def create_result_vcf_records(
                 alleles=snv_alleles,
             )
 
-            snv_vr.info[VCF_INFO_VT] = VT_SNV
+            snv_vr.info[vu.header.VCF_INFO_VT.key] = vu.header.VT_SNV
 
-            snv_vr.samples[sample_id]["GT"] = tuple(map(snv_alleles.index, snv["call"]))
+            snv_vr.samples[sample_id]["GT"] = vu.record.genotype_indices(snv_alleles, snv["call"], n_alleles)
             snv_vr.samples[sample_id]["DP"] = sum(snv["rcs"])
             snv_vr.samples[sample_id]["AD"] = snv["rcs"]
 
@@ -369,7 +253,7 @@ def output_contig_vcf_lines(
                     logger,
                 )
             )
-        except SkipWritingLocus:
+        except vu.record.SkipWritingLocus:
             pass  # just skipping the locus, nothing to do here as we've already logged
         except Exception as e:  # fallback if we didn't handle a case properly in create_result_vcf_records
             logger.exception("Error while writing VCF: unhandled exception at results[%d]", result_idx, exc_info=e)

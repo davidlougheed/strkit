@@ -34,6 +34,7 @@ The code for the software itself is also available and citeable in Zenodo: https
     * [Usage](#usage)
     * [Further documentation on the STRkit caller, including output format](#further-documentation-on-the-strkit-caller-including-output-format)
   * [`strkit visualize`: Call visualizer](#strkit-visualize-call-visualizer)
+  * [`strkit merge`: VCF merging tool](#strkit-merge-vcf-merging-tool)
   * [`strkit mi`: Mendelian inheritance analysis](#strkit-mi-mendelian-inheritance-analysis)
     * [Usage](#usage-1)
     * [Further documentation](#further-documentation)
@@ -293,6 +294,12 @@ the start-up instructions.
 #### Further documentation on the STRkit web visualization tool:
 
 * [Using `strkit visualize` remotely](./docs/remote_viz.md)
+
+
+
+### `strkit merge`: VCF merging tool
+
+TODO
 
 
 

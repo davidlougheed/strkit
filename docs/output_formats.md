@@ -168,6 +168,7 @@ VCF meta fields (non-exhaustive):
 * `phasing`: present and set to `partial` if using SNV/HP phasing
 * `reference`: absolute file URI to FASTA reference (`file://<...>`)
 * `strkitVersion`: STRkit version used to generate the file
+* `strkitCommand`: STRkit subcommand used to generate the VCF (either `call` or `merge`)
 * `strkitCatalogNumLoci`: Number of total loci in the catalog used for genotyping
 * `strkitCatalogHash`: SHA256 hash of the loci loaded from the catalog
 
