@@ -116,6 +116,7 @@ def build_vcf_header(
     vu.header.VCF_INFO_REFMC.add_to_info(vh.info)
     vu.header.VCF_INFO_BED_START.add_to_info(vh.info)
     vu.header.VCF_INFO_BED_END.add_to_info(vh.info)
+    vu.header.VCF_INFO_ANCH.add_to_info(vh.info)
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
