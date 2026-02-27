@@ -20,11 +20,20 @@ def trgt_bed_to_bed4(trgt_data: list, logger: Logger):
         structure_data = {j[0]: j[1] for j in (i.split("=") for i in data[3].split(";"))}
         motifs = structure_data["MOTIFS"].split(",")
 
+        # If we have a motif set like (CAGA, CATA, CA) we can expand the CA to CACA to find the IUPAC code for the motif
+        motif_length_set = set(len(m) for m in motifs)
+        max_motif_length = max(motif_length_set)
+        if len(motif_length_set) > 1 and all(
+            ml == max_motif_length or ml == max_motif_length // 2 for ml in motif_length_set
+        ):
+            motifs = [m if len(m) == max_motif_length else m + m for m in motifs]
+            motif_length_set = set(len(m) for m in motifs)
+
         if len(motifs) > 1:
             # We can do some basic IUPAC code normalization here for simple compound STR structures in TRGT catalogs:
             if (
-                structure_data["STRUC"] in {"".join(f"({m})n" for m in motifs), f"<{structure_data['ID']}>"}
-                and len({len(m) for m in motifs}) == 1
+                structure_data["STRUC"] in {"".join(f"({m})n" for m in motifs), f"<{structure_data['ID']}>", "<TR>"}
+                and len(motif_length_set) == 1
             ):
                 failed: bool = False
                 combined_motif_bases = []
@@ -44,8 +53,7 @@ def trgt_bed_to_bed4(trgt_data: list, logger: Logger):
                     continue
 
             data_str = "\t".join(data)
-            logger.warning(f"Could not convert complex locus at line {line}: {data_str}")
-            continue
+            logger.warning(f"Could not convert complex locus at line {line}; taking first motif: {data_str}")
 
         sys.stdout.write("\t".join((*data[:3], motifs[0])) + "\n")
 
