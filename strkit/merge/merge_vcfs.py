@@ -1,41 +1,62 @@
 from __future__ import annotations
 
-from pathlib import Path
 from pysam import VariantFile
 from typing import TYPE_CHECKING, Callable
 
+from .. import vcf_utils as vu
 from ..call.output import vcf
-from ..logger import get_main_logger
 
 if TYPE_CHECKING:
     from logging import Logger
+    from pathlib import Path
     from pysam import VariantHeader, VariantRecord
 
 __all__ = ["merge_vcfs"]
 
 
-COMMON_STR_INFO_KEYS = (
-    vcf.VCF_INFO_VT,
-    vcf.VCF_INFO_MOTIF,
-    vcf.VCF_INFO_REFMC,
-    vcf.VCF_INFO_BED_START,
-    vcf.VCF_INFO_BED_END,
+COMMON_STR_INFO_ITEMS = (
+    vu.header.VCF_INFO_VT,
+    vu.header.VCF_INFO_MOTIF,
+    vu.header.VCF_INFO_REFMC,
+    vu.header.VCF_INFO_BED_START,
+    vu.header.VCF_INFO_BED_END,
 )
-COMMON_SNV_INFO_KEYS = (
-    vcf.VCF_INFO_VT,
+COMMON_SNV_INFO_ITEMS = (
+    vu.header.VCF_INFO_VT,
 )
 
 
-def check_headers(headers: tuple[VariantHeader, ...], logger: Logger):
+class VariantFileForMerge:
+    def __init__(self, path: Path):
+        self.path = path
+        self.f = VariantFile(str(path))
+        self.h = self.f.header
+        self.samples = tuple(s for s in self.h.samples)
+
+    def close(self):
+        self.f.close()
+
+
+def merge_headers(
+    files: tuple[VariantFileForMerge, ...], logger: Logger
+) -> tuple[VariantHeader, dict[str, VariantFileForMerge]]:
+    partial_phasing: bool = False
     header_contigs: set[tuple[str, ...]] = set()
     strkit_versions: set[str] = set()
     strkit_catalog_hashes: set[str] = set()
+    sample_id_file_map: dict[str, VariantFileForMerge] = {}
 
-    for idx, hdr in enumerate(headers, 1):
+    # -- Loop through headers to collect information for header validation and merging ---------------------------------
+
+    for idx, f in enumerate(files, 1):
+        hdr = f.h
         header_contigs.add(tuple(sorted(hdr.contigs)))
         strkit_version_found = False
         strkit_catalog_hash_found = False
         for line in hdr.records:
+            if line.key == "phasing" and line.value == "partial":
+                # make phasing partial for the whole file if at least one file has it
+                partial_phasing = True
             if line.key == "strkitVersion":
                 strkit_versions.add(line.value)
                 strkit_version_found = True
@@ -48,9 +69,13 @@ def check_headers(headers: tuple[VariantHeader, ...], logger: Logger):
         if not strkit_catalog_hash_found:
             logger.critical("did not find strkitCatalogLociHash in VCF #%d", idx)
             exit(1)
+        if intersect := set(hdr.samples).intersection(set(sample_id_file_map.keys())):
+            logger.critical("found overlap between sample IDs: %s", intersect)
+            exit(1)
+        for s in hdr.samples:
+            sample_id_file_map[s] = f  # add samples from file to map
 
-    # check references
-    # check info field overlaps
+    # -- Perform pre-merge validation on the header data ---------------------------------------------------------------
 
     passed_validation = True
 
@@ -72,23 +97,36 @@ def check_headers(headers: tuple[VariantHeader, ...], logger: Logger):
             "different catalogs"
         )
         passed_validation = False
+    # check references
+    # TODO
+    # check info field overlaps
+    # TODO
 
     if passed_validation:
         logger.info("VCF headers passed validation")
     else:
         logger.warning("VCF headers failed validation")
 
-    # TODO: return some info to help?
+    # -- Create header for merged VCF ----------------------------------------------------------------------------------
+    # TODO: maybe just create a header from scratch...
+    merged_header = files[0].h.copy()
+    for f in files[1:]:
+        for s in f.samples:
+            merged_header.add_sample(s)
+
+    print(merged_header, end="")
+
+    return merged_header, sample_id_file_map
 
 
-def merge_str_records(header: VariantHeader, records: list[VariantRecord], logger: Logger) -> VariantRecord:
+def merge_str_records(merged_header: VariantHeader, records: list[VariantRecord], logger: Logger) -> VariantRecord:
     contig = records[0].contig
 
     refs = tuple(p.ref for p in records)
     if len(set(refs)) > 1:
         logger.debug("merge_str_records: encountered >1 STR reference sequence")
 
-    infos = set(tuple(p.info[k] for k in COMMON_STR_INFO_KEYS) for p in records)
+    infos = set(tuple(p.info[k.key] for k in COMMON_STR_INFO_ITEMS) for p in records)
 
     if len(infos) > 1:
         logger.warning("merge_str_records: encountered >1 set of INFO field values for STR")
@@ -116,23 +154,23 @@ def merge_str_records(header: VariantHeader, records: list[VariantRecord], logge
 
     # all same locus, can merge
     alleles = (ref, *(alts or (".",)))
-    print(alleles)
-    rec = header.new_record(contig, start=start, alleles=alleles, id=records[0].id)
+    print("new str alleles", alleles)
+    rec = merged_header.new_record(contig, start=start, alleles=alleles, id=records[0].id)
 
     # -- add INFO (common across samples) to merged STR record ---------------------------------------------------------
     common_info = next(iter(infos))
-    for ki, k in enumerate(COMMON_STR_INFO_KEYS):
+    for ki, k in enumerate(COMMON_STR_INFO_ITEMS):
         rec.info[k] = common_info[ki]
     # ------------------------------------------------------------------------------------------------------------------
 
     # Done common stuff, now need to add/transform sample data
-    for sample in header.samples:
+    for sample in merged_header.samples:
         pass
 
     return rec
 
 
-def merge_snv_records(header: VariantHeader, records: list[VariantRecord], logger: Logger) -> VariantRecord:
+def merge_snv_records(merged_header: VariantHeader, records: list[VariantRecord], logger: Logger) -> VariantRecord:
     print("TODO: SNV MERGE")
     print([str(r) for r in records])
 
@@ -143,21 +181,39 @@ def merge_snv_records(header: VariantHeader, records: list[VariantRecord], logge
         exit(1)
     ref = refs[0]
 
-    infos = set(tuple(p.info[k] for k in COMMON_SNV_INFO_KEYS) for p in records)
+    infos = set(tuple(p.info[k] for k in COMMON_SNV_INFO_ITEMS) for p in records)
 
     if len(infos) > 1:
         logger.warning("merge_str_records: encountered >1 set of INFO field values for STR")
 
     alts = sorted(set(a for p in records for a in (p.alts or ()) if a != ref))
     alleles = (ref, *alts)
-    rec = header.new_record(contig=records[0].contig, start=records[0].start, alleles=alleles)  # TODO
+    print(f"new snv alleles ({len(alleles)})", alleles)
+    rec = merged_header.new_record(contig=records[0].contig, start=records[0].start, alleles=alleles)  # TODO
 
     common_info = next(iter(infos))
-    for ki, k in enumerate(COMMON_SNV_INFO_KEYS):
-        rec.info[k] = common_info[ki]
+    for ki, k in enumerate(COMMON_SNV_INFO_ITEMS):
+        rec.info[k.key] = common_info[ki]
+    # ------------------------------------------------------------------------------------------------------------------
 
     # Done common stuff, now need to add/transform sample data
-    for sample in header.samples:
+
+    calls_by_sample_id = {}
+    for r in records:
+        for s_id in merged_header.samples:
+            calls_by_sample_id[s_id] = TODO
+
+    for sample_id in merged_header.samples:
+        # TODO: preserve phasing
+        rec.samples[sample_id]["GT"] = vu.record.genotype_indices(
+            alleles, calls_by_sample_id[sample_id], TODO_N_ALLELES
+        )
+        # TODO
+        # rec.samples[sample_id]["GT"] = (
+        #     tuple(map(alleles.index, seqs_with_anchors))
+        #     if rec[sample_id] is not None
+        #     else _blank_entry(n_alleles)
+        # )
         pass
 
     return rec
@@ -169,29 +225,18 @@ MERGE_FUNCTION: dict[str, Callable[[VariantHeader, list[VariantRecord], Logger],
 }
 
 
-def merge_vcfs(paths: tuple[Path, ...]):
-    logger = get_main_logger()  # TODO: inject
-
-    fhs: tuple[VariantFile, ...] = tuple(VariantFile(str(p)) for p in paths)
+def merge_vcfs(paths: tuple[Path, ...], logger: Logger):
+    fhs: tuple[VariantFileForMerge, ...] = tuple(VariantFileForMerge(p) for p in paths)
 
     try:
-        headers = tuple(f.header for f in fhs)
-
-        # Check that headers indicate these files can be merged (they are STRkit headers and are compatible)
-        check_headers(headers, logger)  # TODO
-
-        # --------------------------------------------------------------------------------------------------------------
-
-        # Try merging headers
-        merged_header = headers[0]
-        for hdr in headers[1:]:
-            merged_header = merged_header.merge(hdr)
-
+        # Check that headers indicate these files can be merged (they are STRkit headers and are compatible),
+        # then merge them. Also computes a map from sample ID --> file.
+        merged_header, sample_id_file_map = merge_headers(fhs, logger)  # TODO
         print(merged_header, end="")
 
         # --------------------------------------------------------------------------------------------------------------
 
-        iters = tuple(f.fetch() for f in fhs)
+        iters = tuple(f.f.fetch() for f in fhs)
         ptrs = [next(i, None) for i in iters]
 
         while any(p is not None for p in ptrs):
@@ -202,7 +247,7 @@ def merge_vcfs(paths: tuple[Path, ...]):
             else:
                 # we have a record which doesn't apply to all samples - either some VCFs are finished, or the pointers
                 # are at different points in the file.
-                print("TODO some samples!")
+                print("TODO some vcfs!")
                 # TODO: selectively advance
 
         # TODO: for each STR, need to:

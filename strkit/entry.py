@@ -485,7 +485,8 @@ def _exec_call(p_args) -> None:
 
 def _exec_merge(p_args) -> None:
     from strkit.merge.merge_vcfs import merge_vcfs
-    merge_vcfs(tuple(Path(p) for p in p_args.vcf_files))
+    logger = _main_logger(p_args)
+    merge_vcfs(tuple(Path(p) for p in p_args.vcf_files), logger)
 
 
 def _exec_mi(p_args) -> None:
