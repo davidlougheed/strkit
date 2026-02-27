@@ -89,7 +89,7 @@ are for the entire human genome, whereas others are for only disease-relevant lo
 
 ### Disease-relevant loci
 
-  * **[STRchive](https://strchive.org/)** ([Hiatt *et al.* 2025](https://doi.org/10.1101/2024.05.21.24307682)) provides
+  * **[STRchive](https://strchive.org/)** ([Hiatt *et al.* 2025](https://doi.org/10.1186/s13073-025-01454-4)) provides
     a continually-updated list of disease-causing loci for multiple reference genomes. You can download one of the 
     catalogs in the **TRGT** format from their 
     [GitHub repository](https://github.com/dashnowlab/STRchive/tree/main/data/catalogs) and use the following command
