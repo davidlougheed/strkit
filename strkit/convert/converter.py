@@ -6,7 +6,7 @@ from .constants import IN_FORMAT_TRF, IN_FORMAT_TRGT, CONVERTER_IN_FORMATS
 from .expansionhunter import trf_bed_to_eh
 from .hipstr import trf_bed_to_hipstr
 from .gangstr import trf_bed_to_gangstr
-from .trgt import trgt_bed_to_bed4, trf_or_strkit_bed_to_trgt
+from .trgt import trgt_bed_to_bed4, trgt_bed_to_strkit_bed, trf_or_strkit_bed_to_trgt
 
 import strkit.constants as c
 
@@ -27,7 +27,7 @@ convert_formats: dict[tuple[str, str], Callable[[list, Logger], None]] = {
     (IN_FORMAT_TRF, c.CALLER_TRGT): trf_or_strkit_bed_to_trgt,
     # TRGT converters:
     (IN_FORMAT_TRGT, c.CALLER_STRAGLR): trgt_bed_to_bed4,
-    (IN_FORMAT_TRGT, c.CALLER_STRKIT): trgt_bed_to_bed4,
+    (IN_FORMAT_TRGT, c.CALLER_STRKIT): trgt_bed_to_strkit_bed,
     (IN_FORMAT_TRGT, c.CALLER_TANDEM_GENOTYPES): trgt_bed_to_bed4,
 }
 

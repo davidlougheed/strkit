@@ -1,24 +1,32 @@
 import sys
 from logging import Logger
+from typing import Literal
 
 __all__ = [
     "trgt_bed_to_bed4",
+    "trgt_bed_to_strkit_bed",
     "trf_or_strkit_bed_to_trgt",
 ]
 
 from strkit.iupac import get_iupac_code_for_nt_set
 
 
-def trgt_bed_to_bed4(trgt_data: list, logger: Logger):
+def trgt_bed_to_bed4(trgt_data: list, logger: Logger, annotations: Literal["strkit"] | None = None):
     """
     Converts a TRGT repeat catalog to the STRkit/BED4 catalog format.
     :param trgt_data: The loaded TRGT catalog (split by tab).
     :param logger: A logger instance for issuing conversion failure warnings.
+    :param annotations: Whether to wrap the motif with the specified callers' annotations.
     """
 
     for line, data in enumerate(trgt_data, 1):
         structure_data = {j[0]: j[1] for j in (i.split("=") for i in data[3].split(";"))}
         motifs = structure_data["MOTIFS"].split(",")
+
+        def _fmt_last_col(v: str) -> str:
+            if annotations == "strkit" and (locus_id := structure_data.get("ID")):
+                return f"ID={locus_id};MOTIF={v}"
+            return v
 
         # If we have a motif set like (CAGA, CATA, CA) we can expand the CA to CACA to find the IUPAC code for the motif
         motif_length_set = set(len(m) for m in motifs)
@@ -49,13 +57,17 @@ def trgt_bed_to_bed4(trgt_data: list, logger: Logger):
                         break
 
                 if not failed:  # found a consensus base for the multiple-motif STR, so we can convert it
-                    sys.stdout.write("\t".join((*data[:3], "".join(combined_motif_bases))) + "\n")
+                    sys.stdout.write("\t".join((*data[:3], _fmt_last_col("".join(combined_motif_bases)))) + "\n")
                     continue
 
             data_str = "\t".join(data)
             logger.warning(f"Could not convert complex locus at line {line}; taking first motif: {data_str}")
 
-        sys.stdout.write("\t".join((*data[:3], motifs[0])) + "\n")
+        sys.stdout.write("\t".join((*data[:3], _fmt_last_col(motifs[0]))) + "\n")
+
+
+def trgt_bed_to_strkit_bed(trgt_data: list, logger: Logger):
+    return trgt_bed_to_bed4(trgt_data, logger, annotations="strkit")
 
 
 def trf_or_strkit_bed_to_trgt(trf_data: list, _logger: Logger):
