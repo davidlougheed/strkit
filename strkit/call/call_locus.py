@@ -7,10 +7,9 @@ import time
 from collections import Counter
 from functools import cache, partial
 from logging import Logger, DEBUG
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering  # TODO: py3.15: lazy import
 from statistics import mean
 
-from numpy.typing import NDArray
 from typing import Iterable, Literal, Sequence, TYPE_CHECKING
 
 from strkit_rust_ext import (
@@ -27,7 +26,6 @@ from strkit.utils import idx_0_getter, apply_or_none
 
 from .allele import call_alleles
 from .gmm import make_already_fitted_gmm
-from .realign import perform_realign
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .repeat_count_params import RepeatCountParams
 from .snvs import (
@@ -43,6 +41,7 @@ from .utils import cn_getter, get_new_seed
 if TYPE_CHECKING:
     # noinspection PyProtectedMember
     from multiprocessing.managers import DictProxy, ValueProxy
+    from numpy.typing import NDArray
     from pysam import FastaFile
     from threading import Lock
 
@@ -912,6 +911,9 @@ def get_locus_alignment_data_from_read(
     # TODO: if some alignment is present, use it to reduce realignment overhead?
     #  - use start point + flank*3 or end point - flank*3 or something like that
     if params.realign and (force_realign or segment.soft_clip_overlaps_locus(locus_with_ref_data.locus_def)):
+        # TODO: py3.15: lazy import
+        from .realign import perform_realign
+
         # Run the realignment in a separate process, to give us a timeout mechanism.
         # This means we're spawning a second process for this job, just momentarily, beyond the pool size.
 

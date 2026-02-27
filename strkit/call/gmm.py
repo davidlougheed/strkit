@@ -13,14 +13,16 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 
 from dataclasses import dataclass
-from numpy.typing import NDArray
-from numpy.random import Generator
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.mixture import GaussianMixture
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 from warnings import simplefilter
 
 from .utils import get_new_seed
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+    from numpy.random import Generator
 
 __all__ = [
     "GMMInitParamsMethod",
