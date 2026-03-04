@@ -146,6 +146,20 @@ def parse_last_column(t_idx: int, val: str) -> LastColumnData:
     raise err
 
 
+def get_feature_id(idx: int, feature) -> str:
+    feature_type = feature.feature
+    feature_attrs = dict(feature)
+    if "ID" in feature_attrs:
+        return feature_attrs.get("ID", f"{feature_type}:{idx}")
+    else:  # possibly UCSC format
+        feature_id_attr = (
+            "exon_id"
+            if feature_type in ("5UTR", "3UTR", "CDS", "start_codon", "stop_codon")
+            else f"{feature_type}.id"
+        )
+        return f"{feature_type}:{feature_attrs.get(feature_id_attr, idx)}"
+
+
 def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str], str]:
     from pysam import TabixFile, asGFF3, asGTF
 
@@ -185,8 +199,11 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
         current_block_right = -1
 
     afh: TabixFile | None = None
+    is_gtf: bool = False
     if params.annotation_file:
         afh = TabixFile(params.annotation_file)
+        is_gtf = ".gtf" in params.annotation_file
+    annotation_parser = asGTF() if is_gtf else asGFF3()
 
     try:
         for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
@@ -219,23 +236,10 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
             end = int(t[2])
 
             # If we have a feature annotation file, try loading annotations for this locus.
-            features = []
+            features: list[str] = []
             if afh:
-                is_gtf = ".gtf" in params.annotation_file
-                parser = asGTF() if is_gtf else asGFF3()
-                for idx, feature in enumerate(afh.fetch(contig, start, end, parser=parser)):
-                    feature_type = feature.feature
-                    feature_attrs = dict(feature)
-                    if "ID" in feature_attrs:
-                        feature_id = feature_attrs.get("ID", f"{feature_type}:{idx}")
-                    else:  # possibly UCSC format
-                        feature_id_attr = (
-                            "exon_id"
-                            if feature_type in ("5UTR", "3UTR", "CDS", "start_codon", "stop_codon")
-                            else f"{feature_type}.id"
-                        )
-                        feature_id = f"{feature_type}:{feature_attrs.get(feature_id_attr, idx)}"
-                    features.append(feature_id)
+                for idx, feature in enumerate(afh.fetch(contig, start, end, parser=annotation_parser)):
+                    features.append(get_feature_id(idx, feature))
 
             # Extract / parse values from the catalog BED file and validate the locus
             try:
