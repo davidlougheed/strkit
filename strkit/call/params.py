@@ -30,6 +30,7 @@ class CallParams:
         read_file: str,
         reference_file: str,
         loci_file: str,
+        annotation_file: str | None,
         sample_id: str | None,
         min_reads: int = 4,
         min_allele_reads: int = 2,
@@ -68,6 +69,7 @@ class CallParams:
         self.read_file: str = read_file
         self.reference_file: str = reference_file
         self.loci_file: str = loci_file
+        self.annotation_file: str | None = annotation_file
         self.min_reads: int = min_reads
         self.min_allele_reads: int = min_allele_reads
         self.max_reads: int = max_reads
@@ -157,6 +159,7 @@ class CallParams:
             p_args.read_file,
             p_args.ref,
             p_args.loci,
+            annotation_file=p_args.gff,
             sample_id=p_args.sample_id,
             min_reads=p_args.min_reads,
             min_allele_reads=p_args.min_allele_reads,
@@ -197,6 +200,8 @@ class CallParams:
         return {
             "read_file": self.read_file,
             "reference_file": self.reference_file,
+            "loci_file": self.loci_file,
+            "annotation_file": self.annotation_file,
             "min_reads": self.min_reads,
             "min_allele_reads": self.min_allele_reads,
             "max_reads": self.max_reads,

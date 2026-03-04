@@ -92,6 +92,7 @@ Example report format:
       "start_adj": 96617,
       "end_adj": 96648,
       "motif": "AC",
+      "annotations": [],
       "ref_cn": 16,
       "ref_start_anchor": "t",
       "ref_seq": "acacacacacacacacacacacacacacaca",
@@ -206,3 +207,12 @@ VCF info. fields (i.e., for each STR variant record; not present for SNV records
   *Remember that VCF positions are 1-based for the `POS` column, whereas this is 0-based!*
 * `BED_END`: Original end position of the locus as defined in the BED catalog (0-based exclusive, i.e., 1-based).
 * `ANCH`: 5' anchor size, i.e., size of the prefix of the reference sequence replaced by any of the alts
+* `ANNOT`: Overlapping genome feature annotations from a GFF3 or GTF file, if provided.
+  **Note:** If the feature has an `ID` attribute available, this will be used. Otherwise, an ID will be generated based
+  on a combination of the feature type and the available attributes:
+   * If the feature type is `transcript` and `transcript_id` is set as an attribute, the ID will be constructed as
+     `transcript:<transcript_id>` where `<transcript_id>` is the value of the `transcript_id` attribute. This same 
+     pattern holds for `gene` and `exonh` features as well. If `gene_id`/`transcript_id`/`exon_id` cannot be found, the 
+     record index is used instead (`gene:0` would be the gene record on line 0, the first record the file.)
+   * If the feature type is something else, the `exon_id` attribute will be used to construct an ID of the same form if 
+     possible, with the same fallback as above.

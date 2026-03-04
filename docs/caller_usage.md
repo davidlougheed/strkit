@@ -3,6 +3,8 @@
 
 ## All optional flags
 
+* `--annotation-file [path]` or `--gff [path]`: A path to a sorted, Tabix-indexed GFF3 file with genomic annotations. 
+  If set, loci in the output will be annotated with overlapping feature(s), if any.
 * `--sample-id example_sample`: Set a sample ID, or override the alignment file sample ID. This will be included in JSON 
   output, but not TSV output.
 * `--min-reads ##`: Minimum number of supporting reads needed to make a call. **Default:** 4

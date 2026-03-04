@@ -19,6 +19,8 @@ test-*.bash
 *.fa.gz
 *.fa.gz.fai
 *.fa.gz.gzi
+*.gff*
+*.gtf*
 *.log
 *.bed
 !tests/data/*.bed

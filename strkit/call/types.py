@@ -103,6 +103,8 @@ class BaseLocusResult(TypedDict):
 
     motif: str
 
+    annotations: list[str]
+
     assign_method: AssignMethodWithHP | None
     call: list[int] | None
     call_95_cis: list[list[int]] | None

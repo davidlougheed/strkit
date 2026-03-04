@@ -37,6 +37,13 @@ def add_call_parser_args(call_parser):
              "of the loci.")
 
     call_parser.add_argument(
+        "--gff",
+        "--annotation-file",
+        "-g",
+        type=str,
+        help="Specifies a GFF3 file with annotations to overlap with loci.")
+
+    call_parser.add_argument(
         "--sample-id", "-s",
         type=str,
         help="Set a sample ID, or override the alignment file sample ID.")

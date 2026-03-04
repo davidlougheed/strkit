@@ -171,6 +171,7 @@ strkit call \
   --realign \  # If using accurate reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
+  --annotation-file path/to/reference-annotations.gff.gz \  # Optional GFF3/GTF file to provide locus annotations (transcript/exon ID)
   --incorporate-snvs path/to/dbsnp/00-common_all.vcf.gz \   # If you want, specify a SNV catalogue to help phase STRs & speed up calling
   --vcf my-calls.vcf \  # Calculate consensus sequences for alleles and output a .vcf (or .vcf.gz) with call data
   --seed 183 \  # Fixed random number generator seed for replicability
@@ -204,6 +205,16 @@ VCF which matches your reference genome. You can find dbSNP VCFs at
 The file for GRCh38 is called `00-common_all.vcf.gz` as of time of writing.
 **Note that this does not need to be an SNV call file for your sample, specifically**; just one 
 which has positions, reference/alternate alleles, and the `ID` field populated.
+
+##### REGARDING ANNOTATION
+
+If you would like to have the IDs of **genome features** (from a `.gff3` or `.gtf` file) which 
+overlap STR loci in your `strkit call` output (JSON or VCF), you can pass a sorted, Tabix-indexed
+annotation file path to `strkit call` with the `--annotation-file <path>` flag (replacing `<path>`
+with the path to the annotation file.) This could be used for downstream analysis to find STR 
+variants that overlap, for example, coding sequences or gene UTRs.
+
+For more information, see also documentation on the [Output formats](./docs/output_formats.md).
 
 ##### REGARDING OUTPUT
 
