@@ -146,7 +146,23 @@ def parse_last_column(t_idx: int, val: str) -> LastColumnData:
     raise err
 
 
+def get_feature_id(idx: int, feature) -> str:
+    feature_type = feature.feature
+    feature_attrs = dict(feature)
+    if "ID" in feature_attrs:
+        return feature_attrs.get("ID", f"{feature_type}:{idx}")
+    else:  # possibly UCSC format
+        feature_id_attr = (
+            "exon_id"
+            if feature_type in ("5UTR", "3UTR", "CDS", "start_codon", "stop_codon")
+            else f"{feature_type}.id"
+        )
+        return f"{feature_type}:{feature_attrs.get(feature_id_attr, idx)}"
+
+
 def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str], str]:
+    from pysam import TabixFile, asGFF3, asGTF
+
     @cache  # Cache get_n_alleles calls for contigs
     def _get_contig_n_alleles(ctg: str):
         return params.ploidy_config.n_of(ctg)
@@ -158,7 +174,7 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
 
     # Add all loci from the BED file to the queue, allowing each job
     # to pull from the queue as it becomes freed up to do so.
-    num_loci: int = 0
+    num_loci_loaded: int = 0
     # Keep track of all contigs we are processing to speed up downstream Mendelian inheritance analysis.
     contig_set: set[str] = set()
     last_contig: str | None = None
@@ -182,62 +198,91 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
         current_block_left = 9999999999999999
         current_block_right = -1
 
-    for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
-        contig = t[0]
+    afh: TabixFile | None = None
+    is_gtf: bool = False
+    if params.annotation_file:
+        afh = TabixFile(params.annotation_file)
+        is_gtf = ".gtf" in params.annotation_file
+    annotation_parser = asGTF() if is_gtf else asGFF3()
 
-        n_alleles: int | None = _get_contig_n_alleles(contig)
-        if (
-            n_alleles is None  # Sex chromosome, but we don't have a specified sex chromosome karyotype
-            or n_alleles == 0  # Don't have this chromosome, e.g., Y chromosome for an XX individual
-        ):
-            last_contig = contig
-            continue  # --> skip the locus
+    try:
+        for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
+            contig = t[0]
 
-        # For each contig, add None breaks to make the jobs terminate. Then, as long as we have entries in the locus
-        # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
-        if last_contig != contig:
-            if last_contig is not None:
-                if current_block:
-                    _put_current_block()
+            n_alleles: int | None = _get_contig_n_alleles(contig)
+            if (
+                n_alleles is None  # Sex chromosome, but we don't have a specified sex chromosome karyotype
+                or n_alleles == 0  # Don't have this chromosome, e.g., Y chromosome for an XX individual
+            ):
+                last_contig = contig
+                continue  # --> skip the locus
 
-                for _ in range(params.processes):
-                    locus_queue.put(None)
+            # For each contig, add None breaks to make the jobs terminate. Then, as long as we have entries in the locus
+            # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
+            if last_contig != contig:
+                if last_contig is not None:
+                    if current_block:
+                        _put_current_block()
 
-                last_none_append_n_loci = num_loci
+                    for _ in range(params.processes):
+                        locus_queue.put(None)
 
-            contig_set.add(contig)
-            last_contig = contig
+                    last_none_append_n_loci = num_loci_loaded
 
-        # Extract / parse values from the catalog BED file and validate the locus
-        try:
-            last = parse_last_column(t_idx, t[-1])
-            locus = STRkitLocus(
-                t_idx, last["id"], contig, int(t[1]), int(t[2]), last["motif"], n_alleles, flank_size=params.flank_size
-            )
-            validate_locus(locus)
-            locus_hash = hash(locus)
-            loci_hash.update(locus_hash.to_bytes(64, byteorder="little", signed=True))
-        except LocusValidationError as e:
-            e.log_error(logger)
-            exit(1)
+                contig_set.add(contig)
+                last_contig = contig
 
-        if len(current_block) == max_block_size or (
-            current_block and locus.left_coord - current_block[-1].right_coord > max_block_inter_read_dist
-        ):
+            start = int(t[1])
+            end = int(t[2])
+
+            # If we have a feature annotation file, try loading annotations for this locus.
+            features: list[str] = []
+            if afh:
+                for idx, feature in enumerate(afh.fetch(contig, start, end, parser=annotation_parser)):
+                    features.append(get_feature_id(idx, feature))
+
+            # Extract / parse values from the catalog BED file and validate the locus
+            try:
+                last = parse_last_column(t_idx, t[-1])
+                locus = STRkitLocus(
+                    t_idx,
+                    last["id"],
+                    contig,
+                    start,
+                    end,
+                    last["motif"],
+                    n_alleles,
+                    flank_size=params.flank_size,
+                    annotations=features,
+                )
+                validate_locus(locus)
+                locus_hash = hash(locus)
+                loci_hash.update(locus_hash.to_bytes(64, byteorder="little", signed=True))
+            except LocusValidationError as e:
+                e.log_error(logger)
+                exit(1)
+
+            if len(current_block) == max_block_size or (
+                current_block and locus.left_coord - current_block[-1].right_coord > max_block_inter_read_dist
+            ):
+                _put_current_block()
+
+            current_block.append(locus)
+            current_block_left = min(current_block_left, locus.left_flank_coord)
+            current_block_right = max(current_block_right, locus.right_flank_coord)
+
+            num_loci_loaded += 1
+
+        if current_block:
             _put_current_block()
 
-        current_block.append(locus)
-        current_block_left = min(current_block_left, locus.left_flank_coord)
-        current_block_right = max(current_block_right, locus.right_flank_coord)
-
-        num_loci += 1
-
-    if current_block:
-        _put_current_block()
+    finally:
+        if afh:
+            afh.close()
 
     del last_contig  # more as a marker for when we're finished with this, for later refactoring
 
-    if num_loci > last_none_append_n_loci:  # have progressed since the last None-append
+    if num_loci_loaded > last_none_append_n_loci:  # have progressed since the last None-append
         # At the end of the queue, add a None value (* the # of processes).
         # When a job encounters a None value, it will terminate.
         for _ in range(params.processes):
@@ -247,6 +292,11 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
 
     hash_digest = loci_hash.hexdigest()
 
-    logger.info(f"Loaded {num_loci} loci in {(time.perf_counter() - load_start_time):.2f}s (sha256 hash={hash_digest})")
+    logger.info(
+        "Loaded %d loci in %.2fs (sha256 hash=%s)",
+        num_loci_loaded,
+        (time.perf_counter() - load_start_time),
+        hash_digest,
+    )
 
-    return num_loci, contig_set, hash_digest
+    return num_loci_loaded, contig_set, hash_digest

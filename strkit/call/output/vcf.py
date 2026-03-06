@@ -43,6 +43,7 @@ VCF_INFO_REFMC = "REFMC"
 VCF_INFO_BED_START = "BED_START"
 VCF_INFO_BED_END = "BED_END"
 VCF_INFO_ANCH = "ANCH"
+VCF_INFO_ANNOT = "ANNOT"
 
 VT_STR = "str"
 VT_SNV = "snv"
@@ -120,6 +121,7 @@ def build_vcf_header(
         "Original end position of the locus as defined in the catalog (0-based exclusive, i.e., 1-based)",
     )
     vh.info.add(VCF_INFO_ANCH, 1, "Integer", "Five-prime anchor size")
+    vh.info.add(VCF_INFO_ANNOT, 1, "String", "Locus annotations (e.g., genomic regions)")
 
     # Add INFO records for tandem repeat copies - these are new to VCF4.4!  TODO
     # for iv in VCF_TR_INFO_RECORDS:
@@ -241,6 +243,9 @@ def create_result_vcf_records(
     vr.info[VCF_INFO_BED_START] = result["start"]
     vr.info[VCF_INFO_BED_END] = result["end"]
     vr.info[VCF_INFO_ANCH] = params.vcf_anchor_size - anchor_offset
+
+    if annots := result.get("annotations", []):
+        vr.info[VCF_INFO_ANNOT] = ",".join(annots)
 
     try:
         vr.samples[sample_id]["GT"] = (
