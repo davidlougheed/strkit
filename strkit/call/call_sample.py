@@ -253,6 +253,7 @@ def progress_worker(
 
 def call_sample(
     params: CallParams,
+    logger: Logger,
     json_path: str | None = None,
     vcf_path: str | None = None,
     indent_json: bool = False,
@@ -280,8 +281,6 @@ def call_sample(
     from .utils import get_new_seed
 
     # ------------------------------------------------------------------------------------------------------------------
-
-    logger = get_main_logger()
 
     # Start the call timer
     start_time = time.perf_counter()

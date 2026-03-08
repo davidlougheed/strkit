@@ -477,8 +477,10 @@ def _main_logger(p_args) -> Logger:
 def _exec_call(p_args) -> None:
     from strkit.call.call_sample import call_sample
     from strkit.call.params import CallParams
+    logger = _main_logger(p_args)
     call_sample(
-        CallParams.from_args(_main_logger(p_args), p_args),
+        CallParams.from_args(logger, p_args),
+        logger,
         json_path=p_args.json,
         indent_json=p_args.indent_json,
         vcf_path=p_args.vcf,

@@ -66,6 +66,12 @@ class CallParams:
         processes: int = 1,
         log_progress_interval: int = 120,
     ):
+        if min_allele_reads > min_reads:
+            logger.warning(
+                "--min-allele-reads cannot be more than --min-reads; setting --min-allele-reads to %d", min_reads
+            )
+            min_allele_reads = min_reads
+
         self.read_file: str = read_file
         self.reference_file: str = reference_file
         self.loci_file: str = loci_file

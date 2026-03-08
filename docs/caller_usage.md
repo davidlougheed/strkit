@@ -7,9 +7,10 @@
   If set, loci in the output will be annotated with overlapping feature(s), if any.
 * `--sample-id example_sample`: Set a sample ID, or override the alignment file sample ID. This will be included in JSON 
   output, but not TSV output.
-* `--min-reads ##`: Minimum number of supporting reads needed to make a call. **Default:** 4
-* `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. 
-  **Default:** 2
+* `--min-reads ##`: Minimum total number of supporting reads needed to make a call. This must be greater than or equal
+  to `--min-allele-reads`.  **Default:** 4
+* `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. This must be less 
+  than or equal to `--min-reads`. **Default:** 2
 * `--max-reads ##`: Maximum number of supporting reads to use for calling a locus. **Default:** 250
 * `--min-avg-phred ##`: Minimum average PHRED score for relevant bases (flanking region + tandem repeat).
   Read segments with average PHRED scores below this (common with a threshold of ~13 and ONT Ultra Long reads, 
