@@ -167,7 +167,7 @@ See all parameters and example usage with a Slurm cluster:
 
 strkit call \
   path/to/read/file.bam \  # [REQUIRED] One indexed read file (BAM/CRAM)
-  --hq \  # If using accurate reads, enable this to get better genotyping & more robust expansion detection
+  --hq \  # If using accurate reads (HiFi/ONT R10), enable this to get better genotyping & more robust expansion detection
   --realign \  # If using accurate reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
@@ -187,14 +187,44 @@ PacBio provides a
 for CCS alignment in this scenario. However, regular aligned readsets are fine and have been tested
 extensively.
 
-If you're using accurate long reads (e.g., HiFi, ONT R10 duplex) as input, **use the `--hq` and 
+###### WITH ACCURATE READS
+
+If you're using accurate long reads (e.g., HiFi, ONT R10) as input, **use the `--hq` and 
 `--realign` options** to get better genotype calculation and a greater proportion of reads 
 incorporated into the computed genotypes, respectively. These should not add much performance 
 overhead. *In practice, these options may also aid calling with slightly-less-accurate reads.*
 
+###### WITH LOW-QUALITY READS
+
+If you're using low-quality long reads (e.g., older ONT data), some non-default parameters may help
+get the best genotyping performance:
+
+- Reads with tandem repeat + flanking region PHRED quality below 13 are filtered out by default. 
+  You may wish to lower this to avoid discarding reads by setting `--min-avg-phred` to a lower 
+  value (or you can effectively disable this filter by setting it to `1`).
+- We have observed some cases of 'false positive' expansion-esque reads, which are filtered out 
+  unless `--hq` is provided. If you want maximum expansion sensitivity with medium to high coverage
+  (>6x or so), at the cost of possible false-positive expansions, you should specify `--hq` anyway.
+
+###### WITH HAPLOTAGGED READS
+
 If you want to **incorporate haplotagging from an alignment file (`HP` tags)** into the 
 process, which should speed up runtime and potentially improve calling results, you must pass 
 the `--use-hp` flag.
+
+###### WITH LOW-COVEREAGE ALIGNMENT DATA
+
+If you're calling STRs using low-coverage alignments, you may want to:
+
+- lower the minimum number of reads per locus (`--min-reads`) to `2` (or even `1` if you're fine 
+  with some guaranteed allelic dropout), and
+- lower the minimum number of reads per allele (`--min-allele-reads`) to `1` to avoid dropout as 
+  much as possible.
+- potentially, if you desire more calls at the cost of quality, lower the minimum tandem repeat +
+  flanking region PHRED quality required (from its default of 13) via the `--min-avg-phred` 
+  parameter.
+
+**Note:** `--min-reads` must be greater than or equal to `--min-allele-reads`.
 
 ##### REGARDING SNV INCORPORATION
 
