@@ -69,8 +69,8 @@ def add_call_parser_args(call_parser):
         "--incorporate-snvs", "--snv", "-v",
         type=Path,
         help="A path to a dbSNP VCF file with a list of validated SNVs to help phase with. Specifying this enables the "
-             "use of read-phased SNVs to help properly call genotypes. This option can only be used if --hq "
-             "is enabled. Use with CCS ONLY! This option is currently EXPERIMENTAL!")
+             "use of read-phased SNVs to help properly call genotypes. Use with accurate long reads (CCS or ONT R10) "
+             "ONLY!")
 
     call_parser.add_argument(
         "--snv-min-base-qual", "--snv-mbq",
