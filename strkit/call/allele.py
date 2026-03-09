@@ -106,6 +106,8 @@ def fit_gmm(
         # allow for peaks supported by "most of a read".
         mw_filter_1 = means_and_weights[1, :] > allele_filter
 
+        mw_sorted_by_mean = means_and_weights[:, means_and_weights[0, :].argsort()]
+
         # Filter out any peaks below some threshold using this magic constant filter factor
         # - Exception: Large expansions can have very few supporting reads due to quirks of sequencing beyond
         #   just chance/read length distribution; if we have 2 alleles and the large one is a lot bigger than
@@ -113,8 +115,12 @@ def fit_gmm(
         # - Discard anything below a specific weight threshold and resample means based on remaining weights
         #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
         #   sharing in the worst case where it represents just one allele
-        if n_components > 2 or (n_components == 2 and (not hq or (
-                means_and_weights[0, -1] < expansion_ratio * max(means_and_weights[0, 0].item(), small_allele_min)))):
+        if n_components > 2 or (
+            n_components == 2 and (
+                not hq
+                or (mw_sorted_by_mean[0, -1] < expansion_ratio * max(mw_sorted_by_mean[0, 0].item(), small_allele_min))
+            )
+        ):
             mw_filter_2 = means_and_weights[1, :] > (1 / (gmm_params.filter_factor * n_components))
         else:
             mw_filter_2 = means_and_weights[1, :] > FLOAT_32_EPSILON
