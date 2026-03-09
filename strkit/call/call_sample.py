@@ -267,8 +267,6 @@ def call_sample(
     from numpy.random import default_rng as np_default_rng
     from pysam import VariantFile
 
-    from strkit.logger import get_main_logger
-
     from .loci import load_loci
     from .output import (
         output_json_report_header,
