@@ -226,6 +226,11 @@ If you're calling STRs using low-coverage alignments, you may want to:
 
 **Note:** `--min-reads` must be greater than or equal to `--min-allele-reads`.
 
+###### WITH TARGETED SEQUENCING DATA
+
+If you're running STRkit with targeted sequencing data, you should put STRkit in targeted mode with the `--targeted` 
+flag, which slightly tweaks read re-sampling behaviour and increases the `--max-reads` default from 250 to 500.
+
 ##### REGARDING SNV INCORPORATION
 
 If you want to **incorporate SNV calling** into the process, which speeds up runtime and gives

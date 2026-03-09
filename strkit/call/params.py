@@ -16,6 +16,7 @@ from ..ploidy import load_ploidy_config
 
 __all__ = ["CallParams"]
 
+DEFAULT_MAX_READS: int = 250
 
 DEFAULT_RC_LOCAL_SEARCH_RANGE: int = 3
 DEFAULT_RC_STEP_SIZE: int = 1
@@ -34,7 +35,7 @@ class CallParams:
         sample_id: str | None,
         min_reads: int = 4,
         min_allele_reads: int = 2,
-        max_reads: int = 250,
+        max_reads: int | None = None,
         min_avg_phred: int = 13,
         min_read_align_score: float = 0.9,
         max_rcn_iters: int = 50,
@@ -78,7 +79,7 @@ class CallParams:
         self.annotation_file: str | None = annotation_file
         self.min_reads: int = min_reads
         self.min_allele_reads: int = min_allele_reads
-        self.max_reads: int = max_reads
+        self.max_reads: int = max_reads or (DEFAULT_MAX_READS * 2 if targeted else DEFAULT_MAX_READS)
         self.min_avg_phred: int = min_avg_phred
         self.min_read_align_score: float = min_read_align_score
         self.max_rcn_iters: int = max_rcn_iters

@@ -140,8 +140,7 @@ def add_call_parser_args(call_parser):
 
     call_parser.add_argument(
         "--max-reads",
-        type=int,
-        default=250,
+        type=int,  # if None, will be replaced by 2*MAX_READS (if --targeted) else MAX_READS via Callparams __init__
         help="Maximum number of supporting reads to use for a locus. Additional reads will be ignored.")
 
     # Min PHRED score of 13 for 95% confidence avg. in bases; although this may be over-estimated in ONT.
