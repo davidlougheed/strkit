@@ -57,8 +57,19 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--hq",
         action="store_true",
-        help="Whether to treat provided reads as 'fairly' accurate, i.e. not liable to be extremely far away from the "
-             "DNA truth. Recommended for CCS, and CCS ONLY!")
+        help="[DEPRECATED] Whether to treat provided reads as 'fairly' accurate, i.e. not liable to be extremely far "
+             "away from the DNA truth. This functionality is now enabled by default (0.25+). Use --force-gm-filter to "
+             "restore the former behaviour without --hq specified.")
+
+    call_parser.add_argument(
+        "--force-gm-filter",
+        action="store_true",
+        help=(
+            "Whether to force-enable a smoothing filter that removes peaks with low read support, even for "
+            "expansion-like reads (i.e., large alleles with copy numbers far above the small allele). This might be "
+            "useful for messy, old ONT R9 long read data, but *will* result in reduced expansion sensitivity!"
+        ),
+    )
 
     call_parser.add_argument(
         "--use-hp",

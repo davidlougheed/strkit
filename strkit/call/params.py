@@ -46,7 +46,7 @@ class CallParams:
         skip_secondary: bool = False,
         ploidy: str | None = None,
         realign: bool = False,
-        hq: bool = False,
+        force_gm_filter: bool = False,
         use_hp: bool = False,
         snv_vcf: Path | None = None,
         snv_min_base_qual: int = 20,
@@ -84,6 +84,7 @@ class CallParams:
         self.min_read_align_score: float = min_read_align_score
         self.max_rcn_iters: int = max_rcn_iters
         self.num_bootstrap: int = num_bootstrap
+        self.force_gm_filter: bool = force_gm_filter
         self.gm_filter_factor: int = gm_filter_factor
         self.flank_size: int = flank_size
         self.skip_supplementary: bool = skip_supplementary
@@ -91,7 +92,6 @@ class CallParams:
         self.ploidy: str | None = ploidy
         self.realign: bool = realign
         self.realign_timeout: int = 5  # TODO: user param
-        self.hq: bool = hq
         self.use_hp: bool = use_hp
         self.snv_vcf: Path | None = snv_vcf
         self.snv_min_base_qual: int = snv_min_base_qual
@@ -144,7 +144,11 @@ class CallParams:
 
         # TODO: user params for more of this
         self._gmm_params: GMMParams = GMMParams(
-            init_params_method="k-means++", n_init=3, pre_filter_factor=5, filter_factor=self.gm_filter_factor
+            init_params_method="k-means++",
+            n_init=3,
+            pre_filter_factor=5,
+            expansion_ratio=5.0,
+            filter_factor=self.gm_filter_factor,
         )
 
     @property
@@ -161,6 +165,9 @@ class CallParams:
 
     @classmethod
     def from_args(cls, logger: Logger, p_args):
+        if p_args.hq:
+            logger.warning("--hq is deprecated; this functionality is now enabled by default")
+
         return cls(
             logger,
             p_args.read_file,
@@ -175,13 +182,13 @@ class CallParams:
             min_read_align_score=p_args.min_read_align_score,
             max_rcn_iters=p_args.max_rcn_iters,
             num_bootstrap=p_args.num_bootstrap,
+            force_gm_filter=p_args.force_gm_filter,
             gm_filter_factor=p_args.gm_filter_factor,
             flank_size=p_args.flank_size,
             skip_supplementary=p_args.skip_supplementary,
             skip_secondary=p_args.skip_secondary,
             ploidy=p_args.ploidy,
             realign=p_args.realign,
-            hq=p_args.hq,
             use_hp=p_args.use_hp,
             snv_vcf=p_args.incorporate_snvs,
             snv_min_base_qual=p_args.snv_min_base_qual,
@@ -216,6 +223,7 @@ class CallParams:
             "min_read_align_score": self.min_read_align_score,
             "max_rcn_iters": self.max_rcn_iters,
             "num_bootstrap": self.num_bootstrap,
+            "force_gm_filter": self.force_gm_filter,
             "gm_filter_factor": self.gm_filter_factor,
             "flank_size": self.flank_size,
             "skip_supplementary": self.skip_supplementary,
@@ -223,7 +231,6 @@ class CallParams:
             "sample_id": self._sample_id_orig if as_inputted else self.sample_id,
             "ploidy": self.ploidy,
             "realign": self.realign,
-            "hq": self.hq,
             "use_hp": self.use_hp,
             "snv_vcf": str(self.snv_vcf) if self.snv_vcf else None,
             "snv_min_base_qual": self.snv_min_base_qual,

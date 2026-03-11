@@ -28,9 +28,9 @@
   Currently recommended **for HiFi or ONT R10 only**, since this step aggressively filters out realignments with 
   many mismatches or small indels. Enabling this slows down calling, so it may not be suitable for a very large catalog 
   of tandem repeats.
-* `--hq`: Whether to treat provided reads as "high quality", i.e., fairly close to the actual true sequence. Used when 
-  detecting expansions, to skip a smoothing filter that may ignore disparate, rare expansion-like read counts.
-  Use for CCS reads or similar data (e.g., R10 nanopore data) ONLY! **Default:** off
+* `--hq`: **[DEPRECATED]** Whether to treat provided reads as "high quality", i.e., fairly close to the actual true 
+  sequence. Used when detecting expansions, to skip a smoothing filter that may ignore disparate, rare expansion-like 
+  read counts. Use for CCS reads or similar data (e.g., R10 nanopore data) ONLY! **Default:** off
 * `--use-hp`: Whether to incorporate `HP` tags from a haplotagged alignment file. This should speed up runtime and 
   will potentially improve calling results. **This flag is experimental, and has not been tested extensively.**
 * `--skip-supplementary` or `--skip-supp`: Skip supplementary alignments. **Default:** off
@@ -75,6 +75,10 @@
   benchmarking and in case of slight misalignment. This is clamped to being in the range of `[1, flank_size]`.
   **Default:** 5
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
+* `--force-gm-filter`: Whether to force-enable a smoothing filter that removes peaks with low read support called with 
+  a Gaussian mixture model (GMM), even for expansion-like reads (i.e., large alleles with copy numbers far above the 
+  small allele; see `--gm-filter-expansion-ratio`). This might be useful for messy, old ONT R9 long read data, but 
+  *will* result in reduced expansion sensitivity!
 * `--gm-filter-factor #`: Tuning parameter for the copy number Gaussian mixture model (GMM) used for allele calling in
   some cases. GMM peaks are filtered out when they have a weight lower than `(gm_filter_factor * n_components)` for a
   given GMM of `n_components`. **Default:** 3

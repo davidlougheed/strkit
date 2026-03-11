@@ -43,7 +43,6 @@ simplefilter("ignore", category=ConvergenceWarning)
 
 # TODO: parameterize
 small_allele_min = 8
-expansion_ratio = 5
 
 WEIGHT_1_0 = np.array([[1.0]])
 FLOAT_32_EPSILON = np.finfo(np.float32).eps
@@ -74,7 +73,7 @@ def fit_gmm(
     sample: NDArray,
     n_alleles: int,
     allele_filter: float,
-    hq: bool,
+    force_gm_filter: bool,
     gmm_params: GMMParams,
 ) -> object | None:
     # performance hack: skip checking for two peak GMM if we have two close-together most common elements and the first
@@ -106,8 +105,6 @@ def fit_gmm(
         # allow for peaks supported by "most of a read".
         mw_filter_1 = means_and_weights[1, :] > allele_filter
 
-        mw_sorted_by_mean = means_and_weights[:, means_and_weights[0, :].argsort()]
-
         # Filter out any peaks below some threshold using this magic constant filter factor
         # - Exception: Large expansions can have very few supporting reads due to quirks of sequencing beyond
         #   just chance/read length distribution; if we have 2 alleles and the large one is a lot bigger than
@@ -115,10 +112,14 @@ def fit_gmm(
         # - Discard anything below a specific weight threshold and resample means based on remaining weights
         #   to fill in the gap. E.g. below 1 / (5 * num alleles) - i.e. 5 times less than we expect with equal
         #   sharing in the worst case where it represents just one allele
+        mw_sorted_by_mean = means_and_weights[:, means_and_weights[0, :].argsort()]
         if n_components > 2 or (
             n_components == 2 and (
-                not hq
-                or (mw_sorted_by_mean[0, -1] < expansion_ratio * max(mw_sorted_by_mean[0, 0].item(), small_allele_min))
+                force_gm_filter
+                or (
+                    mw_sorted_by_mean[0, -1]
+                    < gmm_params.expansion_ratio * max(mw_sorted_by_mean[0, 0].item(), small_allele_min)
+                )
             )
         ):
             mw_filter_2 = means_and_weights[1, :] > (1 / (gmm_params.filter_factor * n_components))
@@ -281,7 +282,7 @@ def call_alleles(
     def _get_fitted_gmm(s: NDArray[np.int_] | NDArray[np.float_]) -> object | None:
         if (s_t := s.tobytes()) not in gmm_cache:
             # Fit Gaussian mixture model to the resampled data
-            gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.hq, params.gmm_params)
+            gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.force_gm_filter, params.gmm_params)
 
         return gmm_cache[s_t]
 

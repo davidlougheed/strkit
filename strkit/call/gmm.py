@@ -49,7 +49,11 @@ class GMMParams:
     # other parameters for fit_gmm
     #  - for deciding pre-GMM-fit to only have one peak based on read copy number frequency patterns
     pre_filter_factor: int
+    #  - for disabling filtering of peaks with low read support when the peak has a copy number above
+    #    (expansion_ratio * small allele copy number)
+    expansion_ratio: float
     #  - for filtering out peaks which have a weight lower than (filter_factor * n_components) for a GMM of n_components
+    #    if the peak isn't deemed 'expansion-esque' using the above ratio
     filter_factor: int
 
     def make_fitted_gmm(self, n_components: int, sample_rs: NDArray, rng: Generator):

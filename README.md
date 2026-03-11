@@ -105,7 +105,7 @@ docker run \
   -v out:/out \
   -it ghcr.io/davidlougheed/strkit call \
   /inputs/file.bam \
-  --hq --loci /inputs/loci.bed --ref /inputs/ref.fa --incorporate-snvs /inputs/dbsnp.vcf.gz \
+  --loci /inputs/loci.bed --ref /inputs/ref.fa --incorporate-snvs /inputs/dbsnp.vcf.gz \
   --vcf /out/calls.vcf --no-tsv
 ```
 
@@ -167,7 +167,6 @@ See all parameters and example usage with a Slurm cluster:
 
 strkit call \
   path/to/read/file.bam \  # [REQUIRED] One indexed read file (BAM/CRAM)
-  --hq \  # If using accurate reads (HiFi/ONT R10), enable this to get better genotyping & more robust expansion detection
   --realign \  # If using accurate reads, enable this to enable local realignment / read recovery. Good for detecting expansions, but slows down calling.
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
@@ -189,10 +188,10 @@ extensively.
 
 ###### WITH ACCURATE READS
 
-If you're using accurate long reads (e.g., HiFi, ONT R10) as input, **use the `--hq` and 
-`--realign` options** to get better genotype calculation and a greater proportion of reads 
-incorporated into the computed genotypes, respectively. These should not add much performance 
-overhead. *In practice, these options may also aid calling with slightly-less-accurate reads.*
+If you're using accurate long reads (e.g., HiFi, ONT R10) as input, **use the `--realign` option**
+to enable re-aligning soft-clipped reads to the reference genome. This will add a bit of 
+performance overhead, but can help recover some reads of interest (e.g., expansions). 
+*In practice, this option may also aid calling with slightly-less-accurate reads.*
 
 ###### WITH LOW-QUALITY READS
 
@@ -202,9 +201,9 @@ get the best genotyping performance:
 - Reads with tandem repeat + flanking region PHRED quality below 13 are filtered out by default. 
   You may wish to lower this to avoid discarding reads by setting `--min-avg-phred` to a lower 
   value (or you can effectively disable this filter by setting it to `1`).
-- We have observed some cases of 'false positive' expansion-esque reads, which are filtered out 
-  unless `--hq` is provided. If you want maximum expansion sensitivity with medium to high coverage
-  (>6x or so), at the cost of possible false-positive expansions, you should specify `--hq` anyway.
+- We have observed some cases of 'false positive' expansion-esque reads with ONT R9 data. The 
+  `--force-gm-filter` option can help filter these out, at the cost of reducing STRkit's 
+  sensitivity to true expansions.
 
 ###### WITH HAPLOTAGGED READS
 
