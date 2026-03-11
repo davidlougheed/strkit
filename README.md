@@ -203,7 +203,7 @@ get the best genotyping performance:
 
 - Reads with tandem repeat + flanking region PHRED quality below 13 are filtered out by default. 
   You may wish to lower this to avoid discarding reads by setting `--min-avg-phred` to a lower 
-  value (or you can effectively disable this filter by setting it to `1`).
+  value like `5`, or you can effectively disable this filter by setting it to `1`.
 - We have observed some cases of 'false positive' expansion-esque reads with ONT R9 data. The 
   `--force-gm-filter` option can help filter these out, at the cost of reducing STRkit's 
   sensitivity to true expansions.
