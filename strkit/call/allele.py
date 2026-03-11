@@ -13,17 +13,17 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 
 from collections import Counter
-from logging import Logger  # For type hinting
 from sklearn.exceptions import ConvergenceWarning
 from statistics import mode
 from warnings import simplefilter
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, TypedDict, Union, TYPE_CHECKING
+from typing import Iterable, Literal, TypedDict, TYPE_CHECKING
 
 from .gmm import make_single_gaussian
 
 if TYPE_CHECKING:
+    from logging import Logger
     from numpy.random import Generator
 
     from .gmm import GMMParams
@@ -137,9 +137,9 @@ def fit_gmm(
 
 
 class BaseCallDict(TypedDict):
-    call: Union[NDArray[np.int32], NDArray[np.float_]]
-    call_95_cis: Union[NDArray[np.int32], NDArray[np.float_]]  # 2D arrays
-    call_99_cis: Union[NDArray[np.int32], NDArray[np.float_]]  # 2D arrays
+    call: NDArray[np.int32] | NDArray[np.float_]
+    call_95_cis: NDArray[np.int32] | NDArray[np.float_]  # 2D arrays
+    call_99_cis: NDArray[np.int32] | NDArray[np.float_]  # 2D arrays
     peaks: NDArray[np.float_]
     peak_weights: NDArray[np.float_]
     peak_stdevs: NDArray[np.float_]

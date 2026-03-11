@@ -61,10 +61,6 @@ class ReadDictExtra(TypedDict, total=False):
     # END: only added if consensus is being calculated
 
     # Below are only added if SNVs are being incorporated:
-
-    _qs: str  # Query (read) sequence
-    _fqqs: NDArray[np.uint8]  # Query (read) base qualities
-
     snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
     # Intermediate result: tuple of bases/qualities for the set of SNVs across all reads
     snv_bases: tuple[tuple[str, int], ...]
