@@ -81,7 +81,13 @@
   *will* result in reduced expansion sensitivity!
 * `--gm-filter-factor #`: Tuning parameter for the copy number Gaussian mixture model (GMM) used for allele calling in
   some cases. GMM peaks are filtered out when they have a weight lower than `(gm_filter_factor * n_components)` for a
-  given GMM of `n_components`. **Default:** 3
+  given GMM of `n_components`, if they're not deemed to be "expansion-like" (see `--gm-filter-expansion-ratio #`) unless 
+  the filter is forced on via `--force-gm-filter`. 
+  *This filter does not apply when using SNV-based or haplotag peak calling.* **Default:** 3
+* `--gm-filter-expansion-ratio #`: Tuning parameter for disabling the above GMM peak filter. When running the GMM for 
+  allele calling, peaks with low read support will be filtered out by default (see `--gm-filter-factor`). However, if 
+  the largest peak is more than `--gm-filter-expansion-ratio` times the size of the smaller peak, it will be kept (even 
+  with low read support.) *This filter does not apply when using SNV-based or haplotag peak calling.* **Default:** 5.0
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
 * `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 

@@ -231,6 +231,15 @@ def add_call_parser_args(call_parser):
         ))
 
     call_parser.add_argument(
+        "--gm-filter-expansion-ratio",
+        type=float,
+        default=5.0,
+        help=(
+            "Specifies the ratio of large allele:small allele copy number above which Gaussian mixture model (GMM) "
+            "peaks will be kept even with low read support."
+        ))
+
+    call_parser.add_argument(
         "--ploidy", "--sex-chr", "-x",
         type=str,
         default="diploid_autosomes",

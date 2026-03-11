@@ -41,6 +41,7 @@ class CallParams:
         max_rcn_iters: int = 50,
         num_bootstrap: int = 100,
         gm_filter_factor: int = 3,
+        gm_filter_expansion_ratio: float = 5.0,
         flank_size: int = 70,
         skip_supplementary: bool = False,
         skip_secondary: bool = False,
@@ -86,6 +87,7 @@ class CallParams:
         self.num_bootstrap: int = num_bootstrap
         self.force_gm_filter: bool = force_gm_filter
         self.gm_filter_factor: int = gm_filter_factor
+        self.gm_filter_expansion_ratio: float = gm_filter_expansion_ratio
         self.flank_size: int = flank_size
         self.skip_supplementary: bool = skip_supplementary
         self.skip_secondary: bool = skip_secondary
@@ -147,7 +149,7 @@ class CallParams:
             init_params_method="k-means++",
             n_init=3,
             pre_filter_factor=5,
-            expansion_ratio=5.0,
+            expansion_ratio=self.gm_filter_expansion_ratio,
             filter_factor=self.gm_filter_factor,
         )
 
@@ -184,6 +186,7 @@ class CallParams:
             num_bootstrap=p_args.num_bootstrap,
             force_gm_filter=p_args.force_gm_filter,
             gm_filter_factor=p_args.gm_filter_factor,
+            gm_filter_expansion_ratio=p_args.gm_filter_expansion_ratio,
             flank_size=p_args.flank_size,
             skip_supplementary=p_args.skip_supplementary,
             skip_secondary=p_args.skip_secondary,
@@ -225,6 +228,7 @@ class CallParams:
             "num_bootstrap": self.num_bootstrap,
             "force_gm_filter": self.force_gm_filter,
             "gm_filter_factor": self.gm_filter_factor,
+            "gm_filter_expansion_ratio": self.gm_filter_expansion_ratio,
             "flank_size": self.flank_size,
             "skip_supplementary": self.skip_supplementary,
             "skip_secondary": self.skip_secondary,

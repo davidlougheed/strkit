@@ -233,6 +233,20 @@ If you're calling STRs using low-coverage alignments, you may want to:
 If you're running STRkit with targeted sequencing data, you should put STRkit in targeted mode with the `--targeted` 
 flag, which slightly tweaks read re-sampling behaviour and increases the `--max-reads` default from 250 to 500.
 
+##### LOOKING FOR LARGE EXPANSIONS
+
+If you're running STRkit for the purpose of finding pathogenic STR expansions or expansions of 
+interest, the following parameters may help increase expansion sensitivity, at the cost of 
+computational performance or a potential bias towards heterozygous calls:
+
+* Make sure to **NOT** enable `--force-gm-filter`, even if using lower-quality reads. Enabling this option can filter 
+  out artifact reads with false-positive expansion-like read counts, but it will also lower sensitivity for true 
+  expansions with low read support.
+* Enable `--realign`, *even* with lower-quality reads. Reads containing expansions can be 
+  soft-clipped by aligners like `minimap2`; the `--realign` flag can help recover these reads.
+* Tune `--gm-filter-expansion-ratio` to a slightly lower value, like `3.0`. This will keep larger alleles with low read 
+  support if they are larger than `--gm-filter-expansion-ratio` times the size of the smaller allele.
+
 ##### REGARDING SNV INCORPORATION
 
 If you want to **incorporate SNV calling** into the process, which speeds up runtime and gives
