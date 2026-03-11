@@ -146,18 +146,18 @@ def parse_last_column(t_idx: int, val: str) -> LastColumnData:
     raise err
 
 
-def get_feature_id(idx: int, feature) -> str:
+EXON_FEATURE_TYPES = frozenset(("5UTR", "3UTR", "CDS", "start_codon", "stop_codon"))
+
+
+def get_feature_id(feature) -> str:
     feature_type = feature.feature
     feature_attrs = dict(feature)
+    pos_str = f"{feature.contig}-{feature.start}-{feature.end}"
     if "ID" in feature_attrs:
-        return feature_attrs.get("ID", f"{feature_type}:{idx}")
+        return feature_attrs.get("ID", f"{feature_type}:{pos_str}")
     else:  # possibly UCSC format
-        feature_id_attr = (
-            "exon_id"
-            if feature_type in ("5UTR", "3UTR", "CDS", "start_codon", "stop_codon")
-            else f"{feature_type}.id"
-        )
-        return f"{feature_type}:{feature_attrs.get(feature_id_attr, idx)}"
+        feature_id_attr = "exon_id" if feature_type in EXON_FEATURE_TYPES else f"{feature_type}:{pos_str}"
+        return f"{feature_type}:{feature_attrs.get(feature_id_attr, pos_str)}"
 
 
 def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str], str]:
@@ -236,10 +236,9 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
             end = int(t[2])
 
             # If we have a feature annotation file, try loading annotations for this locus.
-            features: list[str] = []
-            if afh:
-                for idx, feature in enumerate(afh.fetch(contig, start, end, parser=annotation_parser)):
-                    features.append(get_feature_id(idx, feature))
+            features: list[str] = (
+                list(map(get_feature_id, afh.fetch(contig, start, end, parser=annotation_parser))) if afh else []
+            )
 
             # Extract / parse values from the catalog BED file and validate the locus
             try:
