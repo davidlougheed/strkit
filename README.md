@@ -191,7 +191,10 @@ extensively.
 If you're using accurate long reads (e.g., HiFi, ONT R10) as input, **use the `--realign` option**
 to enable re-aligning soft-clipped reads to the reference genome. This will add a bit of 
 performance overhead, but can help recover some reads of interest (e.g., expansions). 
-*In practice, this option may also aid calling with slightly-less-accurate reads.*
+
+*In practice, this option may also aid calling with slightly-less-accurate reads, especially if
+you are looking for expansions and do not mind slower performance if the reads do not align well 
+to the reference genome.*
 
 ###### WITH LOW-QUALITY READS
 
