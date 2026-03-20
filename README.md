@@ -150,6 +150,7 @@ long read data should still work.
     reads with short flanking regions.
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
+* Multiple motif support via [IUPAC code motifs](https://www.bioinformatics.org/sms/iupac.html).
 
 
 #### Usage:
@@ -239,9 +240,11 @@ If you're running STRkit for the purpose of finding pathogenic STR expansions or
 interest, the following parameters may help increase expansion sensitivity, at the cost of 
 computational performance or a potential bias towards heterozygous calls:
 
-* Make sure to **NOT** enable `--force-gm-filter`, even if using lower-quality reads. Enabling this option can filter 
-  out artifact reads with false-positive expansion-like read counts, but it will also lower sensitivity for true 
-  expansions with low read support.
+* With a catalog of disease loci, make sure to encode all possible locus motifs of the same length 
+  via [IUPAC codes](https://www.bioinformatics.org/sms/iupac.html) in the catalog file.
+* Make sure to **NOT** enable `--force-gm-filter`, even if using lower-quality reads. Enabling this
+  option can filter out artifact reads with false-positive expansion-like read counts, but it will 
+  also lower sensitivity for true expansions with low read support.
 * Enable `--realign`, *even* with lower-quality reads. Reads containing expansions can be 
   soft-clipped by aligners like `minimap2`; the `--realign` flag can help recover these reads.
 * Tune `--gm-filter-expansion-ratio` to a slightly lower value, like `3.0`. This will keep larger alleles with low read 

@@ -17,6 +17,7 @@ The file must be structured with a row per locus, where each row looks like one 
 
 ```
 chr4    3074876    3074966    [...]    CAG
+chr4    39348424   39348483   [...]    MMRRG
 chrX    147912050  147912110  [...]    ID=FMR1;MOTIF=CGG
 ```
 
@@ -27,6 +28,10 @@ The important requirements here are:
   * Locus coordinates are 0-based and half-open (start is inclusive, end is exclusive)
   * The locus motif (either plain, or as part of a [more complex locus description](#specifying-a-custom-locus-id)) 
     must come **last** in the row, but *any number of fields* can separate the end position and the motif.
+
+Note that as with the second locus in this example 
+([the CANVAS-causing expansion in RFC1](https://strchive.org/loci/canvas_rfc1/)), motifs can be specified with
+ [IUPAC code](https://www.bioinformatics.org/sms/iupac.html), allowing multiple motif matching.
 
 As a result, STRkit can take myrid different TSV-type catalog formats as input, including
 those produced from the TRF UCSC browser track, or for GangSTR, or for Straglr.
