@@ -76,6 +76,7 @@ def perform_realign(
     # TODO: add a segment method for doing this on a specified slice of query sequence or something...
     qs_wc = calculate_seq_with_wildcards(segment.query_sequence, segment.query_qualities, 3)
 
+    # TODO: just realign flank without TR region?
     ref_total_seq = locus_with_ref_data.ref_total_seq
     ref_seq_len = len(ref_total_seq)
     qs_len = len(qs_wc)

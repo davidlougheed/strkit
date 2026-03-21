@@ -16,9 +16,9 @@ from strkit_rust_ext import (
     LowMeanBaseQual,
     STRkitSegmentAlignmentDataForLocus,
     STRkitAlignedSegmentSequenceDataForLocus,
+    LocusReadCoords,
     consensus_seq,
     get_read_coords_from_matched_pairs,
-    get_pairs_and_tr_read_coords,
     normalize_contig,
 )
 
@@ -725,12 +725,14 @@ def call_alleles_with_incorporated_snvs(
     return assign_method, (call_data, called_useful_snvs)
 
 
-def debug_log_flanking_seq(logger_: Logger, locus_log_str: str, rn: str, realigned: bool):
+def debug_log_flanking_seq(logger_: Logger, locus_log_str: str, rn: str, rl: int, realigned: bool, repr_str: str):
     logger_.debug(
-        f"%s - skipping read %s: could not get sufficient flanking sequence"
-        f"{' (post-realignment)' if realigned else ''}",
+        f"%s - skipping read %s (length %d): could not get sufficient flanking sequence"
+        f"{' (post-realignment)' if realigned else ''} - %s",
         locus_log_str,
         rn,
+        rl,
+        repr_str,
     )
 
 
@@ -888,18 +890,12 @@ def get_locus_alignment_data_from_read(
     :param logger_: Logger instance
     """
 
-    start = segment.start
-    end = segment.end
-
-    flank_size = params.flank_size
-
     realigned: bool = False
 
-    left_flank_start = -1
-    left_flank_end = -1
-    right_flank_start = -1
-    right_flank_end = -1
+    allow_only_one_full_flank = params.allow_only_one_full_flank
+    vcf_anchor_size = params.vcf_anchor_size
 
+    locus_read_coords: LocusReadCoords | None = None
     aligned_coords: STRkitAlignedCoords | None = None
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -923,56 +919,66 @@ def get_locus_alignment_data_from_read(
             aligned_coords = pairs_new  # aligned_coords is no longer None
             realigned = True
 
-            left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
-                get_read_coords_from_matched_pairs(locus_with_ref_data, segment, aligned_coords)
+            locus_read_coords = get_read_coords_from_matched_pairs(
+                locus_with_ref_data, segment, aligned_coords, vcf_anchor_size, allow_only_one_full_flank
+            )
 
             # equivalent to the below check of `coords_or_none is None` - if realign happens, but the flank
             # boundaries cannot be extracted from the alignment, we skip this read.
-            if -1 in (left_flank_start, left_flank_end, right_flank_start, right_flank_end):
+            if locus_read_coords.is_incomplete():
                 if params.log_level == DEBUG:
-                    debug_log_flanking_seq(logger_, locus_with_ref_data.log_str(), segment.name, realigned)
+                    debug_log_flanking_seq(
+                        logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned,
+                        repr(locus_read_coords),
+                    )
+                    # TODO: find a way of making use of these reads (e.g., C9orf72 expansion)
+                    # if locus_read_coords.full_left_flank:
+                    #     print(segment.query_sequence[locus_read_coords.left_flank_end:])
                 return None
 
     # ------------------------------------------------------------------------------------------------------------------
 
     if aligned_coords is None:  # if realign was not attempted, or was attempted but was not successful
-        if locus_with_ref_data.left_flank_coord < start or locus_with_ref_data.right_flank_coord > end:
+        if not allow_only_one_full_flank and (
+            locus_with_ref_data.left_flank_coord < segment.start or locus_with_ref_data.right_flank_coord >= segment.end
+        ):
             # Cannot find pair for LHS flank start or RHS flank end;
             # early-continue before we load pairs since that step is slow
             if params.log_level == DEBUG:
-                debug_log_flanking_seq(logger_, locus_with_ref_data.log_str(), segment.name, realigned)
+                debug_log_flanking_seq(
+                    logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned,
+                    repr(locus_read_coords),
+                )
             return None
 
-        coords_or_none, left_flank_start, left_flank_end, right_flank_start, right_flank_end = \
-            get_pairs_and_tr_read_coords(locus_with_ref_data, segment)
+        # if aligned_coords is passed as None, segment aligned coords will be used instead
+        locus_read_coords = get_read_coords_from_matched_pairs(
+            locus_with_ref_data, segment, None, vcf_anchor_size, allow_only_one_full_flank
+        )
 
-        if coords_or_none is None:
-            # -1 in one of the flank coords - equivalent to the check for -1 values in the realign block above.
+        if locus_read_coords.is_incomplete():
+            # flanking sequence is not sufficient as determined by parameters
             if params.log_level == DEBUG:
-                debug_log_flanking_seq(logger_, locus_with_ref_data.log_str(), segment.name, realigned)
+                debug_log_flanking_seq(
+                    logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned,
+                    repr(locus_read_coords),
+                )
+                # TODO: find a way of making use of these reads (e.g., C9orf72 expansion)
+                # if locus_read_coords.full_left_flank:
+                #     print(segment.query_sequence[locus_read_coords.left_flank_end:])
             return None
 
-        aligned_coords = coords_or_none
+        if not (left := locus_read_coords.full_left_flank) or not locus_read_coords.full_right_flank:
+            logger_.info(
+                "%s - recovered read with one partial flank: %s (%s)",
+                locus_with_ref_data.log_str(), segment.name, "left" if not left else "right"
+            )
+
+        aligned_coords = segment.aligned_coords  # not a free access! clones STRkitAlignedCoords
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    # Truncate to flank_size (plus some leeway for small indels in flanking region) to stop relatively distant
-    # expansion sequences from accidentally being included in the flanking region; e.g. if the insert gets mapped
-    # onto bases outside the definition coordinates.  TODO: better to do something else here?
-    # The +10 here won't include any real TR region if the mapping is solid, since the flank coordinates will
-    # contain a correctly-sized sequence.
-
-    if left_flank_start < (lfs_from_lfe := left_flank_end - flank_size - 10):
-        left_flank_start = lfs_from_lfe
-
-    if right_flank_end > (rfe_from_rfs := right_flank_start + flank_size + 10):
-        right_flank_end = rfe_from_rfs
-
-    # ------------------------------------------------------------------------------------------------------------------
-
-    return STRkitSegmentAlignmentDataForLocus(
-        aligned_coords, left_flank_start, left_flank_end, right_flank_start, right_flank_end, realigned
-    )
+    return STRkitSegmentAlignmentDataForLocus(aligned_coords, locus_read_coords, realigned)
 
 
 def call_locus(
@@ -1103,7 +1109,6 @@ def call_locus(
         # contain a correctly-sized sequence.
 
         # TODO: this only checks base quality of actual TR region; check flank too?
-        # TODO: instead of None, raise a custom error / return a Result which contains the low base quality number
 
         try:
             locus_seq_and_flank_data: STRkitAlignedSegmentSequenceDataForLocus = segment.get_sequence_data_for_locus(
