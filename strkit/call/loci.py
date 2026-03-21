@@ -207,6 +207,10 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
 
     try:
         for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
+            if len(t) < 4:
+                logger.critical("Locus BED file must have at least 4 columns (line %d)", t_idx)
+                exit(1)
+
             contig = t[0]
 
             n_alleles: int | None = _get_contig_n_alleles(contig)
