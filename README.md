@@ -2,9 +2,8 @@
 
 [![PyPI version](https://badge.fury.io/py/strkit.svg)](https://badge.fury.io/py/strkit)
 
-STRkit is a short tandem repeat (STR) genotyping and analysis toolkit for long read sequencing data, especially 
-PacBio HiFi data. The STRkit software package is written in Python and is available in the PyPI package registry or as
-a Docker container.
+STRkit is a short tandem repeat (STR) genotyping and analysis toolkit for long read sequencing data. The STRkit software 
+package is written in Python and is available in the PyPI package registry or as a Docker container.
 
 STRkit's main advantages over other callers include:
 * Better performance in some [benchmarking assessments](https://doi.org/10.1101/gr.280766.125) versus other tools;
@@ -143,10 +142,10 @@ long read data should still work.
   * Whole-genome and targeted genotyping modes to adjust this re-weighting.
 * Incorporation of single-nucleotide variation (SNVs) for better and faster calling plus 
   additional downstream analysis possibilities.
-  * Recommended for **HiFi data and ONT R10 data only**. In my testing, this worsens runtime and call quality for 
-    ONT ultra-long-read data, but speeds up the tool and improves call quality for HiFi/ONT R10 data. 
+  * SNV incorporation is recommended for **HiFi data and ONT R10 data only**. In my testing, this worsens runtime and 
+    call quality for ONT ultra-long-read data, but speeds up the tool and improves call quality for HiFi/ONT R10 data. 
   * **Important note:** This functionality is best for whole-genome STR surveying. If hunting for rare / low-coverage
-    expansions, or using targeted sequencing data, it may be best to **NOT USE** an SNV catalog to avoid discording 
+    expansions, or using targeted sequencing data, it may be best to **NOT USE** an SNV catalog to avoid discarding 
     reads with short flanking regions.
 * Parallelized for faster computing on clusters and for ad-hoc fast analysis of single samples.
 * 95% confidence intervals on calls via a user-configurable optional parametric bootstrapping process.
@@ -163,8 +162,6 @@ See all parameters and example usage with a Slurm cluster:
 ```bash
 # For the dbSNP VCF used below for SNV incorporation, see https://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/
 # (00-common_all.vcf.gz)
-#
-# "Accurate reads" here means HiFi / ONT R10 duplex reads, but in practice may also include ONT R10 simplex reads.
 
 strkit call \
   path/to/read/file.bam \  # [REQUIRED] One indexed read file (BAM/CRAM)
@@ -172,7 +169,7 @@ strkit call \
   --ref path/to/reference.fa.gz \  # [REQUIRED] Indexed FASTA-formatted reference genome
   --loci path/to/loci.bed \  # [REQUIRED] TRF-formatted (or 4-col, with motif as last column) sorted list of loci to genotype
   --annotation-file path/to/reference-annotations.gff.gz \  # Optional GFF3/GTF file to provide locus annotations (transcript/exon ID)
-  --incorporate-snvs path/to/dbsnp/00-common_all.vcf.gz \   # If you want, specify a SNV catalogue to help phase STRs & speed up calling
+  --incorporate-snvs path/to/dbsnp/00-common_all.vcf.gz \   # If you want, specify a SNV catalogue to help phase STRs & speed up calling with HiFi/ONT R10
   --vcf my-calls.vcf \  # Calculate consensus sequences for alleles and output a .vcf (or .vcf.gz) with call data
   --seed 183 \  # Fixed random number generator seed for replicability
   --processes 10 \  # Number of parallel processes to use; DEFAULT: 1
