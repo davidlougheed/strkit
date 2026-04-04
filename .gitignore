@@ -15,6 +15,7 @@ test-*.bash
 *.bam
 *.bai
 *.bcf
+*.dat
 *.fasta
 *.fa.gz
 *.fa.gz.fai

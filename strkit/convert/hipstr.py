@@ -1,12 +1,11 @@
-import sys
 from logging import Logger
-from typing import Iterable
+from typing import Generator, Iterable
 
 __all__ = [
     "trf_bed_to_hipstr",
 ]
 
 
-def trf_bed_to_hipstr(trf_data: Iterable[list], _logger: Logger):
+def trf_bed_to_hipstr(trf_data: Iterable[list], _logger: Logger) -> Generator[str, None, None]:
     for i, item in enumerate(trf_data, 1):
-        sys.stdout.write("\t".join((*item[:3], str(len(item[-1])), str(round(float(item[5]))))) + "\n")
+        yield "\t".join((*item[:3], str(len(item[-1])), str(round(float(item[5]))))) + "\n"

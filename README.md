@@ -426,8 +426,9 @@ Some other tools, e.g., [Straglr](https://github.com/bcgsc/straglr), also take a
 BED as locus catalog input. However, other formats representing a catalog of STRs exist:
 
 * [Tandem Repeats Finder](https://github.com/Benson-Genomics-Lab/TRF) outputs a `.dat` file with a lot 
-  of information. Once converted to a BED file (see below), this can be used as-is with STRkit, but 
+  of information. Once converted to a BED file, this can be used as-is with STRkit, but 
   it's safer for other tools to convert to a four-column BED format.
+  See "[Converting TRF DAT files to BED](./docs/convert_trf_to_bed.md)" for more on how to do this.
 * STRkit supports using [IUPAC codes] to specify motifs. Manual post-processing of TRF output would 
   be needed to do this.
 * [TRGT uses a custom repeat definition format](https://github.com/PacificBiosciences/trgt/blob/main/docs/repeat_files.md),
@@ -439,6 +440,8 @@ BED as locus catalog input. However, other formats representing a catalog of STR
 
 The `strkit convert` sub-command requires an input format (`bed4`, `trf` or `trgt`), an output 
 format (many, see `strkit convert --help`), and an input file. Output is written to `stdout`.
+
+If you want the output **sorted** (which many tools prefer or require), use the `--sort` flag.
 
 *Note:* Not all input/output format pairs have available converter functions; an error will be 
 printed to `stderr` if one does not exist.
