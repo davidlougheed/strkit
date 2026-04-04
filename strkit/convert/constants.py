@@ -1,13 +1,16 @@
 __all__ = [
-    "IN_FORMAT_TRF",
-    "IN_FORMAT_TRGT",
+    "FORMAT_BED4",
+    "FORMAT_TRF",
+    "FORMAT_TRGT",
     "CONVERTER_IN_FORMATS",
 ]
 
-IN_FORMAT_TRF = "trf"
-IN_FORMAT_TRGT = "trgt"
+FORMAT_BED4 = "bed4"
+FORMAT_TRF = "trf"
+FORMAT_TRGT = "trgt"
 
 CONVERTER_IN_FORMATS = (
-    IN_FORMAT_TRF,
-    IN_FORMAT_TRGT,
+    FORMAT_BED4,
+    FORMAT_TRF,
+    FORMAT_TRGT,
 )

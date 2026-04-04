@@ -11,6 +11,11 @@ STRkit's main advantages over other callers include:
 * A license which allows use on any long-read sequencing data, versus TRGT whose 
   [license](https://github.com/PacificBiosciences/trgt/blob/main/LICENSE.md) restricts it to only PacBio data.
 
+Some other useful features include:
+* An interactive [call visualizer](#strkit-visualize-call-visualizer)
+* A locus catalog [converter](#strkit-convert-str-catalog-conversion), which includes a TRF `.dat` to `BED` converter
+* A pre-built Docker image ([`ghcr.io/davidlougheed/strkit`](https://ghcr.io/davidlougheed/strkit))
+
 If you use STRkit in published work, please cite our paper in *Genome Research*:
 
 > [Read-level genotyping of short tandem repeats using long reads and single-nucleotide variation with STRkit.](https://doi.org/10.1101/gr.280766.125)
@@ -420,25 +425,51 @@ Any extraneous columns are removed, (internally) leaving a four-column STR locus
 Some other tools, e.g., [Straglr](https://github.com/bcgsc/straglr), also take a four-column STR
 BED as locus catalog input. However, other formats representing a catalog of STRs exist:
 
-* [Tandem Repeats Finder](https://github.com/Benson-Genomics-Lab/TRF) outputs a TSV/BED with a lot 
-  of information. This can be used as-is with STRkit, but it's safer for other tools to convert to
-  a four-column BED format.
+* [Tandem Repeats Finder](https://github.com/Benson-Genomics-Lab/TRF) outputs a `.dat` file with a lot 
+  of information. Once converted to a BED file (see below), this can be used as-is with STRkit, but 
+  it's safer for other tools to convert to a four-column BED format.
+* STRkit supports using [IUPAC codes] to specify motifs. Manual post-processing of TRF output would 
+  be needed to do this.
 * [TRGT uses a custom repeat definition format](https://github.com/PacificBiosciences/trgt/blob/main/docs/repeat_files.md),
   which can specify more advanced STR structures.
+* Some tools support multiple motifs (see, e.g., 
+  [STRchive catalogs of pathogenic loci](https://strchive.org/loci/#downloads)).
 
 #### Usage
 
-The `strkit convert` sub-command requires an input format (`trf` or `trgt`), an output format 
-(many, see `strkit convert --help`), and an input file. Output is written to `stdout`.
+The `strkit convert` sub-command requires an input format (`bed4`, `trf` or `trgt`), an output 
+format (many, see `strkit convert --help`), and an input file. Output is written to `stdout`.
 
 *Note:* Not all input/output format pairs have available converter functions; an error will be 
 printed to `stderr` if one does not exist.
 
-For example, to convert from a TRF BED to a TRGT repeat definition BED file:
+##### TRF DAT file to TRF BED file (*UCSC-style*)
+
+To convert from a TRF `.dat` file (as output by the TRF program) to a TRF BED file in the style of
+the one obtainable from UCSC (e.g., for 
+[hg38](https://hgdownload.soe.ucsc.edu/goldenpath/hg38/bigZips/latest/)):
+
+```bash
+strkit convert --in-format trf --out-format trf in_file.trf.dat > out_file.trf.bed
+```
+
+##### TRF DAT file to 4-column BED file
+
+To convert from a TRF `.dat` file (as output by the TRF program) to a normal BED file:
+
+```bash
+strkit convert --in-format trf --out-format bed4 in_file.trf.dat > out_file.bed
+```
+
+##### TRF BED to TRGT repeat definition file
+
+To convert from a TRF BED to a TRGT repeat definition BED file:
 
 ```bash
 strkit convert --in-format trf --out-format trgt in_file.trf.bed > out_file.bed
 ```
+
+##### TRGT repeat definition file to STRkit BED
 
 To convert from a TRGT repeat definition file to a STRkit BED, including locus IDs if set:
 
