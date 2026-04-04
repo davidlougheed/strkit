@@ -25,6 +25,7 @@ test-*.bash
 *.log
 *.bed
 !tests/data/*.bed
+!tests/data/*.dat
 /*.json
 *.png
 *.time
