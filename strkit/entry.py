@@ -463,13 +463,14 @@ def add_cc_parser_args(cc_parser):
     cc_parser.add_argument("paths", type=str, nargs="+", help="Paths to the BED catalogs to combine.")
 
 
-def add_cv_parser_args(al_parser):
+def add_cv_parser_args(cv_parser):
     from strkit.convert.converter import CONVERTER_OUTPUT_FORMATS
-    al_parser.add_argument("in_file", type=str, help="Input file to convert from.")
-    al_parser.add_argument(
+    cv_parser.add_argument("in_file", type=str, help="Input file to convert from.")
+    cv_parser.add_argument(
         "--in-format", type=str, choices=("trf", "trgt"), default="trf", help="Format to convert from."
     )
-    al_parser.add_argument("--out-format", type=str, choices=CONVERTER_OUTPUT_FORMATS, help="Format to convert to.")
+    cv_parser.add_argument("--out-format", type=str, choices=CONVERTER_OUTPUT_FORMATS, help="Format to convert to.")
+    cv_parser.add_argument("--sort", action="store_true", help="Whether to output a sorted BED file (slower).")
 
 
 def add_vs_parser_args(vs_parser):
@@ -632,7 +633,7 @@ def _exec_combine_catalogs(p_args):
 
 def _exec_convert(p_args):
     from strkit.convert.converter import convert
-    return convert(p_args.in_file, p_args.in_format, p_args.out_format, _main_logger(p_args))
+    return convert(p_args.in_file, p_args.in_format, p_args.out_format, p_args.sort, _main_logger(p_args))
 
 
 def _exec_viz_server(p_args):

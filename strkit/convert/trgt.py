@@ -1,6 +1,5 @@
-import sys
 from logging import Logger
-from typing import Literal, Iterable
+from typing import Generator, Literal, Iterable
 
 __all__ = [
     "trgt_bed_to_bed4",
@@ -11,7 +10,9 @@ __all__ = [
 from strkit.iupac import get_iupac_code_for_nt_set
 
 
-def trgt_bed_to_bed4(trgt_data: Iterable[list], logger: Logger, annotations: Literal["strkit"] | None = None):
+def trgt_bed_to_bed4(
+    trgt_data: Iterable[list], logger: Logger, annotations: Literal["strkit"] | None = None
+) -> Generator[str, None, None]:
     """
     Converts a TRGT repeat catalog to the STRkit/BED4 catalog format.
     :param trgt_data: The loaded TRGT catalog (split by tab).
@@ -57,20 +58,20 @@ def trgt_bed_to_bed4(trgt_data: Iterable[list], logger: Logger, annotations: Lit
                         break
 
                 if not failed:  # found a consensus base for the multiple-motif STR, so we can convert it
-                    sys.stdout.write("\t".join((*data[:3], _fmt_last_col("".join(combined_motif_bases)))) + "\n")
+                    yield "\t".join((*data[:3], _fmt_last_col("".join(combined_motif_bases)))) + "\n"
                     continue
 
             data_str = "\t".join(data)
             logger.warning(f"Could not convert complex locus at line {line}; taking first motif: {data_str}")
 
-        sys.stdout.write("\t".join((*data[:3], _fmt_last_col(motifs[0]))) + "\n")
+        yield "\t".join((*data[:3], _fmt_last_col(motifs[0]))) + "\n"
 
 
-def trgt_bed_to_strkit_bed(trgt_data: Iterable[list], logger: Logger):
-    return trgt_bed_to_bed4(trgt_data, logger, annotations="strkit")
+def trgt_bed_to_strkit_bed(trgt_data: Iterable[list], logger: Logger) -> Generator[str, None, None]:
+    yield from trgt_bed_to_bed4(trgt_data, logger, annotations="strkit")
 
 
-def trf_or_strkit_bed_to_trgt(trf_data: Iterable[list], _logger: Logger):
+def trf_or_strkit_bed_to_trgt(trf_data: Iterable[list], _logger: Logger) -> Generator[str, None, None]:
     """
     Convets a TRF- or STRkit-formatted BED (motif-last) to a basic version of a TRGT catalog.
     :param trf_data: The loaded BED catalog data.
@@ -79,4 +80,4 @@ def trf_or_strkit_bed_to_trgt(trf_data: Iterable[list], _logger: Logger):
 
     for i, item in enumerate(trf_data):
         motif = item[-1]
-        sys.stdout.write("\t".join((*item[:3], f"ID=locus{i};MOTIFS={motif};STRUC=({motif})n")) + "\n")
+        yield "\t".join((*item[:3], f"ID=locus{i};MOTIFS={motif};STRUC=({motif})n")) + "\n"

@@ -1,5 +1,7 @@
+import sys
+
 from logging import Logger
-from typing import Callable, Iterable, TypeAlias
+from typing import Callable, Generator, Iterable, TextIO, TypeAlias
 
 from ._bed_4 import trf_to_bed_4
 from .constants import FORMAT_BED4, FORMAT_TRF, FORMAT_TRGT, CONVERTER_IN_FORMATS
@@ -16,9 +18,9 @@ __all__ = [
     "convert",
 ]
 
-ConverterFn: TypeAlias = Callable[[Iterable, Logger], None]
+ConverterFn: TypeAlias = Callable[[Iterable, Logger], Generator[str, None, None]]
 
-convert_formats: dict[tuple[str | tuple[str, ...], str], Callable[[Iterable, Logger], None]] = {
+convert_formats: dict[tuple[str | tuple[str, ...], str], ConverterFn] = {
     # TRF DAT to BED converter:
     (FORMAT_TRF, FORMAT_TRF): trf_passthrough,
     # BED4/TRF BED converters:
@@ -40,7 +42,25 @@ convert_formats: dict[tuple[str | tuple[str, ...], str], Callable[[Iterable, Log
 CONVERTER_OUTPUT_FORMATS: tuple[str, ...] = tuple(sorted(set(k[1] for k in convert_formats)))
 
 
-def convert(in_file: str, in_format: str, out_format: str, logger: Logger) -> int:
+def _load_bed_like(fh: TextIO, sort: bool) -> list:
+    data = []
+    contig_order = []
+
+    for line in map(lambda s: s.split("\t"), map(str.strip, fh)):
+        if not contig_order or line[0] != contig_order[-1]:
+            contig_order.append(line[0])
+        data.append([line[0], int(line[1]), int(line[2]), *line[3:]] if sort else line)
+
+    if sort:
+        data.sort(key=lambda dd: (contig_order.index(dd[0]), dd[1], dd[2]))
+        for d in data:
+            d[1] = str(d[1])
+            d[2] = str(d[2])
+
+    return data
+
+
+def convert(in_file: str, in_format: str, out_format: str, sort: bool, logger: Logger) -> int:
     out_format = out_format.lower()
 
     is_trf_dat: bool = False
@@ -71,10 +91,12 @@ def convert(in_file: str, in_format: str, out_format: str, logger: Logger) -> in
 
     with open(in_file, "r") as tf:
         if is_trf_dat:
-            data = trf_dat_to_bed(tf)
+            data = trf_dat_to_bed(tf, sort)
         else:
-            data = [line.strip().split("\t") for line in tf]
+            # in all other cases, we have various forms of BED files
+            data = _load_bed_like(tf, sort)
         # noinspection PyCallingNonCallable
-        converter(data, logger)
+        for line in converter(data, logger):
+            sys.stdout.write(line)
 
     return 0
