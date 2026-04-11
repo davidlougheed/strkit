@@ -78,9 +78,9 @@ class CalledSNV(_CalledSNVBase, total=False):
 
 
 class BasePeakData(TypedDict):
-    means: NDArray[np.float32]
-    weights: NDArray[np.float32]
-    stdevs: NDArray[np.float32]
+    means: NDArray[np.float64]
+    weights: NDArray[np.float64]
+    stdevs: NDArray[np.float64]
     modal_int: int
     n_reads: list[int]
 

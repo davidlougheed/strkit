@@ -18,8 +18,9 @@ from statistics import mode
 from warnings import simplefilter
 
 from numpy.typing import NDArray
-from typing import Iterable, Literal, TypedDict, TYPE_CHECKING
+from typing import TypedDict, TYPE_CHECKING
 
+from .constants import NP_EMPTY_ARRAY_FLOAT64
 from .gmm import make_single_gaussian
 
 if TYPE_CHECKING:
@@ -44,24 +45,14 @@ simplefilter("ignore", category=ConvergenceWarning)
 # TODO: parameterize
 small_allele_min = 8
 
-WEIGHT_1_0 = np.array([[1.0]])
 FLOAT_32_EPSILON = np.finfo(np.float32).eps
 
-CI_PERCENTILE_RANGES = {
-    "95": (2.5, 97.5),
-    "99": (0.5, 99.5),
-}
 
-
-def _array_as_int(n: NDArray[np.int_] | NDArray[np.float_]) -> NDArray[np.int32]:
-    return np.rint(n).astype(np.int32)
-
-
-def _calculate_cis(samples, ci: str = Literal["95", "99"]) -> NDArray[np.int32]:
+def _calculate_cis(samples: NDArray[np.int32], is_99: bool) -> NDArray[np.int32]:
     percentiles = np.percentile(
-        samples, CI_PERCENTILE_RANGES[ci], axis=1, method="interpolated_inverted_cdf"
+        samples, (0.5, 99.5) if is_99 else (2.5, 97.5), axis=1, method="interpolated_inverted_cdf"
     ).transpose()
-    return _array_as_int(percentiles)
+    return percentiles
 
 
 def na_length_list(n_alleles: int):
@@ -137,12 +128,12 @@ def fit_gmm(
 
 
 class BaseCallDict(TypedDict):
-    call: NDArray[np.int32] | NDArray[np.float_]
-    call_95_cis: NDArray[np.int32] | NDArray[np.float_]  # 2D arrays
-    call_99_cis: NDArray[np.int32] | NDArray[np.float_]  # 2D arrays
-    peaks: NDArray[np.float_]
-    peak_weights: NDArray[np.float_]
-    peak_stdevs: NDArray[np.float_]
+    call: NDArray[np.int32]
+    call_95_cis: NDArray[np.int32]
+    call_99_cis: NDArray[np.int32]
+    peaks: NDArray[np.float64]
+    peak_weights: NDArray[np.float64]
+    peak_stdevs: NDArray[np.float64]
     modal_n_peaks: int
 
 
@@ -150,9 +141,12 @@ class CallDict(BaseCallDict, total=False):
     ps: int
 
 
-def make_read_weights(read_weights: Iterable[float] | None, num_reads: int) -> NDArray[np.float_]:
-    return np.array(
-        read_weights if read_weights is not None else np.array(([1/num_reads] * num_reads) if num_reads else []))
+def make_read_weights(read_weights: NDArray[np.float64] | None, num_reads: int) -> NDArray[np.float64]:
+    return read_weights if read_weights is not None else (
+        np.repeat(np.float64(1 / num_reads), num_reads)
+        if num_reads else
+        NP_EMPTY_ARRAY_FLOAT64
+    )
 
 
 def get_resampled_bootstrapped_reads(
@@ -160,8 +154,8 @@ def get_resampled_bootstrapped_reads(
     combined_len: int,
     repeats_fwd: NDArray[np.int32],
     repeats_rev: NDArray[np.int32],
-    read_weights_fwd: Iterable[float] | None,
-    read_weights_rev: Iterable[float] | None,
+    read_weights_fwd: NDArray[np.float64] | None,
+    read_weights_rev: NDArray[np.float64] | None,
     # ---------------------------------------
     num_bootstrap: int,
     separate_strands: bool,
@@ -202,7 +196,7 @@ def get_resampled_bootstrapped_reads(
             (
                 rng.choice(combined_reads, size=(num_bootstrap, combined_len), replace=True, p=combined_weights)
                 if num_bootstrap > 1
-                else np.array([combined_reads])
+                else combined_reads
             ),
             kind="stable")
 
@@ -212,8 +206,8 @@ def get_resampled_bootstrapped_reads(
 def call_alleles(
     repeats_fwd: NDArray[np.int32],
     repeats_rev: NDArray[np.int32],
-    read_weights_fwd: Iterable[float] | None,
-    read_weights_rev: Iterable[float] | None,
+    read_weights_fwd: NDArray[np.float64] | None,
+    read_weights_rev: NDArray[np.float64] | None,
     params: CallParams,
     min_reads: int,
     n_alleles: int,
@@ -235,10 +229,10 @@ def call_alleles(
 
         cn = combined_reads[0]
 
-        call = _array_as_int(np.full(n_alleles, cn))
-        call_cis = _array_as_int(np.full((n_alleles, 2), cn))
+        call = np.full(n_alleles, cn)
+        call_cis = np.full((n_alleles, 2), cn)
 
-        peaks: NDArray[np.float_] = call.astype(np.float_)
+        peaks: NDArray[np.float64] = call.astype(np.float64)
 
         return CallDict(
             call=call,
@@ -253,9 +247,9 @@ def call_alleles(
     # ------------------------------------------------------------------------------------------------------------------
 
     nal = na_length_list(n_alleles)
-    allele_samples = np.array(nal, dtype=np.float32)
-    allele_weight_samples = np.array(nal, dtype=np.float32)
-    allele_stdev_samples = np.array(nal, dtype=np.float32)
+    allele_samples = np.array(nal, dtype=np.float64)
+    allele_weight_samples = np.array(nal, dtype=np.float64)
+    allele_stdev_samples = np.array(nal, dtype=np.float64)
     sample_peaks = np.array([], dtype=np.int32)
 
     rng: Generator = np.random.default_rng(seed=seed)
@@ -279,7 +273,7 @@ def call_alleles(
 
     gmm_cache = {}
 
-    def _get_fitted_gmm(s: NDArray[np.int_] | NDArray[np.float_]) -> object | None:
+    def _get_fitted_gmm(s: NDArray[np.int32]) -> object | None:
         if (s_t := s.tobytes()) not in gmm_cache:
             # Fit Gaussian mixture model to the resampled data
             gmm_cache[s_t] = fit_gmm(rng, s, n_alleles, allele_filter, params.force_gm_filter, params.gmm_params)
@@ -335,8 +329,8 @@ def call_alleles(
     # Calculate 95% and 99% confidence intervals for each allele from the bootstrap distributions.
     allele_samples_argsort = allele_samples.argsort(axis=1, kind="stable")
     allele_samples = np.take_along_axis(allele_samples, allele_samples_argsort, axis=1)
-    allele_cis_95 = _calculate_cis(allele_samples, ci="95")
-    allele_cis_99 = _calculate_cis(allele_samples, ci="99")
+    allele_cis_95 = _calculate_cis(allele_samples, is_99=False)
+    allele_cis_99 = _calculate_cis(allele_samples, is_99=True)
     allele_weight_samples = np.take_along_axis(allele_weight_samples, allele_samples_argsort, axis=1)
     allele_stdev_samples = np.take_along_axis(allele_stdev_samples, allele_samples_argsort, axis=1)
 

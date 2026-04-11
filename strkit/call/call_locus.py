@@ -25,6 +25,7 @@ from strkit_rust_ext import (
 from strkit.utils import idx_0_getter, apply_or_none
 
 from .allele import call_alleles
+from .constants import NP_EMPTY_ARRAY_INT32, NP_EMPTY_ARRAY_FLOAT64
 from .gmm import make_already_fitted_gmm
 from .repeats import get_repeat_count, get_ref_repeat_count
 from .repeat_count_params import RepeatCountParams
@@ -63,8 +64,6 @@ __all__ = [
     "call_locus",
 ]
 
-EMPTY_NP_ARRAY = np.array([])
-
 # TODO: Parameterize
 CALL_WARN_TIME = 3  # seconds
 
@@ -102,7 +101,7 @@ def calculate_read_distance(
     relative_cn_distance_weight_scaling_many: float = 0.1,
     many_snvs_quantity: int = 3,
     snv_quality_threshold: int = 20,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     """
     Calculate pairwise distance for all reads using either SNVs ONLY or a mixture of SNVs and copy number.
     :param n_reads: Number of reads.
@@ -122,7 +121,7 @@ def calculate_read_distance(
     useful_snvs_range: tuple[int, ...] = tuple(range(n_useful_snvs))
 
     # Initialize a distance matrix for all reads
-    distance_matrix = np.zeros((n_reads, n_reads), dtype=np.float_)
+    distance_matrix = np.zeros((n_reads, n_reads), dtype=np.float64)
 
     @cache
     def _skip_set(idx: int) -> set:
@@ -189,7 +188,7 @@ def call_alleles_with_gmm(
     # Dicts are ordered in Python; very nice :)
     rdvs = tuple(read_dict.values())
     read_cns = np.fromiter(map(cn_getter, rdvs), dtype=np.int32)
-    read_weights = np.fromiter(map(weight_getter, rdvs), dtype=np.float_)
+    read_weights = np.fromiter(map(weight_getter, rdvs), dtype=np.float64)
     read_weights /= read_weights.sum()  # Normalize to probabilities
 
     logger_.debug(
@@ -200,8 +199,8 @@ def call_alleles_with_gmm(
     )
 
     return call_alleles(
-        read_cns, EMPTY_NP_ARRAY,
-        read_weights, (),
+        read_cns, NP_EMPTY_ARRAY_INT32,
+        read_weights, NP_EMPTY_ARRAY_FLOAT64,
         params=params,
         min_reads=params.min_reads,
         n_alleles=n_alleles,
@@ -228,7 +227,7 @@ def call_alleles_with_haplotags(
 
     hp_reads: list[tuple[ReadDict, ...]] = []
     cns: list[NDArray[np.int32]] = []
-    c_ws: list[NDArray[np.float_]] = []
+    c_ws: list[NDArray[np.float64]] = []
 
     for hi, hp in enumerate(haplotags):
         # Find reads for cluster
@@ -240,7 +239,7 @@ def call_alleles_with_haplotags(
         cns.append(np.fromiter(map(cn_getter, crs), dtype=np.int32))
 
         # Calculate weights array
-        ws = np.fromiter(map(weight_getter, crs), dtype=np.float_)
+        ws = np.fromiter(map(weight_getter, crs), dtype=np.float64)
         c_ws.append(ws / ws.sum())
 
         hp_reads.append(crs)
@@ -249,8 +248,8 @@ def call_alleles_with_haplotags(
 
     for hi, hp in enumerate(haplotags):
         cc: CallDict | None = call_alleles(
-            cns[hi], EMPTY_NP_ARRAY,  # Don't bother separating by strand for now...
-            c_ws[hi], (),
+            cns[hi], NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
+            c_ws[hi], NP_EMPTY_ARRAY_FLOAT64,
             params=params,
             min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
@@ -448,7 +447,7 @@ def _determine_snv_call_phase_set(
     return None
 
 
-def _agg_clust_alleles_by_dm(n_alleles: int, dm: NDArray[np.float_]) -> tuple[NDArray[np.int_], tuple[int, ...]]:
+def _agg_clust_alleles_by_dm(n_alleles: int, dm: NDArray[np.float64]) -> tuple[NDArray[np.int_], tuple[int, ...]]:
     # fit without validation for performance improvement
     # noinspection PyProtectedMember
     c = AgglomerativeClustering(n_clusters=n_alleles, metric="precomputed", linkage="average")._fit(dm)
@@ -590,7 +589,7 @@ def call_alleles_with_incorporated_snvs(
 
     cluster_reads: list[tuple[ReadDict, ...]] = []
     cns: list[NDArray[np.int32]] = []
-    c_ws: list[NDArray[np.float_]] = []
+    c_ws: list[NDArray[np.float64]] = []
 
     for ci in cluster_indices:
         # Find reads for cluster
@@ -603,7 +602,7 @@ def call_alleles_with_incorporated_snvs(
         cns.append(np.fromiter(map(cn_getter, crs), dtype=np.int32))
 
         # Calculate weights array
-        ws = np.fromiter(map(weight_getter, crs), dtype=np.float_)
+        ws = np.fromiter(map(weight_getter, crs), dtype=np.float64)
         c_ws.append(ws / np.sum(ws))
 
         cluster_reads.append(crs)
@@ -614,8 +613,8 @@ def call_alleles_with_incorporated_snvs(
 
     for ci in cluster_indices:
         cc: CallDict | None = call_alleles(
-            cns[ci], EMPTY_NP_ARRAY,  # Don't bother separating by strand for now...
-            c_ws[ci], (),
+            cns[ci], NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
+            c_ws[ci], NP_EMPTY_ARRAY_FLOAT64,
             params,
             min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
@@ -642,7 +641,7 @@ def call_alleles_with_incorporated_snvs(
 
     cdd_sort_order_determiner = np.fromiter(
         map(lambda x: (x["peaks"][0], x["call_95_cis"][0][0]), cdd),
-        dtype=[("p", np.float_), ("i", np.int_)])
+        dtype=[("p", np.float64), ("i", np.int32)])
     # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
     peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
 
@@ -1554,9 +1553,9 @@ def call_locus(
     model_align_scores: list[float] = []
 
     if read_peaks_called := (call_modal_n and call_modal_n <= 2):
-        peaks: NDArray[np.float_] = call_peaks[:call_modal_n]
-        stdevs: NDArray[np.float_] = call_stdevs[:call_modal_n]
-        weights: NDArray[np.float_] = call_weights[:call_modal_n]
+        peaks: NDArray[np.float64] = call_peaks[:call_modal_n]
+        stdevs: NDArray[np.float64] = call_stdevs[:call_modal_n]
+        weights: NDArray[np.float64] = call_weights[:call_modal_n]
 
         allele_reads: list[list[str]] = [list() for _ in range(call_modal_n)]
 

@@ -79,7 +79,7 @@ def make_single_gaussian(sample_rs: NDArray) -> object:
 
 
 def make_already_fitted_gmm(
-    n_components: int, peaks: NDArray[np.float_], stdevs: NDArray[np.float_], weights: NDArray[np.float_]
+    n_components: int, peaks: NDArray[np.float64], stdevs: NDArray[np.float64], weights: NDArray[np.float64]
 ) -> GaussianMixture:
     g: GaussianMixture = GaussianMixture(n_components=n_components, covariance_type="spherical")
     g.means_ = peaks.reshape(-1, 1)
