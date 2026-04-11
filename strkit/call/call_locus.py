@@ -184,7 +184,7 @@ def call_alleles_with_gmm(
     # ---
     logger_: Logger,
     locus_log_str: str,
-) -> CallDict | dict:
+) -> CallDict | None:
     # Dicts are ordered in Python; very nice :)
     rdvs = tuple(read_dict.values())
     read_cns = np.fromiter(map(cn_getter, rdvs), dtype=np.int32)
@@ -209,7 +209,7 @@ def call_alleles_with_gmm(
         seed=get_new_seed(rng),
         logger_=logger_,
         debug_str=locus_log_str,
-    ) or {}  # Still false-y
+    )
 
 
 def call_alleles_with_haplotags(
@@ -222,7 +222,7 @@ def call_alleles_with_haplotags(
     # ---
     logger_: Logger,
     locus_log_str: str,
-) -> dict | None:
+) -> CallDict | None:
     n_alleles: int = len(haplotags)
 
     hp_reads: list[tuple[ReadDict, ...]] = []
@@ -275,7 +275,7 @@ def call_alleles_with_haplotags(
     peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
 
     # All call_datas are truth-y; all arrays should be ordered by peak_order
-    call_data = {
+    call_data: CallDict = {
         "call": np.concatenate(tuple(cc["call"] for cc in cdd), axis=0),
         "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0),
         "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0),
@@ -1523,19 +1523,18 @@ def call_locus(
         allele_time,
     )
 
-    # Extract data from call_data --------------------------------------------------------------------------------------
+    # Extract peak data from call_data ---------------------------------------------------------------------------------
 
-    call = call_data.get("call")
-
-    call_95_cis = call_data.get("call_95_cis")
-    call_99_cis = call_data.get("call_99_cis")
-
-    call_peaks = call_data.get("peaks")
-    call_weights = call_data.get("peak_weights")
-    call_stdevs = call_data.get("peak_stdevs")
-    call_modal_n = call_data.get("modal_n_peaks")
-
-    call_ps = call_data.get("ps")
+    if call_data:
+        call_peaks = call_data["peaks"]
+        call_weights = call_data["peak_weights"]
+        call_stdevs = call_data["peak_stdevs"]
+        call_modal_n = call_data["modal_n_peaks"]
+    else:
+        call_peaks = None
+        call_weights = None
+        call_stdevs = None
+        call_modal_n = None
 
     # Assign reads to peaks and compute peak k-mers (and optionally consensus sequences) -------------------------------
 
@@ -1552,7 +1551,9 @@ def call_locus(
     # Also keep track of read model align scores to calculate the mean at the end
     model_align_scores: list[float] = []
 
-    if read_peaks_called := (call_modal_n and call_modal_n <= 2):
+    read_peaks_called = (call_modal_n and call_modal_n <= 2)
+
+    if read_peaks_called:
         peaks: NDArray[np.float64] = call_peaks[:call_modal_n]
         stdevs: NDArray[np.float64] = call_stdevs[:call_modal_n]
         weights: NDArray[np.float64] = call_weights[:call_modal_n]
@@ -1614,11 +1615,7 @@ def call_locus(
         if any(map(eq_0, call_peak_n_reads)):
             # TODO: This shouldn't happen, but it does occasionally - why?
             logger_.warning("%s - found empty allele, nullifying call results", locus_log_str)
-
             call_data = {}
-            call = None
-            call_95_cis = None
-            call_99_cis = None
 
         if call_data and consensus:
             def _consensi_for_key(k: Literal["_tr_seq", "_start_anchor"]):
@@ -1635,15 +1632,26 @@ def call_locus(
     # We're done with read dict extra, delete early
     del read_dict_extra
 
-    peak_data = {
-        "means": call_peaks,
-        "weights": call_weights,
-        "stdevs": call_stdevs,
-        "modal_n": call_modal_n,
-        "n_reads": call_peak_n_reads,
-        **({"kmers": list(map(dict, peak_kmers))} if count_kmers in ("peak", "both") else {}),
-        **({"seqs": call_seqs, "start_anchor_seqs": call_anchor_seqs} if consensus else {}),
-    } if call_data else None
+    if call_data:
+        call = call_data["call"]
+        call_95_cis = call_data["call_95_cis"]
+        call_99_cis = call_data["call_99_cis"]
+        call_ps = call_data.get("ps")
+        peak_data = {
+            "means": call_peaks,
+            "weights": call_weights,
+            "stdevs": call_stdevs,
+            "modal_n": call_modal_n,
+            "n_reads": call_peak_n_reads,
+            **({"kmers": list(map(dict, peak_kmers))} if count_kmers in ("peak", "both") else {}),
+            **({"seqs": call_seqs, "start_anchor_seqs": call_anchor_seqs} if consensus else {}),
+        }
+    else:
+        call = None
+        call_95_cis = None
+        call_99_cis = None
+        call_ps = None
+        peak_data = None
 
     assign_time = time.perf_counter() - assign_start_time
 
