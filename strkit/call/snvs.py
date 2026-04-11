@@ -143,13 +143,8 @@ def call_and_filter_useful_snvs(
                 locus_log_str, u_ref, call, str(peak_counts))
             skipped = True
 
-        snv_rec = candidate_snvs.get(u_ref)
-        if snv_rec is not None:
-            snv_id = snv_rec["id"]
-            if snv_id == ".":
-                snv_id = f"{contig}_{u_ref}"
-        else:
-            snv_id = f"{contig}_{u_ref}"
+        snv_id = candidate_snvs.get_snv_id(u_ref) or f"{contig}_{u_ref}"
+        snv_ref_base = candidate_snvs.get_snv_ref_base(u_ref)
 
         if not skipped:
             cached_snv_genotype = snv_genotype_cache.get(snv_id)
@@ -169,7 +164,7 @@ def call_and_filter_useful_snvs(
                 pos=u_ref,
                 call=tuple(call),
                 rcs=rs,
-                **({"ref": snv_rec["ref_base"]} if snv_rec is not None else {}),
+                **({"ref": snv_ref_base} if snv_ref_base is not None else {}),
             )
         )
 
