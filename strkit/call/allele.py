@@ -20,7 +20,6 @@ from warnings import simplefilter
 from numpy.typing import NDArray
 from typing import TypedDict, TYPE_CHECKING
 
-from .constants import NP_EMPTY_ARRAY_FLOAT64
 from .gmm import make_single_gaussian
 
 if TYPE_CHECKING:
@@ -141,21 +140,13 @@ class CallDict(BaseCallDict, total=False):
     ps: int
 
 
-def make_read_weights(read_weights: NDArray[np.float64] | None, num_reads: int) -> NDArray[np.float64]:
-    return read_weights if read_weights is not None else (
-        np.repeat(np.float64(1 / num_reads), num_reads)
-        if num_reads else
-        NP_EMPTY_ARRAY_FLOAT64
-    )
-
-
 def get_resampled_bootstrapped_reads(
     combined_reads: NDArray[np.int32],
     combined_len: int,
     repeats_fwd: NDArray[np.int32],
     repeats_rev: NDArray[np.int32],
-    read_weights_fwd: NDArray[np.float64] | None,
-    read_weights_rev: NDArray[np.float64] | None,
+    read_weights_fwd: NDArray[np.float64],
+    read_weights_rev: NDArray[np.float64],
     # ---------------------------------------
     num_bootstrap: int,
     separate_strands: bool,
@@ -166,13 +157,10 @@ def get_resampled_bootstrapped_reads(
     fwd_len = repeats_fwd.shape[0]
     rev_len = repeats_rev.shape[0]
 
-    fwd_strand_weights = make_read_weights(read_weights_fwd, fwd_len)
-    rev_strand_weights = make_read_weights(read_weights_rev, rev_len)
+    assert repeats_fwd.shape == read_weights_fwd.shape
+    assert repeats_rev.shape == read_weights_rev.shape
 
-    assert repeats_fwd.shape == fwd_strand_weights.shape
-    assert repeats_rev.shape == rev_strand_weights.shape
-
-    combined_weights = np.concatenate((fwd_strand_weights, rev_strand_weights), axis=None)
+    combined_weights = np.concatenate((read_weights_fwd, read_weights_rev), axis=None)
 
     # ------------------------------------------------------------------------------------------------------------------
 
@@ -184,8 +172,8 @@ def get_resampled_bootstrapped_reads(
         # (if we've passed the coverage threshold)
 
         resample_size = (num_bootstrap, target_length)
-        fwd_strand_samples = rng.choice(repeats_fwd, size=resample_size, replace=True, p=fwd_strand_weights)
-        rev_strand_samples = rng.choice(repeats_rev, size=resample_size, replace=True, p=rev_strand_weights)
+        fwd_strand_samples = rng.choice(repeats_fwd, size=resample_size, replace=True, p=read_weights_fwd)
+        rev_strand_samples = rng.choice(repeats_rev, size=resample_size, replace=True, p=read_weights_rev)
 
         concat_samples = np.sort(
             np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1),
@@ -206,8 +194,8 @@ def get_resampled_bootstrapped_reads(
 def call_alleles(
     repeats_fwd: NDArray[np.int32],
     repeats_rev: NDArray[np.int32],
-    read_weights_fwd: NDArray[np.float64] | None,
-    read_weights_rev: NDArray[np.float64] | None,
+    read_weights_fwd: NDArray[np.float64],
+    read_weights_rev: NDArray[np.float64],
     params: CallParams,
     min_reads: int,
     n_alleles: int,
@@ -217,7 +205,7 @@ def call_alleles(
     logger_: Logger,
     debug_str: str,
 ) -> CallDict | None:
-    combined_reads = np.concatenate((repeats_fwd, repeats_rev), axis=None)
+    combined_reads = np.concatenate((repeats_fwd, repeats_rev), axis=None, dtype=np.int32)
     combined_len = combined_reads.shape[-1]
 
     if combined_len < min_reads:

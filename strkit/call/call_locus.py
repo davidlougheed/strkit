@@ -700,7 +700,7 @@ def call_alleles_with_incorporated_snvs(
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
+    peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0, dtype=np.float64)
 
     # All call_datas are truth-y; all arrays should be ordered by peak_order
     call_data: CallDict = {
