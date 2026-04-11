@@ -117,6 +117,14 @@ def add_call_parser_args(call_parser):
         help="Calculate consensus sequences for alleles. This flag increases runtime.")
 
     call_parser.add_argument(
+        "--poa",
+        type=str,
+        choices=("spoa", "rust-bio"),
+        default="spoa",
+        help="Specifies the POA implementation to use. The default pre-v0.25.0 was rust-bio (which was the only "
+             "implementation available in STRkit), and in v0.25.0+ is spoa.")
+
+    call_parser.add_argument(
         "--large-consensus-length",
         type=int,
         default=2000,

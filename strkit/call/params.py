@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from logging import WARNING
 from pysam import AlignmentFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -56,6 +56,7 @@ class CallParams:
         respect_ref: bool = False,
         count_kmers: str = "none",  # "none" | "peak" | "read"
         consensus: bool = False,
+        poa: Literal["spoa", "rust-bio"] = "spoa",
         large_consensus_length: int = 1200,
         max_n_large_consensus_reads: int = 20,
         max_mdn_poa_length: int = 2000,
@@ -102,6 +103,7 @@ class CallParams:
         self.respect_ref: bool = respect_ref
         self.count_kmers: str = count_kmers
         self.consensus: bool = consensus
+        self.poa: Literal["spoa", "rust-bio"] = poa
         # above large_consensus_length, the number of reads used for consensus is limited to max_n_large_consensus_reads
         self.large_consensus_length: int = large_consensus_length
         self.max_n_large_consensus_reads: int = max_n_large_consensus_reads
@@ -200,6 +202,7 @@ class CallParams:
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
             consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
+            poa=p_args.poa,
             large_consensus_length=p_args.large_consensus_length,
             max_n_large_consensus_reads=p_args.max_n_large_consensus_reads,
             max_mdn_poa_length=p_args.max_mdn_poa_length,
@@ -243,6 +246,7 @@ class CallParams:
             "respect_ref": self.respect_ref,
             "count_kmers": self.count_kmers,
             "consensus": self.consensus,
+            "poa": self.poa,
             "large_consensus_length": self.large_consensus_length,
             "max_n_large_consensus_reads": self.max_n_large_consensus_reads,
             "max_mdn_poa_length": self.max_mdn_poa_length,

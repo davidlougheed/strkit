@@ -1624,7 +1624,7 @@ def call_locus(
                     if seqs and len(seqs[0]) > params.large_consensus_length:
                         # if we're dealing with large sequences, use a subset of the reads to prevent stalling out.
                         seqs = seqs[:params.max_n_large_consensus_reads]
-                    yield consensus_seq(seqs, logger_, params.max_mdn_poa_length)
+                    yield consensus_seq(seqs, logger_, params.max_mdn_poa_length, params.poa)
 
             call_seqs.extend(_consensi_for_key("_tr_seq"))
             call_anchor_seqs.extend(_consensi_for_key("_start_anchor"))

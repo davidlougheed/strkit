@@ -63,6 +63,8 @@
 * `--consensus` or `-c`: Turn on consensus calculation for alleles. This adds runtime, but gives a better idea of STR 
   structure and is useful for comparing alleles beyond copy number. If `--vcf` is set, this option is forced on. 
   **Default:** off
+* `--poa [spoa|rust-bio]`: Specify which POA implementation you wish to use; results vary subtly depending on 
+  implementation. The `spoa` option is faster, and is the default as of v0.25.0. **Default:** `spoa` (v0.25.0+) 
 * `--large-consensus-length ####`: If the smallest tandem repeat sequence is longer than this, the number of reads used
   for determining the consensus will be downsampled to `--max-n-large-consensus-reads`. **Default:** 2000
 * `--max-n-large-consensus-reads ##`: When the smallest tandem repeat sequence is longer than
