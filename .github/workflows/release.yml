@@ -26,6 +26,9 @@ jobs:
       - name: Install pypa/build
         run: python -m pip install build --user
 
+      - name: Update setuptools
+        run: python -m pip install -U setuptools --user
+
       - name: Build
         run: python -m build --sdist --wheel --outdir dist/ .
 
