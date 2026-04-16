@@ -38,7 +38,6 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3 :: Only",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: POSIX",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
@@ -47,7 +46,7 @@ setup(
     author="David Lougheed",
     author_email="david.lougheed@gmail.com",
 
-    packages=setuptools.find_namespace_packages(),
+    packages=setuptools.find_packages(exclude=["tests"]),
     include_package_data=True,
 
     entry_points={
