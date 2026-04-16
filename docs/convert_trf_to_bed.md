@@ -1,4 +1,6 @@
-# Converting TRF DAT files to BED
+# Converting TRF DAT files to BED 
+
+**Version:** v0.25.0+
 
 [Tandem Repeats Finder](https://tandem.bu.edu/trf/trf.html) ([Benson 1999](https://pubmed.ncbi.nlm.nih.gov/9862982/)) 
 is a widely-used tool for discovering tandem repeat regions in genomes. However, its output is in the form of a `.dat` 

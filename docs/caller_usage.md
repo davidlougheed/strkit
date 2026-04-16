@@ -3,8 +3,8 @@
 
 ## All optional flags
 
-* `--annotation-file [path]` or `--gff [path]`: A path to a sorted, Tabix-indexed GFF3 file with genomic annotations. 
-  If set, loci in the output will be annotated with overlapping feature(s), if any.
+* `--annotation-file [path]` or `--gff [path]` (v0.25.0+): A path to a sorted, Tabix-indexed GFF3 file with genomic 
+  annotations. If set, loci in the output will be annotated with overlapping feature(s), if any.
 * `--sample-id example_sample`: Set a sample ID, or override the alignment file sample ID. This will be included in JSON 
   output, but not TSV output.
 * `--min-reads ##`: Minimum total number of supporting reads needed to make a call. This must be greater than or equal
@@ -48,7 +48,7 @@
   with short flanking regions.
 * `--snv-min-base-qual [int]` or `--min-sbq [int]`: Minimum PHRED quality score for bases of SNVs to use for phasing. 
   **Default:** 20
-* `--significant-clip-threshold ###`: Minimum number of bases to consider the end of a read 'significantly' 
+* `--significant-clip-threshold ###` (v0.25.0+): Minimum number of bases to consider the end of a read 'significantly' 
   soft-clipped, meaning we should do some read trimming in the SNV-finding process to avoid SNV false positives.
 * `--targeted` or `-t`: Turn on targeted genotyping mode, which re-weights longer reads differently. Use this option if
   the alignment file contains targeted reads that do not reflect normal mapping patterns, e.g. from PacBio No-Amp 
@@ -65,8 +65,8 @@
 * `--consensus` or `-c`: Turn on consensus calculation for alleles. This adds runtime, but gives a better idea of STR 
   structure and is useful for comparing alleles beyond copy number. If `--vcf` is set, this option is forced on. 
   **Default:** off
-* `--poa [spoa|rust-bio]`: Specify which POA implementation you wish to use; results vary subtly depending on 
-  implementation. The `spoa` option is faster, and is the default as of v0.25.0. **Default:** `spoa` (v0.25.0+) 
+* `--poa [spoa|rust-bio]` (v0.25.0+): Specify which POA implementation you wish to use; results vary subtly depending on
+  implementation. The `spoa` option is faster, and is the default as of v0.25.0. **Default:** `spoa` 
 * `--large-consensus-length ####`: If the smallest tandem repeat sequence is longer than this, the number of reads used
   for determining the consensus will be downsampled to `--max-n-large-consensus-reads`. **Default:** 2000
 * `--max-n-large-consensus-reads ##`: When the smallest tandem repeat sequence is longer than
@@ -79,19 +79,20 @@
   benchmarking and in case of slight misalignment. This is clamped to being in the range of `[1, flank_size]`.
   **Default:** 5
 * `--num-bootstrap ###` or `-b`: Now many bootstrap re-samplings to perform. **Default:** 100
-* `--force-gm-filter`: Whether to force-enable a smoothing filter that removes peaks with low read support called with 
-  a Gaussian mixture model (GMM), even for expansion-like reads (i.e., large alleles with copy numbers far above the 
-  small allele; see `--gm-filter-expansion-ratio`). This might be useful for messy, old ONT R9 long read data, but 
-  *will* result in reduced expansion sensitivity!
+* `--force-gm-filter` (v0.25.0+): Whether to force-enable a smoothing filter that removes peaks with low read support 
+  called with a Gaussian mixture model (GMM), even for expansion-like reads (i.e., large alleles with copy numbers far 
+  above the small allele; see `--gm-filter-expansion-ratio`). This might be useful for messy, old ONT R9 long read data,
+  but *will* result in reduced expansion sensitivity!
 * `--gm-filter-factor #`: Tuning parameter for the copy number Gaussian mixture model (GMM) used for allele calling in
   some cases. GMM peaks are filtered out when they have a weight lower than `(gm_filter_factor * n_components)` for a
   given GMM of `n_components`, if they're not deemed to be "expansion-like" (see `--gm-filter-expansion-ratio #`) unless 
   the filter is forced on via `--force-gm-filter`. 
   *This filter does not apply when using SNV-based or haplotag peak calling.* **Default:** 3
-* `--gm-filter-expansion-ratio #`: Tuning parameter for disabling the above GMM peak filter. When running the GMM for 
-  allele calling, peaks with low read support will be filtered out by default (see `--gm-filter-factor`). However, if 
-  the largest peak is more than `--gm-filter-expansion-ratio` times the size of the smaller peak, it will be kept (even 
-  with low read support.) *This filter does not apply when using SNV-based or haplotag peak calling.* **Default:** 5.0
+* `--gm-filter-expansion-ratio #` (v0.25.0+): Tuning parameter for disabling the above GMM peak filter. When running the
+  GMM for allele calling, peaks with low read support will be filtered out by default (see `--gm-filter-factor`).
+  However, if the largest peak is more than `--gm-filter-expansion-ratio` times the size of the smaller peak, it will be
+  kept (even with low read support.) *This filter does not apply when using SNV-based or haplotag peak calling.* 
+  **Default:** 5.0
 * `--sex-chr ??` or `-x`: Sex chromosome configuration. **Without this, loci in sex chromosomes will not be genotyped.**
   Can be any configuration of Xs and Ys; only count matters. **Default:** *none*
 * `--json [path]` or `-j`: Path to output JSON call data to. JSON call data is more detailed than the `stdout` TSV 
