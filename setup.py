@@ -46,7 +46,7 @@ setup(
     author="David Lougheed",
     author_email="david.lougheed@gmail.com",
 
-    packages=setuptools.find_packages(exclude=["tests"]),
+    packages=setuptools.find_packages(include=["strkit", "strkit.*"]),
     include_package_data=True,
 
     entry_points={
