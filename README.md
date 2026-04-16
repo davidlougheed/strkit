@@ -228,6 +228,9 @@ If you're calling STRs using low-coverage alignments, you may want to:
 - potentially, if you desire more calls at the cost of quality, lower the minimum tandem repeat +
   flanking region PHRED quality required (from its default of 13) via the `--min-avg-phred` 
   parameter.
+- enable the `--allow-only-one-full-flank` option to discard fewer reads by including spanning 
+  reads where only one of the two flanking sequences on either side of the repeat are of full 
+  length (i.e., are of length `--flank-size` or higher.)
 
 **Note:** `--min-reads` must be greater than or equal to `--min-allele-reads`.
 
@@ -249,8 +252,13 @@ computational performance or a potential bias towards heterozygous calls:
   also lower sensitivity for true expansions with low read support.
 * Enable `--realign`, *even* with lower-quality reads. Reads containing expansions can be 
   soft-clipped by aligners like `minimap2`; the `--realign` flag can help recover these reads.
-* Tune `--gm-filter-expansion-ratio` to a slightly lower value, like `3.0`. This will keep larger alleles with low read 
-  support if they are larger than `--gm-filter-expansion-ratio` times the size of the smaller allele.
+* Tune `--gm-filter-expansion-ratio` to a slightly lower value, like `3.0`. This will keep larger 
+  alleles with low read support if they are larger than `--gm-filter-expansion-ratio` times the 
+  size of the smaller allele.
+* Enable the `--allow-only-one-full-flank` option to discard fewer reads (especially since 
+  expansions often do not have many spanning reads) by including spanning reads where only one of the
+  two flanking sequences on either side of the repeat are of full length (i.e., are of length 
+  `--flank-size` or higher.)
 
 ##### REGARDING SNV INCORPORATION
 

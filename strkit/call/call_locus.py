@@ -968,7 +968,7 @@ def get_locus_alignment_data_from_read(
             return None
 
         if not (left := locus_read_coords.full_left_flank) or not locus_read_coords.full_right_flank:
-            logger_.info(
+            logger_.debug(
                 "%s - recovered read with one partial flank: %s (%s)",
                 locus_with_ref_data.log_str(), segment.name, "left" if not left else "right"
             )

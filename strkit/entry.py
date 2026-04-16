@@ -207,6 +207,14 @@ def add_call_parser_args(call_parser):
         help="Number of bases around the locus to use for context.")
 
     call_parser.add_argument(
+        "--allow-only-one-full-flank", "--aof",
+        action="store_true",
+        help=(
+            "Whether to allow having a full flanking sequence (of --flank-size or greater) on only ONE side, rather "
+            "than both (which is the default). This still requires that reads fully span the repeat."
+        ))
+
+    call_parser.add_argument(
         "--skip-supplementary", "--skip-supp",
         action="store_true",
         help="Whether to skip supplementary aligned reads.")

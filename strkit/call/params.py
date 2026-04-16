@@ -43,6 +43,7 @@ class CallParams:
         gm_filter_factor: int = 3,
         gm_filter_expansion_ratio: float = 5.0,
         flank_size: int = 70,
+        allow_only_one_full_flank: bool = False,
         skip_supplementary: bool = False,
         skip_secondary: bool = False,
         ploidy: str | None = None,
@@ -90,6 +91,7 @@ class CallParams:
         self.gm_filter_factor: int = gm_filter_factor
         self.gm_filter_expansion_ratio: float = gm_filter_expansion_ratio
         self.flank_size: int = flank_size
+        self.allow_only_one_full_flank: bool = allow_only_one_full_flank
         self.skip_supplementary: bool = skip_supplementary
         self.skip_secondary: bool = skip_secondary
         self.ploidy: str | None = ploidy
@@ -190,6 +192,7 @@ class CallParams:
             gm_filter_factor=p_args.gm_filter_factor,
             gm_filter_expansion_ratio=p_args.gm_filter_expansion_ratio,
             flank_size=p_args.flank_size,
+            allow_only_one_full_flank=p_args.allow_only_one_full_flank,
             skip_supplementary=p_args.skip_supplementary,
             skip_secondary=p_args.skip_secondary,
             ploidy=p_args.ploidy,
@@ -233,6 +236,7 @@ class CallParams:
             "gm_filter_factor": self.gm_filter_factor,
             "gm_filter_expansion_ratio": self.gm_filter_expansion_ratio,
             "flank_size": self.flank_size,
+            "allow_only_one_full_flank": self.allow_only_one_full_flank,
             "skip_supplementary": self.skip_supplementary,
             "skip_secondary": self.skip_secondary,
             "sample_id": self._sample_id_orig if as_inputted else self.sample_id,

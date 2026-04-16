@@ -23,6 +23,8 @@
   **Default:** 50
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
+* `--allow-only-one-full-flank` or `--aof`: Require only one full flanking region (of size `--flank-size`) for a read
+  rather than both. At minimum, 5' flanking regions will still need to be of size `--vcf-anchor-size`. **Default:** off
 * `--realign` or `-a`: Whether to perform local re-alignment to attempt recovery of soft-clipped reads. Some aligners
   may soft-clip around large insertions, e.g. with an expansion (I've noticed this with *pbmm2*/*minimap2*). 
   Currently recommended **for HiFi or ONT R10 only**, since this step aggressively filters out realignments with 
