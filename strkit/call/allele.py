@@ -47,11 +47,11 @@ small_allele_min = 8
 FLOAT_32_EPSILON = np.finfo(np.float32).eps
 
 
-def _calculate_cis(samples: NDArray[np.int32], is_99: bool) -> NDArray[np.int32]:
+def _calculate_cis(samples: NDArray[np.float64], is_99: bool) -> NDArray[np.int32]:
     percentiles = np.percentile(
         samples, (0.5, 99.5) if is_99 else (2.5, 97.5), axis=1, method="interpolated_inverted_cdf"
     ).transpose()
-    return percentiles
+    return np.rint(percentiles).astype(np.int32)
 
 
 def na_length_list(n_alleles: int):
@@ -217,8 +217,8 @@ def call_alleles(
 
         cn = combined_reads[0]
 
-        call = np.full(n_alleles, cn)
-        call_cis = np.full((n_alleles, 2), cn)
+        call = np.full(n_alleles, cn, dtype=np.int32)
+        call_cis = np.full((n_alleles, 2), cn, dtype=np.int32)
 
         peaks: NDArray[np.float64] = call.astype(np.float64)
 
