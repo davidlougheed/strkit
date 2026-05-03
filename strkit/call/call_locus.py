@@ -735,11 +735,6 @@ def debug_log_flanking_seq(logger_: Logger, locus_log_str: str, rn: str, rl: int
     )
 
 
-def _calc_motif_size_kmers(tr_read_seq_wc: str, tr_len: int, motif_size: int):
-    for i in range(tr_len - motif_size + 1):
-        yield tr_read_seq_wc[i:i + motif_size]
-
-
 def _ndarray_serialize(x: Iterable) -> list[int | np.int_]:
     return list(map(round, x))
 
