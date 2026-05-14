@@ -16,7 +16,7 @@ setup(
     install_requires=[
         "Flask>=2.2.5,<3.2",
         "orjson>=3.11.1,<4",
-        "pysam>=0.19,<0.24",
+        "pysam>=0.19,<0.25",
         "numpy>=2.1.3,<3",
         "parasail>=1.2.4,<1.4",
         "pydantic>=2.11.7,<3",
