@@ -179,6 +179,11 @@ def add_call_parser_args(call_parser):
             "some read trimming in the SNV-finding process to avoid SNV false positives."
         ))
 
+    call_parser.add_argument(
+        "--rc-method", type=str, choices=("repalign", "comp"), default="repalign",
+        help="Repeat-counting method for read-level data. Options are 'repalign' (repeated alignment + local search) or"
+             " 'comp' (composition analysis). 'comp' is currently experimental and not ready for use.")
+
     # Minimum read alignment score (fractional) to include a read in calling.
     call_parser.add_argument(
         "--min-read-align-score", "--mras",

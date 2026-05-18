@@ -31,7 +31,7 @@ from .allele import call_alleles
 from .constants import NP_EMPTY_ARRAY_INT32, NP_EMPTY_ARRAY_FLOAT64
 from .gmm import make_already_fitted_gmm
 from .repeats import get_repeat_count, get_ref_repeat_count
-from .repeat_count_params import RepeatCountParams
+from .repeat_count_params import RepeatCountMethod, RepeatCountParams
 from .snvs import (
     SNV_GAP_CHAR,
     SNV_OUT_OF_RANGE_CHAR,
@@ -728,7 +728,7 @@ class SkipLocus(Exception):
     pass
 
 
-def _get_ref_rc_params(ref_est_cn: int) -> RepeatCountParams:
+def _get_ref_rc_params(method: RepeatCountMethod, ref_est_cn: int) -> RepeatCountParams:
     ref_max_iters = default_ref_max_iters
     ref_step_size = 1
     ref_local_search_range = 3
@@ -747,7 +747,10 @@ def _get_ref_rc_params(ref_est_cn: int) -> RepeatCountParams:
             ref_local_search_range = 1
 
     return RepeatCountParams(
-        max_iters=ref_max_iters, initial_step_size=ref_step_size, initial_local_search_range=ref_local_search_range
+        method=method,
+        max_iters=ref_max_iters,
+        initial_step_size=ref_step_size,
+        initial_local_search_range=ref_local_search_range,
     )
 
 
@@ -815,7 +818,7 @@ def get_locus_with_ref_data(
         ref_size=locus.ref_size,  # reference size, in terms of coordinates (not TRF-recorded size)
         vcf_anchor_size=vcf_anchor_size,  # guarantee we still have some flanking stuff left to anchor with
         # search less with large repeat counts, but in bigger steps, because each alignment takes a long time:
-        rc_params=_get_ref_rc_params(ref_est_cn),
+        rc_params=_get_ref_rc_params("repalign", ref_est_cn),
         respect_coords=respect_ref,
     )
 

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from ..ploidy import PloidyConfig
 
 from .gmm import GMMParams
-from .repeat_count_params import RepeatCountParams
+from .repeat_count_params import RepeatCountParams, RepeatCountMethod
 from ..logger import log_levels
 from ..ploidy import load_ploidy_config
 
@@ -37,6 +37,7 @@ class CallParams:
         min_allele_reads: int = 2,
         max_reads: int | None = None,
         min_avg_phred: int = 13,
+        rc_method: RepeatCountMethod = "repalign",
         min_read_align_score: float = 0.9,
         max_rcn_iters: int = 50,
         num_bootstrap: int = 100,
@@ -84,6 +85,7 @@ class CallParams:
         self.min_allele_reads: int = min_allele_reads
         self.max_reads: int = max_reads or (DEFAULT_MAX_READS * 2 if targeted else DEFAULT_MAX_READS)
         self.min_avg_phred: int = min_avg_phred
+        self.rc_method: RepeatCountMethod = rc_method
         self.min_read_align_score: float = min_read_align_score
         self.max_rcn_iters: int = max_rcn_iters
         self.num_bootstrap: int = num_bootstrap
@@ -142,6 +144,7 @@ class CallParams:
         self._ploidy_config: PloidyConfig = load_ploidy_config(self.ploidy)
 
         self._rc_params: RepeatCountParams = RepeatCountParams(
+            method=rc_method,
             max_iters=max_rcn_iters,
             # TODO: user params for more of this
             initial_local_search_range=DEFAULT_RC_LOCAL_SEARCH_RANGE,
@@ -185,6 +188,7 @@ class CallParams:
             min_allele_reads=p_args.min_allele_reads,
             max_reads=p_args.max_reads,
             min_avg_phred=p_args.min_avg_phred,
+            rc_method=p_args.rc_method,
             min_read_align_score=p_args.min_read_align_score,
             max_rcn_iters=p_args.max_rcn_iters,
             num_bootstrap=p_args.num_bootstrap,
@@ -229,6 +233,7 @@ class CallParams:
             "min_allele_reads": self.min_allele_reads,
             "max_reads": self.max_reads,
             "min_avg_phred": self.min_avg_phred,
+            "rc_method": self.rc_method,
             "min_read_align_score": self.min_read_align_score,
             "max_rcn_iters": self.max_rcn_iters,
             "num_bootstrap": self.num_bootstrap,

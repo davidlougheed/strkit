@@ -5,7 +5,7 @@ import parasail
 from functools import lru_cache
 from typing import Literal, TYPE_CHECKING
 
-from strkit_rust_ext import get_repeat_count as _get_repeat_count
+from strkit_rust_ext import get_repeat_count as _get_repeat_count, get_repeat_count_compostr as _get_repeat_count_c
 from strkit.utils import idx_1_getter
 
 from .align_matrix import dna_matrix, indel_penalty
@@ -53,17 +53,20 @@ def get_repeat_count(
     rc_params: RepeatCountParams,
 ) -> tuple[tuple[int, int], int, int]:
     # returns: (best size, best score), n_explored, best size - start count
-    return _get_repeat_count(
-        start_count,
-        tr_seq,
-        flank_left_seq,
-        flank_right_seq,
-        motif,
-        rc_params.max_iters,
-        rc_params.initial_local_search_range,
-        rc_params.initial_step_size,
-        use_shortcuts=False,
-    )
+    if rc_params.method == "repalign":
+        return _get_repeat_count(
+            start_count,
+            tr_seq,
+            flank_left_seq,
+            flank_right_seq,
+            motif,
+            rc_params.max_iters,
+            rc_params.initial_local_search_range,
+            rc_params.initial_step_size,
+            use_shortcuts=False,
+        )
+    else:
+        return _get_repeat_count_c(tr_seq, motif), 1, 0
 
 
 def get_ref_repeat_count(
