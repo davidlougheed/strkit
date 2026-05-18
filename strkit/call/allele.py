@@ -18,7 +18,9 @@ from statistics import mode
 from warnings import simplefilter
 
 from numpy.typing import NDArray
-from typing import TypedDict, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
+from strkit_rust_ext import CallData
 
 from .gmm import make_single_gaussian
 
@@ -31,7 +33,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "RepeatCounts",
-    "CallDict",
     "call_alleles",
 ]
 
@@ -126,20 +127,6 @@ def fit_gmm(
     return g
 
 
-class BaseCallDict(TypedDict):
-    call: NDArray[np.int32]
-    call_95_cis: NDArray[np.int32]
-    call_99_cis: NDArray[np.int32]
-    peaks: NDArray[np.float64]
-    peak_weights: NDArray[np.float64]
-    peak_stdevs: NDArray[np.float64]
-    modal_n_peaks: int
-
-
-class CallDict(BaseCallDict, total=False):
-    ps: int
-
-
 def get_resampled_bootstrapped_reads(
     combined_reads: NDArray[np.int32],
     combined_len: int,
@@ -204,7 +191,7 @@ def call_alleles(
     seed: int | None,
     logger_: Logger,
     debug_str: str,
-) -> CallDict | None:
+) -> CallData | None:
     combined_reads = np.concatenate((repeats_fwd, repeats_rev), axis=None, dtype=np.int32)
     combined_len = combined_reads.shape[-1]
 
@@ -222,14 +209,14 @@ def call_alleles(
 
         peaks: NDArray[np.float64] = call.astype(np.float64)
 
-        return CallDict(
+        return CallData(
             call=call,
             call_95_cis=call_cis,
             call_99_cis=call_cis,
-            peaks=peaks,
-            peak_weights=np.full(n_alleles, 1.0 / n_alleles),
-            peak_stdevs=np.full(n_alleles, 0.0),
-            modal_n_peaks=1,
+            means=peaks,
+            weights=np.full(n_alleles, 1.0 / n_alleles),
+            stdevs=np.full(n_alleles, 0.0),
+            modal_n=1,
         )
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -339,17 +326,17 @@ def call_alleles(
 
     peak_weights /= peak_weights.sum()  # re-normalize weights
 
-    return CallDict(
+    return CallData(
         call=medians_of_means_final.flatten(),
         call_95_cis=allele_cis_95,
         call_99_cis=allele_cis_99,
 
-        peaks=medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
-        peak_weights=peak_weights,
-        peak_stdevs=peak_stdevs.flatten(),
+        means=medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
+        weights=peak_weights,
+        stdevs=peak_stdevs.flatten(),
         # TODO: should be ok to use this, because resample gets put at end, vertically (3rd allele in a 3-ploid case)
         #  so taking the first 2 alleles still works in terms of stdev/mean estimates? I think?
         #  Not quite, cause it's sorted...
         #  --> Only do the peak assignment with 1/2 peaks, which is the majority of human situations
-        modal_n_peaks=modal_n_peaks,
+        modal_n=modal_n_peaks,
     )

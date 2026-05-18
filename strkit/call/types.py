@@ -2,6 +2,7 @@
 import numpy as np
 from typing import Literal, TypedDict
 from numpy.typing import NDArray
+from strkit_rust_ext import CallData
 
 
 __all__ = [
@@ -91,6 +92,7 @@ class PeakData(BasePeakData):
 
 
 class BaseLocusResult(TypedDict):
+    # BEGIN from STRkitLocus
     locus_index: int
     locus_id: str
     contig: str
@@ -100,8 +102,10 @@ class BaseLocusResult(TypedDict):
     motif: str
 
     annotations: list[str]
+    # END from STRkitLocus
 
     assign_method: AssignMethodWithHP | None
+    call_data: CallData | None
     call: list[int] | None
     call_95_cis: list[list[int]] | None
     call_99_cis: list[list[int]] | None

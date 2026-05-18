@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from io import BytesIO
 from typing import Callable, Literal
 
 from strkit import __version__
@@ -65,21 +66,51 @@ def output_json_report_header(
     _write_bytes(header_serialized, json_path, "wb")
 
 
+JSON_BUFFER_RECORDS = 1000
+EMPTY_CALL_PARTIAL_RECORD = {
+    "assign_method": None,
+    "call": None,
+    "call_95_cis": None,
+    "call_99_cis": None,
+}
+
+
 def output_json_report_results(results: tuple[LocusResult, ...], is_last: bool, json_path: str, indent_json: bool):
     dfn = _get_dfn(indent_json)
-    results_bytes: bytes = dfn(results)
 
-    if indent_json:
-        results_bytes = results_bytes[2:-2]  # remove opening and closing "[]" + trailing newline
-        if not is_last:
-            results_bytes += b",\n"
-    else:
-        results_bytes = results_bytes[1:-1]  # remove opening and closing "[]"
-        if not is_last:
-            results_bytes += b","
+    rec_terms = (b"", b",\n" if indent_json else b",")
 
-    # write results "rows"
-    _write_bytes(results_bytes, json_path, "ab")
+    fh = sys.stdout if json_path == "stdout" else open(json_path, "ab")  # append since we've already written the header
+    try:
+        buffer = BytesIO()
+        for ri, r in enumerate(results):
+            rr = {
+                **r,
+                **(r["call_data"].to_dict() if r["call_data"] else EMPTY_CALL_PARTIAL_RECORD)
+            }
+            del rr["call_data"]
+
+            results_bytes = _indent_lines(dfn(rr), 4)
+            if ri < len(results) - 1 or not is_last:
+                results_bytes += rec_terms[ri < len(results) - 1 or not is_last]
+
+            # write results "row" to buffer
+            buffer.write(results_bytes)
+
+            # every <JSON_BUFFER_RECORDS> records, write the buffer to the file handle
+            if ri % JSON_BUFFER_RECORDS == 0:
+                buffer.seek(0)
+                fh.write(buffer.read())
+                buffer.close()
+                buffer = BytesIO()
+
+        if buffer.tell() > 0: # final write
+            buffer.seek(0)
+            fh.write(buffer.read())
+
+    finally:
+        if json_path != "stdout":
+            fh.close()
 
 
 def _indent_lines(json_bytes: bytes, indent: int) -> bytes:

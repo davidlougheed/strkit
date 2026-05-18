@@ -169,8 +169,10 @@ def create_result_vcf_records(
 
     n_alleles: int = params.ploidy_config.n_of(contig)
 
+    call_data = result["call_data"]
+
     res_reads = result["reads"]
-    res_peaks = result["peaks"] or {}
+    res_peaks = call_data.get_peaks_dict() if call_data else {}
 
     peak_seqs_and_methods = {(seq.upper() if seq else seq): method for seq, method in res_peaks.get("seqs", [])}
     peak_seqs: tuple[str, ...] = tuple(peak_seqs_and_methods.keys())
@@ -207,8 +209,8 @@ def create_result_vcf_records(
         key=lambda c: c[1] + c[0]
     )
 
-    call = result["call"]
-    call_95_cis = result["call_95_cis"]
+    call = call_data.call if call_data else None
+    call_95_cis = call_data.call_95_cis if call_data else None
 
     seq_alleles_raw: tuple[str | None, ...] = (
         ((ref_seq, ref_start_anchor), *(seq_alts or (None,)))
@@ -300,7 +302,7 @@ def create_result_vcf_records(
             for pi in range(res_peaks["modal_n"])
         )
 
-        ps = result["ps"]
+        ps = call_data.ps if call_data else None
 
         try:
             if ps is not None:  # have phase set on call, so mark as phased

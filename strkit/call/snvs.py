@@ -171,7 +171,7 @@ def call_and_filter_useful_snvs(
     # If we've skipped any SNVs, filter them out of the read dict - MUTATION
     if skipped_snvs:
         for read in read_dict.values():
-            if "snvu" not in read:
+            if not read.get("snvu"):
                 continue
             read["snvu"] = tuple(map(idx_1_getter, filter(lambda e: e[0] not in skipped_snvs, enumerate(read["snvu"]))))
         logger_.debug("%s - filtered out %d not-actually-useful SNVs", locus_log_str, len(skipped_snvs))

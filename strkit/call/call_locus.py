@@ -13,10 +13,13 @@ from statistics import mean
 from typing import Iterable, Literal, Sequence, TYPE_CHECKING
 
 from strkit_rust_ext import (
+    AssignMethod,
+    CallData,
     LowMeanBaseQual,
     STRkitSegmentAlignmentDataForLocus,
     STRkitAlignedSegmentSequenceDataForLocus,
     LocusReadCoords,
+    combine_call_data,
     consensus_seq,
     get_read_coords_from_matched_pairs,
     normalize_contig,
@@ -55,9 +58,8 @@ if TYPE_CHECKING:
         STRkitLocusBlockSegments,
     )
 
-    from .allele import CallDict
     from .params import CallParams
-    from .types import AssignMethod, AssignMethodWithHP, ConsensusMethod, ReadDict, CalledSNV, LocusResult
+    from .types import ConsensusMethod, ReadDict, CalledSNV, LocusResult
 
 
 __all__ = [
@@ -178,13 +180,13 @@ def call_alleles_with_gmm(
     params: CallParams,
     n_alleles: int,
     read_dict: dict[str, ReadDict],
-    assign_method: str,
+    assign_method: AssignMethod,
     # ---
     rng: np.random.Generator,
     # ---
     logger_: Logger,
     locus_log_str: str,
-) -> CallDict | None:
+) -> CallData | None:
     # Dicts are ordered in Python; very nice :)
     rdvs = tuple(read_dict.values())
     read_cns = np.fromiter(map(cn_getter, rdvs), dtype=np.int32)
@@ -194,11 +196,11 @@ def call_alleles_with_gmm(
     logger_.debug(
         "%s - assigning alleles using %s method with %d reads",
         locus_log_str,
-        assign_method,
+        assign_method.as_str(),
         int(read_cns.shape[0]),
     )
 
-    return call_alleles(
+    call_data = call_alleles(
         read_cns, NP_EMPTY_ARRAY_INT32,
         read_weights, NP_EMPTY_ARRAY_FLOAT64,
         params=params,
@@ -211,6 +213,11 @@ def call_alleles_with_gmm(
         debug_str=locus_log_str,
     )
 
+    if call_data is not None:
+        call_data.set_assign_method(assign_method)
+
+    return call_data
+
 
 def call_alleles_with_haplotags(
     params: CallParams,
@@ -222,9 +229,7 @@ def call_alleles_with_haplotags(
     # ---
     logger_: Logger,
     locus_log_str: str,
-) -> CallDict | None:
-    n_alleles: int = len(haplotags)
-
+) -> CallData | None:
     hp_reads: list[tuple[ReadDict, ...]] = []
     cns: list[NDArray[np.int32]] = []
     c_ws: list[NDArray[np.float64]] = []
@@ -244,10 +249,10 @@ def call_alleles_with_haplotags(
 
         hp_reads.append(crs)
 
-    cdd: list[CallDict] = []
+    cdd: list[CallData] = []
 
     for hi, hp in enumerate(haplotags):
-        cc: CallDict | None = call_alleles(
+        cc: CallData | None = call_alleles(
             cns[hi], NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
             c_ws[hi], NP_EMPTY_ARRAY_FLOAT64,
             params=params,
@@ -272,24 +277,11 @@ def call_alleles_with_haplotags(
         for rd in hp_reads[i]:
             rd["p"] = i
 
-    peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0)
-
     # All call_datas are truth-y; all arrays should be ordered by peak_order
-    call_data: CallDict = {
-        "call": np.concatenate(tuple(cc["call"] for cc in cdd), axis=0),
-        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd), axis=0),
-        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd), axis=0),
-        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd), axis=None),
-
-        # TODO: Readjust peak weights when combining or don't include
-        # Make peak weights sum to 1
-        "peak_weights": peak_weights_pre_adj / np.sum(peak_weights_pre_adj),
-
-        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd), axis=0),
-        "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
-
-        "ps": ps_id,
-    }
+    # TODO: Readjust peak weights when combining or don't include (inside combine_call_data)
+    call_data = combine_call_data(cdd)
+    call_data.set_assign_method(AssignMethod.HP)
+    call_data.set_ps(ps_id)
 
     return call_data
 
@@ -301,7 +293,7 @@ def _snv_should_flip_gt(gt1: tuple[str, ...], gt2: tuple[str, ...]):
 
 def _determine_snv_call_phase_set(
     read_dict: dict[str, ReadDict],
-    cdd_ordered: list[CallDict],
+    cdd_ordered: list[CallData],
     called_useful_snvs: list[CalledSNV],
     # ---
     phase_set_lock: Lock,
@@ -479,9 +471,7 @@ def call_alleles_with_incorporated_snvs(
     rng: np.random.Generator,
     logger_: Logger,
     locus_log_str: str,
-) -> tuple[AssignMethod, tuple[CallDict, list[CalledSNV]] | None]:
-    assign_method: AssignMethod = "dist"
-
+) -> tuple[CallData, list[CalledSNV]] | None:
     # TODO: parametrize min 'enough to do pure SNV haplotyping' thresholds
 
     n_useful_snvs: int = len(useful_snvs)
@@ -544,7 +534,7 @@ def call_alleles_with_incorporated_snvs(
 
     if not can_incorporate_snvs:
         # TODO: How to use partial data?
-        return assign_method, None
+        return None
 
     if n_reads_with_no_snvs:
         logger_.debug(
@@ -554,6 +544,7 @@ def call_alleles_with_incorporated_snvs(
 
     # Otherwise, we can use the SNV data --------------------------------------
 
+    assign_method: AssignMethod
     if pure_snv_peak_assignment:
         # We have enough SNVs in ALL reads, so we can phase purely based on SNVs
         logger_.debug(
@@ -562,7 +553,7 @@ def call_alleles_with_incorporated_snvs(
             n_useful_snvs,
             n_reads_with_many_snvs,
         )
-        assign_method = "snv"
+        assign_method = AssignMethod.SNV
     else:
         # We have enough SNVs in lots of reads, so we can phase using a combined metric
         logger_.debug(
@@ -574,7 +565,7 @@ def call_alleles_with_incorporated_snvs(
             n_reads_in_dict,
         )
         # TODO: Handle reads we didn't have SNVs for by retroactively assigning to groups
-        assign_method = "snv+dist"
+        assign_method = AssignMethod.SNVAndDist
 
     # Calculate pairwise distance for all reads using either SNVs ONLY or
     # a mixture of SNVs and copy number:
@@ -607,12 +598,12 @@ def call_alleles_with_incorporated_snvs(
 
         cluster_reads.append(crs)
 
-    logger_.debug("%s - using assign_method=%s, got cns=%s", locus_log_str, assign_method, cns)
+    logger_.debug("%s - using assign_method=%s, got cns=%s", locus_log_str, assign_method.as_str(), cns)
 
-    cdd: list[CallDict] = []
+    cdd: list[CallData] = []
 
     for ci in cluster_indices:
-        cc: CallDict | None = call_alleles(
+        cc: CallData | None = call_alleles(
             cns[ci], NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
             c_ws[ci], NP_EMPTY_ARRAY_FLOAT64,
             params,
@@ -629,7 +620,7 @@ def call_alleles_with_incorporated_snvs(
             # One of the calls could not be made... what to do?
             # TODO: !!!!
             #  For now, revert to dist
-            return "dist", None
+            return None
 
         # TODO: set peak weight [0] to the sum of read weights - we normalize this later, but this way
         #  call dicts with more reads will GET MORE WEIGHT! as it should be, instead of 50/50 for the peak.
@@ -640,7 +631,7 @@ def call_alleles_with_incorporated_snvs(
     # is an array of length 1.
 
     cdd_sort_order_determiner = np.fromiter(
-        map(lambda x: (x["peaks"][0], x["call_95_cis"][0][0]), cdd),
+        map(lambda x: (x.peak_means[0], x.call_95_cis[0][0]), cdd),
         dtype=[("p", np.float64), ("i", np.int32)])
     # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
     peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
@@ -674,7 +665,7 @@ def call_alleles_with_incorporated_snvs(
     )
 
     if not called_useful_snvs:  # No useful SNVs left, so revert to "dist" assignment method
-        return "dist", None
+        return None
     # ------------------------------------------------------------------------------------------------------------------
 
     # Phase if possible, using SNVs and existing phase sets (or generating a new phase set for this block).
@@ -700,28 +691,14 @@ def call_alleles_with_incorporated_snvs(
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    peak_weights_pre_adj = np.concatenate(tuple(cc["peak_weights"] for cc in cdd), axis=0, dtype=np.float64)
-
     # All call_datas are truth-y; all arrays should be ordered by peak_order
-    call_data: CallDict = {
-        "call": np.concatenate(tuple(cc["call"] for cc in cdd_ordered), axis=0),
-        "call_95_cis": np.concatenate(tuple(cc["call_95_cis"] for cc in cdd_ordered), axis=0),
-        "call_99_cis": np.concatenate(tuple(cc["call_99_cis"] for cc in cdd_ordered), axis=0),
-        "peaks": np.concatenate(tuple(cc["peaks"] for cc in cdd_ordered), axis=None),
+#     # TODO: Readjust peak weights when combining or don't include (inside combine_call_data)
+    call_data = combine_call_data(cdd_ordered)
+    if call_phase_set is not None:
+        call_data.set_assign_method(assign_method)
+        call_data.set_ps(call_phase_set)
 
-        # TODO: Readjust peak weights when combining or don't include
-        # Make peak weights sum to 1
-        "peak_weights": peak_weights_pre_adj / peak_weights_pre_adj.sum(),
-
-        "peak_stdevs": np.concatenate(tuple(cc["peak_stdevs"] for cc in cdd_ordered), axis=0),
-        "modal_n_peaks": n_alleles,  # n. of alleles = n. of peaks always -- if we phased using SNVs
-
-        **({"ps": call_phase_set} if call_phase_set is not None else {}),
-    }
-
-    # Return the SNV/SNV+dist method + our called peaks, and update the phase set information.
-
-    return assign_method, (call_data, called_useful_snvs)
+    return call_data, called_useful_snvs
 
 
 def debug_log_flanking_seq(logger_: Logger, locus_log_str: str, rn: str, rl: int, realigned: bool, repr_str: str):
@@ -1017,10 +994,7 @@ def call_locus(
     locus_result: LocusResult = {
         **locus.to_dict(),
         # --- TO BE FILLED IN IF SUCCESSFUL (here so that we always have the key): ---
-        "assign_method": None,
-        "call": None,
-        "call_95_cis": None,
-        "call_99_cis": None,
+        "call_data": None,
     }
 
     # Currently, only support diploid use of SNVs. There's not much of a point with haploid loci,
@@ -1385,11 +1359,9 @@ def call_locus(
 
     # Now, we know we have enough reads to maybe make a call -----------------------------------------------------------
 
-    call_data = {}
+    call_data: CallData | None = None
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, ReadDict], ...] = tuple(read_dict.items())
-
-    assign_method: AssignMethodWithHP = "single" if locus.n_alleles == 1 else "dist"
 
     # Realigns are missing significant amounts of flanking information since the realignment only uses a portion of the
     # reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
@@ -1403,6 +1375,7 @@ def call_locus(
 
     allele_start_time = time.perf_counter()
 
+    did_use_hp: bool = False
     if use_hp:
         top_ps = phase_sets.most_common(1)
         if (haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == locus.n_alleles and top_ps and
@@ -1417,7 +1390,7 @@ def call_locus(
                 locus_log_str=locus_log_str,
             )
             if call_res is not None:
-                assign_method = "hp"
+                did_use_hp = True
                 call_data = call_res
             else:
                 logger_.debug("%s - call_alleles_with_haplotags failed", locus_log_str)
@@ -1435,7 +1408,7 @@ def call_locus(
                 haplotags,
             )
 
-    if should_incorporate_snvs and assign_method != "hp":
+    if should_incorporate_snvs and not did_use_hp:
         if realign_count >= many_realigns_threshold or have_rare_realigns:
             logger_.warning(
                 "%s - cannot use SNVs; one of realign_count=%d >= %d or have_rare_realigns=%s",
@@ -1471,7 +1444,7 @@ def call_locus(
             if not useful_snvs:
                 logger_.debug("%s - no useful SNVs", locus_log_str)
             else:
-                am, call_res = call_alleles_with_incorporated_snvs(
+                call_res = call_alleles_with_incorporated_snvs(
                     contig=locus.contig,
                     n_alleles=locus.n_alleles,
                     params=params,
@@ -1494,7 +1467,6 @@ def call_locus(
                     logger_=logger_,
                     locus_log_str=locus_log_str,
                 )
-                assign_method = am
                 if call_res is not None:
                     call_data = call_res[0]  # Call data dictionary
                     locus_result["snvs"] = call_res[1]  # Called useful SNVs
@@ -1502,30 +1474,30 @@ def call_locus(
     # We're done with read_aligned_coords - free it early
     del read_locus_alignment_data
 
-    single_or_dist_assign: bool = assign_method in ("single", "dist")
+    single_or_dist_assign: bool = call_data is None
 
     if single_or_dist_assign:  # Didn't use SNVs, so call the 'old-fashioned' way - using only copy number
-        call_data = call_alleles_with_gmm(
-            params, locus.n_alleles, read_dict, assign_method, rng, logger_, locus_log_str
-        )
+        n_alleles = locus.n_alleles
+        assign_method = AssignMethod.Single if n_alleles == 1 else AssignMethod.Dist
+        call_data = call_alleles_with_gmm(params, n_alleles, read_dict, assign_method, rng, logger_, locus_log_str)
 
     allele_time = time.perf_counter() - allele_start_time
-
-    logger_.debug(
-        "%s - finished assigning alleles using %s method: took %.4fs",
-        locus_log_str,
-        assign_method,
-        allele_time,
-    )
 
     # Extract peak data from call_data ---------------------------------------------------------------------------------
 
     if call_data:
-        call_peaks = call_data["peaks"]
-        call_weights = call_data["peak_weights"]
-        call_stdevs = call_data["peak_stdevs"]
-        call_modal_n = call_data["modal_n_peaks"]
+        logger_.debug(
+            "%s - finished assigning alleles using %s method: took %.4fs",
+            locus_log_str,
+            call_data.get_assign_method_str(),
+            allele_time,
+        )
+        call_peaks = call_data.peak_means
+        call_weights = call_data.peak_weights
+        call_stdevs = call_data.peak_stdevs
+        call_modal_n = call_data.peak_modal_n
     else:
+        logger_.debug("%s - did not assign alleles (call failed)", locus_log_str)
         call_peaks = None
         call_weights = None
         call_stdevs = None
@@ -1610,7 +1582,7 @@ def call_locus(
         if any(map(eq_0, call_peak_n_reads)):
             # TODO: This shouldn't happen, but it does occasionally - why?
             logger_.warning("%s - found empty allele, nullifying call results", locus_log_str)
-            call_data = {}
+            call_data = None
 
         if call_data and consensus:
             def _consensi_for_key(k: Literal["_tr_seq", "_start_anchor"]):
@@ -1628,25 +1600,11 @@ def call_locus(
     del read_dict_extra
 
     if call_data:
-        call = call_data["call"]
-        call_95_cis = call_data["call_95_cis"]
-        call_99_cis = call_data["call_99_cis"]
-        call_ps = call_data.get("ps")
-        peak_data = {
-            "means": call_peaks,
-            "weights": call_weights,
-            "stdevs": call_stdevs,
-            "modal_n": call_modal_n,
-            "n_reads": call_peak_n_reads,
-            **({"kmers": list(map(dict, peak_kmers))} if count_kmers in ("peak", "both") else {}),
-            **({"seqs": call_seqs, "start_anchor_seqs": call_anchor_seqs} if consensus else {}),
-        }
-    else:
-        call = None
-        call_95_cis = None
-        call_99_cis = None
-        call_ps = None
-        peak_data = None
+        call_data.set_n_reads(np.array(call_peak_n_reads, dtype=np.uint16))
+        if count_kmers in ("peak", "both"):
+            call_data.set_kmers(list(map(dict, peak_kmers)))
+        if consensus:
+            call_data.set_seqs(call_seqs, call_anchor_seqs)
 
     assign_time = time.perf_counter() - assign_start_time
 
@@ -1665,8 +1623,8 @@ def call_locus(
             locus_log_str,
             n_reads_in_dict,
             call_time,
-            call,
-            assign_method,
+            call_data.call if call_data else None,
+            call_data.get_assign_method_str() if call_data else "none",
             locus_with_ref_data.ref_time,
             allele_time,
             assign_time,
@@ -1674,25 +1632,17 @@ def call_locus(
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
 
-    call_val = apply_or_none(_ndarray_serialize, call)
-    call_95_cis_val = apply_or_none(_nested_ndarray_serialize, call_95_cis)
-
     logger_.debug(
         "%s - got call: %s (95%% CIs: %s); peak assign method=%s; # reads=%s",
         locus_log_str,
-        call_val,
-        call_95_cis_val,
-        assign_method,
+        call_data.call if call_data else None,
+        call_data.call_95_cis if call_data else None,
+        call_data.get_assign_method_str() if call_data else "none",
         call_peak_n_reads,
     )
 
-    locus_result["assign_method"] = assign_method
-    locus_result["call"] = call_val
-    locus_result["call_95_cis"] = call_95_cis_val
-    locus_result["call_99_cis"] = apply_or_none(_nested_ndarray_serialize, call_99_cis)
+    locus_result["call_data"] = call_data
     locus_result["mean_model_align_score"] = mean_model_align_score
-    locus_result["peaks"] = peak_data
-    locus_result["ps"] = call_ps
     locus_result["read_peaks_called"] = read_peaks_called
     locus_result["time"] = call_time
 
