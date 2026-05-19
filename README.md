@@ -110,7 +110,7 @@ docker run \
   -it ghcr.io/davidlougheed/strkit call \
   /inputs/file.bam \
   --loci /inputs/loci.bed --ref /inputs/ref.fa --incorporate-snvs /inputs/dbsnp.vcf.gz \
-  --vcf /out/calls.vcf --no-tsv
+  --vcf /out/calls.vcf
 ```
 
 Inside the `inputs` directory, STRkit would (given these parameters) expect the following files to be present:
@@ -178,7 +178,6 @@ strkit call \
   --vcf my-calls.vcf \  # Calculate consensus sequences for alleles and output a .vcf (or .vcf.gz) with call data
   --seed 183 \  # Fixed random number generator seed for replicability
   --processes 10 \  # Number of parallel processes to use; DEFAULT: 1
-  --no-tsv  # If VCF output is enabled as above, we don't need TSV genotype output to stdout (which is the default)
 ```
 
 ##### REGARDING ALIGNMENTS
@@ -284,12 +283,12 @@ For more information, see also documentation on the [Output formats](./docs/outp
 
 If you want to output a full call report, you can use the `--json output-file.json` argument to
 specify a path to output a more detailed JSON document to. This document contains 99% CIs, peak
-labels, and some other information that isn't included in the normal TSV file. If you want this
+labels, and some other information that isn't included in the normal VCF file. If you want this
 file to be indented and human-readable, use the `--indent-json` flag in addition to `--json ...`.
 
-If you want to output a VCF file (STRs and SNVs if called; currently not phased), use the
-`--vcf ...` argument. If you pass `--vcf stdout`, the VCF will be written to `stdout` instead of a 
-file.
+VCF call information is printed to standard output by default (`--vcf stdout`). If you pass 
+`--vcf path/to/file.vcf`, the VCF will be written to a file instead. If you pass `--vcf none`, no
+VCF will be written.
 
 For more information, see also documentation on the [Output formats](./docs/output_formats.md).
 

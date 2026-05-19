@@ -257,7 +257,6 @@ def call_sample(
     json_path: str | None = None,
     vcf_path: str | None = None,
     indent_json: bool = False,
-    output_tsv: bool = True,
 ) -> None:
     import importlib.metadata
     import multiprocessing as mp
@@ -272,7 +271,6 @@ def call_sample(
         output_json_report_header,
         output_json_report_results,
         output_json_report_footer,
-        output_tsv as output_tsv_fn,
         build_vcf_header,
         output_contig_vcf_lines,
     )
@@ -428,10 +426,6 @@ def call_sample(
                                 # peak/list keys
                                 if k in {"means", "weights", "stdevs", "n_reads", "kmers", "seqs", "start_anchor_seqs"}:
                                     r["peaks"][k] = r["peaks"][k][::-1]
-
-            #  - write partial results to stdout if we're writing a stdout TSV
-            if output_tsv:
-                output_tsv_fn(results, has_snv_vcf=params.snv_vcf is not None)
 
             if json_path is not None:
                 output_json_report_results(results, n_contigs_processed == len(contig_set) - 1, json_path, indent_json)

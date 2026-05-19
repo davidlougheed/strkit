@@ -288,8 +288,9 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--vcf",
         type=str,
-        help="Path to write VCF-formatted calls to. STR alleles are currently formatted symbolically rather than as "
-             "consensus sequences.")
+        default="stdout",
+        help="Path to write VCF-formatted calls to. If 'stdout', output will be written to standard output. If 'none',"
+             " VCF-formatted calls will not be written.")
     call_parser.add_argument(
         "--vcf-anchor-size",
         type=int,
@@ -301,7 +302,8 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--no-tsv",
         action="store_true",
-        help="If passed, no TSV call output will be written to stdout.")
+        help="[DEPRECATED] If passed, no TSV call output will be written to stdout. This option does nothing as of "
+             "version 0.25.0, which removed TSV output.")
 
     # END FILE OUTPUT ARGUMENTS ========================================================================================
 
@@ -524,8 +526,7 @@ def _exec_call(p_args) -> None:
         logger,
         json_path=p_args.json,
         indent_json=p_args.indent_json,
-        vcf_path=p_args.vcf,
-        output_tsv=not p_args.no_tsv,
+        vcf_path=p_args.vcf if p_args.vcf and p_args.vcf != "none" else "none",
     )
 
 

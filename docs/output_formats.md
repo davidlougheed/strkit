@@ -1,45 +1,18 @@
 # STRkit output formats
 
-STRkit can output three different file formats, depending on the set of arguments used:
+STRkit can output two different file formats, depending on the set of arguments used:
 
-* [TSV](#tsv-standard-output): by default, printed to `stdout` when STRkit is run. Good as an overview, but less 
-  informative/interoperable than other formats.
 * [JSON](#json-report): a JSON report, containing the maximum amount of information possible. These files can be quite 
   large, especially if formatted to be human-readable and indented with the `--indent-json` flag.
 * [VCF](#vcf): a [VCF 4.2](https://samtools.github.io/hts-specs/VCFv4.2.pdf) file, with STR and SNV genotypes, including
-  consensus STR sequences.
+  consensus STR sequences. This is the default output format.
 
-**Note:** In general, the JSON format contains the most information about how STRkit was run, and each locus' called 
-genotype.
+## Notes
 
-
-## TSV (standard output)
-
-A tab-separated text file with the following columns:
-
-* Chromosome
-* Starting position (matching input BED file; real coordinates of region may be different if 
-  `--respect-ref` is not used)
-* Ending position (matching input BED file; real coordinates of region may be different if 
-  `--respect-ref` is not used)
-* Motif sequence (matching input BED file)
-* Reference copy number
-* Comma-delimited list of copy numbers for all reads successfully extracted for this locus.
-* Copy number call, `|`-delimited (one call per allele)
-* 95% confidence intervals for copy number calls, `|`-delimited (one `X-Y` 95% CI per allele)
-* Calling approach used by STRkit: one of:
-  * `dist` - clustering based on a copy number distance metric
-  * `snv+dist` - clustering based on a copy number + nearby SNV genotype difference distance metric
-  * `snv` - clustering solely based on nearby SNV genotypes
-
-Here is an example line:
-
-```
-chr4	5975495	5975530	TTTTG	7	6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,8	6|7	6-6|7-7	snv
-```
-
-Note that quite a bit of information is missing from the TSV, including per-sample copy numbers, read identities, 
-SNV calls, and STR consensus sequences.
+* In general, the JSON format contains the most information about how STRkit was run, and each locus' called genotype.
+* Adjusted coordinates (`start_adj`/`end_adj` in JSON; standard `POS` field in VCF) are recaculations of locus 
+  boundaries done by STRkit. If you want to maintain the original TR boundaries from the locus definition file, you can
+  pass the `--respect-ref` flag to `strkit call`.
 
 
 ## JSON report
