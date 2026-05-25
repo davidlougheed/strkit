@@ -188,10 +188,10 @@ def add_call_parser_args(call_parser):
     call_parser.add_argument(
         "--min-read-align-score", "--mras",
         type=float,
-        default=0.9,
+        default=0.1,
         help=(
-            "Minimum read alignment score (fractional) to include a read in calling. A good value for pure tandem "
-            "repeats is 0.9. A good value for more lenient genotyping is ~0.4."
+            "Minimum read alignment score (fractional) to include a read in calling. A good value for very pure tandem "
+            "repeats is 0.9. A good value for more lenient genotyping is ~0.1."
         ))
 
     # Maximum read copy number counting iterations before terminating copy number counting.
