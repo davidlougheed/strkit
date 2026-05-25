@@ -55,7 +55,11 @@ def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
 
 
 def build_vcf_header(
-    sample_id: str, reference_file: str, partial_phasing: bool, num_loci: int, loci_hash: str
+    command: str, sample_ids: tuple[str, ...],
+    reference_file: Path | str,  # if Path, turn into file URI. Otherwise, treat "as-is".
+    partial_phasing: bool,
+    num_loci: int,
+    loci_hash: str
 ) -> VariantHeader:
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
@@ -70,17 +74,23 @@ def build_vcf_header(
     if partial_phasing:
         vh.add_meta("phasing", "partial")
 
-    # Add an absolute path to the reference genome
-    vh.add_meta("reference", f"file://{str(Path(reference_file).resolve().absolute())}")
+    # Add an absolute path to the reference genome. If we're passed a string (from merge), assume this is already a file
+    # URI.
+    vh.add_meta(
+        "reference",
+        f"file://{str(reference_file.resolve().absolute())}" if isinstance(reference_file, Path) else reference_file
+    )
 
     # Add all contigs from the reference genome file + lengths
-    with FastaFile(reference_file) as rf:
+    with FastaFile(str(reference_file)) as rf:
         for contig in rf.references:
             vh.contigs.add(contig, length=rf.get_reference_length(contig))
 
     # Add STRkit-specific fields:
     #  - marking version
     vh.add_meta("strkitVersion", str(__version__))
+    #  - the subcommand being used to generate this VCF (call|merge)
+    vh.add_meta("strkitCommand", command)
     #  - indicating number of loci provided (i.e., catalogue size)
     vh.add_meta("strkitCatalogNumLoci", str(num_loci))
     #  - indicating hash of STRkitLocus objects (for checking catalogue sameness)
@@ -128,8 +138,9 @@ def build_vcf_header(
     # for iv in VCF_TR_INFO_RECORDS:
     #     vh.info.add(*iv)
 
-    # Add the sample
-    vh.add_sample(sample_id)
+    # Add the sample(s)
+    for sample_id in sample_ids:
+        vh.add_sample(sample_id)
 
     return vh
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from operator import itemgetter
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # For type hinting only
@@ -307,8 +308,9 @@ def call_sample(
     vf: VariantFile | None = None
     if vcf_path is not None:
         vh = build_vcf_header(
-            sample_id_str,
-            params.reference_file,
+            "call",
+            (sample_id_str,),
+            Path(params.reference_file),
             partial_phasing=params.snv_vcf is not None or params.use_hp,
             num_loci=num_loci,
             loci_hash=loci_hash,
