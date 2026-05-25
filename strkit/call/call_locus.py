@@ -1285,16 +1285,17 @@ def call_locus(
             **({"kmers": dict(read_kmers)} if count_kmers != "none" else {}),
         }
 
-        read_dict_extra[rn] = ReadDictExtra(
+        if consensus:
             # calculates a VCF sequence start 'anchor' for this particular read. a consensus of the read anchors
             # will determine the allele anchor, which is a bit of a hack.
             # it would be nice to do this with the coord pairs instead - but we don't have a great way then of
             # finding a coord that works for both the ref and every read without doing another iteration.
-            _start_anchor=segment.get_vcf_anchor_for_locus(
-                locus_with_ref_data, locus_alignment_data, vcf_anchor_size
-            ),
-            _tr_seq=locus_seq_and_flank_data.tr_seq,
-        ) if consensus else {}
+            start_anchor = segment.get_vcf_anchor_for_locus(locus_with_ref_data, locus_alignment_data, vcf_anchor_size)
+            tr_seq = locus_seq_and_flank_data.tr_seq
+            read_dict_entry["sl"] = len(tr_seq)
+            read_dict_extra[rn] = ReadDictExtra(_start_anchor=start_anchor, _tr_seq=tr_seq)
+        else:
+            read_dict_extra[rn] = {}
 
         if use_hp:
             # TODO: this should be done on locus block creation instead maybe, once SNV stuff is also there

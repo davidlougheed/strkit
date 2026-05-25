@@ -74,6 +74,7 @@ Example report format:
           "s": "-",
           "sc": 2.0,
           "cn": 15,
+          "sl": 31,
           "w": 1.0217145751733625,
           "snvu": ["G"],
           "p": 0
@@ -83,6 +84,7 @@ Example report format:
           "s": "+",
           "sc": 2.0,
           "cn": 15,
+          "sl": 31,
           "w": 1.0217145751733625,
           "snvu": ["A"],
           "p": 1
@@ -170,6 +172,7 @@ VCF format fields (i.e., for each variant sample entry):
   copy number (e.g., `CAGCAGCAG`) aligns to the true sequence.
 * `PS`: Phase set
 * `PM`: Peak-calling method (`dist`/`single`/`snv+dist`/`snv`/`hp`; STR calls only)
+* `SLR`: Read-level TR sequence length histogram for each allele, in the same format as `MCRL`.
 
 VCF info. fields (i.e., for each STR variant record; not present for SNV records):
 

@@ -51,6 +51,9 @@ class ReadDict(_ReadDictBase, total=False):
     #  - After including only useful SNVs, this contains a tuple of bases for just those + corresponding qualities
     snvu: tuple[tuple[str, int], ...]
 
+    # Only added if consensus sequences are being calculated:
+    sl: int
+
 
 class ReadDictExtra(TypedDict, total=False):
     _ref_start: int  # Read start in ref coordinates

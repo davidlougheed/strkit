@@ -103,6 +103,7 @@ def build_vcf_header(
     vh.formats.add("NSNV", 1, "Integer", "Number of supporting SNVs for the STR peak-call")
     vh.formats.add("PS", 1, "Integer", "Phase set")
     vh.formats.add("PM", 1, "String", "Peak-calling method (dist/snv+dist/snv/hp)")
+    vh.formats.add("SLR", ".", "String", "Read-level sequence lengths for each allele")
 
     # Set up VCF info fields
     vh.info.add(VCF_INFO_VT, 1, "String", "Variant record type (str/snv)")
@@ -273,6 +274,12 @@ def create_result_vcf_records(
     vr.samples[sample_id]["MMAS"] = result.get("mean_model_align_score")
 
     if call is not None and res_peaks:
+        peak_indices = tuple(range(res_peaks["modal_n"]))
+        reads_by_peak = {
+            pi: tuple(filter(lambda r: r.get("p") == pi, res_reads.values()))
+            for pi in peak_indices
+        }
+
         vr.samples[sample_id]["DPS"] = sum(res_peaks["n_reads"])
         vr.samples[sample_id]["AD"] = tuple(res_peaks["n_reads"])
         vr.samples[sample_id]["MC"] = tuple(map(int, call))
@@ -291,15 +298,22 @@ def create_result_vcf_records(
         vr.samples[sample_id]["MCRL"] = tuple(
             "|".join(
                 map(
-                    lambda pair: "x".join(map(str, pair)),
-                    sorted(
-                        Counter(
-                            map(cn_getter, filter(lambda r: r.get("p") == pi, res_reads.values()))
-                        ).items()
-                    )
+                    lambda pair: "x".join(map(str, pair)),  # CNxCOUNT
+                    sorted(Counter(map(cn_getter, reads_by_peak[pi])).items())
                 )
             )
-            for pi in range(res_peaks["modal_n"])
+            for pi in peak_indices
+        )
+
+        # Histogram-like format for read-level TR sequence lengths, similar to MCRL
+        vr.samples[sample_id]["SLR"] = tuple(
+            "|".join(
+                map(
+                    lambda pair: "x".join(map(str, pair)),  # SLxCOUNT
+                    sorted(Counter(map(lambda r: r["sl"], reads_by_peak[pi])).items())
+                )
+            )
+            for pi in peak_indices
         )
 
         ps = call_data.ps if call_data else None
