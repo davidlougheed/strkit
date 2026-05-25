@@ -939,7 +939,10 @@ def get_locus_alignment_data_from_read(
                 )
                 # TODO: find a way of making use of these reads (e.g., C9orf72 expansion)
                 # if locus_read_coords.full_left_flank:
-                #     print(segment.query_sequence[locus_read_coords.left_flank_end:])
+                #     print("left flank only", segment.query_sequence[locus_read_coords.left_flank_end:])
+                #     print(repr(locus_read_coords))
+                #     print(locus_with_ref_data.right_coord_adj, locus_with_ref_data.ref_right_flank_seq)
+                #     print(segment.aligned_coords.pair_at_idx(len(segment.aligned_coords) - 1))
             return None
 
         if not (left := locus_read_coords.full_left_flank) or not locus_read_coords.full_right_flank:
