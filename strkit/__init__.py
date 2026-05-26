@@ -1,8 +1,7 @@
-from pathlib import Path
+from importlib.metadata import version
 
 __all__ = [
     "__version__",
 ]
 
-with open(Path(__file__).parent / "VERSION", "r") as vf:
-    __version__ = vf.read().strip()
+__version__ = version("strkit")
