@@ -1296,9 +1296,11 @@ def call_locus(
             start_anchor = segment.get_vcf_anchor_for_locus(locus_with_ref_data, locus_alignment_data, vcf_anchor_size)
             tr_seq = locus_seq_and_flank_data.tr_seq
             read_dict_entry["sl"] = len(tr_seq)
-            read_dict_extra[rn] = ReadDictExtra(_start_anchor=start_anchor, _tr_seq=tr_seq)
-        else:
-            read_dict_extra[rn] = {}
+            read_dict_entry["start_anchor_seq"] = start_anchor
+            read_dict_entry["seq"] = tr_seq
+
+        # TODO: remove + replace with snv dict (only thing left, can be built within rust)
+        read_dict_extra[rn] = {}
 
         if use_hp:
             # TODO: this should be done on locus block creation instead maybe, once SNV stuff is also there
@@ -1592,16 +1594,22 @@ def call_locus(
             call_data = None
 
         if call_data and consensus:
-            def _consensi_for_key(k: Literal["_tr_seq", "_start_anchor"]):
+            def _consensi_for_key(k: Literal["seq", "start_anchor_seq"]):
                 for a in allele_reads:
-                    seqs = list(map(lambda rr: read_dict_extra[rr][k], a))
+                    seqs = list(map(lambda rr: read_dict[rr][k], a))
                     if seqs and len(seqs[0]) > params.large_consensus_length:
                         # if we're dealing with large sequences, use a subset of the reads to prevent stalling out.
                         seqs = seqs[:params.max_n_large_consensus_reads]
                     yield consensus_seq(seqs, logger_, params.max_mdn_poa_length, params.poa)
 
-            call_seqs.extend(_consensi_for_key("_tr_seq"))
-            call_anchor_seqs.extend(_consensi_for_key("_start_anchor"))
+            call_seqs.extend(_consensi_for_key("seq"))
+            call_anchor_seqs.extend(_consensi_for_key("start_anchor_seq"))
+
+            # If we're not keeping them to output to JSON, clean up the memory used by storing read-level sequences.
+            if not params.json_read_seq:
+                for rn in read_dict:
+                    del read_dict[rn]["seq"]
+                    del read_dict[rn]["start_anchor_seq"]
 
     # We're done with read dict extra, delete early
     del read_dict_extra

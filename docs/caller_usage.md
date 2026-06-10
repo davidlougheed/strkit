@@ -100,6 +100,8 @@
   **Default:** *none*
 * `--indent-json` or `-i`: If passed alongside `--json [x]`, the JSON output will be indented to be more human-readable
   but less compact. **Default:** off
+* `--json-read-seq`: If passed alongside `--json [x]`, the JSON output will include read-level TR sequence data and 5'
+  anchor sequences.
 * `--vcf [path]`: Path to output VCF-formatted call data to. Setting this option forces the `--consensus` option as 
   well in order to output true REF/ALT values, which slows down runtime somewhat. If the value passed is `stdout`, the 
   VCF data will be written to `stdout` instead of a file. If a `.vcf.gz` path is specified, a bgzipped file will be 

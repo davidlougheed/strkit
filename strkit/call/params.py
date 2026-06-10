@@ -63,6 +63,7 @@ class CallParams:
         max_n_large_consensus_reads: int = 20,
         max_mdn_poa_length: int = 2000,
         vcf_anchor_size: int = 5,
+        json_read_seq: bool = False,
         # ---
         log_level: int = WARNING,
         verbose: bool = False,
@@ -113,6 +114,7 @@ class CallParams:
         self.max_n_large_consensus_reads: int = max_n_large_consensus_reads
         self.max_mdn_poa_length: int = max_mdn_poa_length
         self.vcf_anchor_size: int = vcf_anchor_size
+        self.json_read_seq: bool = json_read_seq
         # ---
         self.log_level: int = log_level
         self.log_progress_interval: int = log_progress_interval
@@ -214,6 +216,7 @@ class CallParams:
             max_n_large_consensus_reads=p_args.max_n_large_consensus_reads,
             max_mdn_poa_length=p_args.max_mdn_poa_length,
             vcf_anchor_size=min(max(p_args.vcf_anchor_size, 1), p_args.flank_size),
+            json_read_seq=p_args.json_read_seq,
             # ---
             log_level=log_levels[p_args.log_level],
             verbose=p_args.verbose,
@@ -260,6 +263,7 @@ class CallParams:
             "max_n_large_consensus_reads": self.max_n_large_consensus_reads,
             "max_mdn_poa_length": self.max_mdn_poa_length,
             "vcf_anchor_size": self.vcf_anchor_size,
+            "json_read_seq": self.json_read_seq,
             "log_level": self.log_level,
             "verbose": self.verbose,
             "profile": self.profile,

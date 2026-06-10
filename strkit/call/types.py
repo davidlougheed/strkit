@@ -51,22 +51,17 @@ class ReadDict(_ReadDictBase, total=False):
     #  - After including only useful SNVs, this contains a tuple of bases for just those + corresponding qualities
     snvu: tuple[tuple[str, int], ...]
 
-    # Only added if consensus sequences are being calculated:
+    # BEGIN: only added if consensus sequences are being calculated:
     sl: int
+    #  - the below two are only output if --json-read-seq is passed
+    start_anchor_seq: str  # Left anchor for calculated allele sequence (usually 1 base)
+    seq: str  # Tandem repeat sequence
+    # END: only added if consensus sequences are being calculated
 
 
 class ReadDictExtra(TypedDict, total=False):
-    _ref_start: int  # Read start in ref coordinates
-    _ref_end: int  # Read end in ref coordinates
-
-    # BEGIN: only added if consensus is being calculated
-    _start_anchor: str  # Left anchor for calculated allele sequence (usually 1 base)
-    _tr_seq: str  # Tandem repeat sequence
-    # END: only added if consensus is being calculated
-
     # Below are only added if SNVs are being incorporated:
-    snv: dict[int, str]  # Intermediate result: dictionary of a bunch of SNVs for this read {position: base}
-    # Intermediate result: tuple of bases/qualities for the set of SNVs across all reads
+    #  - intermediate result: tuple of bases/qualities for the set of SNVs across all reads
     snv_bases: tuple[tuple[str, int], ...]
 
 

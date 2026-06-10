@@ -282,6 +282,12 @@ def add_call_parser_args(call_parser):
         action="store_true",
         help="If passed alongside --json [x], the JSON output will be indented to be more human readable but "
              "less compact.")
+
+    call_parser.add_argument(
+        "--json-read-seq",
+        action="store_true",
+        help="If passed alongside --json [x], the JSON output will include read-level TR sequences and 5' anchor "
+             "sequences.")
     # End JSON output arguments ----------------------------------------------------------------------------------------
 
     # Begin VCF output arguments ---------------------------------------------------------------------------------------
