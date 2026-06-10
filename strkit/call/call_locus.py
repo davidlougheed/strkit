@@ -25,7 +25,7 @@ from strkit_rust_ext import (
     normalize_contig,
 )
 
-from strkit.utils import idx_0_getter, apply_or_none
+from strkit.utils import idx_0_getter
 
 from .allele import call_alleles
 from .constants import NP_EMPTY_ARRAY_INT32, NP_EMPTY_ARRAY_FLOAT64

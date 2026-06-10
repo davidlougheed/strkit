@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import math
 import operator
 from functools import partial
-from typing import Any, Callable, Iterable
+from typing import Iterable
 
 __all__ = [
     "cat_strs",
     "is_none",
     "idx_0_getter",
     "idx_1_getter",
-    "apply_or_none",
     "int_tuple",
     "float_tuple",
     "parse_ci",
@@ -24,11 +22,6 @@ cat_strs = "".join
 is_none = partial(operator.is_, None)
 idx_0_getter = operator.itemgetter(0)
 idx_1_getter = operator.itemgetter(1)
-
-
-def apply_or_none(fn: Callable, x: Any) -> Any:
-    # Python: add any type of monad functionality challenge [IMPOSSIBLE]
-    return fn(x) if x is not None else None
 
 
 def int_tuple(x: Iterable) -> tuple[int, ...]:
