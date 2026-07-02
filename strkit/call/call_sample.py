@@ -446,7 +446,7 @@ def call_sample(
                         continue
                     rd += len(r["reads"])
                     nwr += 1
-                avg_read_depths_by_contig[results[0]["contig"]] = rd / nwr
+                avg_read_depths_by_contig[results[0]["contig"]] = (rd / nwr) if nwr else 0.0
                 total_read_depth += rd
                 total_loci_with_reads += nwr
             else:
