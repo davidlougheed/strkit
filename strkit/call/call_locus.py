@@ -1058,7 +1058,7 @@ def call_locus(
     phase_sets: Counter[int] = Counter()
 
     # Aggregations for additional read-level data
-    read_kmers: Counter[str] = Counter()
+    read_kmers: dict[str, int] = {}
     read_locus_alignment_data: dict[str, STRkitSegmentAlignmentDataForLocus] = {}
 
     extremely_poor_scoring_reads = []
@@ -1111,8 +1111,7 @@ def call_locus(
 
         if count_kmers != "none":
             # if we're counting k-mers at all, we will need the read k-mers:
-            read_kmers.clear()
-            read_kmers.update(locus_seq_and_flank_data.get_motif_size_kmers())
+            read_kmers = locus_seq_and_flank_data.count_motif_size_kmers()
 
         # --------------------------------------------------------------------------------------------------------------
 
