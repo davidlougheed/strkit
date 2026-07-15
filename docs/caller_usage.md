@@ -11,7 +11,8 @@
   to `--min-allele-reads`.  **Default:** 4
 * `--min-allele-reads ##`: Minimum number of supporting reads needed to call a specific allele size. This must be less 
   than or equal to `--min-reads`. **Default:** 2
-* `--max-reads ##`: Maximum number of supporting reads to use for calling a locus. **Default:** 250
+* `--max-reads ##`: Maximum number of supporting reads to use for calling a locus. 
+  **Default:** 10000 if in targeted mode, 250 otherwise
 * `--min-avg-phred ##`: Minimum average PHRED score for relevant bases (flanking region + tandem repeat).
   Read segments with average PHRED scores below this (common with a threshold of ~13 and ONT Ultra Long reads, 
   for example) will be skipped. **Default:** 13
@@ -23,7 +24,7 @@
   **Default:** 50
 * `--max-terrible-reads ##` or `--mtr ##` (v0.25.0+): Maximum number of terribly-aligning reads allowed before a locus 
   is skipped. A low number is good for performance, but may result in undesirable behaviour for specific loci of 
-  interest (i.e, unwanted missing calls). **Default:** 100 if in targeted mode, 3 otherwise
+  interest (i.e, unwanted missing calls). **Default:** 2 * `--max-reads` if in targeted mode, 3 otherwise
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
 * `--allow-only-one-full-flank` or `--aof`: Require only one full flanking region (of size `--flank-size`) for a read
