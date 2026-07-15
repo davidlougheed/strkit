@@ -21,9 +21,9 @@
 * `--max-rcn-iters ##`: Maximum number of read copy-number counting iterations to perform. Loci which require a lot of
   iterations are probably impure tandem repeats, for which the resulting copy number will not be very accurate anyway.
   **Default:** 50
-* `--max-terrible-reads ##` (v0.25.0+): Maximum number of terribly-aligning reads allowed before a locus is skipped. A 
-  low number is good for performance, but may result in undesirable behaviour for specific loci of interest (i.e,
-  unwanted missing calls). **Default:** 100 if in targeted mode, 3 otherwise
+* `--max-terrible-reads ##` or `--mtr ##` (v0.25.0+): Maximum number of terribly-aligning reads allowed before a locus 
+  is skipped. A low number is good for performance, but may result in undesirable behaviour for specific loci of 
+  interest (i.e, unwanted missing calls). **Default:** 100 if in targeted mode, 3 otherwise
 * `--flank-size ##`: Size of the flanking region to use on either side of a region to properly anchor reads. 
   **Default:** 70
 * `--allow-only-one-full-flank` or `--aof`: Require only one full flanking region (of size `--flank-size`) for a read
