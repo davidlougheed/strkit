@@ -63,7 +63,7 @@ def realign_read(
 
     lg.debug(f"Realigned {read_log_str}: scored {pr.score}; Flipped CIGAR: {pr.cigar.decode.decode('ascii')}")
 
-    res: STRkitAlignedCoords = get_aligned_pair_matches(decode_cigar_np(pr.cigar.seq), left_flank_coord, 0)
+    res: STRkitAlignedCoords = get_aligned_pair_matches(decode_cigar_np(pr.cigar.seq), left_flank_coord, 0, swap=True)
     return ret_q(res)
 
 
