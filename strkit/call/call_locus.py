@@ -992,6 +992,7 @@ def call_locus(
     rc_params = params.rc_params
     snv_min_base_qual = params.snv_min_base_qual
     use_hp = params.use_hp
+    use_methyl = params.use_methyl
     vcf_anchor_size = params.vcf_anchor_size
     # ----------------------------------
 
@@ -1297,6 +1298,10 @@ def call_locus(
             read_dict_entry["sl"] = len(tr_seq)
             read_dict_entry["start_anchor_seq"] = start_anchor
             read_dict_entry["seq"] = tr_seq
+
+        if use_methyl:
+            # TODO: parametrize alpha? remove alpha?
+            read_dict_entry["m"] = segment.get_methylation_prop(locus_with_ref_data, 0.0)
 
         # TODO: remove + replace with snv dict (only thing left, can be built within rust)
         read_dict_extra[rn] = {}

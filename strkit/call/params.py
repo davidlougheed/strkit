@@ -55,6 +55,7 @@ class CallParams:
         realign: bool = False,
         force_gm_filter: bool = False,
         use_hp: bool = False,
+        use_methyl: bool = False,
         snv_vcf: Path | None = None,
         snv_min_base_qual: int = 20,
         significant_clip_threshold: int = 100,
@@ -108,6 +109,7 @@ class CallParams:
         self.realign: bool = realign
         self.realign_timeout: int = 5  # TODO: user param
         self.use_hp: bool = use_hp
+        self.use_methyl: bool = use_methyl
         self.snv_vcf: Path | None = snv_vcf
         self.snv_min_base_qual: int = snv_min_base_qual
         self.significant_clip_threshold: int = significant_clip_threshold
@@ -212,6 +214,7 @@ class CallParams:
             ploidy=p_args.ploidy,
             realign=p_args.realign,
             use_hp=p_args.use_hp,
+            use_methyl=p_args.use_methyl,
             snv_vcf=p_args.incorporate_snvs,
             snv_min_base_qual=p_args.snv_min_base_qual,
             significant_clip_threshold=p_args.significant_clip_threshold,
@@ -260,6 +263,7 @@ class CallParams:
             "ploidy": self.ploidy,
             "realign": self.realign,
             "use_hp": self.use_hp,
+            "use_methyl": self.use_methyl,
             "snv_vcf": str(self.snv_vcf) if self.snv_vcf else None,
             "snv_min_base_qual": self.snv_min_base_qual,
             "significant_clip_threshold": self.significant_clip_threshold,

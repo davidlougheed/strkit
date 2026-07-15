@@ -58,6 +58,10 @@ class ReadDict(_ReadDictBase, total=False):
     seq: str  # Tandem repeat sequence
     # END: only added if consensus sequences are being calculated
 
+    # BEGIN: only added if methylation is being incorporated:
+    m: float  # methylation proportion
+    # END: only added if methylation is being incorporated
+
 
 class ReadDictExtra(TypedDict, total=False):
     # Below are only added if SNVs are being incorporated:

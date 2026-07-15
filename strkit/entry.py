@@ -77,6 +77,12 @@ def add_call_parser_args(call_parser):
         help="Whether to use HP tags from the alignment file (i.e., a haplotagged alignment file), if available.")
 
     call_parser.add_argument(
+        "--use-methyl", "-m",
+        action="store_true",
+        help="Whether to try to incorporate methylation tag data into the output (methylation proportion per-read and "
+             "per-allele.)")
+
+    call_parser.add_argument(
         "--incorporate-snvs", "--snv", "-v",
         type=Path,
         help="A path to a dbSNP VCF file with a list of validated SNVs to help phase with. Specifying this enables the "

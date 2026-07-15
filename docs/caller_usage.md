@@ -38,6 +38,8 @@
   read counts. Use for CCS reads or similar data (e.g., R10 nanopore data) ONLY! **Default:** off
 * `--use-hp`: Whether to incorporate `HP` tags from a haplotagged alignment file. This should speed up runtime and 
   will potentially improve calling results. **This flag is experimental, and has not been tested extensively.**
+* `--use-methyl` or `-m` (v0.25.0+; **EXPERIMENTAL**): Whether to incorporate methylation data from `MM/ML` tags in the 
+  alignment file into the output (methylation proportion per-read and per-allele.) **Default:** off
 * `--skip-supplementary` or `--skip-supp`: Skip supplementary alignments. **Default:** off
 * `--skip-secondary` or `--skip-sec`: Skip secondary alignments. **Default:** off
 * `--incorporate-snvs [path]` or `--snv [path]`: A path to a VCF with SNVs to incorporate into the calling process and 

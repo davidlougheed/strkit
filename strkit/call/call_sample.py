@@ -80,6 +80,7 @@ def locus_worker(
         params.skip_supplementary,
         params.skip_secondary,
         params.use_hp,
+        params.use_methyl,
         params.significant_clip_threshold,
         lg,
         params.log_level == DEBUG,
