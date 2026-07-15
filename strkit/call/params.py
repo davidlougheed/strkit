@@ -18,6 +18,9 @@ __all__ = ["CallParams"]
 
 DEFAULT_MAX_READS: int = 250
 
+DEFAULT_MAX_TERRIBLE_READS: int = 3
+DEFAULT_MAX_TERRIBLE_READS_TARGETED: int = 100
+
 DEFAULT_RC_LOCAL_SEARCH_RANGE: int = 3
 DEFAULT_RC_STEP_SIZE: int = 1
 
@@ -38,8 +41,9 @@ class CallParams:
         max_reads: int | None = None,
         min_avg_phred: int = 13,
         rc_method: RepeatCountMethod = "repalign",
-        min_read_align_score: float = 0.9,
+        min_read_align_score: float = 0.1,
         max_rcn_iters: int = 50,
+        max_terrible_reads: int | None = None,
         num_bootstrap: int = 100,
         gm_filter_factor: int = 3,
         gm_filter_expansion_ratio: float = 5.0,
@@ -89,6 +93,9 @@ class CallParams:
         self.rc_method: RepeatCountMethod = rc_method
         self.min_read_align_score: float = min_read_align_score
         self.max_rcn_iters: int = max_rcn_iters
+        self.max_terrible_reads: int = max_terrible_reads or (
+            DEFAULT_MAX_TERRIBLE_READS_TARGETED if targeted else DEFAULT_MAX_TERRIBLE_READS
+        )
         self.num_bootstrap: int = num_bootstrap
         self.force_gm_filter: bool = force_gm_filter
         self.gm_filter_factor: int = gm_filter_factor
@@ -193,6 +200,7 @@ class CallParams:
             rc_method=p_args.rc_method,
             min_read_align_score=p_args.min_read_align_score,
             max_rcn_iters=p_args.max_rcn_iters,
+            max_terrible_reads=p_args.max_terrible_reads,
             num_bootstrap=p_args.num_bootstrap,
             force_gm_filter=p_args.force_gm_filter,
             gm_filter_factor=p_args.gm_filter_factor,
@@ -239,6 +247,7 @@ class CallParams:
             "rc_method": self.rc_method,
             "min_read_align_score": self.min_read_align_score,
             "max_rcn_iters": self.max_rcn_iters,
+            "max_terrible_reads": self.max_terrible_reads,
             "num_bootstrap": self.num_bootstrap,
             "force_gm_filter": self.force_gm_filter,
             "gm_filter_factor": self.gm_filter_factor,

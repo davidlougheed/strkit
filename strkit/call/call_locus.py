@@ -76,7 +76,6 @@ ref_max_iters_to_be_slow: int = 100
 extremely_low_read_adj_score: float = 0.1  # fraction
 bad_read_alignment_time: int = 15  # seconds
 really_bad_read_alignment_time: int = 150
-max_bad_reads: int = 3
 
 base_wildcard_threshold = 3
 
@@ -1234,11 +1233,12 @@ def call_locus(
 
             if read_adj_score < extremely_low_read_adj_score or rc_time >= bad_read_alignment_time:
                 extremely_poor_scoring_reads.append((rn, read_adj_score))
-                if len(extremely_poor_scoring_reads) > max_bad_reads:
+                if len(extremely_poor_scoring_reads) > params.max_terrible_reads:
                     logger_.debug(
-                        "%s - not calling locus due to >3 extremely poor-aligning reads (%s, "
+                        "%s - not calling locus due to >%d extremely poor-aligning reads (%s, "
                         "most recent # iters: %d, most recent read TR seq: %s...)",
                         locus_log_str,
+                        params.max_terrible_reads,
                         str(extremely_poor_scoring_reads),
                         n_read_cn_iters,
                         locus_seq_and_flank_data.tr_seq_wc[:100],

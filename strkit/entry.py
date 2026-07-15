@@ -201,8 +201,17 @@ def add_call_parser_args(call_parser):
         default=50,
         help=(
             "Maximum number of read copy-number counting iterations to perform. Loci which require a lot of "
-            "iterations are probably impure tandem repeats, for which the resulting copy number will not be very "
+            "iterations are probably impure tandem repeats, for which the resulting copy number may not be very "
             "accurate anyway."
+        ))
+
+    call_parser.add_argument(
+        "--max-terrible-reads", "--mtr",
+        type=int,
+        help=(
+            "Maximum number of terribly-aligning reads allowed before a locus is skipped. A low number is good for "
+            "performance, but may result in undesirable behaviour for specific loci of interest (i.e, unwanted missing "
+            "calls)."
         ))
 
     call_parser.add_argument(
