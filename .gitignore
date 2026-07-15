@@ -20,6 +20,10 @@ test-*.bash
 *.fa.gz
 *.fa.gz.fai
 *.fa.gz.gzi
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
 *.gff*
 *.gtf*
 *.log
