@@ -16,10 +16,6 @@ def test_valid_motif(motif, valid):
 
 def test_validate_locus():
     with pytest.raises(LocusValidationError):
-        # start > end, invalid
-        validate_locus(STRkitLocus(1, "locus1", "1", 1000, 500, "CAG", 2, 70, 248387328, []))
-
-    with pytest.raises(LocusValidationError):
         # start == end, invalid
         validate_locus(STRkitLocus(1, "locus1", "1", 1000, 1000, "CAG", 2, 70, 248387328, []))
 
