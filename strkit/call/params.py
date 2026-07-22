@@ -132,7 +132,7 @@ class CallParams:
         self.seed: int | None = seed
         self.processes: int = processes
 
-        with AlignmentFile(read_file, reference_filename=reference_file) as bf:
+        with AlignmentFile(read_file, reference_filename=reference_file, ignore_truncation=True) as bf:
             # noinspection PyTypeChecker
             bfh = bf.header.to_dict()
 
