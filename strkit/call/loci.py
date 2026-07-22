@@ -160,7 +160,9 @@ def get_feature_id(feature) -> str:
         return f"{feature_type}:{feature_attrs.get(feature_id_attr, pos_str)}"
 
 
-def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[int, set[str], str]:
+def load_loci(
+    params: CallParams, contig_sizes: dict[str, int], locus_queue: Queue, logger: Logger
+) -> tuple[int, set[str], str]:
     from pysam import TabixFile, asGFF3, asGTF
 
     @cache  # Cache get_n_alleles calls for contigs
@@ -256,6 +258,7 @@ def load_loci(params: CallParams, locus_queue: Queue, logger: Logger) -> tuple[i
                     last["motif"],
                     n_alleles,
                     flank_size=params.flank_size,
+                    contig_size=contig_sizes.get(contig),
                     annotations=features,
                 )
                 validate_locus(locus)

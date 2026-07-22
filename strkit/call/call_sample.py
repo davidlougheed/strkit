@@ -28,6 +28,7 @@ get_locus_index = itemgetter("locus_index")
 def locus_worker(
     worker_id: int,
     params: CallParams,
+    ref_file_has_chr: bool,
     locus_queue: MpQueue,
     locus_counter_lock: Lock,
     locus_counter: ValueProxy,
@@ -85,8 +86,6 @@ def locus_worker(
         lg,
         params.log_level == DEBUG,
     )
-
-    ref_file_has_chr = any(r.startswith("chr") for r in ref.references)
 
     snv_vcf_reader = STRkitVCFReader(
         str(params.snv_vcf), is_sample_vcf=False, sample_id=None
@@ -266,7 +265,7 @@ def call_sample(
 
     from heapq import merge as heapq_merge
     from numpy.random import default_rng as np_default_rng
-    from pysam import VariantFile
+    from pysam import FastaFile, VariantFile
 
     from .loci import load_loci
     from .output import (
@@ -294,9 +293,18 @@ def call_sample(
 
     manager: SyncManager = mp.Manager()
 
+    # ---
+
+    # Load chromosome information from reference genome up front (sizes, contig name format)
+    ref = FastaFile(params.reference_file)
+    contig_sizes: dict[str, int] = {contig: contig_length for contig, contig_length in zip(ref.references, ref.lengths)}
+    ref_file_has_chr = any(contig.startswith("chr") for contig in ref.references)
+
+    # ---
+
     locus_queue = manager.Queue()
     # Loads actual STRkitLocus definitions into locus_queue, but returns # of loci + the contig set:
-    num_loci, contig_set, loci_hash = load_loci(params, locus_queue, logger)
+    num_loci, contig_set, loci_hash = load_loci(params, contig_sizes, locus_queue, logger)
 
     # ---
 
@@ -367,6 +375,7 @@ def call_sample(
         # Set up the argument tuple and spin up the jobs
         job_args = (
             params,
+            ref_file_has_chr,
             locus_queue,
             locus_counter_lock,
             locus_counter,
