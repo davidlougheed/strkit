@@ -73,7 +73,7 @@ a long time (in the tens of minutes).
 On Digital Research Alliance of Canada/Compute Canada clusters, this involves loading a few modules:
 
 ```bash
-module load rust/1.95.0 clang/18.1.8 python/3.11 scipy-stack/2026a parasail/2.6.2
+module load rust/1.95.0 clang/18.1.8 python/3.13 scipy-stack/2026a parasail/2.6.2
 python -m pip install strkit
 ```
 
