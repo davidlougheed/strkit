@@ -436,7 +436,9 @@ def call_sample(
                         if r.get("peaks"):
                             for k in r["peaks"]:
                                 # peak/list keys
-                                if k in {"means", "weights", "stdevs", "n_reads", "kmers", "seqs", "start_anchor_seqs"}:
+                                if k in {
+                                    "means", "weights", "stdevs", "n_reads", "kmers", "seqs", "start_anchor_seqs", "am"
+                                }:
                                     r["peaks"][k] = r["peaks"][k][::-1]
 
             if json_path is not None:

@@ -25,7 +25,7 @@ from strkit_rust_ext import (
     normalize_contig,
 )
 
-from strkit.utils import idx_0_getter
+from strkit.utils import idx_0_getter, is_not_none
 
 from .allele import call_alleles
 from .constants import NP_EMPTY_ARRAY_INT32, NP_EMPTY_ARRAY_FLOAT64
@@ -1527,6 +1527,7 @@ def call_locus(
 
     call_seqs: list[tuple[str, ConsensusMethod]] = []
     call_anchor_seqs: list[tuple[str, ConsensusMethod]] = []
+    call_am: NDArray[np.float64] | None = None
 
     # Also keep track of read model align scores to calculate the mean at the end
     model_align_scores: list[float] = []
@@ -1615,6 +1616,12 @@ def call_locus(
                     del read_dict[rn]["seq"]
                     del read_dict[rn]["start_anchor_seq"]
 
+        if call_data and params.use_methyl:
+            ams = [list(filter(is_not_none, map(lambda rr: read_dict[rr]["m"], ar))) for ar in allele_reads]
+            if all(ams):
+                call_am = np.array(ams, dtype=np.float64).mean(axis=1)
+                logger_.debug("%s - methylation call: %s", locus_log_str, call_am)
+
     # We're done with read dict extra, delete early
     del read_dict_extra
 
@@ -1624,6 +1631,8 @@ def call_locus(
             call_data.set_kmers(list(map(dict, peak_kmers)))
         if consensus:
             call_data.set_seqs(call_seqs, call_anchor_seqs)
+        if params.use_methyl and call_am is not None:
+            call_data.set_am(call_am)
 
     assign_time = time.perf_counter() - assign_start_time
 

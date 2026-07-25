@@ -20,6 +20,7 @@ __all__ = [
 # index/property getters and other partials
 cat_strs = "".join
 is_none = partial(operator.is_, None)
+is_not_none = partial(operator.is_not, None)
 idx_0_getter = operator.itemgetter(0)
 idx_1_getter = operator.itemgetter(1)
 
