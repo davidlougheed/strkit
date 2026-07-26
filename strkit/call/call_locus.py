@@ -1530,8 +1530,8 @@ def call_locus(
 
     call_seqs: list[tuple[str, ConsensusMethod]] = []
     call_anchor_seqs: list[tuple[str, ConsensusMethod]] = []
-    call_am: NDArray[np.float64] | None = None
-    call_amc: NDArray[np.float64] | None = None
+    call_am: list[float] | None = None
+    call_amc: list[float] | None = None
 
     # Also keep track of read model align scores to calculate the mean at the end
     model_align_scores: list[float] = []
@@ -1623,10 +1623,11 @@ def call_locus(
         if call_data and params.use_methyl and all(
             ams := [list(filter(is_not_none, map(lambda rr: read_dict[rr]["m"], ar))) for ar in allele_reads]
         ):
-            amcs = [list(filter(is_not_none, map(lambda rr: read_dict[rr]["mc"], ar))) for ar in allele_reads]
-            print(ams, amcs)
-            call_am = np.array(ams, dtype=np.float64).mean(axis=1)
-            call_amc = np.array(amcs, dtype=np.uint32).mean(axis=1)
+            call_am = [mean(aml) for aml in ams]
+            call_amc = [
+                mean(filter(is_not_none, map(lambda rr: read_dict[rr]["mc"], ar)))
+                for ar in allele_reads
+            ]
             logger_.debug("%s - methylation call: %s (counts: %s)", locus_log_str, call_am, call_amc)
 
     # We're done with read dict extra, delete early
@@ -1639,7 +1640,7 @@ def call_locus(
         if consensus:
             call_data.set_seqs(call_seqs, call_anchor_seqs)
         if params.use_methyl and call_am is not None and call_amc is not None:
-            call_data.set_methylation([PeakMethylation(call_am[i], call_amc[i]) for i in range(call_am.shape[0])])
+            call_data.set_methylation([PeakMethylation(call_am[i], call_amc[i]) for i in range(len(call_am))])
 
     assign_time = time.perf_counter() - assign_start_time
 
