@@ -333,8 +333,8 @@ def create_result_vcf_records(
 
         # If methylation is enabled, add the `AM` (average methylation per allele) data
         if params.use_methyl:
-            vr.samples[sample_id]["AM"] = tuple(res_peaks["am"]) if res_peaks["am"] else _blank_entry(n_alleles)
-            vr.samples[sample_id]["AMC"] = tuple(res_peaks["amc"]) if res_peaks["amc"] else _blank_entry(n_alleles)
+            vr.samples[sample_id]["AM"] = tuple(res_peaks["am"]) if res_peaks.get("am") else _blank_entry(n_alleles)
+            vr.samples[sample_id]["AMC"] = tuple(res_peaks["amc"]) if res_peaks.get("amc") else _blank_entry(n_alleles)
 
         ps = call_data.ps if call_data else None
 
