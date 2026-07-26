@@ -314,6 +314,16 @@ bgzip my-reference.fa  # Replaces .fa with a .fa.gz file
 samtools faidx my-reference.fa.gz  # Generates a .fai index file
 ```
 
+##### INCORPORATING METHYLATION (v0.25.0+, EXPERIMENTAL)
+
+To annotate alleles with their average 5mCpG methylation level, use the `--use-methyl` (or `-m`)
+flag and a BAM file with `MM/ML` tags. This will add `am` (average methylation proportion) and 
+`amc` (average methylated site count) data per allele peak to JSON and VCF output, as well as 
+read-level methylation proportion and count (`m`/`mc`) to the JSON output only.
+
+> [!WARNING]
+> This feature is still experimental and under active development.
+
 ##### OTHER PARAMETERS
 
 See the '[Caller catalog format & choosing a catalog](./docs/caller_catalog.md)' page for more on
