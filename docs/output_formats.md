@@ -27,26 +27,51 @@ Example report format:
     "version": "0.15.0"
   },
   "parameters": {
-    "read_files": "HG002.SequelII.ccs.phased.40x.chr4.bam",
+    "read_file": "HG002.SequelII.ccs.phased.40x.chr4.bam",
     "reference_file": "/Users/davidlougheed/git/gt-poc/hg38.analysisSet.fa.gz",
-    "min_reads": 4,
-    "min_allele_reads": 2,
+    "loci_file": "chr4.f5000.adotto.bed",
+    "annotation_file": "hg38.knownGene.sorted.gtf.gz",
+    "min_reads": 1,
+    "min_allele_reads": 1,
+    "max_reads": 250,
     "min_avg_phred": 13,
+    "rc_method": "comp",
+    "min_read_align_score": 0.1,
+    "max_rcn_iters": 80,
+    "max_terrible_reads": 3,
     "num_bootstrap": 100,
+    "force_gm_filter": false,
+    "gm_filter_factor": 3,
+    "gm_filter_expansion_ratio": 5.0,
     "flank_size": 70,
     "sample_id": "HG002",
+    "allow_only_one_full_flank": true,
+    "skip_supplementary": false,
+    "skip_secondary": false,
+    "sample_id": null,
+    "ploidy": "diploid_autosomes",
     "realign": true,
-    "hq": true,
+    "use_hp": false,
+    "use_methyl": true,
     "snv_vcf": "00-common_all.vcf.gz",
     "snv_min_base_qual": 20,
     "significant_clip_threshold": 100,
     "targeted": false,
     "respect_ref": false,
-    "count_kmers": "none",
+    "count_kmers": "both",
     "consensus": true,
-    "log_level": 10,
+    "poa": "spoa",
+    "large_consensus_length": 2000,
+    "max_n_large_consensus_reads": 20,
+    "max_mdn_poa_length": 5000,
+    "vcf_anchor_size": 5,
+    "json_read_seq": true,
+    "log_level": 20,
+    "verbose": false,
+    "profile": false,
     "seed": 1234,
-    "processes": 1
+    "processes": 1,
+    "log_progress_interval": 15
   },
   "contigs": [
     "chr4"
@@ -69,12 +94,16 @@ Example report format:
       "ref_cn": 16,
       "ref_start_anchor": "t",
       "ref_seq": "acacacacacacacacacacacacacacaca",
+      "am": 0.01, // if methylation enabled
+      "amc": 1.0, // if methylation enabled
       "reads": {
         "m64011_190901_095311/50792740/ccs": {
           "s": "-",
           "sc": 2.0,
           "cn": 15,
-          "sl": 31,
+          "sl": 31, 
+          "m": 0.01, // if methylation enabled
+          "mc": 1, // if methylation enabled
           "w": 1.0217145751733625,
           "snvu": ["G"],
           "p": 0
@@ -85,6 +114,8 @@ Example report format:
           "sc": 2.0,
           "cn": 15,
           "sl": 31,
+          "m": 0.01, // if methylation enabled
+          "mc": 1, // if methylation enabled
           "w": 1.0217145751733625,
           "snvu": ["A"],
           "p": 1
@@ -158,6 +189,8 @@ VCF format fields (i.e., for each variant sample entry):
 
 * `AD`: Read depth for each allele (non-standard vs. common VCF usage, where this is read depth for reference vs. each
   possible alt.)
+* `AM`: Average methylation level (5-methyl CpG sites) for each allele (if `--use-methyl` is passed).
+* `AMC`: Average number of 5-methyl CpG sites for each allele (if `--use-methyl` is passed).
 * `CONS`: Consensus methods used for each alt (`single`/`poa`/`best_rep`)
 * `DP`: Total read depth
 * `DPS`: Total read depth; only supporting reads (for calls with incorporated SNVs mainly; STR calls only)
