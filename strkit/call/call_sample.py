@@ -323,6 +323,7 @@ def call_sample(
             partial_phasing=params.snv_vcf is not None or params.use_hp,
             num_loci=num_loci,
             loci_hash=loci_hash,
+            use_methyl=params.use_methyl,
         )
         vf = VariantFile(vcf_path if vcf_path != "stdout" else "-", "w", header=vh)
 

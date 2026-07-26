@@ -59,7 +59,8 @@ def build_vcf_header(
     reference_file: Path | str,  # if Path, turn into file URI. Otherwise, treat "as-is".
     partial_phasing: bool,
     num_loci: int,
-    loci_hash: str
+    loci_hash: str,
+    use_methyl: bool,
 ) -> VariantHeader:
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
@@ -101,6 +102,9 @@ def build_vcf_header(
 
     # Set up basic VCF formats
     vh.formats.add("AD", ".", "Integer", "Read depth for each allele")
+    if use_methyl:
+        vh.formats.add("AM", ".", "Float", "Average methylation level (5-methyl CpG sites) for each allele")
+        vh.formats.add("AMC", ".", "Float", "Average number of 5-methyl CpG sites for each allele")
     vh.formats.add("ANCL", ".", "Integer", "Anchor length for the ref and each alt, five-prime of TR sequence")
     vh.formats.add("CONS", ".", "String", "Consensus methods used for each alt (single/poa/best_rep)")
     vh.formats.add("DP", 1, "Integer", "Read depth")
@@ -326,6 +330,11 @@ def create_result_vcf_records(
             )
             for pi in peak_indices
         )
+
+        # If methylation is enabled, add the `AM` (average methylation per allele) data
+        if params.use_methyl:
+            vr.samples[sample_id]["AM"] = tuple(res_peaks["am"]) if res_peaks["am"] else _blank_entry(n_alleles)
+            vr.samples[sample_id]["AMC"] = tuple(res_peaks["amc"]) if res_peaks["amc"] else _blank_entry(n_alleles)
 
         ps = call_data.ps if call_data else None
 
