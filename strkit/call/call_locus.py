@@ -1302,7 +1302,9 @@ def call_locus(
 
         if use_methyl:
             # TODO: parametrize alpha? remove alpha?
-            read_dict_entry["m"] = segment.get_methylation_prop(locus_with_ref_data, 0.0)
+            rde_m, rde_mc = segment.get_methylation_prop(locus_with_ref_data, 127, 0.0) or (None, None)
+            read_dict_entry["m"] = rde_m
+            read_dict_entry["mc"] = rde_mc
 
         # TODO: remove + replace with snv dict (only thing left, can be built within rust)
         read_dict_extra[rn] = {}
