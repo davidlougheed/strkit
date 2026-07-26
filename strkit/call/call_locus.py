@@ -14,6 +14,7 @@ from typing import Iterable, Literal, Sequence, TYPE_CHECKING
 
 from strkit_rust_ext import (
     AssignMethod,
+    PeakMethylation,
     CallData,
     LowMeanBaseQual,
     STRkitSegmentAlignmentDataForLocus,
@@ -1528,6 +1529,7 @@ def call_locus(
     call_seqs: list[tuple[str, ConsensusMethod]] = []
     call_anchor_seqs: list[tuple[str, ConsensusMethod]] = []
     call_am: NDArray[np.float64] | None = None
+    call_amc: NDArray[np.float64] | None = None
 
     # Also keep track of read model align scores to calculate the mean at the end
     model_align_scores: list[float] = []
@@ -1616,11 +1618,13 @@ def call_locus(
                     del read_dict[rn]["seq"]
                     del read_dict[rn]["start_anchor_seq"]
 
-        if call_data and params.use_methyl:
-            ams = [list(filter(is_not_none, map(lambda rr: read_dict[rr]["m"], ar))) for ar in allele_reads]
-            if all(ams):
-                call_am = np.array(ams, dtype=np.float64).mean(axis=1)
-                logger_.debug("%s - methylation call: %s", locus_log_str, call_am)
+        if call_data and params.use_methyl and all(
+            ams := [list(filter(is_not_none, map(lambda rr: read_dict[rr]["m"], ar))) for ar in allele_reads]
+        ):
+            amcs = [list(filter(is_not_none, map(lambda rr: read_dict[rr]["mc"], ar))) for ar in allele_reads]
+            call_am = np.array(ams, dtype=np.float64).mean(axis=1)
+            call_amc = np.array(amcs, dtype=np.uint32).mean(axis=1)
+            logger_.debug("%s - methylation call: %s (counts: %s)", locus_log_str, call_am, call_amc)
 
     # We're done with read dict extra, delete early
     del read_dict_extra
@@ -1631,8 +1635,8 @@ def call_locus(
             call_data.set_kmers(list(map(dict, peak_kmers)))
         if consensus:
             call_data.set_seqs(call_seqs, call_anchor_seqs)
-        if params.use_methyl and call_am is not None:
-            call_data.set_am(call_am)
+        if params.use_methyl and call_am is not None and call_amc is not None:
+            call_data.set_methylation([PeakMethylation(call_am[i], call_amc[i]) for i in range(call_am.shape[0])])
 
     assign_time = time.perf_counter() - assign_start_time
 

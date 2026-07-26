@@ -60,6 +60,7 @@ class ReadDict(_ReadDictBase, total=False):
 
     # BEGIN: only added if methylation is being incorporated:
     m: float  # methylation proportion
+    mc: int  # methylation site count
     # END: only added if methylation is being incorporated
 
 
