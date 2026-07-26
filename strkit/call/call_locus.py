@@ -1624,6 +1624,7 @@ def call_locus(
             ams := [list(filter(is_not_none, map(lambda rr: read_dict[rr]["m"], ar))) for ar in allele_reads]
         ):
             amcs = [list(filter(is_not_none, map(lambda rr: read_dict[rr]["mc"], ar))) for ar in allele_reads]
+            print(ams, amcs)
             call_am = np.array(ams, dtype=np.float64).mean(axis=1)
             call_amc = np.array(amcs, dtype=np.uint32).mean(axis=1)
             logger_.debug("%s - methylation call: %s (counts: %s)", locus_log_str, call_am, call_amc)
