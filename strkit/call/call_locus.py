@@ -959,6 +959,19 @@ def get_locus_alignment_data_from_read(
     return STRkitSegmentAlignmentDataForLocus(aligned_coords, locus_read_coords, realigned)
 
 
+def get_have_rare_realigns(read_dict_items: tuple[tuple[str, ReadDict], ...]) -> bool:
+    """
+    Realigns are missing significant amounts of flanking information since the realignment only uses a portion of the
+    reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
+    :param read_dict_items: a tuple of (read name, read data) pairs.
+    :return: whether we have rare realigns.
+    """
+    return any(
+        read.get("realn") and sum(1 for _, r2 in read_dict_items if not r2.get("realn") and r2["cn"] == read["cn"]) == 0
+        for _, read in read_dict_items
+    )
+
+
 def call_locus(
     locus: STRkitLocus,
     # ---
@@ -1344,8 +1357,6 @@ def call_locus(
 
     # End of first read loop -------------------------------------------------------------------------------------------
 
-    n_reads_in_dict: int = len(read_dict)
-
     locus_result.update({
         **(
             {
@@ -1356,6 +1367,8 @@ def call_locus(
         ),
         "reads": read_dict,
     })
+
+    n_reads_in_dict: int = len(read_dict)
 
     # Check now if we don't have enough reads to make a call. We can still return some read-level information!
     if n_reads_in_dict < params.min_reads:
@@ -1373,16 +1386,6 @@ def call_locus(
     call_data: CallData | None = None
     # noinspection PyTypeChecker
     read_dict_items: tuple[tuple[str, ReadDict], ...] = tuple(read_dict.items())
-
-    # Realigns are missing significant amounts of flanking information since the realignment only uses a portion of the
-    # reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
-    have_rare_realigns: bool = False
-    for rn, read in read_dict_items:
-        read_cn = read["cn"]
-        if (read.get("realn") and
-                sum(1 for _, r2 in read_dict_items if not r2.get("realn") and r2["cn"] == read_cn) == 0):
-            have_rare_realigns = True
-            break
 
     allele_start_time = time.perf_counter()
 
@@ -1420,6 +1423,12 @@ def call_locus(
             )
 
     if should_incorporate_snvs and not did_use_hp:
+        # should_incorporate_snvs implies candidate_snvs is not None
+
+        # Realigns are missing significant amounts of flanking information since the realignment only uses a portion of
+        # the reference genome. If we have a rare realignment (e.g., a large expansion), we cannot use SNVs.
+        have_rare_realigns: bool = get_have_rare_realigns(read_dict_items)
+
         if realign_count >= many_realigns_threshold or have_rare_realigns:
             logger_.warning(
                 "%s - cannot use SNVs; one of realign_count=%d >= %d or have_rare_realigns=%s",
