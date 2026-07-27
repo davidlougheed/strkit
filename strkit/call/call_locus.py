@@ -1668,14 +1668,15 @@ def call_locus(
 
     # Compile the call into a dictionary with all information to return ------------------------------------------------
 
-    logger_.debug(
-        "%s - got call: %s (95%% CIs: %s); peak assign method=%s; # reads=%s",
-        locus_log_str,
-        call_data.call if call_data else None,
-        call_data.call_95_cis if call_data else None,
-        call_data.get_assign_method_str() if call_data else "none",
-        call_peak_n_reads,
-    )
+    if params.log_level == DEBUG:  # avoid Rust round-trips if not debug logging
+        logger_.debug(
+            "%s - got call: %s (95%% CIs: %s); peak assign method=%s; # reads=%s",
+            locus_log_str,
+            call_data.call if call_data else None,
+            call_data.call_95_cis if call_data else None,
+            call_data.get_assign_method_str() if call_data else "none",
+            call_peak_n_reads,
+        )
 
     locus_result["call_data"] = call_data
     locus_result["mean_model_align_score"] = mean_model_align_score
