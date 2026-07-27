@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from logging import WARNING
 from pysam import AlignmentFile
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -222,7 +222,7 @@ class CallParams:
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
             consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
-            poa=p_args.poa,
+            poa=cast(Literal["spoa", "rust-bio"], p_args.poa),
             large_consensus_length=p_args.large_consensus_length,
             max_n_large_consensus_reads=p_args.max_n_large_consensus_reads,
             max_mdn_poa_length=p_args.max_mdn_poa_length,
