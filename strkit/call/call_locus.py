@@ -1517,7 +1517,7 @@ def call_locus(
         call_peaks = None
         call_weights = None
         call_stdevs = None
-        call_modal_n = None
+        call_modal_n = 0
 
     # Assign reads to peaks and compute peak k-mers (and optionally consensus sequences) -------------------------------
 
@@ -1526,7 +1526,7 @@ def call_locus(
     # We cannot call read-level cluster labels with >2 peaks using distance alone;
     # don't know how re-sampling has occurred.
     call_peak_n_reads: list[int] = []
-    peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n or 0)]
+    peak_kmers: list[Counter] = [Counter() for _ in range(call_modal_n)]
 
     call_seqs: list[tuple[str, ConsensusMethod]] = []
     call_anchor_seqs: list[tuple[str, ConsensusMethod]] = []
@@ -1536,7 +1536,7 @@ def call_locus(
     # Also keep track of read model align scores to calculate the mean at the end
     model_align_scores: list[float] = []
 
-    read_peaks_called = (call_modal_n and call_modal_n <= 2)
+    read_peaks_called = bool(call_modal_n and call_modal_n <= 2)
 
     if read_peaks_called:
         peaks: NDArray[np.float64] = call_peaks[:call_modal_n]
