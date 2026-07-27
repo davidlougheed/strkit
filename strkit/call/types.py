@@ -16,7 +16,7 @@ __all__ = [
     "LocusResult",
 ]
 
-# TODO: py3.10: new Required[] TypedDict structuring
+# TODO: py3.11: new Required[] TypedDict structuring
 
 AssignMethod = Literal["dist", "snv", "snv+dist", "single"]
 AssignMethodWithHP = AssignMethod | Literal["hp"]
