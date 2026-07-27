@@ -893,22 +893,23 @@ def get_locus_alignment_data_from_read(
             aligned_coords = pairs_new  # aligned_coords is no longer None
             realigned = True
 
-            locus_read_coords = get_read_coords_from_matched_pairs(
+            lrc = get_read_coords_from_matched_pairs(
                 locus_with_ref_data, segment, aligned_coords, vcf_anchor_size, allow_only_one_full_flank
             )
 
             # equivalent to the below check of `coords_or_none is None` - if realign happens, but the flank
             # boundaries cannot be extracted from the alignment, we skip this read.
-            if locus_read_coords.is_incomplete():
+            if lrc.is_incomplete():
                 if params.log_level == DEBUG:
                     debug_log_flanking_seq(
-                        logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned,
-                        repr(locus_read_coords),
+                        logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned, repr(lrc),
                     )
                     # TODO: find a way of making use of these reads (e.g., C9orf72 expansion)
                     # if locus_read_coords.full_left_flank:
                     #     print(segment.query_sequence[locus_read_coords.left_flank_end:])
                 return None
+
+            locus_read_coords = lrc
 
     # ------------------------------------------------------------------------------------------------------------------
 
