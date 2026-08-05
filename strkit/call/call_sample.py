@@ -438,7 +438,15 @@ def call_sample(
                             for k in r["peaks"]:
                                 # peak/list keys
                                 if k in {
-                                    "means", "weights", "stdevs", "n_reads", "kmers", "seqs", "start_anchor_seqs", "am"
+                                    "means",
+                                    "weights",
+                                    "stdevs",
+                                    "n_reads",
+                                    "kmers",
+                                    "seqs",
+                                    "start_anchor_seqs",
+                                    "am",
+                                    "amc",
                                 }:
                                     r["peaks"][k] = r["peaks"][k][::-1]
 
