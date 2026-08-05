@@ -17,7 +17,7 @@ dependencies = [
     "statsmodels>=0.14.0,<0.15",
     "strkit_rust_ext==0.29.0",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 keywords = ["tandem repeats", "TRs", "short tandem repeats", "STRs", "genomics"]
 description = "A toolkit for analyzing variation in short(ish) tandem repeats."

@@ -58,7 +58,7 @@ The code for the software itself is also available and citeable in Zenodo: https
 
 ### Via PyPI
 
-STRkit requires Python 3.10+ and can be installed from PyPI via `pip` 
+STRkit requires Python 3.11+ and can be installed from PyPI via `pip` 
 with the following command:
 
 ```bash
