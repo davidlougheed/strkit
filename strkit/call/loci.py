@@ -195,7 +195,7 @@ def load_loci(
     current_block: list[STRkitLocus] = []
     current_block_left: int = 9999999999999999
     current_block_right: int = -1
-    loci_hash = hashlib.new("sha256")
+    loci_hash = hashlib.new("sha256", usedforsecurity=False)
 
     def _put_current_block():
         nonlocal current_block_left
