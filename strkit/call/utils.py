@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "cn_getter",
+    "sl_getter",
     "neq_blank",
     "get_new_seed",
 ]
@@ -16,6 +17,7 @@ __all__ = [
 
 # index/property getters and other partials
 cn_getter = itemgetter("cn")
+sl_getter = itemgetter("sl")
 neq_blank = partial(operator_ne, "")
 
 

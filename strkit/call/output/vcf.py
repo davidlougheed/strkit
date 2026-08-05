@@ -10,7 +10,7 @@ from typing import Iterable, TYPE_CHECKING
 
 from strkit import __version__
 from strkit.utils import is_none, idx_0_getter
-from ..utils import cn_getter
+from ..utils import cn_getter, sl_getter
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -52,6 +52,10 @@ VT_SNV = "snv"
 def iter_to_upper(x: Iterable[str]) -> Iterable[str]:
     # noinspection PyTypeChecker
     return map(str.upper, x)
+
+
+def format_count_pair(pair) -> str:
+    return "x".join(map(str, pair))  # CNxCOUNT or SLxCOUNT
 
 
 def build_vcf_header(
@@ -313,7 +317,7 @@ def create_result_vcf_records(
         vr.samples[sample_id]["MCRL"] = tuple(
             "|".join(
                 map(
-                    lambda pair: "x".join(map(str, pair)),  # CNxCOUNT
+                    format_count_pair,  # CNxCOUNT
                     sorted(Counter(map(cn_getter, reads_by_peak[pi])).items())
                 )
             )
@@ -324,8 +328,8 @@ def create_result_vcf_records(
         vr.samples[sample_id]["SLR"] = tuple(
             "|".join(
                 map(
-                    lambda pair: "x".join(map(str, pair)),  # SLxCOUNT
-                    sorted(Counter(map(lambda r: r["sl"], reads_by_peak[pi])).items())
+                    format_count_pair,  # SLxCOUNT
+                    sorted(Counter(map(sl_getter, reads_by_peak[pi])).items())
                 )
             )
             for pi in peak_indices
