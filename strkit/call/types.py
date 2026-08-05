@@ -1,9 +1,8 @@
-# import pysam
+from typing import Literal, NotRequired, Required, TypedDict
+
 import numpy as np
-from typing import Literal, TypedDict
 from numpy.typing import NDArray
 from strkit_rust_ext import CallData
-
 
 __all__ = [
     "AssignMethod",
@@ -11,12 +10,10 @@ __all__ = [
     "ConsensusMethod",
     # ---
     "ReadDict",
-    "ReadDictExtra",
+    "SnvBases",
     "CalledSNV",
     "LocusResult",
 ]
-
-# TODO: py3.11: new Required[] TypedDict structuring
 
 AssignMethod = Literal["dist", "snv", "snv+dist", "single"]
 AssignMethodWithHP = AssignMethod | Literal["hp"]
@@ -24,14 +21,14 @@ AssignMethodWithHP = AssignMethod | Literal["hp"]
 ConsensusMethod = Literal["single", "poa", "best_rep"]
 
 
-class _ReadDictBase(TypedDict):
-    s: Literal["-", "+"]  # DNA strand alignment
-    cn: int | float  # Copy number
-    w: float  # Weight
-    sc: float | None  # Adjusted read model align score (None if TR is missing)
+class ReadDict(TypedDict, total=False):
+    s: Required[Literal["-", "+"]]  # DNA strand alignment
+    cn: Required[int]  # Copy number
+    w: Required[float]  # Weight
+    sc: Required[float | None]  # Adjusted read model align score (None if TR is missing)
 
+    # ------------------------------------------------------------------------------------------------------------------
 
-class ReadDict(_ReadDictBase, total=False):
     # Whether the read was realigned by hand using a local alignment algorithm.
     realn: bool
 
@@ -64,57 +61,53 @@ class ReadDict(_ReadDictBase, total=False):
     # END: only added if methylation is being incorporated
 
 
-class ReadDictExtra(TypedDict, total=False):
-    # Below are only added if SNVs are being incorporated:
-    #  - intermediate result: tuple of bases/qualities for the set of SNVs across all reads
-    snv_bases: tuple[tuple[str, int], ...]
+SnvBases = tuple[tuple[str, int], ...]
 
 
-class _CalledSNVBase(TypedDict):
+class CalledSNV(TypedDict):
     id: str
     pos: int
     call: tuple[str, ...]
     rcs: list[int]
+    ref: NotRequired[str]
 
 
-class CalledSNV(_CalledSNVBase, total=False):
-    ref: str
+class PeakData(TypedDict):
+    means: Required[NDArray[np.float64]]
+    weights: Required[NDArray[np.float64]]
+    stdevs: Required[NDArray[np.float64]]
+    modal_int: Required[int]
+    n_reads: Required[list[int]]
 
+    # --------------------------------------------------
 
-class BasePeakData(TypedDict):
-    means: NDArray[np.float64]
-    weights: NDArray[np.float64]
-    stdevs: NDArray[np.float64]
-    modal_int: int
-    n_reads: list[int]
-
-
-class PeakData(BasePeakData):
     kmers: dict[str, int]
-    seqs: list[tuple[str, ConsensusMethod]]  # really "list-tyup
+    seqs: list[tuple[str, ConsensusMethod]]
+    start_anchor_seqs: list[tuple[str, ConsensusMethod]]
+    am: list[float]
+    amc: list[float]
 
 
-class BaseLocusResult(TypedDict):
+class LocusResult(TypedDict, total=False):
     # BEGIN from STRkitLocus
-    locus_index: int
-    locus_id: str
-    contig: str
-    start: int
-    end: int
+    locus_index: Required[int]
+    locus_id: Required[str]
+    contig: Required[str]
+    start: Required[int]
+    end: Required[int]
 
-    motif: str
+    motif: Required[str]
 
-    annotations: list[str]
+    annotations: Required[list[str]]
     # END from STRkitLocus
 
-    assign_method: AssignMethodWithHP | None
-    call_data: CallData | None
-    call: list[int] | None
-    call_95_cis: list[list[int]] | None
-    call_99_cis: list[list[int]] | None
+    assign_method: Required[AssignMethodWithHP | None]
+    call_data: Required[CallData | None]
+    call: Required[list[int] | None]
+    call_95_cis: Required[list[list[int]] | None]
+    call_99_cis: Required[list[list[int]] | None]
 
-
-class LocusResult(BaseLocusResult, total=False):
+    # -------------------------------------------------------
     start_adj: int
     end_adj: int
 

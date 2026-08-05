@@ -38,7 +38,6 @@ from .snvs import (
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
-from .types import ReadDictExtra
 from .utils import cn_getter, eq_0, get_new_seed, weight_getter
 
 if TYPE_CHECKING:
@@ -60,7 +59,7 @@ if TYPE_CHECKING:
     )
 
     from .params import CallParams
-    from .types import CalledSNV, ConsensusMethod, LocusResult, ReadDict
+    from .types import CalledSNV, ConsensusMethod, LocusResult, ReadDict, SnvBases
 
 
 __all__ = [
@@ -462,7 +461,7 @@ def call_alleles_with_incorporated_snvs(
     params: CallParams,
     read_dict: dict[str, ReadDict],
     read_dict_items: tuple[tuple[str, ReadDict], ...],  # We could derive this again, but we already have before...
-    read_dict_extra: dict[str, ReadDictExtra],
+    read_snv_bases: dict[str, SnvBases],
     n_reads_in_dict: int,  # We could derive this again, but we already have before...
     useful_snvs: list[tuple[int, int]],
     candidate_snvs: CandidateSNVs,
@@ -491,7 +490,7 @@ def call_alleles_with_incorporated_snvs(
 
     for read_item in read_dict_items:
         rn, read = read_item
-        snv_bases: tuple[tuple[str, int], ...] | None = read_dict_extra[rn].get("snv_bases")
+        snv_bases: SnvBases | None = read_snv_bases.get(rn)
 
         if snv_bases is None:
             read_dict_items_with_no_snvs.append(read_item)
@@ -1091,7 +1090,7 @@ def call_locus(
     # Build the read dictionary with segment information, copy number, weight, & more. ---------------------------------
 
     read_dict: dict[str, ReadDict] = {}
-    read_dict_extra: dict[str, ReadDictExtra] = {}
+    read_snv_bases: dict[str, SnvBases] = {}
     realign_count: int = 0  # Number of realigned reads
 
     # Various aggregators for if we have a phased alignment file:
@@ -1333,9 +1332,6 @@ def call_locus(
             read_dict_entry["m"] = rde_m
             read_dict_entry["mc"] = rde_mc
 
-        # TODO: remove + replace with snv dict (only thing left, can be built within rust)
-        read_dict_extra[rn] = {}
-
         # TODO: this should be done on locus block creation instead maybe, once SNV stuff is also there
         if use_hp and (hp := segment.hp) is not None and (ps := segment.ps) is not None:
             ps_remapped: int
@@ -1476,7 +1472,7 @@ def call_locus(
                 # Reference sequence - don't assign to a variable to avoid keeping a large amount of data around until
                 # the GC arises from slumber.
                 ref.fetch(locus_with_ref_data.ref_contig, left_most_coord, right_most_coord + 1).upper(),
-                read_dict_extra,
+                read_snv_bases,
                 read_locus_alignment_data,
                 candidate_snvs,
                 params.min_allele_reads,
@@ -1495,7 +1491,7 @@ def call_locus(
                     params=params,
                     read_dict=read_dict,
                     read_dict_items=read_dict_items,
-                    read_dict_extra=read_dict_extra,
+                    read_snv_bases=read_snv_bases,
                     n_reads_in_dict=n_reads_in_dict,
                     useful_snvs=useful_snvs,
                     candidate_snvs=candidate_snvs,
@@ -1660,7 +1656,7 @@ def call_locus(
             logger_.debug("%s - methylation call: %s (counts: %s)", locus_log_str, call_am, call_amc)
 
     # We're done with read dict extra, delete early
-    del read_dict_extra
+    del read_snv_bases
 
     if call_data:
         call_data.set_n_reads(np.array(call_peak_n_reads, dtype=np.uint16))
