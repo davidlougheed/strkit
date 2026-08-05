@@ -187,6 +187,8 @@ class CallParams:
     def from_args(cls, logger: Logger, p_args):
         if p_args.hq:
             logger.warning("--hq is deprecated; this functionality is now enabled by default")
+        if p_args.no_tsv:
+            logger.warning("--no-tsv is deprecated; this flag does nothing")
 
         return cls(
             logger,
