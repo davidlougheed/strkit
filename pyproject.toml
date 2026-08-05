@@ -45,5 +45,21 @@ Repository = "https://github.com/davidlougheed/strkit.git"
 [project.scripts]
 strkit = "strkit.entry:main"
 
+[tool.uv]
+package = true
+
 [tool.hatch.build]
 exclude = [".github", ".idea", "catalogs", "docs", "tests", "requirements.txt", "Dockerfile"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = ["PYI041", "RUF022"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.1",
+    "scipy-stubs>=1.17.1.5",
+]
