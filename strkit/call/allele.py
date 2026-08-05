@@ -14,32 +14,30 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 from collections import Counter
 from statistics import mode
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 from warnings import simplefilter
 
 import numpy as np
-from numpy.typing import NDArray
 from sklearn.exceptions import ConvergenceWarning
 from strkit_rust_ext import CallData
 
 from strkit.utils import empty_lists
 
+from .constants import NP_FLOAT_32_EPSILON
 from .gmm import make_single_gaussian
 
 if TYPE_CHECKING:
     from logging import Logger
 
     from numpy.random import Generator
+    from numpy.typing import NDArray
 
     from .gmm import GMMParams
     from .params import CallParams
 
 __all__ = [
-    "RepeatCounts",
     "call_alleles",
 ]
-
-RepeatCounts: TypeAlias = list[int] | tuple[int, ...] | NDArray[np.int_]
 
 
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles
@@ -47,8 +45,6 @@ simplefilter("ignore", category=ConvergenceWarning)
 
 # TODO: parameterize
 small_allele_min = 8
-
-FLOAT_32_EPSILON = np.finfo(np.float32).eps
 
 
 def _calculate_cis(samples: NDArray[np.float64], is_99: bool) -> NDArray[np.int32]:
@@ -115,7 +111,7 @@ def fit_gmm(
         ):
             mw_filter_2 = means_and_weights[1, :] > (1 / (gmm_params.filter_factor * n_components))
         else:
-            mw_filter_2 = means_and_weights[1, :] > FLOAT_32_EPSILON
+            mw_filter_2 = means_and_weights[1, :] > NP_FLOAT_32_EPSILON
 
         mw_filter = mw_filter_1 & mw_filter_2
         n_useless = np.size(mw_filter) - np.count_nonzero(mw_filter)
