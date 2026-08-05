@@ -1,10 +1,11 @@
 import pathlib
+
 import pytest
 
 from strkit.mi.intervals import (
     build_loci_dict_of_dict_from_file,
-    overlapping_loci_dict_of_dict,
     build_loci_dict_of_list_from_file,
+    overlapping_loci_dict_of_dict,
     overlapping_loci_dict_of_list,
 )
 

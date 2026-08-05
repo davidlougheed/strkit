@@ -53,7 +53,7 @@ VALID_KEY_SETS: frozenset[frozenset[str]] = frozenset([
 
 class PloidyConfig(BaseModel):
     default: int
-    overrides: dict[str, int] = Field(default_factory=lambda: {})
+    overrides: dict[str, int] = Field(default_factory=dict)
     ignore: frozenset[str] = frozenset([])
 
     def n_of(self, contig: str) -> int | None:

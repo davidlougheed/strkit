@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
-from strkit.convert.constants import FORMAT_TRF, FORMAT_BED4
+
+from strkit.convert.constants import FORMAT_BED4, FORMAT_TRF
 from strkit.convert.converter import convert
 
 TRF_CONVERT_SORT_DAT = Path(__file__).parent / "data" / "trf_convert_sort.dat"

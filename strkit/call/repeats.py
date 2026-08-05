@@ -79,7 +79,7 @@ def get_ref_repeat_count(
     vcf_anchor_size: int,
     rc_params: RepeatCountParams,
     respect_coords: bool = False,
-) -> tuple[tuple[int | float, int], int, int, tuple[int, int], tuple[str, str, str]]:
+) -> tuple[tuple[int, int], int, int, tuple[int, int], tuple[str, str, str]]:
     max_iters = rc_params.max_iters
     local_search_range = rc_params.initial_local_search_range
     step_size = rc_params.initial_step_size

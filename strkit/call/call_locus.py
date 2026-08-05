@@ -159,7 +159,7 @@ def calculate_read_distance(
                 if z in r2_skip:
                     continue
 
-                r1_b, r1_bq = r1_snv_u[z]
+                r1_b, _r1_bq = r1_snv_u[z]
                 if r1_b != r2_snv_u[z][0]:
                     d += 1.0  # increase distance by 1 for each mismatched SNV
 
@@ -631,14 +631,14 @@ def call_alleles_with_incorporated_snvs(
     # is an array of length 1.
 
     cdd_sort_order_determiner = np.fromiter(
-        map(lambda x: (x.peak_means[0], x.call_95_cis[0][0]), cdd),
+        ((x.peak_means[0], x.call_95_cis[0][0]) for x in cdd),
         dtype=[("p", np.float64), ("i", np.int32)])
     # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
     peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
 
     # Re-order the call data dictionary, now that we've established an ordering
     # noinspection PyTypeChecker
-    cdd_ordered = [cdd[i] for i in peak_order]
+    cdd_ordered: list[CallData] = [cdd[i] for i in peak_order]
     # noinspection PyTypeChecker
     cluster_reads_ordered = [cluster_reads[i] for i in peak_order]
 
@@ -1275,7 +1275,7 @@ def call_locus(
                 tr_len_w_flank,
                 sorted_read_lengths,
             )
-            exit(1)
+            sys.exit(1)
 
         mean_containing_size = segment.length if targeted else get_read_length_partition_mean(partition_idx)
         # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
@@ -1547,7 +1547,7 @@ def call_locus(
         stdevs: NDArray[np.float64] = call_stdevs[:call_modal_n]
         weights: NDArray[np.float64] = call_weights[:call_modal_n]
 
-        allele_reads: list[list[str]] = [list() for _ in range(call_modal_n)]
+        allele_reads: list[list[str]] = [[] for _ in range(call_modal_n)]
 
         for r, rd in read_dict_items:
             if (rd_sc := rd["sc"]) is not None:
@@ -1609,7 +1609,7 @@ def call_locus(
         if call_data and consensus:
             def _consensi_for_key(k: Literal["seq", "start_anchor_seq"]):
                 for a in allele_reads:
-                    seqs = list(map(lambda rr: read_dict[rr][k], a))
+                    seqs = [read_dict[rr][k] for rr in a]
                     if seqs and len(seqs[0]) > params.large_consensus_length:
                         # if we're dealing with large sequences, use a subset of the reads to prevent stalling out.
                         seqs = seqs[:params.max_n_large_consensus_reads]

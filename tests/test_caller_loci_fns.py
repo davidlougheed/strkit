@@ -1,6 +1,7 @@
 import pytest
 from strkit_rust_ext import STRkitLocus
-from strkit.call.loci import LocusValidationError, valid_motif, validate_locus, parse_last_column
+
+from strkit.call.loci import LocusValidationError, parse_last_column, valid_motif, validate_locus
 
 
 @pytest.mark.parametrize("motif,valid", [

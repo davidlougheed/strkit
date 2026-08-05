@@ -21,8 +21,8 @@ from warnings import simplefilter
 from .utils import get_new_seed
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
     from numpy.random import Generator
+    from numpy.typing import NDArray
 
 __all__ = [
     "GMMInitParamsMethod",

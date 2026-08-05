@@ -221,7 +221,7 @@ class CallParams:
             targeted=p_args.targeted,
             respect_ref=p_args.respect_ref,
             count_kmers=p_args.count_kmers,
-            consensus=p_args.consensus or not (not p_args.vcf),  # Consensus calculation is required for VCF output.
+            consensus=p_args.consensus or bool(p_args.vcf),  # Consensus calculation is required for VCF output.
             poa=cast(Literal["spoa", "rust-bio"], p_args.poa),
             large_consensus_length=p_args.large_consensus_length,
             max_n_large_consensus_reads=p_args.max_n_large_consensus_reads,

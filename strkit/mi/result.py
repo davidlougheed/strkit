@@ -811,11 +811,11 @@ class MIResult:
             mi_vals.append(mi_99)
 
         if mi_seq := self.mi_result["seq"]:
-            header.append(f"MI% (seq)")
+            header.append("MI% (seq)")
             mi_vals.append(mi_seq)
 
         if mi_sl := self.mi_result["sl"]:
-            header.append(f"MI% (seqlen)")
+            header.append("MI% (seqlen)")
             mi_vals.append(mi_sl)
 
         if mi_sl_pm1 := self.mi_result["sl_pm1"]:

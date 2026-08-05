@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 
 from multiprocessing import Queue as MpQueue, Process
@@ -125,7 +126,7 @@ def perform_realign(
             wait_count += 1
             if wait_count > 30:
                 logger_.fatal("%s - realign job never exited. Terminating...", locus_log_str)
-                exit(1)
+                sys.exit(1)
         proc.close()
 
     logger_.debug(

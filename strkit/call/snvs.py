@@ -64,7 +64,7 @@ def call_and_filter_useful_snvs(
         for _, u_ref in useful_snvs
     }
 
-    for rn, read in read_dict.items():
+    for read in read_dict.values():
         p: int | None = read.get("p")
         if p is None:  # No peak; read wasn't used to call peaks
             continue

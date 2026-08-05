@@ -70,7 +70,7 @@ def convert(in_file: str, in_format: str, out_format: str, sort: bool, logger: L
             is_trf_dat = True
         elif out_format == FORMAT_TRF:
             logger.critical(f"No need to convert from TRF BED to TRF BED")
-            exit(1)
+            sys.exit(1)
         elif out_format == c.CALLER_REPEATHMM:
             logger.critical(f"No need to convert for '{out_format}'; TRF BED files are accepted as input")
             return 1

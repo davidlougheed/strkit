@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import re
+import sys
 import time
 
 from functools import cache
 from strkit_rust_ext import STRkitLocus, STRkitLocusBlock
-from typing import Iterable, TypedDict, TYPE_CHECKING
+from typing import TypedDict, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from logging import Logger
     from queue import Queue
     from .params import CallParams
@@ -211,7 +213,7 @@ def load_loci(
         for t_idx, t in enumerate(parse_loci_bed(params.loci_file), 1):
             if len(t) < 4:
                 logger.critical("Locus BED file must have at least 4 columns (line %d)", t_idx)
-                exit(1)
+                sys.exit(1)
 
             contig = t[0]
 
@@ -266,7 +268,7 @@ def load_loci(
                 loci_hash.update(locus_hash.to_bytes(64, byteorder="little", signed=True))
             except LocusValidationError as e:
                 e.log_error(logger)
-                exit(1)
+                sys.exit(1)
 
             if len(current_block) == max_block_size or (
                 current_block and locus.left_coord - current_block[-1].right_coord > max_block_inter_read_dist

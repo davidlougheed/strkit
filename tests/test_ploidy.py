@@ -1,4 +1,5 @@
 import pytest
+
 from strkit.ploidy import PloidyConfig, load_ploidy_config
 
 

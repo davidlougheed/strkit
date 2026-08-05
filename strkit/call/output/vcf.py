@@ -83,7 +83,7 @@ def build_vcf_header(
     # URI.
     vh.add_meta(
         "reference",
-        f"file://{str(reference_file.resolve().absolute())}" if isinstance(reference_file, Path) else reference_file
+        f"file://{reference_file.resolve().absolute()!s}" if isinstance(reference_file, Path) else reference_file
     )
 
     # Add all contigs from the reference genome file + lengths
@@ -217,7 +217,7 @@ def create_result_vcf_records(
     ref_seq_with_anchor = ref_start_anchor + ref_seq
 
     seqs_with_anchors: list[tuple[str, str]] = list(
-        zip(peak_seqs, map(lambda a: a[anchor_offset:], peak_start_anchor_seqs_upper))
+        zip(peak_seqs, (a[anchor_offset:] for a in peak_start_anchor_seqs_upper))
     )
 
     if 0 < len(peak_seqs) < n_alleles:
@@ -225,7 +225,7 @@ def create_result_vcf_records(
         seqs_with_anchors = [seqs_with_anchors[0]] * n_alleles
 
     seq_alts = sorted(
-        set(filter(lambda c: not (c[1] + c[0] == ref_seq_with_anchor), seqs_with_anchors)),
+        set(filter(lambda c: c[1] + c[0] != ref_seq_with_anchor, seqs_with_anchors)),
         key=lambda c: c[1] + c[0]
     )
 
