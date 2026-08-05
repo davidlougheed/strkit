@@ -5,16 +5,21 @@ from datetime import datetime
 from functools import cache
 from os.path import commonprefix
 from pathlib import Path
+from typing import TYPE_CHECKING
+
 from pysam import FastaFile, VariantHeader
-from typing import Iterable, TYPE_CHECKING
 
 from strkit import __version__
-from strkit.utils import is_none, idx_0_getter
+from strkit.utils import idx_0_getter, is_none
+
 from ..utils import cn_getter, sl_getter
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from logging import Logger
+
     from pysam import VariantFile, VariantRecord
+
     from ..params import CallParams
     from ..types import LocusResult
 
@@ -69,7 +74,7 @@ def build_vcf_header(
     vh = VariantHeader()  # automatically sets VCF version to 4.2
 
     # Add file date
-    now = datetime.now()
+    now = datetime.now()  # noqa: DTZ005
     vh.add_meta("fileDate", f"{now.year}{now.month:02d}{now.day:02d}")
 
     # Add source

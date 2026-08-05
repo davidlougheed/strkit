@@ -21,9 +21,7 @@ IUPAC_NUCLEOTIDE_CODES: dict[str, tuple[str, ...]] = {
 }
 
 # Lookup table of {(sorted nucleotides): "<IUPAC code>"}
-IUPAC_NUCLEOTIDE_CODES_REVERSE: dict[tuple[str, ...], str] = {
-    v: k for k, v in IUPAC_NUCLEOTIDE_CODES.items()
-}
+IUPAC_NUCLEOTIDE_CODES_REVERSE: dict[tuple[str, ...], str] = {v: k for k, v in IUPAC_NUCLEOTIDE_CODES.items()}
 
 
 def get_iupac_code_for_nt_set(nt_set: set[str]) -> str | None:

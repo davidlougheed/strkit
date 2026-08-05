@@ -1,7 +1,6 @@
 import numpy as np
 import orjson as json
 
-
 __all__ = [
     "Serializable",
     "json",

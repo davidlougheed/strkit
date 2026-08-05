@@ -1,4 +1,5 @@
 from parasail import matrix_create
+
 from ..iupac import IUPAC_NUCLEOTIDE_CODES
 
 __all__ = [

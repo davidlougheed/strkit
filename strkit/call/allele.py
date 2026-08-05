@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # Disable OpenMP/other multithreading since it adds enormous overhead when multiprocessing
 import os
+
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -10,22 +11,24 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-import numpy as np
 
 from collections import Counter
-from sklearn.exceptions import ConvergenceWarning
 from statistics import mode
+from typing import TYPE_CHECKING, TypeAlias
 from warnings import simplefilter
 
+import numpy as np
 from numpy.typing import NDArray
-from typing import TYPE_CHECKING
-
+from sklearn.exceptions import ConvergenceWarning
 from strkit_rust_ext import CallData
+
+from strkit.utils import empty_lists
 
 from .gmm import make_single_gaussian
 
 if TYPE_CHECKING:
     from logging import Logger
+
     from numpy.random import Generator
 
     from .gmm import GMMParams
@@ -36,7 +39,7 @@ __all__ = [
     "call_alleles",
 ]
 
-RepeatCounts = list[int] | tuple[int, ...] | NDArray[np.int_]
+RepeatCounts: TypeAlias = list[int] | tuple[int, ...] | NDArray[np.int_]
 
 
 # K-means convergence errors - we expect convergence to some extent with homozygous alleles
@@ -53,10 +56,6 @@ def _calculate_cis(samples: NDArray[np.float64], is_99: bool) -> NDArray[np.int3
         samples, (0.5, 99.5) if is_99 else (2.5, 97.5), axis=1, method="interpolated_inverted_cdf"
     ).transpose()
     return np.rint(percentiles).astype(np.int32)
-
-
-def na_length_list(n_alleles: int):
-    return [list() for _ in range(n_alleles)]
 
 
 def fit_gmm(
@@ -221,7 +220,7 @@ def call_alleles(
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    nal = na_length_list(n_alleles)
+    nal = empty_lists(n_alleles)
     allele_samples = np.array(nal, dtype=np.float64)
     allele_weight_samples = np.array(nal, dtype=np.float64)
     allele_stdev_samples = np.array(nal, dtype=np.float64)
@@ -317,7 +316,7 @@ def call_alleles(
     # Report the median estimates and the confidence intervals.
     #  - we choose nearest for median rather than interpolating, so we can get real corresponding weights and stdevs.
 
-    median_idx = allele_samples.shape[1] // 2  #
+    median_idx = allele_samples.shape[1] // 2
     medians_of_means = allele_samples[:, median_idx]
     medians_of_means_final = np.rint(medians_of_means).astype(np.int32)
     peak_weights = allele_weight_samples[:, median_idx].flatten()

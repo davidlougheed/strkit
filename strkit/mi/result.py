@@ -3,19 +3,19 @@ from __future__ import annotations
 import itertools
 import logging
 import math
-import numpy as np
 import sys
-import scipy.stats as sst
-
+from collections.abc import Generator, Iterable
 from statistics import mean
+from typing import Literal, TypedDict
+
+import numpy as np
+import scipy.stats as sst
 from statsmodels.stats.multitest import multipletests
 
 from strkit.constants import CHROMOSOMES
 from strkit.json import dumps, dumps_indented
 from strkit.logger import get_main_logger
 from strkit.utils import cat_strs, cis_overlap
-
-from typing import Generator, Iterable, Literal, TypedDict
 
 __all__ = [
     "MIKind",
@@ -258,9 +258,9 @@ class MILocusData:
     def adj_p_value(self, value: float | None):
         try:
             assert value is None or 0 <= value <= 1
-        except AssertionError as e:
-            self._logger.error(f"Encountered unexpected value: {value}")
-            raise e
+        except AssertionError:
+            self._logger.error("Encountered unexpected value: %s", value)
+            raise  # re-raise error
         self._adj_p_value = value
 
     @property
@@ -283,10 +283,10 @@ class MILocusData:
     def _respects_decimal_ci(self, c_gt, m_gt, f_gt) -> bool:
         t = self._decimal_threshold
 
-        return any((
+        return any(
             abs(c_gt[ic[0]] - m_gt[ic[2]]) < t and abs(c_gt[ic[1]] - f_gt[ic[3]]) < t
             for ic in INHERITANCE_CONFIGS
-        ))
+        )
 
     def _respects_mi_ci(self, c_gt_ci, m_gt_ci, f_gt_ci, widen: float) -> bool | None:
         for x in (c_gt_ci, m_gt_ci, f_gt_ci):
@@ -735,7 +735,7 @@ class MIResult:
             "mi_sl": _mi_entry(self.mi_result["sl"]),
             "mi_sl_pm1": _mi_entry(self.mi_result["sl_pm1"]),
 
-            "n_loci_trio_called": sum((len(lr) for lr in self.contig_results)),
+            "n_loci_trio_called": sum(len(lr) for lr in self.contig_results),
             "n_loci_total": self._n_loci_seen,
 
             "test": self._test_to_perform,
@@ -819,7 +819,7 @@ class MIResult:
             mi_vals.append(mi_sl)
 
         if mi_sl_pm1 := self.mi_result["sl_pm1"]:
-            header.append(f"MI% (seqlen±1)")
+            header.append("MI% (seqlen±1)")
             mi_vals.append(mi_sl_pm1)
 
         header_str = cat_strs(h.ljust(14) for h in header)

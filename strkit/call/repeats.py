@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import parasail
-
 from functools import lru_cache
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from strkit_rust_ext import get_repeat_count as _get_repeat_count, get_repeat_count_compostr as _get_repeat_count_c
+import parasail
+from strkit_rust_ext import get_repeat_count as _get_repeat_count
+from strkit_rust_ext import get_repeat_count_compostr as _get_repeat_count_c
+
 from strkit.utils import idx_1_getter
 
 from .align_matrix import dna_matrix, indel_penalty
@@ -132,14 +133,22 @@ def get_ref_repeat_count(
                 rev_scores.append((i, rev_rs, i))
 
             mv: tuple[float | int, tuple[int, int], int] = max((*fwd_scores, *rev_scores), key=idx_1_getter)
-            if mv[2] > size_to_explore and (
-                    (new_rc := mv[2] + step_size) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
-                if new_rc >= 0:
-                    to_explore.append((new_rc, 1))
-            if mv[2] < size_to_explore and (
-                    (new_rc := mv[2] - step_size) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj):
-                if new_rc >= 0:
-                    to_explore.append((new_rc, -1))
+            if (
+                mv[2] > size_to_explore
+                and (
+                    (new_rc := mv[2] + step_size) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj
+                )
+                and new_rc >= 0
+            ):
+                to_explore.append((new_rc, 1))
+            if (
+                mv[2] < size_to_explore
+                and (
+                    (new_rc := mv[2] - step_size) not in fwd_sizes_scores_adj or new_rc not in rev_sizes_scores_adj
+                )
+                and new_rc >= 0
+            ):
+                to_explore.append((new_rc, -1))
 
         # noinspection PyTypeChecker
         fwd_top_res: tuple[int | float, tuple] = max(fwd_sizes_scores_adj.items(), key=lambda x: x[1][0])

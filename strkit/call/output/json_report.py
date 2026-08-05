@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import sys
 from io import BytesIO
-from typing import Callable, Literal
+from typing import TYPE_CHECKING, Literal
 
 from strkit import __version__
 from strkit.json import dumps, dumps_indented
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from strkit.json import Serializable
+
     from ..params import CallParams
     from ..types import LocusResult
 
@@ -80,7 +82,8 @@ def output_json_report_results(results: tuple[LocusResult, ...], is_last: bool, 
 
     rec_terms = (b"", b",\n" if indent_json else b",")
 
-    fh = sys.stdout if json_path == "stdout" else open(json_path, "ab")  # append since we've already written the header
+    # open file in append mode since we've already written the header
+    fh = sys.stdout if json_path == "stdout" else open(json_path, "ab")  # noqa: SIM115
     try:
         buffer = BytesIO()
         for ri, r in enumerate(results):

@@ -28,6 +28,16 @@ def get_params():
     }
 
 
+def _map_locus_for_endpoint(x: tuple[int, dict]) -> dict:
+    return {
+        "i": x[0],
+        "contig": x[1]["contig"],
+        "start": x[1]["start"],
+        "end": x[1]["end"],
+        "disabled": x[1]["call"] is None,
+    }
+
+
 @app.route("/loci")
 def get_loci():
     cr = app.config["CALL_REPORT"]
@@ -41,15 +51,7 @@ def get_loci():
         res = ecd[:10]
 
     return {
-        "results": list(map(
-            lambda x: {
-                "i": x[0],
-                "contig": x[1]["contig"],
-                "start": x[1]["start"],
-                "end": x[1]["end"],
-                "disabled": x[1]["call"] is None,
-            },
-            res)),
+        "results": [_map_locus_for_endpoint(x) for x in res],
     }
 
 
@@ -83,5 +85,5 @@ def get_align_index_file():
 
 
 def run_server(call_report, port, **kwargs):
-    app.config.from_mapping(dict(CALL_REPORT=call_report, PARAMS=kwargs))
+    app.config.from_mapping({"CALL_REPORT": call_report, "PARAMS": kwargs})
     app.run(host="localhost", port=port, debug=True)

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from strkit.logger import get_main_logger
+
 from .intervals import (
     LociDictOfDict,
     LociDictOfList,
@@ -15,7 +16,7 @@ from .intervals import (
     overlapping_loci_dict_of_dict,
     overlapping_loci_dict_of_list,
 )
-from .result import MIKind, MIContigResult, MIResult
+from .result import MIContigResult, MIKind, MIResult
 
 __all__ = [
     "SEX_CHROMOSOMES",

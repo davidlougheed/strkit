@@ -1,18 +1,19 @@
 __all__ = [
+    # Caller names
     "CALLER_EXPANSIONHUNTER",
     "CALLER_HIPSTR",
     "CALLER_GANGSTR",
     "CALLER_REPEATHMM",
     "CALLER_STRAGLR",
     "CALLER_TANDEM_GENOTYPES",
-
+    # Chromosomes
     "M_CHROMOSOME_NAMES",
     "X_CHROMOSOME_NAMES",
     "Y_CHROMOSOME_NAMES",
     "SEX_CHROMOSOMES",
     "AUTOSOMES",
     "CHROMOSOMES",
-
+    # Mendelian inheritance
     "MI_CALLERS",
 ]
 

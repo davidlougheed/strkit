@@ -1,5 +1,6 @@
+from collections.abc import Generator, Iterable
 from logging import Logger
-from typing import Generator, Iterable, TextIO
+from typing import TextIO
 
 __all__ = ["trf_dat_to_bed", "trf_passthrough"]
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pysam
 
+from ..utils import parse_ci
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
 from .vcf_utils import VCFCalculatorMixin
-from ..utils import parse_ci
 
 __all__ = ["TRGTCalculator"]
 

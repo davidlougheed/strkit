@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .base import BaseCalculator
-from .result import MILocusData, MIContigResult
+from .result import MIContigResult, MILocusData
 
 __all__ = [
     "StraglrCalculator",

@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 from logging import WARNING
-from pysam import AlignmentFile
 from typing import TYPE_CHECKING, Literal, cast
+
+from pysam import AlignmentFile
 
 if TYPE_CHECKING:
     from logging import Logger
     from pathlib import Path
+
     from ..ploidy import PloidyConfig
 
-from .gmm import GMMParams
-from .repeat_count_params import RepeatCountParams, RepeatCountMethod
 from ..logger import log_levels
 from ..ploidy import load_ploidy_config
+from .gmm import GMMParams
+from .repeat_count_params import RepeatCountMethod, RepeatCountParams
 
 __all__ = ["CallParams"]
 

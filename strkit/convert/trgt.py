@@ -1,5 +1,6 @@
+from collections.abc import Generator, Iterable
 from logging import Logger
-from typing import Generator, Literal, Iterable
+from typing import Literal
 
 __all__ = [
     "trgt_bed_to_bed4",
@@ -26,17 +27,17 @@ def trgt_bed_to_bed4(
 
         def _fmt_last_col(v: str) -> str:
             if annotations == "strkit" and (locus_id := structure_data.get("ID")):
-                return f"ID={locus_id};MOTIF={v}"
+                return f"ID={locus_id or ('locus' + str(line))};MOTIF={v}"
             return v
 
         # If we have a motif set like (CAGA, CATA, CA) we can expand the CA to CACA to find the IUPAC code for the motif
-        motif_length_set = set(len(m) for m in motifs)
+        motif_length_set = {len(m) for m in motifs}
         max_motif_length = max(motif_length_set)
         if len(motif_length_set) > 1 and all(
             ml == max_motif_length or ml == max_motif_length // 2 for ml in motif_length_set
         ):
             motifs = [m if len(m) == max_motif_length else m + m for m in motifs]
-            motif_length_set = set(len(m) for m in motifs)
+            motif_length_set = {len(m) for m in motifs}
 
         if len(motifs) > 1:
             # We can do some basic IUPAC code normalization here for simple compound STR structures in TRGT catalogs:

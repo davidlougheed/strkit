@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # Disable OpenMP/other multithreading since it adds enormous overhead when multiprocessing
 import os
+
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -10,13 +11,13 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-import numpy as np
-
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
+from warnings import simplefilter
+
+import numpy as np
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.mixture import GaussianMixture
-from typing import Literal, TYPE_CHECKING
-from warnings import simplefilter
 
 from .utils import get_new_seed
 
@@ -83,7 +84,7 @@ def make_already_fitted_gmm(
 ) -> GaussianMixture:
     g: GaussianMixture = GaussianMixture(n_components=n_components, covariance_type="spherical")
     g.means_ = peaks.reshape(-1, 1)
-    g.covariances_ = stdevs ** 2
+    g.covariances_ = stdevs**2
     g.weights_ = weights
     # https://github.com/scikit-learn/scikit-learn/blob/1.5.0/sklearn/mixture/_gaussian_mixture.py#L347
     g.precisions_cholesky_ = 1.0 / stdevs

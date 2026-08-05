@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+
 from pydantic import BaseModel, Field
 
 __all__ = [
@@ -43,12 +44,14 @@ def _build_ploidy_options_help():
 
 PLOIDY_OPTIONS_HELP_TEXT = _build_ploidy_options_help()
 
-VALID_KEY_SETS: frozenset[frozenset[str]] = frozenset([
-    frozenset({"default"}),
-    frozenset({"default", "overrides"}),
-    frozenset({"default", "ignore"}),
-    frozenset({"default", "ignore", "overrides"}),
-])
+VALID_KEY_SETS: frozenset[frozenset[str]] = frozenset(
+    [
+        frozenset({"default"}),
+        frozenset({"default", "overrides"}),
+        frozenset({"default", "ignore"}),
+        frozenset({"default", "ignore", "overrides"}),
+    ]
+)
 
 
 class PloidyConfig(BaseModel):

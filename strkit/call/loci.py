@@ -4,15 +4,16 @@ import hashlib
 import re
 import sys
 import time
-
 from functools import cache
+from typing import TYPE_CHECKING, TypedDict
+
 from strkit_rust_ext import STRkitLocus, STRkitLocusBlock
-from typing import TypedDict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from logging import Logger
     from queue import Queue
+
     from .params import CallParams
 
 

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import numpy as np
-
 from pysam import VariantFile
 from pysam.libcbcf import VariantRecordSample
 
 from strkit.json import json
 
+from ..utils import int_tuple, parse_cis
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
 from .vcf_utils import VCFCalculatorMixin
-from ..utils import int_tuple, parse_cis
 
 __all__ = [
     "StrKitCalculator",
@@ -21,6 +20,10 @@ __all__ = [
 
 STRKIT_TSV_CALL_INDEX = 6
 STRKIT_TSV_CALL_95_CI_INDEX = 7
+
+
+def _tuple_of_ints(x):
+    return tuple(map(int, x))
 
 
 class StrKitCalculator(BaseCalculator):
@@ -173,7 +176,7 @@ class StrKitJSONCalculator(BaseCalculator):
         return {
             (res["contig"], res["start"], res["end"], res["motif"]): (
                 int_tuple(res["call"]),
-                tuple(map(lambda x: tuple(map(int, x)), res["call_95_cis"])),
+                tuple(map(_tuple_of_ints, res["call_95_cis"])),
                 None,  # Placeholder for 99% CI
                 StrKitJSONCalculator.get_read_counts(res, dtype=int),
             )
@@ -232,7 +235,7 @@ class StrKitJSONCalculator(BaseCalculator):
                 mother_gt=m_gt,
                 father_gt=f_gt,
 
-                child_gt_95_ci=tuple(map(lambda x: tuple(map(int, x)), res["call_95_cis"])),
+                child_gt_95_ci=tuple(map(_tuple_of_ints, res["call_95_cis"])),
                 mother_gt_95_ci=m_gt_95_ci,
                 father_gt_95_ci=f_gt_95_ci,
 

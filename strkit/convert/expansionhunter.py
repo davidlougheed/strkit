@@ -1,6 +1,6 @@
 import json
+from collections.abc import Generator, Iterable
 from logging import Logger
-from typing import Generator, Iterable
 
 __all__ = [
     "trf_bed_to_eh",

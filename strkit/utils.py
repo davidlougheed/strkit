@@ -7,6 +7,7 @@ from functools import partial
 __all__ = [
     "cat_strs",
     "is_none",
+    "is_not_none",
     "idx_0_getter",
     "idx_1_getter",
     "int_tuple",
@@ -14,6 +15,7 @@ __all__ = [
     "parse_ci",
     "parse_cis",
     "cis_overlap",
+    "empty_lists",
 ]
 
 
@@ -41,7 +43,7 @@ def parse_ci(ci: str, commas=False, dtype=int) -> tuple[int, int] | tuple[float,
 def parse_cis(
     cis: Iterable[str], commas=False, dtype=int
 ) -> tuple[tuple[int, ...], ...] | tuple[tuple[float, ...], ...]:
-    return tuple(map(lambda ci: parse_ci(ci, commas, dtype), cis))
+    return tuple(parse_ci(ci, commas, dtype) for ci in cis)
 
 
 def cis_overlap(ci1, ci2) -> bool:
@@ -53,3 +55,7 @@ def cis_overlap(ci1, ci2) -> bool:
     # int logic: ci1[0] <= ci2[1] and ci2[0] <= ci1[1]
     # float logic: lets add some epsilon to prevent little issues
     return (ci2[1] - ci1[0]) > epsilon and (ci1[1] - ci2[0]) > epsilon
+
+
+def empty_lists(n_lists: int):
+    return [[] for _ in range(n_lists)]

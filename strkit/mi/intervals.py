@@ -11,7 +11,7 @@ def _line_filter_fn(s: str) -> bool:
     :param s: line of a file
     :return: whether the line is not blank and is not a comment
     """
-    return s and not s.startswith("#")
+    return bool(s) and not s.startswith("#")
 
 
 # key: contig, value: dict of (key: coordinate interval, value: list of extra values)
@@ -80,8 +80,6 @@ def overlapping_loci_dict_of_dict(
     if contig not in d:
         return []
 
-    global _overlapping_dict_cache
-
     full_cache_key = f"{dict_cache_key}--{contig}"
 
     if full_cache_key in _overlapping_dict_cache:
@@ -89,7 +87,7 @@ def overlapping_loci_dict_of_dict(
     else:
         c_dict = d[contig]
         c_keys = tuple(c_dict.keys())
-        c_lhs = tuple(map(lambda k: k[0], c_keys))
+        c_lhs = tuple(map(idx_0_getter, c_keys))
         if full_cache_key is not None:
             _overlapping_dict_cache[full_cache_key] = c_dict, c_keys, c_lhs
 
@@ -119,7 +117,7 @@ def overlapping_loci_dict_of_list(
         return
 
     c_ints = d[contig]
-    c_lhs = tuple(map(lambda k: k[0], c_ints))
+    c_lhs = tuple(map(idx_0_getter, c_ints))
     i = bisect.bisect_left(c_lhs, end)  # use _left since end is exclusive
 
     for ov in c_ints[:i]:

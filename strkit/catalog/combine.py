@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+
 from ..constants import CALLER_STRAGLR, CHROMOSOMES
 
 __all__ = [

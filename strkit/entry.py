@@ -3,14 +3,14 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import strkit.constants as c
 from strkit import __version__
-from strkit.exceptions import ParamError, InputError
-from strkit.logger import get_main_logger, attach_stream_handler, log_levels
+from strkit.exceptions import InputError, ParamError
+from strkit.logger import attach_stream_handler, get_main_logger, log_levels
 from strkit.ploidy import PLOIDY_OPTIONS_HELP_TEXT
 
 if TYPE_CHECKING:
@@ -562,7 +562,7 @@ def _exec_mi(p_args) -> None:
     from strkit.mi.tandem_genotypes import TandemGenotypesCalculator
     from strkit.mi.trgt import TRGTCalculator
 
-    calc_classes: dict[str, Type[BaseCalculator]] = {
+    calc_classes: dict[str, type[BaseCalculator]] = {
         c.CALLER_EXPANSIONHUNTER: ExpansionHunterCalculator,
         c.CALLER_GANGSTR: GangSTRCalculator,
         c.CALLER_GENERIC_VCF: GenericVCFLengthCalculator,
@@ -585,7 +585,7 @@ def _exec_mi(p_args) -> None:
 
     exclude_bed_file = p_args.exclude_loci_bed or None
 
-    calc_class: Type[BaseCalculator] | None = calc_classes.get(caller)
+    calc_class: type[BaseCalculator] | None = calc_classes.get(caller)
     if not calc_class:
         raise ParamError(f"Unknown or unimplemented caller '{caller}'")
 

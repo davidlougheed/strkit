@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:  # For type hinting only
     from logging import Logger
     from multiprocessing import Queue as MpQueue
+
     # noinspection PyProtectedMember
     from multiprocessing.managers import DictProxy, SyncManager, ValueProxy
     from multiprocessing.synchronize import Event as EventClass
+    from threading import Lock
+
     from numpy.random import Generator as NPRandomGenerator
     from strkit_rust_ext import STRkitLocus, STRkitLocusBlock
-    from threading import Lock
 
     from .params import CallParams
     from .types import LocusResult
@@ -42,10 +44,11 @@ def locus_worker(
     seed: int,
 ) -> list[LocusResult]:
     from logging import DEBUG
-    from numpy.random import default_rng as np_default_rng
     from os import getpid
-    from pysam import FastaFile
     from queue import Empty as QueueEmpty
+
+    from numpy.random import default_rng as np_default_rng
+    from pysam import FastaFile
     from strkit_rust_ext import STRkitBAMReader, STRkitVCFReader
 
     lg: Logger
@@ -151,7 +154,7 @@ def locus_worker(
                     ref_file_has_chr=ref_file_has_chr,
                 )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 res = None
                 lg.exception(
                     "%s - encountered exception while genotyping (n_alleles=%d)",
@@ -202,10 +205,10 @@ def progress_worker(
     event: EventClass,
 ):
     import time
+    from os import getpid, nice
 
-    from os import nice as os_nice, getpid
     try:
-        os_nice(20)
+        nice(20)
     except (AttributeError, OSError):
         pass
 
@@ -262,18 +265,18 @@ def call_sample(
     import importlib.metadata
     import multiprocessing as mp
     import time
-
     from heapq import merge as heapq_merge
+
     from numpy.random import default_rng as np_default_rng
     from pysam import FastaFile, VariantFile
 
     from .loci import load_loci
     from .output import (
-        output_json_report_header,
-        output_json_report_results,
-        output_json_report_footer,
         build_vcf_header,
         output_contig_vcf_lines,
+        output_json_report_footer,
+        output_json_report_header,
+        output_json_report_results,
     )
     from .utils import get_new_seed
 

@@ -3,19 +3,21 @@ from __future__ import annotations
 import os
 import sys
 import time
-
-from multiprocessing import Queue as MpQueue, Process
-from parasail import sg_dx_trace_scan_16
+from multiprocessing import Process, Queue
 from queue import Empty as QueueEmpty
-from strkit_rust_ext import calculate_seq_with_wildcards, get_aligned_pair_matches
 from typing import TYPE_CHECKING
+
+from parasail import sg_dx_trace_scan_16
+from strkit_rust_ext import calculate_seq_with_wildcards, get_aligned_pair_matches
 
 if TYPE_CHECKING:
     from logging import Logger
+
     from strkit_rust_ext import STRkitAlignedCoords, STRkitAlignedSegment, STRkitLocusWithRefData
+
     from .params import CallParams
 
-from .align_matrix import match_score, dna_matrix
+from .align_matrix import dna_matrix, match_score
 
 __all__ = [
     "realign_read",
@@ -94,17 +96,17 @@ def perform_realign(
 
     t = time.time()
 
-    q: MpQueue = MpQueue()
-    proc = Process(target=realign_read, daemon=False, kwargs=dict(
+    q: Queue = Queue()
+    proc = Process(target=realign_read, daemon=False, kwargs={
         # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-        ref_seq=ref_total_seq,  # TODO: with the plus 1, really?
-        query_seq=qs_wc,
-        left_flank_coord=left_flank_coord,
-        flank_size=params.flank_size,
-        q=q,
-        read_log_str=read_log_str,
-        log_level=params.log_level,
-    ))
+        "ref_seq": ref_total_seq,  # TODO: with the plus 1, really?
+        "query_seq": qs_wc,
+        "left_flank_coord": left_flank_coord,
+        "flank_size": params.flank_size,
+        "q": q,
+        "read_log_str": read_log_str,
+        "log_level": params.log_level,
+    })
     proc.start()
 
     locus_log_str = locus_with_ref_data.log_str()

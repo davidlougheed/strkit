@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from ..utils import int_tuple
 from .base import BaseCalculator
 from .result import MIContigResult, MILocusData
-from ..utils import int_tuple
 
 __all__ = [
     "TandemGenotypesCalculator",

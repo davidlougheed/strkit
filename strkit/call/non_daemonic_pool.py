@@ -1,4 +1,4 @@
-from multiprocessing import Process, get_context as mp_get_context
+from multiprocessing import Process, get_context
 from multiprocessing.pool import Pool
 
 __all__ = [
@@ -19,7 +19,7 @@ class NonDaemonicProcess(Process):
         pass
 
 
-class NonDaemonicContext(type(mp_get_context())):
+class NonDaemonicContext(type(get_context())):
     Process = NonDaemonicProcess
 
 

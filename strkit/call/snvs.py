@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from collections import Counter
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from logging import Logger
+
     # noinspection PyProtectedMember
     from multiprocessing.managers import DictProxy
 
-from strkit_rust_ext import process_read_snvs_for_locus_and_calculate_useful_snvs, CandidateSNVs
+from strkit_rust_ext import CandidateSNVs, process_read_snvs_for_locus_and_calculate_useful_snvs
+
 from strkit.utils import idx_1_getter
 
-from .types import ReadDict, CalledSNV
-
+from .types import CalledSNV, ReadDict
 
 __all__ = [
     "SNV_OUT_OF_RANGE_CHAR",

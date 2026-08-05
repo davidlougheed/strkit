@@ -1,17 +1,17 @@
 import sys
-
+from collections.abc import Callable, Generator, Iterable
 from logging import Logger
-from typing import Callable, Generator, Iterable, TextIO, TypeAlias
-
-from ._bed_4 import trf_to_bed_4
-from .constants import FORMAT_BED4, FORMAT_TRF, FORMAT_TRGT, CONVERTER_IN_FORMATS
-from .expansionhunter import trf_bed_to_eh
-from .hipstr import trf_bed_to_hipstr
-from .gangstr import trf_bed_to_gangstr
-from .trf import trf_dat_to_bed, trf_passthrough
-from .trgt import trgt_bed_to_bed4, trgt_bed_to_strkit_bed, trf_or_strkit_bed_to_trgt
+from typing import TextIO, TypeAlias
 
 import strkit.constants as c
+
+from ._bed_4 import trf_to_bed_4
+from .constants import CONVERTER_IN_FORMATS, FORMAT_BED4, FORMAT_TRF, FORMAT_TRGT
+from .expansionhunter import trf_bed_to_eh
+from .gangstr import trf_bed_to_gangstr
+from .hipstr import trf_bed_to_hipstr
+from .trf import trf_dat_to_bed, trf_passthrough
+from .trgt import trf_or_strkit_bed_to_trgt, trgt_bed_to_bed4, trgt_bed_to_strkit_bed
 
 __all__ = [
     "CONVERTER_OUTPUT_FORMATS",
@@ -39,14 +39,18 @@ convert_formats: dict[tuple[str | tuple[str, ...], str], ConverterFn] = {
     (FORMAT_TRGT, c.CALLER_TANDEM_GENOTYPES): trgt_bed_to_bed4,
 }
 
-CONVERTER_OUTPUT_FORMATS: tuple[str, ...] = tuple(sorted(set(k[1] for k in convert_formats)))
+CONVERTER_OUTPUT_FORMATS: tuple[str, ...] = tuple(sorted({k[1] for k in convert_formats}))
+
+
+def _strip_split_tab(s: str) -> str:
+    return s.strip().split("\t")
 
 
 def _load_bed_like(fh: TextIO, sort: bool) -> list:
     data = []
     contig_order = []
 
-    for line in map(lambda s: s.split("\t"), map(str.strip, fh)):
+    for line in map(_strip_split_tab, fh):
         if not contig_order or line[0] != contig_order[-1]:
             contig_order.append(line[0])
         data.append([line[0], int(line[1]), int(line[2]), *line[3:]] if sort else line)
@@ -69,10 +73,10 @@ def convert(in_file: str, in_format: str, out_format: str, sort: bool, logger: L
         if in_file.endswith(".dat"):
             is_trf_dat = True
         elif out_format == FORMAT_TRF:
-            logger.critical(f"No need to convert from TRF BED to TRF BED")
+            logger.critical("No need to convert from TRF BED to TRF BED")
             sys.exit(1)
         elif out_format == c.CALLER_REPEATHMM:
-            logger.critical(f"No need to convert for '{out_format}'; TRF BED files are accepted as input")
+            logger.critical("No need to convert for '%s'; TRF BED files are accepted as input", out_format)
             return 1
         elif out_format == c.CALLER_STRKIT:
             logger.info("STRkit can use TRF BED files as-is; will convert to a BED4 file")
