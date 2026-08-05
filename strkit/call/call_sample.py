@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from operator import itemgetter
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # For type hinting only
@@ -274,6 +273,7 @@ def call_sample(
     import multiprocessing as mp
     import time
     from heapq import merge as heapq_merge
+    from pathlib import Path
 
     from numpy.random import default_rng as np_default_rng
     from pysam import FastaFile, VariantFile
