@@ -1,66 +1,66 @@
 from __future__ import annotations
 
-import numpy as np
-import operator
+import sys
 import time
-
 from collections import Counter
-from functools import cache, partial
-from logging import Logger, DEBUG
-from sklearn.cluster import AgglomerativeClustering  # TODO: py3.15: lazy import
+from functools import cache
+from logging import DEBUG, Logger
 from statistics import mean
+from typing import TYPE_CHECKING, Literal
 
-from typing import Iterable, Literal, Sequence, TYPE_CHECKING
-
+import numpy as np
+from sklearn.cluster import AgglomerativeClustering  # TODO: py3.15: lazy import
 from strkit_rust_ext import (
     AssignMethod,
-    PeakMethylation,
     CallData,
-    LowMeanBaseQual,
-    STRkitSegmentAlignmentDataForLocus,
-    STRkitAlignedSegmentSequenceDataForLocus,
     LocusReadCoords,
+    LowMeanBaseQual,
+    PeakMethylation,
+    STRkitAlignedSegmentSequenceDataForLocus,
+    STRkitSegmentAlignmentDataForLocus,
     combine_call_data,
     consensus_seq,
     get_read_coords_from_matched_pairs,
     normalize_contig,
 )
 
-from strkit.utils import idx_0_getter, is_not_none
+from strkit.utils import empty_lists, idx_0_getter, is_not_none
 
 from .allele import call_alleles
-from .constants import NP_EMPTY_ARRAY_INT32, NP_EMPTY_ARRAY_FLOAT64
+from .constants import NP_EMPTY_ARRAY_FLOAT64, NP_EMPTY_ARRAY_INT32
 from .gmm import make_already_fitted_gmm
-from .repeats import get_repeat_count, get_ref_repeat_count
 from .repeat_count_params import RepeatCountMethod, RepeatCountParams
+from .repeats import get_ref_repeat_count, get_repeat_count
 from .snvs import (
     SNV_GAP_CHAR,
-    SNV_OUT_OF_RANGE_CHAR,
     SNV_NA_CHARS,
+    SNV_OUT_OF_RANGE_CHAR,
     call_and_filter_useful_snvs,
     process_read_snvs_for_locus_and_calculate_useful_snvs,
 )
 from .types import ReadDictExtra
-from .utils import cn_getter, get_new_seed
+from .utils import cn_getter, eq_0, get_new_seed, weight_getter
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
     # noinspection PyProtectedMember
     from multiprocessing.managers import DictProxy, ValueProxy
-    from numpy.typing import NDArray
-    from pysam import FastaFile
     from threading import Lock
 
+    from numpy.typing import NDArray
+    from pysam import FastaFile
     from strkit_rust_ext import (
-        STRkitAlignedCoords,
         CandidateSNVs,
+        STRkitAlignedCoords,
         STRkitAlignedSegment,
         STRkitLocus,
-        STRkitLocusWithRefData,
         STRkitLocusBlockSegments,
+        STRkitLocusWithRefData,
     )
 
     from .params import CallParams
-    from .types import ConsensusMethod, ReadDict, CalledSNV, LocusResult
+    from .types import CalledSNV, ConsensusMethod, LocusResult, ReadDict
 
 
 __all__ = [
@@ -88,10 +88,6 @@ force_realign = False
 many_realigns_threshold = 2
 
 significant_clip_snv_take_in = 250
-
-# property getters & other partials
-weight_getter = operator.itemgetter("w")
-eq_0 = partial(operator.eq, 0)
 
 
 def calculate_read_distance(
@@ -130,9 +126,11 @@ def calculate_read_distance(
         r_snv_u = read_dict_items[idx][1]["snvu"]
         return set(
             filter(
-                lambda y: r_snv_u[y][0] == SNV_OUT_OF_RANGE_CHAR or
-                          (r_snv_u[y][0] != SNV_GAP_CHAR and r_snv_u[y][1] < snv_quality_threshold),
-                useful_snvs_range
+                lambda y: (
+                    r_snv_u[y][0] == SNV_OUT_OF_RANGE_CHAR
+                    or (r_snv_u[y][0] != SNV_GAP_CHAR and r_snv_u[y][1] < snv_quality_threshold)
+                ),
+                useful_snvs_range,
             )
         )
 
@@ -167,8 +165,10 @@ def calculate_read_distance(
 
             if not pure_snv_peak_assignment:  # Add in copy number distance
                 d += abs(r1["cn"] - r2["cn"]) * (
-                    relative_cn_distance_weight_scaling_many if n_comparable >= many_snvs_quantity
-                    else relative_cn_distance_weight_scaling_few)
+                    relative_cn_distance_weight_scaling_many
+                    if n_comparable >= many_snvs_quantity
+                    else relative_cn_distance_weight_scaling_few
+                )
 
             distance_matrix[i, j] = d
             distance_matrix[j, i] = d
@@ -201,8 +201,10 @@ def call_alleles_with_gmm(
     )
 
     call_data = call_alleles(
-        read_cns, NP_EMPTY_ARRAY_INT32,
-        read_weights, NP_EMPTY_ARRAY_FLOAT64,
+        read_cns,
+        NP_EMPTY_ARRAY_INT32,
+        read_weights,
+        NP_EMPTY_ARRAY_FLOAT64,
         params=params,
         min_reads=params.min_reads,
         n_alleles=n_alleles,
@@ -237,8 +239,8 @@ def call_alleles_with_haplotags(
     for hi, hp in enumerate(haplotags):
         # Find reads for cluster
         crs: tuple[ReadDict, ...] = tuple(
-            r for i, (_, r) in enumerate(read_dict_items)
-            if r.get("hp") == hp and r.get("ps") == ps_id)
+            r for i, (_, r) in enumerate(read_dict_items) if r.get("hp") == hp and r.get("ps") == ps_id
+        )
 
         # Calculate copy number set
         cns.append(np.fromiter(map(cn_getter, crs), dtype=np.int32))
@@ -253,8 +255,10 @@ def call_alleles_with_haplotags(
 
     for hi, hp in enumerate(haplotags):
         cc: CallData | None = call_alleles(
-            cns[hi], NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
-            c_ws[hi], NP_EMPTY_ARRAY_FLOAT64,
+            cns[hi],
+            NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
+            c_ws[hi],
+            NP_EMPTY_ARRAY_FLOAT64,
             params=params,
             min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
@@ -262,7 +266,7 @@ def call_alleles_with_haplotags(
             read_bias_corr_min=0,  # separate_strands is false, so this is ignored
             seed=get_new_seed(rng),
             logger_=logger_,
-            debug_str=f"{locus_log_str} a{hi}"
+            debug_str=f"{locus_log_str} a{hi}",
         )
 
         if cc is None:  # Early escape
@@ -391,7 +395,8 @@ def _determine_snv_call_phase_set(
                     phase_set_lock.release()
                     logger_.warning(
                         f"{locus_log_str} - encountered self-flip while trying to re-use a phase set; "
-                        f"{phase_set_consensus_set=}; {snv_pss_with_should_flip=}; {called_useful_snvs=}")
+                        f"{phase_set_consensus_set=}; {snv_pss_with_should_flip=}; {called_useful_snvs=}"
+                    )
                     return None
 
             for psm, psm_sf in phase_set_consensus_set[1:]:
@@ -403,7 +408,9 @@ def _determine_snv_call_phase_set(
             if len(phase_set_consensus_set) > 1:
                 logger_.debug(
                     f"%s - new re-mapping of phase sets {phase_set_consensus_set[1:]} to {call_phase_set} "
-                    f"with {should_flip=} ({phase_set_consensus_set=})", locus_log_str)
+                    f"with {should_flip=} ({phase_set_consensus_set=})",
+                    locus_log_str,
+                )
 
         except Exception as e:
             phase_set_lock.release()
@@ -492,11 +499,12 @@ def call_alleles_with_incorporated_snvs(
 
         read_useful_snv_bases: tuple[tuple[str, int], ...] = tuple(snv_bases[bi] for bi, _pos in useful_snvs)
         n_non_blank_hq_read_useful_snv_bases = sum(
-            1 for _ in filter(
+            1
+            for _ in filter(
                 # If we were calling SNVs from scratch, we used to include the gap character. However, it seems to cause
                 # more issues than not - let's stick to real SNVs...
                 lambda s: s[0] not in SNV_NA_CHARS and s[1] >= snv_quality_threshold,
-                read_useful_snv_bases
+                read_useful_snv_bases,
             )
         )
 
@@ -522,14 +530,14 @@ def call_alleles_with_incorporated_snvs(
     min_snv_incorporation_read_abs = 16  # Or at least 16 reads with 1+ SNV called
 
     can_incorporate_snvs: bool = (
-        pure_snv_peak_assignment and
-        (
-            n_reads_with_many_snvs >= min(
-                n_reads_in_dict * min_snv_incorporation_read_portion_pure_snvs, min_snv_incorporation_read_abs)
+        pure_snv_peak_assignment
+        and (
+            n_reads_with_many_snvs
+            >= min(n_reads_in_dict * min_snv_incorporation_read_portion_pure_snvs, min_snv_incorporation_read_abs)
         )
     ) or (
-        n_reads_with_at_least_one_snv >=
-        min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)
+        n_reads_with_at_least_one_snv
+        >= min(n_reads_in_dict * min_snv_incorporation_read_portion, min_snv_incorporation_read_abs)
     )
 
     if not can_incorporate_snvs:
@@ -539,7 +547,9 @@ def call_alleles_with_incorporated_snvs(
     if n_reads_with_no_snvs:
         logger_.debug(
             "%s - will discard %d/%d reads with no high-quality SNV data",
-            locus_log_str, n_reads_with_no_snvs, n_reads_in_dict
+            locus_log_str,
+            n_reads_with_no_snvs,
+            n_reads_in_dict,
         )
 
     # Otherwise, we can use the SNV data --------------------------------------
@@ -557,8 +567,8 @@ def call_alleles_with_incorporated_snvs(
     else:
         # We have enough SNVs in lots of reads, so we can phase using a combined metric
         logger_.debug(
-            f"%s - haplotyping using combined STR-SNV metric ("
-            f"n_useful_snvs=%d, n_reads_with_at_least_one_snv=%d, n_reads_in_dict=%d)",
+            "%s - haplotyping using combined STR-SNV metric ("
+            "n_useful_snvs=%d, n_reads_with_at_least_one_snv=%d, n_reads_in_dict=%d)",
             locus_log_str,
             n_useful_snvs,
             n_reads_with_at_least_one_snv,
@@ -571,8 +581,12 @@ def call_alleles_with_incorporated_snvs(
     # a mixture of SNVs and copy number:
     # dm = calculate_read_distance(n_reads_in_dict, read_dict_items, pure_snv_peak_assignment, n_useful_snvs)
     dm = calculate_read_distance(
-        n_reads_with_at_least_one_snv, read_dict_items_with_at_least_one_snv, pure_snv_peak_assignment, n_useful_snvs,
-        snv_quality_threshold=snv_quality_threshold)
+        n_reads_with_at_least_one_snv,
+        read_dict_items_with_at_least_one_snv,
+        pure_snv_peak_assignment,
+        n_useful_snvs,
+        snv_quality_threshold=snv_quality_threshold,
+    )
 
     # Cluster reads together using the distance matrix, which incorporates SNV and possibly copy number information.
     cluster_labels, cluster_indices = _agg_clust_alleles_by_dm(n_alleles, dm)
@@ -585,8 +599,7 @@ def call_alleles_with_incorporated_snvs(
     for ci in cluster_indices:
         # Find reads for cluster
         crs: tuple[ReadDict, ...] = tuple(
-            r for i, (_, r) in enumerate(read_dict_items_with_at_least_one_snv)
-            if cluster_labels[i] == ci
+            r for i, (_, r) in enumerate(read_dict_items_with_at_least_one_snv) if cluster_labels[i] == ci
         )
 
         # Calculate copy number set
@@ -604,8 +617,10 @@ def call_alleles_with_incorporated_snvs(
 
     for ci in cluster_indices:
         cc: CallData | None = call_alleles(
-            cns[ci], NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
-            c_ws[ci], NP_EMPTY_ARRAY_FLOAT64,
+            cns[ci],
+            NP_EMPTY_ARRAY_INT32,  # Don't bother separating by strand for now...
+            c_ws[ci],
+            NP_EMPTY_ARRAY_FLOAT64,
             params,
             min_reads=params.min_allele_reads,  # Calling alleles separately, so set min_reads=min_allele_reads
             n_alleles=1,  # Calling alleles separately: they were pre-separated by agglom. clustering
@@ -613,7 +628,7 @@ def call_alleles_with_incorporated_snvs(
             read_bias_corr_min=0,  # separate_strands is false, so this is ignored
             seed=get_new_seed(rng),
             logger_=logger_,
-            debug_str=f"{locus_log_str} a{ci}"
+            debug_str=f"{locus_log_str} a{ci}",
         )
 
         if cc is None:  # Early escape
@@ -631,8 +646,8 @@ def call_alleles_with_incorporated_snvs(
     # is an array of length 1.
 
     cdd_sort_order_determiner = np.fromiter(
-        ((x.peak_means[0], x.call_95_cis[0][0]) for x in cdd),
-        dtype=[("p", np.float64), ("i", np.int32)])
+        ((x.peak_means[0], x.call_95_cis[0][0]) for x in cdd), dtype=[("p", np.float64), ("i", np.int32)]
+    )
     # To reorder call arrays in least-to-greatest by raw peak mean, and then by 95% CI left boundary:
     peak_order: NDArray[np.int_] = np.argsort(cdd_sort_order_determiner, order=("p", "i"))
 
@@ -692,7 +707,7 @@ def call_alleles_with_incorporated_snvs(
     # ------------------------------------------------------------------------------------------------------------------
 
     # All call_datas are truth-y; all arrays should be ordered by peak_order
-#     # TODO: Readjust peak weights when combining or don't include (inside combine_call_data)
+    # TODO: Readjust peak weights when combining or don't include (inside combine_call_data)
     call_data = combine_call_data(cdd_ordered)
     if call_phase_set is not None:
         call_data.set_assign_method(assign_method)
@@ -826,10 +841,7 @@ def get_locus_with_ref_data(
 
     slow_ref_count = any(x > ref_max_iters_to_be_slow for x in r_n_is)
     if slow_ref_count:
-        logger_.warning(
-            "%s - slow reference copy number counting (ref_cn=%d; iters=%s)",
-            locus_log_str, ref_cn, r_n_is
-        )
+        logger_.warning("%s - slow reference copy number counting (ref_cn=%d; iters=%s)", locus_log_str, ref_cn, r_n_is)
 
     # If our reference repeat count getter has altered the TR boundaries a bit (which is done to allow for
     # more spaces in which an indel could end up), adjust our coordinates to match.
@@ -902,7 +914,12 @@ def get_locus_alignment_data_from_read(
             if lrc.is_incomplete():
                 if params.log_level == DEBUG:
                     debug_log_flanking_seq(
-                        logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned, repr(lrc),
+                        logger_,
+                        locus_with_ref_data.log_str(),
+                        segment.name,
+                        segment.length,
+                        realigned,
+                        repr(lrc),
                     )
                     # TODO: find a way of making use of these reads (e.g., C9orf72 expansion)
                     # if locus_read_coords.full_left_flank:
@@ -921,7 +938,11 @@ def get_locus_alignment_data_from_read(
             # early-continue before we load pairs since that step is slow
             if params.log_level == DEBUG:
                 debug_log_flanking_seq(
-                    logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned,
+                    logger_,
+                    locus_with_ref_data.log_str(),
+                    segment.name,
+                    segment.length,
+                    realigned,
                     repr(locus_read_coords),
                 )
             return None
@@ -935,7 +956,11 @@ def get_locus_alignment_data_from_read(
             # flanking sequence is not sufficient as determined by parameters
             if params.log_level == DEBUG:
                 debug_log_flanking_seq(
-                    logger_, locus_with_ref_data.log_str(), segment.name, segment.length, realigned,
+                    logger_,
+                    locus_with_ref_data.log_str(),
+                    segment.name,
+                    segment.length,
+                    realigned,
                     repr(locus_read_coords),
                 )
                 # TODO: find a way of making use of these reads (e.g., C9orf72 expansion)
@@ -949,7 +974,9 @@ def get_locus_alignment_data_from_read(
         if not (left := locus_read_coords.full_left_flank) or not locus_read_coords.full_right_flank:
             logger_.debug(
                 "%s - recovered read with one partial flank: %s (%s)",
-                locus_with_ref_data.log_str(), segment.name, "left" if not left else "right"
+                locus_with_ref_data.log_str(),
+                segment.name,
+                "left" if not left else "right",
             )
 
         aligned_coords = segment.aligned_coords  # not a free access! clones STRkitAlignedCoords
@@ -1143,7 +1170,7 @@ def call_locus(
         # min(locus.motif_size * 2, flank_size)  # TODO: parameter / test values
         # NOTE: reducing this to motif_size * 2 does in fact have a performance impact...
         repeat_count_scoring_flank_size = flank_size
-        repeat_count_scoring_fls = locus_seq_and_flank_data.flank_left_seq_wc[-1*repeat_count_scoring_flank_size:]
+        repeat_count_scoring_fls = locus_seq_and_flank_data.flank_left_seq_wc[-1 * repeat_count_scoring_flank_size :]
         repeat_count_scoring_frs = locus_seq_and_flank_data.flank_right_seq_wc[:repeat_count_scoring_flank_size]
 
         (read_cn, read_cn_score), n_read_cn_iters, new_offset_from_starting_count = get_repeat_count(
@@ -1198,12 +1225,8 @@ def call_locus(
                 locus_with_ref_data.ref_cn,
             )
             if params.log_level == DEBUG:
-                logger_.debug(
-                    "%s - ref left flank:     %s", locus_log_str, locus_with_ref_data.ref_left_flank_seq
-                )
-                logger_.debug(
-                    "%s - read left flank:    %s", locus_log_str, locus_seq_and_flank_data.flank_left_seq_wc
-                )
+                logger_.debug("%s - ref left flank:     %s", locus_log_str, locus_with_ref_data.ref_left_flank_seq)
+                logger_.debug("%s - read left flank:    %s", locus_log_str, locus_seq_and_flank_data.flank_left_seq_wc)
                 logger_.debug(
                     "%s - ref TR seq (:500):  %s (len=%d)",
                     locus_log_str,
@@ -1216,12 +1239,8 @@ def call_locus(
                     locus_seq_and_flank_data.tr_seq_wc[:500],
                     len(locus_seq_and_flank_data.tr_seq_wc),
                 )
-                logger_.debug(
-                    "%s - ref right flank:  %s", locus_log_str, locus_with_ref_data.ref_right_flank_seq
-                )
-                logger_.debug(
-                    "%s - read right flank: %s", locus_log_str, locus_seq_and_flank_data.flank_right_seq_wc
-                )
+                logger_.debug("%s - ref right flank:  %s", locus_log_str, locus_with_ref_data.ref_right_flank_seq)
+                logger_.debug("%s - read right flank: %s", locus_log_str, locus_seq_and_flank_data.flank_right_seq_wc)
 
             locus_result["peaks"] = None
             locus_result["read_peaks_called"] = False
@@ -1317,37 +1336,36 @@ def call_locus(
         # TODO: remove + replace with snv dict (only thing left, can be built within rust)
         read_dict_extra[rn] = {}
 
-        if use_hp:
-            # TODO: this should be done on locus block creation instead maybe, once SNV stuff is also there
-            if (hp := segment.hp) is not None and (ps := segment.ps) is not None:
-                ps_remapped: int
-                if segment.ps_remapped is not None:
-                    # if we've already calculated the remapped phase set for this read (i.e., it's shown up before in
-                    # the locus block), re-use the value instead of taking the hit of locking/unlocking.
-                    ps_remapped = segment.ps_remapped
+        # TODO: this should be done on locus block creation instead maybe, once SNV stuff is also there
+        if use_hp and (hp := segment.hp) is not None and (ps := segment.ps) is not None:
+            ps_remapped: int
+            if segment.ps_remapped is not None:
+                # if we've already calculated the remapped phase set for this read (i.e., it's shown up before in
+                # the locus block), re-use the value instead of taking the hit of locking/unlocking.
+                ps_remapped = segment.ps_remapped
+            else:
+                # otherwise, remap this phase set to be consistent with our SNV-derived phase sets
+
+                orig_ps = int(ps)
+
+                phase_set_lock.acquire(timeout=300)
+
+                if orig_ps in phase_set_hp_remap:
+                    ps_remapped = phase_set_hp_remap[orig_ps]
                 else:
-                    # otherwise, remap this phase set to be consistent with our SNV-derived phase sets
+                    psc = int(phase_set_counter.value)
+                    phase_set_counter.set(psc + 1)
+                    phase_set_hp_remap[orig_ps] = psc
+                    ps_remapped = psc
 
-                    orig_ps = int(ps)
+                phase_set_lock.release()
+                block_segments.set_segment_ps_remapped(rn, ps_remapped)
 
-                    phase_set_lock.acquire(timeout=300)
-
-                    if orig_ps in phase_set_hp_remap:
-                        ps_remapped = phase_set_hp_remap[orig_ps]
-                    else:
-                        psc = int(phase_set_counter.value)
-                        phase_set_counter.set(psc + 1)
-                        phase_set_hp_remap[orig_ps] = psc
-                        ps_remapped = psc
-
-                    phase_set_lock.release()
-                    block_segments.set_segment_ps_remapped(rn, ps_remapped)
-
-                read_dict_entry["hp"] = hp  # not none inside this if-statement
-                read_dict_entry["ps"] = ps_remapped
-                haplotags.add(hp)
-                haplotagged_reads_count += 1
-                phase_sets[ps_remapped] += 1
+            read_dict_entry["hp"] = hp  # not none inside this if-statement
+            read_dict_entry["ps"] = ps_remapped
+            haplotags.add(hp)
+            haplotagged_reads_count += 1
+            phase_sets[ps_remapped] += 1
 
         if should_incorporate_snvs:
             # Cache segment locus alignment data to cache aligned pairs, since it takes a lot of time to extract, and
@@ -1357,16 +1375,19 @@ def call_locus(
 
     # End of first read loop -------------------------------------------------------------------------------------------
 
-    locus_result.update({
-        **(
-            {
-                "ref_start_anchor": locus_with_ref_data.ref_left_flank_seq[-vcf_anchor_size:].upper(),
-                "ref_seq": locus_with_ref_data.ref_seq,
-            }
-            if consensus else {}
-        ),
-        "reads": read_dict,
-    })
+    locus_result.update(
+        {
+            **(
+                {
+                    "ref_start_anchor": locus_with_ref_data.ref_left_flank_seq[-vcf_anchor_size:].upper(),
+                    "ref_seq": locus_with_ref_data.ref_seq,
+                }
+                if consensus
+                else {}
+            ),
+            "reads": read_dict,
+        }
+    )
 
     n_reads_in_dict: int = len(read_dict)
 
@@ -1392,8 +1413,12 @@ def call_locus(
     did_use_hp: bool = False
     if use_hp:
         top_ps = phase_sets.most_common(1)
-        if (haplotagged_reads_count >= min_hp_read_coverage and len(haplotags) == locus.n_alleles and top_ps and
-                top_ps[0][1] >= min_hp_read_coverage):
+        if (
+            haplotagged_reads_count >= min_hp_read_coverage
+            and len(haplotags) == locus.n_alleles
+            and top_ps
+            and top_ps[0][1] >= min_hp_read_coverage
+        ):
             call_res = call_alleles_with_haplotags(
                 params,
                 haplotags=sorted(haplotags),
@@ -1547,7 +1572,7 @@ def call_locus(
         stdevs: NDArray[np.float64] = call_stdevs[:call_modal_n]
         weights: NDArray[np.float64] = call_weights[:call_modal_n]
 
-        allele_reads: list[list[str]] = [[] for _ in range(call_modal_n)]
+        allele_reads: list[list[str]] = empty_lists(call_modal_n)
 
         for r, rd in read_dict_items:
             if (rd_sc := rd["sc"]) is not None:
@@ -1607,12 +1632,13 @@ def call_locus(
             call_data = None
 
         if call_data and consensus:
+
             def _consensi_for_key(k: Literal["seq", "start_anchor_seq"]):
                 for a in allele_reads:
                     seqs = [read_dict[rr][k] for rr in a]
                     if seqs and len(seqs[0]) > params.large_consensus_length:
                         # if we're dealing with large sequences, use a subset of the reads to prevent stalling out.
-                        seqs = seqs[:params.max_n_large_consensus_reads]
+                        seqs = seqs[: params.max_n_large_consensus_reads]
                     yield consensus_seq(seqs, logger_, params.max_mdn_poa_length, params.poa)
 
             call_seqs.extend(_consensi_for_key("seq"))
@@ -1624,14 +1650,13 @@ def call_locus(
                     del read_dict[rn]["seq"]
                     del read_dict[rn]["start_anchor_seq"]
 
-        if call_data and params.use_methyl and all(
-            ams := [list(filter(is_not_none, map(lambda rr: read_dict[rr]["m"], ar))) for ar in allele_reads]
+        if (
+            call_data
+            and params.use_methyl
+            and all(ams := [list(filter(is_not_none, (read_dict[rr]["m"] for rr in ar))) for ar in allele_reads])
         ):
             call_am = [mean(aml) for aml in ams]
-            call_amc = [
-                mean(filter(is_not_none, map(lambda rr: read_dict[rr]["mc"], ar)))
-                for ar in allele_reads
-            ]
+            call_amc = [mean(filter(is_not_none, (read_dict[rr]["mc"] for rr in ar))) for ar in allele_reads]
             logger_.debug("%s - methylation call: %s (counts: %s)", locus_log_str, call_am, call_amc)
 
     # We're done with read dict extra, delete early
