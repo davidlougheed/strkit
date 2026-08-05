@@ -104,7 +104,8 @@ def fit_gmm(
         #   sharing in the worst case where it represents just one allele
         mw_sorted_by_mean = means_and_weights[:, means_and_weights[0, :].argsort()]
         if n_components > 2 or (
-            n_components == 2 and (
+            n_components == 2
+            and (
                 force_gm_filter
                 or (
                     mw_sorted_by_mean[0, -1]
@@ -161,9 +162,7 @@ def get_resampled_bootstrapped_reads(
         fwd_strand_samples = rng.choice(repeats_fwd, size=resample_size, replace=True, p=read_weights_fwd)
         rev_strand_samples = rng.choice(repeats_rev, size=resample_size, replace=True, p=read_weights_rev)
 
-        concat_samples = np.sort(
-            np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1),
-            kind="stable")
+        concat_samples = np.sort(np.concatenate((fwd_strand_samples, rev_strand_samples), axis=1), kind="stable")
 
     else:
         concat_samples = np.sort(
@@ -172,7 +171,8 @@ def get_resampled_bootstrapped_reads(
                 if num_bootstrap > 1
                 else combined_reads
             ),
-            kind="stable")
+            kind="stable",
+        )
 
     return concat_samples
 
@@ -329,7 +329,6 @@ def call_alleles(
         call=medians_of_means_final.flatten(),
         call_95_cis=allele_cis_95,
         call_99_cis=allele_cis_99,
-
         means=medians_of_means.flatten(),  # Don't round, so we can recover original Gaussian model
         weights=peak_weights,
         stdevs=peak_stdevs.flatten(),

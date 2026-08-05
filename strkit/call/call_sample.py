@@ -54,13 +54,16 @@ def locus_worker(
     lg: Logger
     if is_single_processed:
         from strkit.logger import get_main_logger
+
         lg = get_main_logger()
     else:
         from strkit.logger import create_process_logger
+
         lg = create_process_logger(getpid(), params.log_level)
 
     if params.profile:
         import cProfile
+
         pr = cProfile.Profile()
         pr.enable()
         lg.info("Profiling is enabled")
@@ -90,9 +93,9 @@ def locus_worker(
         params.log_level == DEBUG,
     )
 
-    snv_vcf_reader = STRkitVCFReader(
-        str(params.snv_vcf), is_sample_vcf=False, sample_id=None
-    ) if params.snv_vcf else None
+    snv_vcf_reader = (
+        STRkitVCFReader(str(params.snv_vcf), is_sample_vcf=False, sample_id=None) if params.snv_vcf else None
+    )
 
     current_contig: str | None = None
     block_results: list[LocusResult] = []  # in the future, maybe we can use this for some kind of extra phasing info
@@ -158,7 +161,10 @@ def locus_worker(
                 res = None
                 lg.exception(
                     "%s - encountered exception while genotyping (n_alleles=%d)",
-                    locus_log_str, locus.n_alleles, exc_info=e)
+                    locus_log_str,
+                    locus.n_alleles,
+                    exc_info=e,
+                )
 
             if res is not None:
                 block_results.append(res)
@@ -213,6 +219,7 @@ def progress_worker(
         pass
 
     from strkit.logger import create_process_logger
+
     lg = create_process_logger(getpid(), log_level)
 
     def _log():
@@ -224,7 +231,8 @@ def progress_worker(
             lg.info(
                 f"{sample_id}: processed {processed_loci}/{num_loci} loci ({processed_loci / num_loci * 100:.1f}%) in "
                 f"{n_seconds:.1f} seconds (~{processed_loci / n_seconds:.0f} l/s; est. time remaining: "
-                f"{est_time_remaining:.0f}s)")
+                f"{est_time_remaining:.0f}s)"
+            )
         except NotImplementedError:
             pass
 
@@ -336,10 +344,12 @@ def call_sample(
 
     if is_single_processed:
         from multiprocessing.dummy import Pool
+
         pool_class = Pool
     else:
         logger.info("Using %d workers", params.processes)
         from .non_daemonic_pool import NonDaemonicPool
+
         pool_class = NonDaemonicPool
 
     finish_event = mp.Event()
@@ -360,7 +370,8 @@ def call_sample(
                 locus_counter,
                 num_loci,
                 finish_event,
-            ))
+            ),
+        )
         progress_job.start()
 
         # Set up shared memory for cross-locus phasing tasks

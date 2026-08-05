@@ -54,7 +54,7 @@ def output_json_report_header(
     }
 
     dfn = _get_dfn(indent_json)
-    header_serialized: bytes = dfn(json_report_header)[:(-2 if indent_json else -1)]  # remove trailing ending brace
+    header_serialized: bytes = dfn(json_report_header)[: (-2 if indent_json else -1)]  # remove trailing ending brace
 
     # kludge: build up a portion of the JSON file, so we can output contig results as they come instead of storing them
     # in memory until the end of the run.
@@ -87,10 +87,7 @@ def output_json_report_results(results: tuple[LocusResult, ...], is_last: bool, 
     try:
         buffer = BytesIO()
         for ri, r in enumerate(results):
-            rr = {
-                **r,
-                **(r["call_data"].to_dict() if r["call_data"] else EMPTY_CALL_PARTIAL_RECORD)
-            }
+            rr = {**r, **(r["call_data"].to_dict() if r["call_data"] else EMPTY_CALL_PARTIAL_RECORD)}
             del rr["call_data"]
 
             results_bytes = _indent_lines(dfn(rr), 4)
@@ -107,7 +104,7 @@ def output_json_report_results(results: tuple[LocusResult, ...], is_last: bool, 
                 buffer.close()
                 buffer = BytesIO()
 
-        if buffer.tell() > 0: # final write
+        if buffer.tell() > 0:  # final write
             buffer.seek(0)
             fh.write(buffer.read())
 
@@ -141,18 +138,23 @@ def output_json_report_footer(
     runtime_bytes = dumps(time_taken)
     if indent_json:
         footer_bytes = (
-            b'\n  ],\n  "avg_read_depth": ' + avg_read_depth_bytes + b',\n  "avg_read_depths_by_contig": '
+            b'\n  ],\n  "avg_read_depth": '
+            + avg_read_depth_bytes
+            + b',\n  "avg_read_depths_by_contig": '
             + _indent_lines(avg_read_depths_by_contig_bytes, indent=2)
             + b',\n  "runtime": '
-            + runtime_bytes + b'\n}\n'
+            + runtime_bytes
+            + b"\n}\n"
         )
     else:
         footer_bytes = (
-            b'],"avg_read_depth":' + avg_read_depth_bytes + b',"avg_read_depths_by_contig":'
+            b'],"avg_read_depth":'
+            + avg_read_depth_bytes
+            + b',"avg_read_depths_by_contig":'
             + avg_read_depths_by_contig_bytes
             + b',"runtime":'
             + runtime_bytes
-            + b'}\n'
+            + b"}\n"
         )
 
     # write partial JSON

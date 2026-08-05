@@ -49,12 +49,18 @@ def realign_read(
         return v
 
     from strkit.logger import create_process_logger
+
     lg = create_process_logger(os.getpid(), log_level)
 
     # flipped: 'ref sequence' as query here, since it should in general be shorter (!)
     pr = sg_dx_trace_scan_16(
         # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-        ref_seq, query_seq, realign_indel_open_penalty, 0, dna_matrix)
+        ref_seq,
+        query_seq,
+        realign_indel_open_penalty,
+        0,
+        dna_matrix,
+    )
 
     if pr.score < (th := min_realign_score_ratio * (flank_size * 2 * match_score - realign_indel_open_penalty)):
         lg.debug("Realignment for %s scored below threshold (%d < %.2f)", read_log_str, pr.score, th)
@@ -97,16 +103,20 @@ def perform_realign(
     t = time.time()
 
     q: Queue = Queue()
-    proc = Process(target=realign_read, daemon=False, kwargs={
-        # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
-        "ref_seq": ref_total_seq,  # TODO: with the plus 1, really?
-        "query_seq": qs_wc,
-        "left_flank_coord": left_flank_coord,
-        "flank_size": params.flank_size,
-        "q": q,
-        "read_log_str": read_log_str,
-        "log_level": params.log_level,
-    })
+    proc = Process(
+        target=realign_read,
+        daemon=False,
+        kwargs={
+            # fetch an extra base for the right flank coordinate check later (needs to be >= the exclusive coord)
+            "ref_seq": ref_total_seq,  # TODO: with the plus 1, really?
+            "query_seq": qs_wc,
+            "left_flank_coord": left_flank_coord,
+            "flank_size": params.flank_size,
+            "q": q,
+            "read_log_str": read_log_str,
+            "log_level": params.log_level,
+        },
+    )
     proc.start()
 
     locus_log_str = locus_with_ref_data.log_str()
@@ -117,7 +127,8 @@ def perform_realign(
         proc.join()
     except QueueEmpty:
         logger_.warning(
-            "%s - experienced timeout while re-aligning read %s. Reverting to initial alignment.", locus_log_str, rn)
+            "%s - experienced timeout while re-aligning read %s. Reverting to initial alignment.", locus_log_str, rn
+        )
         proc.terminate()
         time.sleep(0.1)  # wait a little for the process to terminate
     finally:
@@ -133,6 +144,11 @@ def perform_realign(
 
     logger_.debug(
         "%s - %s: long realign job completed in %.4fs (ref_seq_len=%d, qs_len=%d)",
-        locus_log_str, rn, time.time() - t, ref_seq_len, qs_len)
+        locus_log_str,
+        rn,
+        time.time() - t,
+        ref_seq_len,
+        qs_len,
+    )
 
     return pairs_new

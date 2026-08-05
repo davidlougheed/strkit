@@ -34,6 +34,7 @@ RE_LOCUS_INFO_ASSIGN = re.compile(r" *= *")
 
 # exceptions
 
+
 class LocusValidationError(ValueError):
     def __init__(self, error_str: str, hint_msg: str):
         self._error_str = error_str
@@ -47,12 +48,14 @@ class LocusValidationError(ValueError):
 
 # types
 
+
 class LastColumnData(TypedDict, total=False):
     id: str
     motif: str
 
 
 # functions
+
 
 def valid_motif(motif: str) -> bool:
     """

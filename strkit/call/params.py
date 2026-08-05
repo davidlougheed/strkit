@@ -30,9 +30,7 @@ DEFAULT_RC_STEP_SIZE: int = 1
 class CallParams:
     def __init__(
         self,
-
         logger: Logger,
-
         read_file: str,
         reference_file: str,
         loci_file: str,
