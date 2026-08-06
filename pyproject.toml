@@ -48,6 +48,9 @@ strkit = "strkit.entry:main"
 [tool.uv]
 package = true
 
+[tool.uv.sources]
+strkit_rust_ext = { path = "../strkit_rust_ext/" }
+
 [tool.hatch.build]
 exclude = [".github", ".idea", "catalogs", "docs", "tests", "requirements.txt", "Dockerfile"]
 

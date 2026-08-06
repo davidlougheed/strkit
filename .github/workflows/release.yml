@@ -16,6 +16,9 @@ jobs:
       name: release
       url: https://pypi.org/p/strkit
 
+    env:
+      UV_NO_SOURCES: '1'
+
     steps:
       - uses: actions/checkout@v7
 
@@ -28,7 +31,7 @@ jobs:
         run: python -m pip install build --user
 
       - name: Install the project
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --all-extras --dev
 
       - name: Build
         run: uv build

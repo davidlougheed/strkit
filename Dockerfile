@@ -16,8 +16,9 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY --from=ghcr.io/astral-sh/uv:0.12.1 /uv /bin/
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_NO_DEV=1
+ENV UV_NO_SOURCES=1
 
-RUN uv sync --locked
+RUN uv sync
 
 ENV UV_NO_SYNC=1
 
