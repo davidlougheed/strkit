@@ -10,6 +10,8 @@ __pycache__
 # ignore WIP strkit viz code
 /strkit_viz
 
+.coverage
+
 plot-*.bash
 test-*.bash
 *.bam
