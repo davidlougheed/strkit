@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import time
 from collections import Counter
 from functools import cache
@@ -1282,10 +1281,10 @@ def call_locus(
 
         # When we don't have targeted sequencing, the probability of a read containing the TR region, given that it
         # overlaps the region, is P(read is large enough to contain) * P(  # TODO: complete this..
-        partition_idx = np.searchsorted(sorted_read_lengths, tr_len_w_flank, side="right")
-        if partition_idx == n_overlapping_reads:  # tr_len_w_flank is longer than the longest read... :(
-            # Fatal
-            # TODO: Just skip this locus
+        # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
+        read_weight = locus_segments.get_read_weight(targeted, segment.length, tr_len_w_flank)
+
+        if read_weight is None:
             logger_.error(
                 "%s - something strange happened; could not find an encompassing read where one should be "
                 "guaranteed. TR length with flank: %d; read lengths: %s",
@@ -1293,11 +1292,10 @@ def call_locus(
                 tr_len_w_flank,
                 sorted_read_lengths,
             )
-            sys.exit(1)
-
-        mean_containing_size = segment.length if targeted else get_read_length_partition_mean(partition_idx)
-        # TODO: re-examine weighting to possibly incorporate chance of drawing read large enough
-        read_weight = (mean_containing_size + tr_len_w_flank - 2) / (mean_containing_size - tr_len_w_flank + 1)
+            locus_result["peaks"] = None
+            locus_result["read_peaks_called"] = False
+            locus_result["time"] = time.perf_counter() - call_timer
+            return locus_result
 
         # ---
 
