@@ -28,7 +28,7 @@ from strkit.utils import empty_lists, idx_0_getter, is_not_none
 from .allele import call_alleles
 from .constants import NP_EMPTY_ARRAY_FLOAT64, NP_EMPTY_ARRAY_INT32
 from .gmm import make_already_fitted_gmm
-from .repeat_count_params import RepeatCountMethod, RepeatCountParams
+from .repeat_count_params import get_reference_rc_params
 from .repeats import get_ref_repeat_count, get_repeat_count
 from .snvs import (
     SNV_GAP_CHAR,
@@ -741,32 +741,6 @@ class SkipLocus(Exception):
     pass
 
 
-def _get_ref_rc_params(method: RepeatCountMethod, ref_est_cn: int) -> RepeatCountParams:
-    ref_max_iters = default_ref_max_iters
-    ref_step_size = 1
-    ref_local_search_range = 3
-
-    # search less with large repeat counts, but in bigger steps, because each alignment takes a long time.
-    if ref_est_cn >= 200:
-        if ref_est_cn < 1000:
-            ref_step_size = 3
-            ref_max_iters = 200
-        elif 1000 <= ref_est_cn < 2000:
-            ref_step_size = 5
-            ref_max_iters = 150
-        elif ref_est_cn >= 2000:  # ref_cn >= 2000
-            ref_step_size = 15
-            ref_max_iters = 50
-            ref_local_search_range = 1
-
-    return RepeatCountParams(
-        method=method,
-        max_iters=ref_max_iters,
-        initial_step_size=ref_step_size,
-        initial_local_search_range=ref_local_search_range,
-    )
-
-
 def get_locus_with_ref_data(
     ref: FastaFile,
     respect_ref: bool,
@@ -831,7 +805,7 @@ def get_locus_with_ref_data(
         ref_size=locus.ref_size,  # reference size, in terms of coordinates (not TRF-recorded size)
         vcf_anchor_size=vcf_anchor_size,  # guarantee we still have some flanking stuff left to anchor with
         # search less with large repeat counts, but in bigger steps, because each alignment takes a long time:
-        rc_params=_get_ref_rc_params("repalign", ref_est_cn),
+        rc_params=get_reference_rc_params("repalign", ref_est_cn, default_ref_max_iters),
         respect_coords=respect_ref,
     )
 
