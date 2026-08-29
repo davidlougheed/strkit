@@ -52,7 +52,7 @@ package = true
 strkit_rust_ext = { path = "../strkit_rust_ext/" }
 
 [tool.hatch.build]
-exclude = [".github", ".idea", "catalogs", "docs", "tests", "requirements.txt", "Dockerfile"]
+exclude = [".github", ".idea", "catalogs", "docs", "tests", "uv.lock", "Dockerfile"]
 
 [tool.ruff]
 line-length = 120
