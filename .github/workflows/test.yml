@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: actions-rust-lang/setup-rust-toolchain@8439c15d249cd2e2a5c80ad3da200c3d8c553ae4  # v1.17.0+2
+      - uses: actions-rust-lang/setup-rust-toolchain@0267444136ce4919088f5eae0461f736f21356de  # v1.17.0+4
         with:
           toolchain: 1.88.0
           rustflags: ""
@@ -30,7 +30,7 @@ jobs:
         run: pushd .. && git clone https://github.com/davidlougheed/strkit_rust_ext.git && popd
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install dependencies
         run: uv sync
@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: actions-rust-lang/setup-rust-toolchain@8439c15d249cd2e2a5c80ad3da200c3d8c553ae4  # v1.17.0+2
+      - uses: actions-rust-lang/setup-rust-toolchain@0267444136ce4919088f5eae0461f736f21356de  # v1.17.0+4
         with:
           toolchain: 1.88.0
           rustflags: ""
@@ -61,7 +61,7 @@ jobs:
         run: pushd .. && git clone https://github.com/davidlougheed/strkit_rust_ext.git && popd
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install dependencies
         run: uv sync --all-extras --dev
