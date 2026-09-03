@@ -57,6 +57,10 @@ class LastColumnData(TypedDict, total=False):
 # functions
 
 
+def _bed_err(message: str) -> str:
+    return f"BED catalog format error: {message}"
+
+
 def valid_motif(motif: str) -> bool:
     """
     Determines whether a motif is valid, i.e., can be used by `strkit call`. Here, valid means "composed of IUPAC
@@ -77,14 +81,13 @@ def validate_locus(locus: STRkitLocus) -> None:
 
     if locus.left_coord >= locus.right_coord:
         raise LocusValidationError(
-            f"BED catalog format error: invalid coordinates on line {line}: start ({locus.left_coord}) >= end "
-            f"({locus.right_coord})",
+            _bed_err(f"invalid coordinates on line {line}: start ({locus.left_coord}) >= end ({locus.right_coord})"),
             "BED catalog: coordinates must be 0-based, half-open - [start, end)",
         )
 
     if not valid_motif(locus.motif):
         raise LocusValidationError(
-            f"BED catalog format error: invalid motif on line {line}: {locus.motif}",
+            _bed_err(f"invalid motif on line {line}: {locus.motif}"),
             "BED catalog: motifs must contain only valid IUPAC nucleotide codes.",
         )
 
@@ -116,7 +119,7 @@ def parse_last_column(t_idx: int, val: str) -> LastColumnData:
     # Otherwise, we need to parse out the key/value pairs.
 
     hint = "BED catalog: last column must either be motif or ID=locusID;MOTIF=motif"
-    err = LocusValidationError(f"BED catalog format error: could not parse last column on line {t_idx}: {val}", hint)
+    err = LocusValidationError(_bed_err(f"could not parse last column on line {t_idx}: {val}"), hint)
 
     res: LastColumnData = {"id": f"locus{t_idx}"}
 
@@ -134,7 +137,7 @@ def parse_last_column(t_idx: int, val: str) -> LastColumnData:
             raise err
         if not v:  # we need to have a non-blank value for the key
             raise LocusValidationError(
-                f"BED catalog format error: cannot have empty value in last column on line {t_idx} for key {k}", hint
+                _bed_err(f"cannot have empty value in last column on line {t_idx} for key {k}"), hint
             )
 
         # post-processing of motif
@@ -187,6 +190,7 @@ def load_loci(
     contig_set: set[str] = set()
     last_contig: str | None = None
     last_none_append_n_loci: int = 0
+    last_start: int = -1
 
     # We will pass blocks of loci for the queue, so that we can fetch all overlapping segments at once for a block and
     # re-use them via an interval tree during the calling process
@@ -227,7 +231,11 @@ def load_loci(
                 or n_alleles == 0  # Don't have this chromosome, e.g., Y chromosome for an XX individual
             ):
                 last_contig = contig
+                last_start = -1
                 continue  # --> skip the locus
+
+            start = int(t[1])
+            end = int(t[2])
 
             # For each contig, add None breaks to make the jobs terminate. Then, as long as we have entries in the locus
             # queue, we can get contig-chunks to order and write to disk instead of keeping everything in RAM.
@@ -243,9 +251,22 @@ def load_loci(
 
                 contig_set.add(contig)
                 last_contig = contig
-
-            start = int(t[1])
-            end = int(t[2])
+                last_start = -1
+            
+            if last_start >= 0:
+                if start < last_start:
+                    raise LocusValidationError(
+                        _bed_err(f"unsorted start position on line {t_idx}"),
+                        "BED catalog: start coordinates should be sorted",
+                    )
+                elif start == last_start:
+                    raise LocusValidationError(
+                        _bed_err(f"duplicate start position on line {t_idx}"),
+                        "BED catalog: start coordinates should be unique for VCF output",
+                    )
+            
+            # Keep track of previous start position to detect unsorted or duplicate-start loci
+            last_start = start
 
             # If we have a feature annotation file, try loading annotations for this locus.
             features: list[str] = (
