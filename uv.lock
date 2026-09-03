@@ -1240,7 +1240,7 @@ wheels = [
 
 [[package]]
 name = "strkit"
-version = "0.25.0a5"
+version = "0.25.0a6"
 source = { editable = "." }
 dependencies = [
     { name = "flask" },
