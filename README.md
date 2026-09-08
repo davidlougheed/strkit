@@ -241,8 +241,12 @@ flag, which slightly tweaks read re-sampling behaviour and increases the `--max-
 ##### LOOKING FOR LARGE EXPANSIONS
 
 If you're running STRkit for the purpose of finding pathogenic STR expansions or expansions of 
-interest, the following parameters may help increase expansion sensitivity, at the cost of 
-computational performance or a potential bias towards heterozygous calls:
+interest, the STRchive resource provides 
+[STRkit-formatted locus catalogs](https://github.com/dashnowlab/STRchive/tree/main/data/catalogs) for the `hg19`, 
+`hg38`, and `CHM13-T2Tv2.0` reference genomes. 
+
+While looking for pathogenic expansions, the following parameters may help increase expansion sensitivity, at the cost 
+of computational performance or a potential bias towards heterozygous calls:
 
 * With a catalog of disease loci, make sure to encode all possible locus motifs of the same length 
   via [IUPAC codes](https://www.bioinformatics.org/sms/iupac.html) in the catalog file.

@@ -96,17 +96,6 @@ are for the entire human genome, whereas others are for only disease-relevant lo
 
   * **[STRchive](https://strchive.org/)** ([Hiatt *et al.* 2025](https://doi.org/10.1186/s13073-025-01454-4)) provides
     a continually-updated list of disease-causing loci for multiple reference genomes. You can download one of the 
-    catalogs in the **TRGT** format from their 
-    [GitHub repository](https://github.com/dashnowlab/STRchive/tree/main/data/catalogs) and use the following command
-    to convert it to STRkit format (for example, for the T2T-chm13 reference genome): 
-    ```
-    strkit convert \
-        --in-format trgt \
-        --out-format strkit \
-        STRchive-disease-loci.T2T-chm13.TRGT.bed > STRchive-disease-loci.T2T-chm13.STRkit.bed
-    ```
-    
-  * We have prepared a [catalog of disease-causing or disease-associated loci](../catalogs/pathogenic_assoc.hg38.tsv) 
-    for the `hg38` reference genome, partially based on the review research done by Gall-Duncan *et al.* (2022), as well
-    as entries from the [STRipy database](https://stripy.org/database) 
-    (DOI: [10.1002/humu.24382](https://doi.org/10.1002/humu.24382)) and our own reading of other articles.
+    catalogs in the **STRkit** format from their 
+    [GitHub repository](https://github.com/dashnowlab/STRchive/tree/main/data/catalogs). Thank you to the STRchive team
+    for the STRkit-formatted disease-relevant locus catalg!
