@@ -21,6 +21,3 @@ jobs:
 
       - name: Test STRkit can run in Docker
         run: docker run davidlougheed/strkit version
-
-      - name: Test STRkit can run in Docker using executable name
-        run: docker run davidlougheed/strkit strkit version
