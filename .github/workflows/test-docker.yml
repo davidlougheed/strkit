@@ -1,0 +1,26 @@
+name: Test Docker image
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-docker-action@v5
+        name: Set up Docker
+
+      - name: Build local Docker image
+        run: docker build -t davidlougheed/strkit .
+
+      - name: Test STRkit can run in Docker
+        run: docker run davidlougheed/strkit version
+
+      - name: Test STRkit can run in Docker using executable name
+        run: docker run davidlougheed/strkit strkit version
