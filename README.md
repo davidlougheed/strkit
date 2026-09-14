@@ -113,6 +113,10 @@ docker run \
   --vcf /out/calls.vcf
 ```
 
+> [!NOTE]
+> You should not write `strkit` in front of the command when calling it inside a Docker container (see the above 
+> example.)
+
 Inside the `inputs` directory, STRkit would (given these parameters) expect the following files to be present:
 
 * `file.bam`: A readset for the sample to be called.
