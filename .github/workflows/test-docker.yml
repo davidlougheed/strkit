@@ -20,4 +20,4 @@ jobs:
         run: docker build -t davidlougheed/strkit .
 
       - name: Test STRkit can run in Docker
-        run: docker run davidlougheed/strkit version
+        run: docker run davidlougheed/strkit --version
