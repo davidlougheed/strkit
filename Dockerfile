@@ -13,13 +13,15 @@ RUN curl https://sh.rustup.rs -sSf > rustup-init.sh
 RUN sh ./rustup-init.sh -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.1 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.13 /uv /bin/
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_NO_DEV=1
 ENV UV_NO_SOURCES=1
+ENV UV_PYTHON_DOWNLOADS=0
 
 RUN uv sync
 
 ENV UV_NO_SYNC=1
+ENV PATH="/strkit/.venv/bin:$PATH"
 
 CMD [ "uv", "run", "strkit" ]
